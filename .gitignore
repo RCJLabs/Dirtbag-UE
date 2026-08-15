@@ -1,1 +1,9 @@
 build/
+
+# Unreal project transient dirs — all regenerate on build/open, never commit
+DirtbagUE/Binaries/
+DirtbagUE/DerivedDataCache/
+DirtbagUE/Intermediate/
+DirtbagUE/Saved/
+DirtbagUE/.vs/
+DirtbagUE/*.sln
