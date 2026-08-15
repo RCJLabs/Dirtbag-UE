@@ -15,9 +15,15 @@ class ADirtbagUEGameMode : public AGameModeBase
 	GENERATED_BODY()
 
 public:
-	
+
 	/** Constructor */
 	ADirtbagUEGameMode();
+
+protected:
+
+	/** Logs the sim core's golden RNG vector on startup (SETUP.md §2) —
+	 *  proof the port is bit-exact before anything is built on it. */
+	virtual void BeginPlay() override;
 };
 
 

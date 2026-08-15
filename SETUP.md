@@ -25,6 +25,12 @@ template for most of this — same method, second verse.
 
 ## 2. Wire in the sim core
 
+> **Status (2026-08-15): steps 1–2 are committed to the repo** — the
+> Build.cs include path, the four bridge files, and the smoke-test code in
+> `DirtbagUEGameMode` all exist. Your part: pull, right-click
+> `DirtbagUE.uproject` → *Generate Visual Studio project files*, build,
+> press Play, and verify the log output in step 3.
+
 The sim files are plain C++ with no engine includes, and must stay that way:
 the same translation units are compiled by `Sim/run-tests.sh`, which is what
 keeps the sim testable without the editor. Engine-facing wrappers (USTRUCT

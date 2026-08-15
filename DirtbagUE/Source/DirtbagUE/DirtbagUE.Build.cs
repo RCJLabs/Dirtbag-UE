@@ -1,5 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+using System.IO;
 using UnrealBuildTool;
 
 public class DirtbagUE : ModuleRules
@@ -39,6 +40,13 @@ public class DirtbagUE : ModuleRules
 			"DirtbagUE/Variant_SideScrolling/Interfaces",
 			"DirtbagUE/Variant_SideScrolling/UI"
 		});
+
+		// The engine-free sim core lives at the repo root (../../../Sim from
+		// this module) so the same translation units also compile in the
+		// standalone g++ harness (Sim/run-tests.sh). The Sim*.cpp bridge
+		// files in this module pull its .cpp files into the build; this
+		// include path lets everything say #include "DirtbagSession.h".
+		PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "../../../Sim"));
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
