@@ -11,17 +11,21 @@ SessionState StartSession(const Climber& climber) {
   return s;
 }
 
-AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
-                               ProjectMemory& memory, const Climber& climber,
-                               const Route& route, const Conditions& conditions,
-                               const std::vector<double>& execution,
-                               double botExecution, const SessionDials& dials,
-                               const SessionLoopDials& loop) {
+Rng DeriveAttemptRng(const Rng& sessionRng, const ProjectMemory& memory,
+                     const Route& route) {
   // Salt by route and lifetime attempt number: burn #7 on a project rolls the
   // same dice whether it happens today or is replayed from a save.
-  Rng rng = sessionRng.Derive(route.name + "#" +
-                              std::to_string(memory.attempts + 1));
+  return sessionRng.Derive(route.name + "#" +
+                           std::to_string(memory.attempts + 1));
+}
 
+AttemptInput BuildSessionAttemptInput(const SessionState& session,
+                                      const ProjectMemory& memory,
+                                      const Climber& climber,
+                                      const Route& route,
+                                      const Conditions& conditions,
+                                      const std::vector<double>& execution,
+                                      double botExecution) {
   AttemptInput in;
   in.climber = climber;
   in.climber.skin = session.skinLeft;    // the body as it is now,
@@ -33,9 +37,12 @@ AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
   in.warmth = session.warmth;
   in.execution = execution;
   in.botExecution = botExecution;
+  return in;
+}
 
-  const AttemptResult result = ResolveAttempt(rng, in, dials);
-
+void CommitAttempt(SessionState& session, ProjectMemory& memory,
+                   const Route& route, const AttemptResult& result,
+                   const SessionLoopDials& loop) {
   // The session pays for the burn: skin spent, warmth earned per move
   // actually climbed (a one-move flail warms nobody up).
   session.skinLeft = std::max(0.0, session.skinLeft - result.skinCost);
@@ -79,7 +86,19 @@ AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
     memory.sent = true;
     memory.firstSendStyle = result.style;
   }
+}
 
+AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
+                               ProjectMemory& memory, const Climber& climber,
+                               const Route& route, const Conditions& conditions,
+                               const std::vector<double>& execution,
+                               double botExecution, const SessionDials& dials,
+                               const SessionLoopDials& loop) {
+  Rng rng = DeriveAttemptRng(sessionRng, memory, route);
+  const AttemptInput in = BuildSessionAttemptInput(
+      session, memory, climber, route, conditions, execution, botExecution);
+  const AttemptResult result = ResolveAttempt(rng, in, dials);
+  CommitAttempt(session, memory, route, result, loop);
   return result;
 }
 

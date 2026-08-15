@@ -64,6 +64,21 @@ struct SessionState {
 
 SessionState StartSession(const Climber& climber);
 
+// The three pieces of a session burn, exposed separately so a live
+// (player-driven) attempt can use them around BeginAttempt/StepMove:
+// derive the burn's rng, assemble the resolver input from session state and
+// project memory, and afterwards pay the session and update the ledger.
+// AttemptInSession is exactly these three around a batch ResolveAttempt.
+Rng DeriveAttemptRng(const Rng& sessionRng, const ProjectMemory& memory,
+                     const Route& route);
+AttemptInput BuildSessionAttemptInput(
+    const SessionState& session, const ProjectMemory& memory,
+    const Climber& climber, const Route& route, const Conditions& conditions,
+    const std::vector<double>& execution = {}, double botExecution = 0.72);
+void CommitAttempt(SessionState& session, ProjectMemory& memory,
+                   const Route& route, const AttemptResult& result,
+                   const SessionLoopDials& loop = SessionLoopDials{});
+
 // One burn. Derives the attempt rng from the session stream (per route, per
 // lifetime attempt number — replayable, never shared), applies session state
 // and project memory to the resolver, then pays the session and updates the
