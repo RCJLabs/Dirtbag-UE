@@ -44,84 +44,133 @@ double MorphologyAdjust(const Climber& climber, const Move& move,
   return fit * dials.morphologyWeight * 0.1;  // full fit ≈ 0.4 grades
 }
 
+// Effective ability on a move, in grade units (skill 0..100 spans the
+// V0..V18 ladder, exactly as the 2D game's skill-vs-grade check does).
+// Shared by the live step and the odds preview so the UI never lies.
+double MoveEffective(const AttemptInput& input, const Move& move, double exec,
+                     double pump, const SessionDials& dials) {
+  const Climber& c = input.climber;
+  double effective = BlendedSkill(c.skills, move.hold) / 100.0 * kMaxGrade;
+
+  // The minigame's say: a perfect move beats a botched one by ~25 skill
+  // points (executionWeight 0.5 → ±2.25 grades either side of neutral).
+  effective += (exec - 0.5) * dials.executionWeight * 9.0;
+
+  // Conditions, beta, morphology, skin, nerve.
+  effective += (input.conditions.friction - 0.5) * dials.frictionWeight * 0.1;
+  effective += input.beta * 0.5;
+  effective += MorphologyAdjust(c, move, dials);
+  // Body and head state: both default to neutral (warm, ordinary-day
+  // psyche), so only session-loop callers feel them.
+  effective -= dials.coldStartPenalty * (1.0 - std::clamp(input.warmth, 0.0, 1.0));
+  effective += (c.psyche - 0.7) * dials.psycheWeight;
+  const bool skinHold = move.hold == HoldType::Crimp || move.hold == HoldType::Pocket;
+  if (skinHold && c.skin < 3.0) {
+    effective -= dials.thinSkinPenalty * (3.0 - c.skin);
+  }
+  if (move.crux) {
+    // The crux is where the head shows up — commitment, not strength.
+    effective += (c.skills.head - 50.0) / 100.0;
+  }
+
+  // Pump spends ability, in grade units — felt only where margins are thin.
+  effective -= dials.pumpGradePenalty * (pump / 100.0);
+  return effective;
+}
+
 }  // namespace
 
-AttemptResult ResolveAttempt(Rng& rng, const AttemptInput& input,
-                             const SessionDials& dials) {
-  AttemptResult result;
-  const Climber& c = input.climber;
-  const Route& r = input.route;
+LiveAttempt BeginAttempt(const Rng& rng, const AttemptInput& input,
+                         const SessionDials& dials) {
+  LiveAttempt la;
+  la.input = input;
+  la.dials = dials;
+  la.rng = rng;
+  return la;
+}
 
-  double pump = 0.0;
+bool AttemptOver(const LiveAttempt& la) {
+  return la.over ||
+         la.nextMove >= static_cast<int>(la.input.route.moves.size());
+}
 
-  for (size_t i = 0; i < r.moves.size(); i++) {
-    const Move& move = r.moves[i];
-    const double exec = i < input.execution.size()
-                            ? std::clamp(input.execution[i], 0.0, 1.0)
-                            : input.botExecution;
+double PeekOdds(const LiveAttempt& la, double execution) {
+  if (AttemptOver(la)) return 0.0;
+  const Move& move = la.input.route.moves[la.nextMove];
+  const double exec = std::clamp(execution, 0.0, 1.0);
+  const double margin =
+      MoveEffective(la.input, move, exec, la.pump, la.dials) - move.difficulty;
+  return Sigmoid(kOddsBias + margin * la.dials.oddsSlope);
+}
 
-    // Effective ability on this move, in grade units (skill 0..100 spans the
-    // V0..V18 ladder, exactly as the 2D game's skill-vs-grade check does).
-    double effective = BlendedSkill(c.skills, move.hold) / 100.0 * kMaxGrade;
+MoveResult StepMove(LiveAttempt& la, double execution) {
+  if (AttemptOver(la)) return MoveResult{};
+  const Move& move = la.input.route.moves[la.nextMove];
+  const double exec = std::clamp(execution, 0.0, 1.0);
 
-    // The minigame's say: a perfect move beats a botched one by ~25 skill
-    // points (executionWeight 0.5 → ±2.25 grades either side of neutral).
-    effective += (exec - 0.5) * dials.executionWeight * 9.0;
+  const double effective =
+      MoveEffective(la.input, move, exec, la.pump, la.dials);
+  const double margin = effective - move.difficulty;
+  const double odds = Sigmoid(kOddsBias + margin * la.dials.oddsSlope);
 
-    // Conditions, beta, morphology, skin, nerve.
-    effective += (input.conditions.friction - 0.5) * dials.frictionWeight * 0.1;
-    effective += input.beta * 0.5;
-    effective += MorphologyAdjust(c, move, dials);
-    // Body and head state: both default to neutral (warm, ordinary-day
-    // psyche), so only session-loop callers feel them.
-    effective -= dials.coldStartPenalty * (1.0 - std::clamp(input.warmth, 0.0, 1.0));
-    effective += (c.psyche - 0.7) * dials.psycheWeight;
-    const bool skinHold = move.hold == HoldType::Crimp || move.hold == HoldType::Pocket;
-    if (skinHold && c.skin < 3.0) {
-      effective -= dials.thinSkinPenalty * (3.0 - c.skin);
-    }
-    if (move.crux) {
-      // The crux is where the head shows up — commitment, not strength.
-      effective += (c.skills.head - 50.0) / 100.0;
-    }
+  MoveResult mr;
+  mr.index = la.nextMove;
+  mr.odds = odds;
 
-    // Pump spends ability, in grade units — felt only where margins are thin.
-    effective -= dials.pumpGradePenalty * (pump / 100.0);
+  // Redline: fully pumped hands open regardless of the move. No roll is
+  // consumed — a redlined fall is not luck.
+  const bool redlined = la.pump >= 100.0;
+  mr.success = !redlined && la.rng.Chance(odds);
 
-    const double margin = effective - move.difficulty;
-    const double odds = Sigmoid(kOddsBias + margin * dials.oddsSlope);
+  // Pump accounting: harder-than-you moves cost more; endurance and clean
+  // execution (no over-gripping) both pay it down.
+  double cost = la.dials.basePumpCost +
+                la.dials.pumpPerDifficulty *
+                    std::max(0.0, move.difficulty - effective);
+  cost *= 1.0 - la.dials.enduranceRelief * (la.input.climber.skills.endurance / 100.0);
+  cost *= 1.3 - 0.6 * exec;
+  la.pump = std::min(100.0, la.pump + std::max(2.0, cost));
 
-    MoveResult mr;
-    mr.index = static_cast<int>(i);
-    mr.odds = odds;
+  mr.pumpAfter = la.pump;
+  la.partial.peakPump = std::max(la.partial.peakPump, la.pump);
+  la.partial.timeline.push_back(mr);
 
-    // Redline: fully pumped hands open regardless of the move.
-    const bool redlined = pump >= 100.0;
-    mr.success = !redlined && rng.Chance(odds);
-
-    // Pump accounting: harder-than-you moves cost more; endurance and clean
-    // execution (no over-gripping) both pay it down; rests pay it back.
-    double cost = dials.basePumpCost +
-                  dials.pumpPerDifficulty * std::max(0.0, move.difficulty - effective);
-    cost *= 1.0 - dials.enduranceRelief * (c.skills.endurance / 100.0);
-    cost *= 1.3 - 0.6 * exec;
-    pump = std::min(100.0, pump + std::max(2.0, cost));
-    if (mr.success && move.restQuality > 0.0) {
-      pump = std::max(0.0, pump - move.restQuality * dials.restRecovery);
-    }
-
-    mr.pumpAfter = pump;
-    result.peakPump = std::max(result.peakPump, pump);
-    result.timeline.push_back(mr);
-
-    if (!mr.success) break;
-    result.highpoint = static_cast<int>(i) + 1;
+  if (mr.success) {
+    la.nextMove++;
+    la.partial.highpoint = la.nextMove;
+    la.shakesAtStance = 0;
+  } else {
+    la.over = true;
   }
+  return mr;
+}
+
+double ShakeOut(LiveAttempt& la) {
+  if (AttemptOver(la) || la.nextMove == 0) return 0.0;
+  const Move& stance = la.input.route.moves[la.nextMove - 1];
+  const double before = la.pump;
+
+  // First shake is the stance's full value; each repeat halves and pays the
+  // hang tax. The timeline's pumpAfter records the stance as it was left,
+  // so a staged replay shows the shake, not the arrival.
+  double recovery = stance.restQuality * la.dials.restRecovery;
+  for (int i = 0; i < la.shakesAtStance; i++) recovery *= la.dials.shakeDiminish;
+  const double hang = la.shakesAtStance == 0 ? 0.0 : la.dials.shakeHangCost;
+  la.pump = std::clamp(la.pump - recovery + hang, 0.0, 100.0);
+  la.shakesAtStance++;
+
+  la.partial.timeline.back().pumpAfter = la.pump;
+  return before - la.pump;
+}
+
+AttemptResult FinishAttempt(const LiveAttempt& la) {
+  const Route& r = la.input.route;
+  AttemptResult result = la.partial;
 
   result.sent = result.highpoint == static_cast<int>(r.moves.size());
   if (result.sent) {
-    if (input.attemptNumber == 1) {
-      result.style = input.beta < 0.05 ? Style::Onsight : Style::Flash;
+    if (la.input.attemptNumber == 1) {
+      result.style = la.input.beta < 0.05 ? Style::Onsight : Style::Flash;
     } else {
       result.style = Style::Redpoint;
     }
@@ -136,10 +185,27 @@ AttemptResult ResolveAttempt(Rng& rng, const AttemptInput& input,
     const HoldType h = r.moves[mr.index].hold;
     if (h == HoldType::Crimp || h == HoldType::Pocket) crimpMoves++;
   }
-  result.skinCost = (result.sent ? dials.sendSkinCost : dials.fallSkinCost) +
+  result.skinCost = (result.sent ? la.dials.sendSkinCost : la.dials.fallSkinCost) +
                     0.05 * crimpMoves;
 
   return result;
+}
+
+AttemptResult ResolveAttempt(Rng& rng, const AttemptInput& input,
+                             const SessionDials& dials) {
+  // The batch form is the live form with a bot at the controls: fixed
+  // execution per move, one shake-out at every stance that offers one.
+  LiveAttempt la = BeginAttempt(rng, input, dials);
+  while (!AttemptOver(la)) {
+    const size_t i = static_cast<size_t>(la.nextMove);
+    const double exec = i < input.execution.size()
+                            ? std::clamp(input.execution[i], 0.0, 1.0)
+                            : input.botExecution;
+    const MoveResult mr = StepMove(la, exec);
+    if (mr.success && input.route.moves[i].restQuality > 0.0) ShakeOut(la);
+  }
+  rng = la.rng;  // the caller's stream advances exactly as it always did
+  return FinishAttempt(la);
 }
 
 }  // namespace dirtbag

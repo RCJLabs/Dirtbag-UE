@@ -61,6 +61,13 @@ struct SessionDials {
   // heartbroken projecter knows.
   double psycheWeight = 1.5;
 
+  // Shake-outs, live form: the first shake at a stance is its full value
+  // (what the batch bot takes automatically); milking it further halves each
+  // time and pays a flat hang tax, so a poor stance goes net-negative fast.
+  // That falloff is the release-to-shake decision.
+  double shakeDiminish = 0.5;
+  double shakeHangCost = 4.0;
+
   // Skin: thin skin bites on crimps; falls cost the 2D game's 1 point.
   double thinSkinPenalty = 0.15;
   double fallSkinCost = 1.0;
@@ -103,5 +110,49 @@ struct AttemptResult {
 // and replayable.
 AttemptResult ResolveAttempt(Rng& rng, const AttemptInput& input,
                              const SessionDials& dials = SessionDials{});
+
+// --- Live attempts -----------------------------------------------------------
+//
+// The batch resolver unrolled so the minigame can drive it move by move —
+// SETUP.md step 4, the difference between watching a replay and driving an
+// attempt. HOLD TO CLIMB fills each StepMove's execution as it happens;
+// releasing is ShakeOut. ResolveAttempt is implemented on this core with a
+// bot policy (one shake at every stance that offers one), so the batch and
+// live forms cannot drift apart.
+
+struct LiveAttempt {
+  // Treat as opaque outside the sim; Begin/Peek/Step/Shake/Finish drive it.
+  // Fields stay public so the harness can stage exact situations.
+  AttemptInput input;   // its execution vector is unused; exec arrives per step
+  SessionDials dials;
+  Rng rng;
+  double pump = 0.0;
+  int nextMove = 0;
+  int shakesAtStance = 0;
+  bool over = false;
+  AttemptResult partial;  // timeline/highpoint/peak so far; Finish completes it
+};
+
+LiveAttempt BeginAttempt(const Rng& rng, const AttemptInput& input,
+                         const SessionDials& dials = SessionDials{});
+
+// Odds the next move would face at this execution — the UI's "how close is
+// this" readout. Pure: no rolls, no state change.
+double PeekOdds(const LiveAttempt& la, double execution);
+
+// Commit to the next move with the minigame's execution quality. After it
+// the attempt may be over (fell, or topped out). Calling on a finished
+// attempt is a no-op returning an empty MoveResult.
+MoveResult StepMove(LiveAttempt& la, double execution);
+
+// Release to shake out at the current stance. Returns net pump recovered
+// (negative when the hang tax beat the stance). No-op before the first move
+// or after the attempt ends.
+double ShakeOut(LiveAttempt& la);
+
+bool AttemptOver(const LiveAttempt& la);
+
+// Styles, skin and the sent flag — same accounting as the batch resolver.
+AttemptResult FinishAttempt(const LiveAttempt& la);
 
 }  // namespace dirtbag

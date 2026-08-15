@@ -222,6 +222,105 @@ static void TestStyleLadder() {
   CHECK(c.sent && c.style == Style::Redpoint);
 }
 
+// --- Live attempts -----------------------------------------------------------
+
+// Driving the live form by hand with the bot's policy must reproduce the
+// batch resolver exactly — timeline, style, skin, and the rng draws the
+// caller's stream loses along the way.
+static void TestLiveDriveMatchesBatch() {
+  Rng world = Rng::FromStream("live-eq", Stream::Worldgen);
+  Route route = BuildRoute(world, "Mirror Image", 7, 7, RouteType::Endurance,
+                           Discipline::Sport);
+  Climber c = MakeClimber(52, 52, 52, 60, 50);
+
+  for (int i = 0; i < 50; i++) {
+    Rng batchRng = Rng::FromSeed("eq-" + std::to_string(i));
+    Rng liveRng = Rng::FromSeed("eq-" + std::to_string(i));
+    AttemptInput in = MakeInput(c, route);
+
+    AttemptResult batch = ResolveAttempt(batchRng, in);
+
+    LiveAttempt la = BeginAttempt(liveRng, in);
+    while (!AttemptOver(la)) {
+      const int at = la.nextMove;
+      MoveResult mr = StepMove(la, in.botExecution);
+      if (mr.success && route.moves[at].restQuality > 0.0) ShakeOut(la);
+    }
+    AttemptResult live = FinishAttempt(la);
+
+    CHECK(live.sent == batch.sent);
+    CHECK(live.highpoint == batch.highpoint);
+    CHECK(live.style == batch.style);
+    CHECK(live.skinCost == batch.skinCost);
+    CHECK(live.timeline.size() == batch.timeline.size());
+    for (size_t m = 0; m < live.timeline.size(); m++) {
+      CHECK(live.timeline[m].odds == batch.timeline[m].odds);
+      CHECK(live.timeline[m].pumpAfter == batch.timeline[m].pumpAfter);
+      CHECK(live.timeline[m].success == batch.timeline[m].success);
+    }
+    CHECK(la.rng.state == batchRng.state);
+  }
+}
+
+// The odds preview is the odds the move then rolls against — the UI readout
+// can never flatter the player.
+static void TestPeekOddsHonest() {
+  Rng world = Rng::FromStream("live-peek", Stream::Worldgen);
+  Route route = BuildRoute(world, "Truth in Advertising", 6, 6,
+                           RouteType::Technical, Discipline::Boulder);
+  Climber c = MakeClimber(50, 50, 50, 50, 50);
+
+  Rng rng = Rng::FromSeed("peek-1");
+  LiveAttempt la = BeginAttempt(rng, MakeInput(c, route));
+  while (!AttemptOver(la)) {
+    const double peeked = PeekOdds(la, 0.6);
+    MoveResult mr = StepMove(la, 0.6);
+    CHECK(mr.odds == peeked);
+  }
+  CHECK(PeekOdds(la, 0.6) == 0.0);  // nothing left to preview
+}
+
+// Shake economics: the first shake at a good stance is worth the most, each
+// repeat halves and pays the hang tax, and milking a non-rest pumps you up.
+static void TestShakeOutEconomics() {
+  Route route;
+  route.name = "Hand Built";
+  Move jug;
+  jug.difficulty = 0.5;
+  jug.hold = HoldType::Jug;
+  jug.restQuality = 0.9;
+  route.moves = {jug, jug, jug};
+  Climber c = MakeClimber(60, 60, 60, 60, 60);
+
+  Rng rng = Rng::FromSeed("shake-1");
+  LiveAttempt la = BeginAttempt(rng, MakeInput(c, route));
+  MoveResult mr = StepMove(la, 0.7);
+  CHECK(mr.success);
+
+  la.pump = 80.0;  // stage a desperate arrival at the stance
+  const double s1 = ShakeOut(la);
+  const double s2 = ShakeOut(la);
+  const double s3 = ShakeOut(la);
+  const double s4 = ShakeOut(la);
+  CHECK(s1 > s2 && s2 > s3 && s3 > s4);
+  CHECK(s1 > 0.0);
+  CHECK(s4 < 0.0);  // the hang tax has overtaken the stance
+  CHECK(la.partial.timeline.back().pumpAfter == la.pump);
+
+  // Same stance, no rest to milk: the first shake is free but worthless,
+  // and every one after costs.
+  Route blank = route;
+  for (Move& m : blank.moves) { m.hold = HoldType::Sloper; m.restQuality = 0.0; }
+  Rng rng2 = Rng::FromSeed("shake-2");
+  LiveAttempt lb = BeginAttempt(rng2, MakeInput(c, blank));
+  MoveResult first = StepMove(lb, 0.7);
+  CHECK(first.success);
+  lb.pump = 50.0;
+  CHECK(ShakeOut(lb) == 0.0);
+  CHECK(ShakeOut(lb) < 0.0);
+  CHECK(lb.pump > 50.0);
+}
+
 // --- Session loop ------------------------------------------------------------
 
 // Same seed → the identical session, attempt by attempt. This is the loop's
@@ -432,6 +531,9 @@ int main() {
   TestSandbagBites();
   TestExecutionMatters();
   TestStyleLadder();
+  TestLiveDriveMatchesBatch();
+  TestPeekOddsHonest();
+  TestShakeOutEconomics();
   TestSessionLoopDeterminism();
   TestWarmupMatters();
   TestProjectingBuildsBeta();

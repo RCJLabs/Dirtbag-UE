@@ -57,6 +57,12 @@ Two purchases, both cheap, both replaceable later:
 4. Then make it *interactive*: run moves one at a time, HOLD TO CLIMB timing
    filling the per-move `execution` scalar. This is the moment Phase 0 exists
    for — the difference between watching a replay and driving an attempt.
+   The sim-side API is the live attempt in `DirtbagSession.h`:
+   `BeginAttempt` → per move `PeekOdds` (drive the UI's tension readout) →
+   `StepMove(execution)` on commit, `ShakeOut()` on release (first shake is
+   the stance's value, milking it diminishes and pays a hang tax) →
+   `FinishAttempt`. Do not re-implement any of this in Blueprint — the bot
+   policy in `ResolveAttempt` shows the exact call pattern.
 5. Pump bar UI. Then the Done-when playtest (ROADMAP.md Phase 0).
 
 ## 5. House rules that carry over (from landnam-ue / CLAUDE.md discipline)
