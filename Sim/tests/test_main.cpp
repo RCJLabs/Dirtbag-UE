@@ -488,6 +488,46 @@ static void TestSkinBudgetBites() {
   CHECK(freshTotal / n > workedTotal / n);
 }
 
+// The decomposed session pieces (derive rng → build input → live-drive →
+// commit) must land exactly where AttemptInSession does — this is the path
+// the engine's interactive layer takes, and it may not drift.
+static void TestSessionLiveComposition() {
+  Rng world = Rng::FromStream("loop-compose", Stream::Worldgen);
+  Route route = BuildRoute(world, "Two Roads", 7, 7, RouteType::Crimp,
+                           Discipline::Boulder);
+  Climber c = MakeClimber(46, 46, 46, 46, 46);
+  Rng sessionRng = Rng::FromStream("loop-compose", Stream::Session);
+
+  SessionState sBatch = StartSession(c), sLive = StartSession(c);
+  ProjectMemory mBatch, mLive;
+  for (int burn = 0; burn < 3; burn++) {
+    AttemptResult batch = AttemptInSession(sessionRng, sBatch, mBatch, c,
+                                           route, Conditions{});
+
+    Rng rng = DeriveAttemptRng(sessionRng, mLive, route);
+    AttemptInput in =
+        BuildSessionAttemptInput(sLive, mLive, c, route, Conditions{});
+    LiveAttempt la = BeginAttempt(rng, in);
+    while (!AttemptOver(la)) {
+      const int at = la.nextMove;
+      MoveResult mr = StepMove(la, in.botExecution);
+      if (mr.success && route.moves[at].restQuality > 0.0) ShakeOut(la);
+    }
+    AttemptResult live = FinishAttempt(la);
+    CommitAttempt(sLive, mLive, route, live);
+
+    CHECK(live.sent == batch.sent);
+    CHECK(live.highpoint == batch.highpoint);
+    CHECK(live.skinCost == batch.skinCost);
+    CHECK(sLive.skinLeft == sBatch.skinLeft);
+    CHECK(sLive.warmth == sBatch.warmth);
+    CHECK(sLive.psyche == sBatch.psyche);
+    CHECK(mLive.beta == mBatch.beta);
+    CHECK(mLive.bestHighpoint == mBatch.bestHighpoint);
+    CHECK(mLive.attempts == mBatch.attempts);
+  }
+}
+
 // Psyche follows the session: sends feed it, going nowhere drains it, and
 // the floor holds.
 static void TestPsycheSwings() {
@@ -539,6 +579,7 @@ int main() {
   TestProjectingBuildsBeta();
   TestFirstSendStyleSticks();
   TestSkinBudgetBites();
+  TestSessionLiveComposition();
   TestPsycheSwings();
 
   if (g_failures == 0) {

@@ -89,27 +89,34 @@ Two purchases, both cheap, both replaceable later:
 
 ## 4. Phase 0 build order (suggested)
 
+> **The sim is already exposed to Blueprint** (`Source/DirtbagUE/
+> DirtbagSimTypes.*`, `DirtbagSimLibrary.*`): search the node menu for
+> "Dirtbag". Do not re-implement any sim behavior in Blueprint — if a node
+> is missing, ask for it and it gets added to the wrapper (and, if needed,
+> the sim + its tests) container-side.
+
+0. Import the purchased climbing animation set (Hammerhead). If it targets
+   the UE5 skeleton it drops straight onto the template character; otherwise
+   use the auto-retargeter (right-click the anims → Retarget Animations).
+   Needed for Phase 0: hang idle, a climb-up/reach for each side, a fall.
 1. Blockout room + a 15° wall plane with 8–10 hold markers on a spline.
 2. Character walks up (Third Person template as-is), interaction prompt,
    camera moves to the session frame.
-3. Climb loop: advance hold-to-hold on the spline, playing the animation set;
-   each move's outcome comes from `dirtbag::ResolveAttempt` — feed the whole
-   attempt at session start, stage the returned timeline (odds → hesitation,
-   pumpAfter → shake-outs and slowing, failure index → the fall).
-   For anything beyond a single burn, go through `AttemptInSession`
-   (`Sim/DirtbagSessionLoop.h`): it derives the attempt rng, applies warmup /
-   remaining skin / psyche / project beta, and keeps the highpoint ledger —
-   the session screen's "attempt 3, highpoint move 5" state comes from there,
-   not from presentation-side bookkeeping.
-4. Then make it *interactive*: run moves one at a time, HOLD TO CLIMB timing
-   filling the per-move `execution` scalar. This is the moment Phase 0 exists
-   for — the difference between watching a replay and driving an attempt.
-   The sim-side API is the live attempt in `DirtbagSession.h`:
-   `BeginAttempt` → per move `PeekOdds` (drive the UI's tension readout) →
-   `StepMove(execution)` on commit, `ShakeOut()` on release (first shake is
-   the stance's value, milking it diminishes and pays a hang tax) →
-   `FinishAttempt`. Do not re-implement any of this in Blueprint — the bot
-   policy in `ResolveAttempt` shows the exact call pattern.
+3. Staged replay first: a `BP_ClimbSession` actor calls **Build Route**
+   (worldgen seed + route name/grade/type) → **Start Session** (climber) →
+   **Attempt In Session** (bot-driven). Stage the returned `Timeline` on the
+   spline: `Odds` → hesitation before the move, `PumpAfter` → shake-outs and
+   slowing, first failed entry → the fall onto the mat; `bSent` → top-out.
+4. Then make it *interactive* — the moment Phase 0 exists for: swap step 3's
+   resolve for **Begin Live Attempt**, then per move **Peek Odds** (drive
+   the tension readout while HOLD TO CLIMB charges), **Step Move** with the
+   timing-derived execution scalar (0..1) on commit, **Shake Out** on
+   release at a stance (first shake is the stance's value; milking it
+   diminishes and pays a hang tax). When **Is Over**: **Finish** for the
+   result card, then **Commit To Session** so skin/warmth/psyche and the
+   project ledger update — never bookkeep those presentation-side.
+5. Pump bar UI bound to the live attempt's **Get Pump**. Then the Done-when
+   playtest (ROADMAP.md Phase 0).
 5. Pump bar UI. Then the Done-when playtest (ROADMAP.md Phase 0).
 
 ## 5. House rules that carry over (from landnam-ue / CLAUDE.md discipline)

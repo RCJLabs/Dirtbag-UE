@@ -50,6 +50,7 @@ Sport/rope presentation, crags 2–3, ethics arcs, sponsorship, injuries/aging, 
 
 ## Changelog
 
+- 2026-08-15 — Engine wrapper layer (`Source/DirtbagUE/DirtbagSimTypes.*`, `DirtbagSimLibrary.*`): USTRUCT/UENUM mirrors and Blueprint nodes over route gen, the session loop, and the live attempt. Sim-side, `AttemptInSession` decomposed into `DeriveAttemptRng`/`BuildSessionAttemptInput`/`CommitAttempt` so live attempts commit through the same accounting (equivalence pinned by test). SETUP.md §4 rewritten as a Blueprint-level checklist.
 - 2026-08-15 — Live attempt API (`BeginAttempt`/`PeekOdds`/`StepMove`/`ShakeOut`/`FinishAttempt`): the resolver unrolled so HOLD TO CLIMB can drive move-by-move, with release-to-shake as a sim-arbitrated verb (diminishing returns + hang tax). `ResolveAttempt` reimplemented as a bot on the live core — equivalence pinned by test. Deliberate delta: `peakPump` now records the true pre-recovery peak.
 - 2026-08-15 — Session loop layered over the resolver (`Sim/DirtbagSessionLoop.*`): warmup → attempts → skin budget within a day, plus `ProjectMemory` across days (highpoint ledger, beta learned from touched moves, first-send style). Resolver gains cold-start and psyche terms, neutral by default — existing outcomes and golden vectors untouched. Harness grows six matching tests.
 - 2026-08-15 — Project decided: Dirtbag reimagining, session-model pivot ("2D minigames, 3D staging"). Repo scaffolded: concepts, roadmap, `Sim/` core (RNG + types + session resolver) with standalone test harness, `SETUP.md`.
