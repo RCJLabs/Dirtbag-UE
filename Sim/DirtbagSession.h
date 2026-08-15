@@ -49,6 +49,18 @@ struct SessionDials {
   // Conditions: full swing (0→1 friction) worth about half a letter grade.
   double frictionWeight = 6.0;
 
+  // Warmup: grades of ability missing when stone cold. The session loop
+  // meters warmth (about two warmup boulders buy it all back); a bare
+  // AttemptInput is fully warm by default so single-attempt callers and the
+  // pre-loop tests are untouched.
+  double coldStartPenalty = 1.5;
+
+  // Psyche as ability, centered on 0.7 (an ordinary day). Being wrecked
+  // (0.0) costs about a grade; being lit up (1.0) buys back less than half
+  // of one — despair is louder than stoke, as anyone who has belayed a
+  // heartbroken projecter knows.
+  double psycheWeight = 1.5;
+
   // Skin: thin skin bites on crimps; falls cost the 2D game's 1 point.
   double thinSkinPenalty = 0.15;
   double fallSkinCost = 1.0;
@@ -64,6 +76,7 @@ struct AttemptInput {
   Conditions conditions;
   double beta = 0.0;        // 0 = no knowledge, 1 = fully rehearsed
   int attemptNumber = 1;    // across the project's history, for style
+  double warmth = 1.0;      // 0 cold .. 1 warm; the session loop starts cold
   // Per-move minigame quality, 0..1. Missing entries fall back to botExecution.
   std::vector<double> execution;
   double botExecution = 0.72;

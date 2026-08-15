@@ -50,4 +50,5 @@ Sport/rope presentation, crags 2–3, ethics arcs, sponsorship, injuries/aging, 
 
 ## Changelog
 
+- 2026-08-15 — Session loop layered over the resolver (`Sim/DirtbagSessionLoop.*`): warmup → attempts → skin budget within a day, plus `ProjectMemory` across days (highpoint ledger, beta learned from touched moves, first-send style). Resolver gains cold-start and psyche terms, neutral by default — existing outcomes and golden vectors untouched. Harness grows six matching tests.
 - 2026-08-15 — Project decided: Dirtbag reimagining, session-model pivot ("2D minigames, 3D staging"). Repo scaffolded: concepts, roadmap, `Sim/` core (RNG + types + session resolver) with standalone test harness, `SETUP.md`.

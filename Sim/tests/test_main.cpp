@@ -10,6 +10,7 @@
 #include "../DirtbagCore.h"
 #include "../DirtbagRng.h"
 #include "../DirtbagSession.h"
+#include "../DirtbagSessionLoop.h"
 
 using namespace dirtbag;
 
@@ -221,6 +222,205 @@ static void TestStyleLadder() {
   CHECK(c.sent && c.style == Style::Redpoint);
 }
 
+// --- Session loop ------------------------------------------------------------
+
+// Same seed → the identical session, attempt by attempt. This is the loop's
+// version of the resolver determinism contract.
+static void TestSessionLoopDeterminism() {
+  Rng world = Rng::FromStream("loop-seed", Stream::Worldgen);
+  Route route = BuildRoute(world, "Groundhog Day", 7, 7, RouteType::Power,
+                           Discipline::Boulder);
+  Climber c = MakeClimber(45, 45, 45, 45, 45);
+
+  auto runSession = [&](std::vector<AttemptResult>& out, SessionState& s,
+                        ProjectMemory& mem) {
+    Rng sessionRng = Rng::FromStream("loop-seed", Stream::Session);
+    s = StartSession(c);
+    for (int i = 0; i < 3; i++) {
+      out.push_back(AttemptInSession(sessionRng, s, mem, c, route, Conditions{}));
+    }
+  };
+  std::vector<AttemptResult> a, b;
+  SessionState sa, sb;
+  ProjectMemory ma, mb;
+  runSession(a, sa, ma);
+  runSession(b, sb, mb);
+  for (size_t i = 0; i < a.size(); i++) {
+    CHECK(a[i].highpoint == b[i].highpoint);
+    CHECK(a[i].sent == b[i].sent);
+    CHECK(a[i].peakPump == b[i].peakPump);
+  }
+  CHECK(sa.skinLeft == sb.skinLeft);
+  CHECK(sa.warmth == sb.warmth);
+  CHECK(ma.beta == mb.beta);
+  CHECK(ma.bestHighpoint == mb.bestHighpoint);
+}
+
+// Pulling straight onto the project cold vs. after two warmup boulders. The
+// warmed pair of sessions shares the project's rng derivation (same route,
+// same attempt #1), so the only difference is state — warmth has to earn it.
+static void TestWarmupMatters() {
+  Rng world = Rng::FromStream("loop-warm", Stream::Worldgen);
+  Route easy1 = BuildRoute(world, "Morning Jugs", 0, 0, RouteType::Endurance,
+                           Discipline::Boulder);
+  Route easy2 = BuildRoute(world, "Second Coffee", 1, 1, RouteType::Endurance,
+                           Discipline::Boulder);
+  Route proj = BuildRoute(world, "The Business", 7, 7, RouteType::Power,
+                          Discipline::Boulder);
+  Climber c = MakeClimber(48, 48, 48, 48, 48);
+
+  const int n = 400;
+  double coldTotal = 0.0, warmTotal = 0.0;
+  for (int i = 0; i < n; i++) {
+    Rng sessionRng = Rng::FromStream("warm-" + std::to_string(i), Stream::Session);
+
+    SessionState cold = StartSession(c);
+    ProjectMemory coldMem;
+    coldTotal += AttemptInSession(sessionRng, cold, coldMem, c, proj, Conditions{})
+                     .highpoint;
+
+    SessionState warm = StartSession(c);
+    ProjectMemory w1, w2, warmMem;
+    AttemptInSession(sessionRng, warm, w1, c, easy1, Conditions{});
+    AttemptInSession(sessionRng, warm, w2, c, easy2, Conditions{});
+    CHECK(warm.warmth > 0.5);
+    warmTotal += AttemptInSession(sessionRng, warm, warmMem, c, proj, Conditions{})
+                     .highpoint;
+  }
+  CHECK(warmTotal / n > coldTotal / n);
+}
+
+// Projecting: the ledger only moves forward, and the accumulated state
+// (beta + warmth + attempt count) makes late burns land higher than burn #1.
+static void TestProjectingBuildsBeta() {
+  Rng world = Rng::FromStream("loop-proj", Stream::Worldgen);
+  Route proj = BuildRoute(world, "Nemesis", 8, 8, RouteType::Technical,
+                          Discipline::Boulder);
+  Climber c = MakeClimber(50, 50, 50, 50, 50);
+
+  const int n = 300;
+  double firstTotal = 0.0, lateTotal = 0.0;
+  for (int i = 0; i < n; i++) {
+    Rng sessionRng = Rng::FromStream("proj-" + std::to_string(i), Stream::Session);
+    SessionState s = StartSession(c);
+    ProjectMemory mem;
+    double prevBeta = 0.0;
+    int prevBest = 0;
+    for (int burn = 0; burn < 4; burn++) {
+      AttemptResult r = AttemptInSession(sessionRng, s, mem, c, proj, Conditions{});
+      CHECK(mem.beta >= prevBeta);
+      CHECK(mem.bestHighpoint >= prevBest);
+      CHECK(mem.attempts == burn + 1);
+      prevBeta = mem.beta;
+      prevBest = mem.bestHighpoint;
+      if (burn == 0) firstTotal += r.highpoint;
+      if (burn == 3) lateTotal += r.highpoint;
+    }
+    CHECK(mem.beta > 0.0);
+  }
+  CHECK(lateTotal / n > firstTotal / n);
+}
+
+// A send after prior falls is a Redpoint in the ledger, forever; an
+// unrepeated first-go send stays an Onsight even after later laps.
+static void TestFirstSendStyleSticks() {
+  Rng world = Rng::FromStream("loop-style", Stream::Worldgen);
+  Route hard = BuildRoute(world, "Slow Learner", 9, 9, RouteType::Crimp,
+                          Discipline::Boulder);
+  Route easy = BuildRoute(world, "Gimme", 0, 0, RouteType::Endurance,
+                          Discipline::Boulder);
+  Climber crusher = MakeClimber(90, 90, 90, 90, 90);
+  Climber mortal = MakeClimber(35, 35, 35, 35, 35);
+
+  // The mortal falls, then we hand them a crusher's body: the send that
+  // finally comes is a redpoint because the attempts before it happened.
+  Rng sessionRng = Rng::FromStream("loop-style", Stream::Session);
+  SessionState s = StartSession(mortal);
+  ProjectMemory mem;
+  for (int i = 0; i < 6 && !mem.sent; i++) {
+    const Climber& who = i < 2 ? mortal : crusher;
+    AttemptInSession(sessionRng, s, mem, who, hard, Conditions{});
+  }
+  CHECK(mem.sent);
+  CHECK(mem.attempts > 1);
+  CHECK(mem.firstSendStyle == Style::Redpoint);
+
+  SessionState s2 = StartSession(crusher);
+  s2.warmth = 1.0;
+  ProjectMemory easyMem;
+  AttemptInSession(sessionRng, s2, easyMem, crusher, easy, Conditions{});
+  CHECK(easyMem.sent && easyMem.firstSendStyle == Style::Onsight);
+  AttemptInSession(sessionRng, s2, easyMem, crusher, easy, Conditions{});
+  CHECK(easyMem.firstSendStyle == Style::Onsight);  // the lap changes nothing
+}
+
+// The skin budget is real: a session's burns spend it, and a climber down to
+// tips-tape skin climbs measurably worse on crimps than a fresh one.
+static void TestSkinBudgetBites() {
+  Rng world = Rng::FromStream("loop-skin", Stream::Worldgen);
+  // Above the climber's level on purpose: falls dominate, and falls are what
+  // spend skin (the 2D game's 1-point rule).
+  Route crimps = BuildRoute(world, "Paper Cuts", 9, 9, RouteType::Crimp,
+                            Discipline::Boulder);
+  Climber c = MakeClimber(48, 48, 48, 48, 48);
+
+  // Drain: a long crimpy session leaves less skin than it started with.
+  Rng sessionRng = Rng::FromStream("loop-skin", Stream::Session);
+  SessionState s = StartSession(c);
+  ProjectMemory mem;
+  for (int i = 0; i < 5; i++) {
+    AttemptInSession(sessionRng, s, mem, c, crimps, Conditions{});
+  }
+  CHECK(s.skinLeft < c.skin - 3.0);
+
+  // Bite: same route, warm in both cases, fresh skin vs. worked skin.
+  const int n = 400;
+  double freshTotal = 0.0, workedTotal = 0.0;
+  for (int i = 0; i < n; i++) {
+    Rng rng = Rng::FromStream("skin-" + std::to_string(i), Stream::Session);
+    SessionState fresh = StartSession(c);
+    fresh.warmth = 1.0;
+    SessionState worked = fresh;
+    worked.skinLeft = 1.0;
+    ProjectMemory m1, m2;
+    freshTotal += AttemptInSession(rng, fresh, m1, c, crimps, Conditions{}).highpoint;
+    workedTotal += AttemptInSession(rng, worked, m2, c, crimps, Conditions{}).highpoint;
+  }
+  CHECK(freshTotal / n > workedTotal / n);
+}
+
+// Psyche follows the session: sends feed it, going nowhere drains it, and
+// the floor holds.
+static void TestPsycheSwings() {
+  Rng world = Rng::FromStream("loop-psy", Stream::Worldgen);
+  Route easy = BuildRoute(world, "Confidence", 0, 0, RouteType::Endurance,
+                          Discipline::Boulder);
+  Route desperate = BuildRoute(world, "Humility", 14, 14, RouteType::Crimp,
+                               Discipline::Boulder);
+  Climber c = MakeClimber(50, 50, 50, 50, 50);
+
+  Rng sessionRng = Rng::FromStream("loop-psy", Stream::Session);
+  SessionState up = StartSession(c);
+  up.warmth = 1.0;
+  ProjectMemory upMem;
+  AttemptResult r = AttemptInSession(sessionRng, up, upMem, c, easy, Conditions{});
+  CHECK(r.sent);
+  CHECK(up.psyche > c.psyche);
+
+  SessionState down = StartSession(c);
+  ProjectMemory downMem;
+  double last = down.psyche;
+  for (int i = 0; i < 30; i++) {
+    AttemptResult burn =
+        AttemptInSession(sessionRng, down, downMem, c, desperate, Conditions{});
+    CHECK(!burn.sent);
+    CHECK(down.psyche <= last || down.psyche >= last);  // never NaN
+    last = down.psyche;
+  }
+  CHECK(down.psyche < c.psyche);
+  CHECK(down.psyche >= SessionLoopDials{}.psycheFloor);
+}
+
 int main() {
   TestRngDeterminism();
   TestRngUnicodeSeeds();
@@ -232,6 +432,12 @@ int main() {
   TestSandbagBites();
   TestExecutionMatters();
   TestStyleLadder();
+  TestSessionLoopDeterminism();
+  TestWarmupMatters();
+  TestProjectingBuildsBeta();
+  TestFirstSendStyleSticks();
+  TestSkinBudgetBites();
+  TestPsycheSwings();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);

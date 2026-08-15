@@ -72,6 +72,10 @@ AttemptResult ResolveAttempt(Rng& rng, const AttemptInput& input,
     effective += (input.conditions.friction - 0.5) * dials.frictionWeight * 0.1;
     effective += input.beta * 0.5;
     effective += MorphologyAdjust(c, move, dials);
+    // Body and head state: both default to neutral (warm, ordinary-day
+    // psyche), so only session-loop callers feel them.
+    effective -= dials.coldStartPenalty * (1.0 - std::clamp(input.warmth, 0.0, 1.0));
+    effective += (c.psyche - 0.7) * dials.psycheWeight;
     const bool skinHold = move.hold == HoldType::Crimp || move.hold == HoldType::Pocket;
     if (skinHold && c.skin < 3.0) {
       effective -= dials.thinSkinPenalty * (3.0 - c.skin);

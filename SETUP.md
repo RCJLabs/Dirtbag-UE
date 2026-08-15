@@ -49,6 +49,11 @@ Two purchases, both cheap, both replaceable later:
    each move's outcome comes from `dirtbag::ResolveAttempt` — feed the whole
    attempt at session start, stage the returned timeline (odds → hesitation,
    pumpAfter → shake-outs and slowing, failure index → the fall).
+   For anything beyond a single burn, go through `AttemptInSession`
+   (`Sim/DirtbagSessionLoop.h`): it derives the attempt rng, applies warmup /
+   remaining skin / psyche / project beta, and keeps the highpoint ledger —
+   the session screen's "attempt 3, highpoint move 5" state comes from there,
+   not from presentation-side bookkeeping.
 4. Then make it *interactive*: run moves one at a time, HOLD TO CLIMB timing
    filling the per-move `execution` scalar. This is the moment Phase 0 exists
    for — the difference between watching a replay and driving an attempt.
