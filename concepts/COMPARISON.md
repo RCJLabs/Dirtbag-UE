@@ -1,6 +1,6 @@
 # DIRTBAG vs THREE WINTERS — Decision Aid
 
-*2026-08-15. Reads: [DIRTBAG.md](DIRTBAG.md) · [THREE-WINTERS.md](THREE-WINTERS.md)*
+*2026-08-15. Concepts: [DIRTBAG.md](DIRTBAG.md) · [THREE-WINTERS.md](THREE-WINTERS.md). Full production plans: [DIRTBAG-PLAN.md](DIRTBAG-PLAN.md) · [THREE-WINTERS-PLAN.md](THREE-WINTERS-PLAN.md) — each written in the Landnám ROADMAP idiom (phases, "Done when" gates), ready to be the real roadmap of whichever wins.*
 
 ## The one-sentence version
 
@@ -35,3 +35,12 @@ Reasoning:
 4. Either way, no decision made today gets regretted, because today's decision is only: *run the experiment.*
 
 **Decision date:** end of Stage A, criteria in hand. Put it on the calendar; a prototype without a decision date becomes a hobby.
+
+## Update (same day): this is an ordering, not a fork
+
+With both production plans written, note what the two Phase 0s actually are:
+
+- **Dirtbag Phase 0** (weeks 1–8): gray-box climbing prototype → written go/no-go.
+- **Three Winters Phase 0** (weeks 1–6): assemble purchased parts → screenshot test + travel-model decision.
+
+Both are cheap. Both produce information, not throwaway work (Dirtbag's locomotion carries to Three Winters; Three Winters' Phase 0 is 90% shopping). Running Dirtbag's first delays Three Winters by *at most two months* — and if the climbing prototype fails its gate, the heart gets its viking RPG anyway, guilt-free, with the brain fully on board. The only genuinely bad outcome is running neither while deciding.
