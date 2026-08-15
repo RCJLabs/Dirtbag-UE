@@ -2,7 +2,9 @@
 
 *2026-08-15. Concept: [DIRTBAG.md](DIRTBAG.md) · Rival plan: [THREE-WINTERS-PLAN.md](THREE-WINTERS-PLAN.md) · Decision aid: [COMPARISON.md](COMPARISON.md)*
 
-Format follows the Landnám ROADMAP convention: numbered phases, explicit **Done when** gates, a CURRENT MILESTONE marker. If Dirtbag wins the decision, this file *is* the starting roadmap.
+> **SUPERSEDED (same day): Dirtbag won the decision, with a design pivot — climbing is a minigame-driven watched session ("2D minigames, 3D staging"), not physical player climbing. The live roadmap is now [/ROADMAP.md](../ROADMAP.md); this file is kept as the pre-pivot plan of record. The FBIK go/no-go phase below no longer applies; the animation risk it guarded against was designed out. The assets table and later phases remain broadly valid.**
+
+Format follows the Landnám ROADMAP convention: numbered phases, explicit **Done when** gates, a CURRENT MILESTONE marker.
 
 ---
 

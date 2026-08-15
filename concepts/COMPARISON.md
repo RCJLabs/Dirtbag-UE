@@ -1,5 +1,7 @@
 # DIRTBAG vs THREE WINTERS — Decision Aid
 
+> **DECIDED (2026-08-15): DIRTBAG.** Evan chose the Dirtbag reimagining, with a pivot that resolves this file's central tension: climbing is a minigame-driven watched session ("2D minigames, 3D staging"), not physical climbing — so the tech risk this comparison hinged on was designed out rather than prototyped out. Three Winters is shelved as the named fallback/next game. Live roadmap: [/ROADMAP.md](../ROADMAP.md).
+
 *2026-08-15. Concepts: [DIRTBAG.md](DIRTBAG.md) · [THREE-WINTERS.md](THREE-WINTERS.md). Full production plans: [DIRTBAG-PLAN.md](DIRTBAG-PLAN.md) · [THREE-WINTERS-PLAN.md](THREE-WINTERS-PLAN.md) — each written in the Landnám ROADMAP idiom (phases, "Done when" gates), ready to be the real roadmap of whichever wins.*
 
 ## The one-sentence version

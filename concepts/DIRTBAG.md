@@ -27,22 +27,24 @@ The 2D game's design is proven at v0.956 and ships on Google Play. The reimagini
 
 **Season/career loop (ported from 2D).** Skills and grade creep up; money mostly doesn't. Projects fall or become nemeses. Factions pull; sponsors call; the salaried-job trap tempts. Injuries and age bend the curve. Retire eventually — legacy tallied, next generation inherits.
 
-## 3. The central redesign: from odds to body
+## 3. The central design call: 2D minigames, 3D staging
 
-The 2D game assembles a send probability from ~a dozen modifiers. The 3D game keeps **every one of those inputs** but re-routes them from *dice* to *simulation constraints*:
+> **PIVOT (2026-08-15, decided):** climbing is **not** physically player-driven. An earlier draft of this doc proposed full physical climbing gated on hand-IK feel; Evan pivoted to the session model below, which keeps the 2D game's proven mechanics and removes the animation-fidelity risk entirely.
 
-| 2D input | 3D expression |
+Sessions work the way the 2D game already works — and the way LVDVS's fights work: **the character climbs; the player drives the attempt.** The climber moves hold-to-hold along an authored route via a basic climbing animation set. The 2D game's real-time verbs are the interaction layer: **HOLD TO CLIMB** (release to shake out), **hold-to-load** (release too early and you come up short, load past it and you barrel off), the pump bar, STICK IT / THROW / LOCK beats at cruxes. Minigame performance feeds the sim as a per-move execution quality; the sim — the same odds/body model the 2D game balanced over three years — remains the arbiter of what happens.
+
+| 2D input | 3D expression (session model) |
 |---|---|
-| Skills vs grade | Max hang time per hold type, lock-off strength, reach envelope |
-| Pump | A real forearm meter that recovers at rests and drains per move; redline = fingers open |
-| Skin | Per-session budget; thin skin reduces friction on crimps, visible tape |
-| Prime window | Global friction coefficient driven by temp/humidity/sun; visibly better sticking |
-| Morphology | Literal reach, literal body positions — Compact fits the scrunchy crux Lanky can't |
-| Psyche / head | Camera behavior, breathing audio, and fall-commitment above gear |
-| Gear lean/wear | Shoe edging/smearing modifiers, pad size, rope drag |
-| Route type | Actual hold shapes: crimp, sloper, pinch, pocket, dyno, crack |
+| Skills vs grade | Per-move difficulty vs. stat block — unchanged from 2D, resolved per move instead of per attempt |
+| Pump | The pump bar, now with the climber visibly slowing, over-gripping, chalking frantically |
+| Skin | Per-session budget; tape appears on the character's hands |
+| Prime window | Modifier as in 2D — but *staged*: light and shade visibly cross the wall through the day |
+| Morphology | Per-move fit modifiers (the scrunchy crux vs. the long reach) — expressed in text and outcome, not custom animation |
+| Psyche / head | Fall-commitment beats above gear; camera and breath do the acting |
+| Gear lean/wear | Same modifiers as 2D |
+| Route type | Hold props on the wall set dressing the move types (crimp/sloper/pinch/pocket/dyno/crack) |
 
-**Sandbagging survives** (public grade vs hidden true grade — the wall doesn't lie, the guidebook does). **Ascent style survives** as the score: tick marks and brushed holds visibly cheapen a line, and yours are visible to others.
+What 3D adds is **staging**, not simulation: watching your climber inch up a real wall, the fall that everyone in the gym turns to watch, tick marks visible on the holds, the shade line you're waiting for. **Sandbagging survives** (public grade vs hidden trueGrade). **Ascent style survives** as the score: onsight > flash > redpoint > sent, and cheapening actions stay visible on the wall.
 
 ## 4. Systems map
 
@@ -53,20 +55,11 @@ factions (4, opposed), persistent partners with their own careers, the Lot neigh
 
 **Cut or defer past 1.0:** comps/Olympics, expeditions (El Cap tier — this is THE WALL's design, fold in later), deep-water solo, big-wall multi-day, filmmaking/photography economy, minigames (poker etc. — keep ONE campfire game), gym ownership, Solo mode, Notown/Halloween. The 2D game took years to accrete these; the 3D game earns them the same way.
 
-## 5. The pathfinder plan (the de-risking centerpiece)
+## 5. The session proof (replaces the old FBIK pathfinder)
 
-The project's only existential question is **"does climbing feel good?"** Answer it before betting anything on it.
+The pivot retires the "does physical climbing feel good?" question. The remaining question is smaller and safer: **"is a minigame-driven session tense and legible on a 3D wall?"** That is Phase 0 of [ROADMAP.md](../ROADMAP.md) — a blockout gym room, one route spline, a basic climbing animation set, the pump bar and one HOLD TO CLIMB beat wired to the C++ session sim. Its Done-when criteria live in the roadmap; the short version is that a watcher should feel how close the attempt was without reading a number.
 
-**Stage A — gray-box prototype (4–8 weeks).** One 15m gray-box wall with typed holds. Character with hand/foot placement via Full Body IK, pump meter, shake-outs, falls. No town, no art, no save system.
-**Go/no-go criteria, written down before starting:**
-- Moving between 10 holds feels deliberate, not floaty, within 5 seconds of picking up the controller.
-- A pumped-out fall reads as *earned* (player saw it coming ≥2 moves out).
-- One route can be meaningfully easier/harder by hold selection alone, no stat changes.
-- A morphology swap (reach ±10%) changes the beta on at least one sequence.
-- Frame budget holds on target hardware with FBIK active.
-
-**Stage B — if go: THE HOLLOW as the shippable pathfinder.** The 3–4 hour slot-canyon ghost story (BRAINSTORM #7) ships the tech in a real game: hold interaction, rope basics, canyon lighting, one location. Revenue and audience while Dirtbag proper is designed.
-**Stage C — if no-go:** the prototype cost weeks, not the project. Fall back to THREE-WINTERS with full confidence and no sunk-cost drag.
+THE HOLLOW remains available as a later shippable spin-off, but it is no longer needed as a tech pathfinder — the tech this game needs is now mostly purchasable, and the sim core is buildable (and testable) before the Unreal project even exists.
 
 ## 6. MVP scope & cut ladder
 
@@ -86,10 +79,11 @@ Ship order, each rung a coherent game:
 - **The dog:** [DOG on Fab](https://www.fab.com/listings/5a41c4ec-d50f-45e0-8384-c6dc905468c5) — 26 animations incl. sniff, howl, rest, sleep. The emotional register is purchasable.
 - **Town/vehicles:** small-town packs exist (Americana is a thinner category than European rural — budget shopping time); [City Sample Vehicles](https://www.fab.com/listings/2909157b-ddfa-4cef-a925-69dc2467021f) free for drivable bases; camper van models exist individually.
 
-**Custom work (the real budget):**
-- Hand-to-hold contact quality on top of FBIK (finger poses per hold type: crimp/sloper/pinch/pocket/jam). *This is the project.*
-- Hold library (sculpt ~40 hold archetypes, scatter via Megascans surfaces).
-- Rope/belay simulation (defer to MVP rung 2).
+**Custom work (the real budget, post-pivot):**
+- The session sim in engine-free C++ (per-move resolution, pump/skin/window/morphology) — home-turf work, testable headless.
+- Session staging: camera, minigame UI, animation state machine on route splines. *This is now the project's craft center.*
+- Hold library (sculpt ~40 hold archetypes as set dressing; far lower fidelity bar than physical climbing needed).
+- Rope/belay presentation (defer to MVP rung 2).
 - Character customization (2D game has 10 bodies × 29 hairs etc.; start far smaller).
 
 ## 8. Tech notes (consistent with the landnam-ue method)
@@ -104,8 +98,8 @@ Ship order, each rung a coherent game:
 
 | Risk | Odds | Mitigation |
 |---|---|---|
-| Climbing feel never gets good | The big one | Stage A gate with written criteria; cheap to fail |
-| Hand IK uncanny valley | High effort, known solutions | Procedural-climbing asset as base; stylized-not-photoreal character art lowers the bar |
+| Session isn't tense/legible in 3D (the watched climb reads as a cutscene) | The new top risk | Phase 0 gate with written criteria; the 2D verbs are proven, only the staging is new |
+| Basic climbing animations look janky on varied walls | Moderate, tolerable | Authored route splines + curated animation pack; stylized character art lowers the bar |
 | Scope creep from the 2D game's 40k+ lines of content | Certain if unmanaged | The cut ladder is the contract; 2D game stays live as the "full" experience |
 | Americana asset gap | Minor | Town is small and stylized; kitbash European-rural + custom signage |
 | Solo-dev burnout on an L project | Real | Stage B ships a whole game inside year one |

@@ -1,16 +1,12 @@
-# Unreal Game 2
+# Dirtbag (Unreal reimagining)
 
-The next RCJ Labs game, built in Unreal Engine. Nothing is committed yet — no engine project, no title, no genre decision.
+The next RCJ Labs game: the climbing life-sim **Dirtbag**, reimagined in Unreal Engine. Live out of your van, work shifts, and push your grade from gym plastic to the crag — the 2D game's proven life-sim and session mechanics, staged in 3D.
 
-Start with **[BRAINSTORM.md](BRAINSTORM.md)**: 20 candidate game ideas with pitches, core loops, Fab asset-feasibility notes, scope ratings, a comparison table, and a recommended path.
+**The core design call ("2D minigames, 3D staging"):** the character climbs; the player drives the attempt with the 2D game's real-time verbs (HOLD TO CLIMB, hold-to-load, the pump bar); the sim arbitrates. No physical climbing simulation, no hand-IK mountain — the watched session, the way LVDVS watches its fights.
 
-The field is narrowed to two finalists, each with a full concept doc in **[concepts/](concepts/)**:
+## Where things are
 
-- **[concepts/DIRTBAG.md](concepts/DIRTBAG.md)** — the climbing life-sim reimagined in 3D, entered through a 4–8 week climbing-feel prototype with written go/no-go criteria.
-- **[concepts/THREE-WINTERS.md](concepts/THREE-WINTERS.md)** — the saga-realism viking RPG: outlawed for three years in Iceland's interior.
-- **[concepts/COMPARISON.md](concepts/COMPARISON.md)** — the decision aid. Short version: run Dirtbag's prototype first; Three Winters is the funded fallback.
-
-Both finalists also have full **production plans** in the Landnám ROADMAP idiom (phases, "Done when" gates, asset tables, pros/cons) — whichever wins, its plan file becomes the real roadmap:
-
-- **[concepts/DIRTBAG-PLAN.md](concepts/DIRTBAG-PLAN.md)**
-- **[concepts/THREE-WINTERS-PLAN.md](concepts/THREE-WINTERS-PLAN.md)**
+- **[ROADMAP.md](ROADMAP.md)** — the live plan. Current milestone: **Phase 0 — Session Proof**.
+- **[SETUP.md](SETUP.md)** — creating the UE project around the sim core (editor-side steps + Phase 0 shopping list).
+- **`Sim/`** — the engine-free C++ sim core: seeded RNG (named streams), core types (grades, routes, climbers), and the per-move session resolver. Built and tested standalone: `Sim/run-tests.sh` (plain g++; the same translation units compile in the UE module).
+- **`concepts/`** — the decision record: the 20-idea brainstorm shortlist, both finalists' concept docs and production plans, and the comparison that picked Dirtbag. **[BRAINSTORM.md](BRAINSTORM.md)** is the original 20-idea field.
