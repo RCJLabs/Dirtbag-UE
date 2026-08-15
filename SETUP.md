@@ -7,25 +7,66 @@ template for most of this — same method, second verse.
 
 ## 1. Create the project
 
-1. Unreal Engine **5.4+** (5.6 recommended — the asset packs shortlisted below are current there).
-2. New project → **Games → Third Person → C++** (not Blueprint-only; the sim is C++).
-   Name it `DirtbagUE`, create it *inside this repo* so the `.uproject`, `Source/`,
-   and `Content/` live alongside `Sim/` and `ROADMAP.md`.
-3. Add Unreal's standard `.gitignore` for the project dirs (Binaries, Intermediate,
-   DerivedDataCache, Saved) — same set landnam-ue uses.
+1. Unreal Engine **5.4+** (verified plan below written against 5.8; the
+   version only matters when buying asset packs — check each pack lists your
+   engine version on Fab before purchase).
+2. Pull this repo to your machine and check out the working branch first —
+   the project must be created *inside the repo*:
+   `git clone git@github.com:RCJLabs/Unreal-Game-2.git && cd Unreal-Game-2 && git checkout claude/dirtbag-unreal-port-ggvybe`
+3. New project → **Games → Third Person → C++** (not Blueprint-only; the sim
+   is C++). Name it `DirtbagUE`, and set the project *location* to the repo
+   root — the launcher creates `Unreal-Game-2/DirtbagUE/` with the
+   `.uproject`, `Source/`, and `Content/` inside it, alongside `Sim/` and
+   `ROADMAP.md`.
+4. Add Unreal's standard `.gitignore` under `DirtbagUE/` (Binaries,
+   Intermediate, DerivedDataCache, Saved, `.vs`, `*.sln`) — same set
+   landnam-ue uses. Commit and push the scaffold once it compiles clean, so
+   container sessions can see the real `Source/` tree.
 
 ## 2. Wire in the sim core
 
-1. Add the files in `Sim/` to the game module (list them in the module's build
-   rules or place the module's include path over `Sim/`). They are plain C++ —
-   no engine includes — and must stay that way: the same translation units are
-   compiled by `Sim/run-tests.sh`, which is what keeps the sim testable without
-   the editor. Engine-facing wrappers (USTRUCT mirrors, Blueprint function
-   libraries) go in `Source/`, never in `Sim/`.
-2. Smoke test: from any actor, `dirtbag::Rng::FromSeed("grim-fjord-123")` and
-   log five `NextDouble()` values — they must match the golden vector in
-   `Sim/tests/test_main.cpp` exactly. If they don't, stop and find out why
-   before building anything on top.
+The sim files are plain C++ with no engine includes, and must stay that way:
+the same translation units are compiled by `Sim/run-tests.sh`, which is what
+keeps the sim testable without the editor. Engine-facing wrappers (USTRUCT
+mirrors, Blueprint function libraries) go in `Source/`, never in `Sim/`.
+
+1. In `DirtbagUE/Source/DirtbagUE/DirtbagUE.Build.cs`, add `using System.IO;`
+   at the top and this line in the constructor so `#include "DirtbagRng.h"`
+   resolves everywhere in the module:
+   `PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "../../../Sim"));`
+2. UBT only compiles `.cpp` files that live under the module, so add one
+   thin bridge file per sim translation unit in
+   `DirtbagUE/Source/DirtbagUE/` — this keeps the TUs identical to the
+   harness rather than merging them:
+   - `SimRng.cpp` → `#include "../../../Sim/DirtbagRng.cpp"`
+   - `SimCore.cpp` → `#include "../../../Sim/DirtbagCore.cpp"`
+   - `SimSession.cpp` → `#include "../../../Sim/DirtbagSession.cpp"`
+   - `SimSessionLoop.cpp` → `#include "../../../Sim/DirtbagSessionLoop.cpp"`
+3. Smoke test — prove the port is bit-exact before building anything on top.
+   In the template's GameMode, override `BeginPlay` and log the golden seed:
+
+   ```cpp
+   #include "DirtbagRng.h"
+
+   void ADirtbagUEGameMode::BeginPlay() {
+     Super::BeginPlay();
+     dirtbag::Rng rng = dirtbag::Rng::FromSeed("golden");
+     for (int i = 0; i < 5; i++) {
+       UE_LOG(LogTemp, Display, TEXT("golden[%d] = %.17g"), i, rng.NextDouble());
+     }
+   }
+   ```
+
+   Press Play and check the Output Log for exactly:
+   ```
+   golden[0] = 0.59432327281683683
+   golden[1] = 0.94342079781927168
+   golden[2] = 0.30383505066856742
+   golden[3] = 0.76765315467491746
+   golden[4] = 0.47240672400221229
+   ```
+   (The same five values are frozen in `Sim/tests/test_main.cpp`.) If they
+   don't match, stop and find out why before building anything on top.
 
 ## 3. Phase 0 shopping list (Fab)
 
