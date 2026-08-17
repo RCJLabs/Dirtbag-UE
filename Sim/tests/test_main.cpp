@@ -8,7 +8,9 @@
 #include <vector>
 
 #include "../DirtbagCore.h"
+#include "../DirtbagDay.h"
 #include "../DirtbagRng.h"
+#include "../DirtbagSave.h"
 #include "../DirtbagSession.h"
 #include "../DirtbagSessionLoop.h"
 
@@ -560,6 +562,221 @@ static void TestPsycheSwings() {
   CHECK(down.psyche >= SessionLoopDials{}.psycheFloor);
 }
 
+// --- Day loop ----------------------------------------------------------------
+
+static void TestDayBasics() {
+  PlayerState player;
+  player.climber.skills = {50, 50, 50, 50, 50};
+  DayState day = WakeUp(player);
+  CHECK(day.hour == DayDials{}.wakeHour);
+  CHECK(day.energy == 100.0);
+
+  // Hours feed hunger; a meal costs cash and buys it back.
+  PassHours(day, 5.0);
+  CHECK(day.hunger == 15.0);
+  const double cashBefore = player.cash;
+  CHECK(EatMeal(player, day));
+  CHECK(player.cash == cashBefore - DayDials{}.mealCost);
+  CHECK(day.hunger < 15.0);
+
+  // A shift pays and drains.
+  const double energyBefore = day.energy;
+  WorkShift(player, day);
+  CHECK(player.cash > cashBefore - DayDials{}.mealCost);
+  CHECK(day.energy < energyBefore);
+
+  // Broke means hungry: a $3 wallet buys no burrito.
+  PlayerState broke;
+  broke.cash = 3.0;
+  DayState brokeDay = WakeUp(broke);
+  CHECK(!EatMeal(broke, brokeDay));
+  CHECK(broke.cash == 3.0);
+}
+
+static void TestBillsLandWeekly() {
+  PlayerState player;
+  DayState day = WakeUp(player);
+  const double start = player.cash;
+  for (int i = 0; i < 7; i++) SleepToNextDay(player, day);
+  CHECK(player.day == 8);
+  CHECK(player.cash == start - DayDials{}.billsAmount);
+  for (int i = 0; i < 7; i++) SleepToNextDay(player, day);
+  CHECK(player.cash == start - 2 * DayDials{}.billsAmount);
+}
+
+static void TestSkinRegrowsOvernight() {
+  PlayerState player;
+  player.climber.skin = 4.0;
+  DayState day = WakeUp(player);
+  SleepToNextDay(player, day);
+  CHECK(player.climber.skin == 4.0 + DayDials{}.skinRegenPerNight);
+  player.climber.skin = 8.9;
+  SleepToNextDay(player, day);
+  CHECK(player.climber.skin == DayDials{}.maxSkin);  // capped, never past fresh
+}
+
+static void TestHungrySleepRecoversPoorly() {
+  PlayerState fed, starving;
+  DayState fedDay = WakeUp(fed), starvingDay = WakeUp(starving);
+  starvingDay.hunger = 100.0;
+  SleepToNextDay(fed, fedDay);
+  SleepToNextDay(starving, starvingDay);
+  CHECK(fedDay.energy == 100.0);
+  CHECK(starvingDay.energy == DayDials{}.sleepEnergyFloor);
+}
+
+// Hard-for-you routes train; cruising doesn't. The 2D game's oldest rule.
+static void TestTrainingCreep() {
+  Rng world = Rng::FromStream("gym-seed", Stream::Worldgen);
+  Route hard = BuildRoute(world, "Project Board", 8, 8, RouteType::Crimp,
+                          Discipline::Boulder);
+  Route easy = BuildRoute(world, "Warmup Circuit", 0, 0, RouteType::Crimp,
+                          Discipline::Boulder);
+
+  PlayerState grinder;
+  grinder.climber.skills = {50, 50, 50, 50, 50};
+  PlayerState cruiser = grinder;
+  Rng sessionRng = Rng::FromStream("gym-seed", Stream::Session);
+
+  DayState gDay = WakeUp(grinder), cDay = WakeUp(cruiser);
+  StartGymSession(grinder, gDay);
+  StartGymSession(cruiser, cDay);
+  for (int i = 0; i < 10; i++) {
+    AttemptResult g = AttemptInSession(sessionRng, gDay.session,
+                                       MemoryFor(grinder, hard),
+                                       grinder.climber, hard, Conditions{});
+    ApplyAttemptToDay(grinder, gDay, hard, g);
+    AttemptResult c = AttemptInSession(sessionRng, cDay.session,
+                                       MemoryFor(cruiser, easy),
+                                       cruiser.climber, easy, Conditions{});
+    ApplyAttemptToDay(cruiser, cDay, easy, c);
+  }
+  CHECK(grinder.climber.skills.fingers > 50.0);
+  CHECK(grinder.climber.skills.fingers > cruiser.climber.skills.fingers);
+  // Mileage is mileage: even the cruiser's endurance ticks.
+  CHECK(cruiser.climber.skills.endurance > 50.0);
+}
+
+// The Phase 1 canary: seven full days — wake, gym, eat, shift, sleep — with
+// nothing going NaN, broke, or backwards.
+static void TestSevenDayLoop() {
+  PlayerState player;
+  player.climber.skills = {45, 45, 45, 45, 45};
+  Rng world = Rng::FromStream("week-1", Stream::Worldgen);
+  std::vector<Route> board = GymBoard(world);
+  CHECK(board.size() == 8);
+  CHECK(board.front().grade < board.back().grade);  // a ladder, not a lottery
+
+  const Skills startSkills = player.climber.skills;
+  DayState day = WakeUp(player);
+  for (int d = 0; d < 7; d++) {
+    Rng sessionRng =
+        Rng::FromStream("week-1#day" + std::to_string(player.day), Stream::Session);
+    StartGymSession(player, day);
+    for (int burn = 0; burn < 4; burn++) {
+      const Route& route = board[(burn + d) % board.size()];
+      AttemptResult r =
+          AttemptInSession(sessionRng, day.session, MemoryFor(player, route),
+                           ClimberForSession(player, day), route, Conditions{});
+      ApplyAttemptToDay(player, day, route, r);
+    }
+    EatMeal(player, day);
+    WorkShift(player, day);
+    EatMeal(player, day);
+    SleepToNextDay(player, day);
+  }
+  CHECK(player.day == 8);
+  // Worked every day: one week of wages minus food and bills stays solvent.
+  CHECK(player.cash > 0.0);
+  CHECK(player.cash == player.cash);  // NaN guard
+  CHECK(player.climber.skills.endurance > startSkills.endurance);
+  CHECK(player.climber.skin > 0.0 && player.climber.skin <= DayDials{}.maxSkin);
+  CHECK(!player.projects.empty());
+}
+
+// --- Save file ---------------------------------------------------------------
+
+static PlayerState MakeSavedPlayer() {
+  PlayerState p;
+  p.climber.skills = {51.25, 47.5, 62.125, 39.0, 55.5};
+  p.climber.morphology = Morphology::Lanky;
+  p.climber.skin = 6.35;
+  p.climber.psyche = 0.6125;
+  p.cash = 337.5;
+  p.day = 11;
+  ProjectMemory m;
+  m.routeName = "Setter's Revenge";
+  m.attempts = 7;
+  m.bestHighpoint = 5;
+  m.beta = 0.4375;
+  m.sent = false;
+  p.projects.push_back(m);
+  ProjectMemory sent;
+  sent.routeName = "Jug Haul";
+  sent.attempts = 1;
+  sent.bestHighpoint = 6;
+  sent.beta = 0.5;
+  sent.sent = true;
+  sent.firstSendStyle = Style::Onsight;
+  p.projects.push_back(sent);
+  return p;
+}
+
+static void TestSaveRoundTrip() {
+  SaveGame save;
+  save.seed = "grim-fjord-123";
+  save.player = MakeSavedPlayer();
+
+  const std::string text = SerializeSave(save);
+  CHECK(text == SerializeSave(save));  // deterministic bytes
+
+  SaveGame loaded;
+  CHECK(DeserializeSave(text, loaded) == LoadResult::Ok);
+  CHECK(loaded.version == kSaveVersion);
+  CHECK(loaded.seed == save.seed);
+  CHECK(loaded.player.day == save.player.day);
+  CHECK(loaded.player.cash == save.player.cash);
+  CHECK(loaded.player.climber.skills.power == save.player.climber.skills.power);
+  CHECK(loaded.player.climber.skills.technique ==
+        save.player.climber.skills.technique);
+  CHECK(loaded.player.climber.morphology == Morphology::Lanky);
+  CHECK(loaded.player.climber.skin == save.player.climber.skin);
+  CHECK(loaded.player.climber.psyche == save.player.climber.psyche);
+  CHECK(loaded.player.projects.size() == 2);
+  CHECK(loaded.player.projects[0].routeName == "Setter's Revenge");
+  CHECK(loaded.player.projects[0].beta == 0.4375);
+  CHECK(loaded.player.projects[1].sent);
+  CHECK(loaded.player.projects[1].firstSendStyle == Style::Onsight);
+}
+
+static void TestSaveRejectsGarbageAndFuture() {
+  SaveGame out;
+  CHECK(DeserializeSave("not a save", out) == LoadResult::BadFormat);
+  CHECK(DeserializeSave("", out) == LoadResult::BadFormat);
+  CHECK(DeserializeSave("version=99\nseed=x\n", out) ==
+        LoadResult::FutureVersion);
+  // A truncated save (missing fields) must refuse, never half-load.
+  CHECK(DeserializeSave("version=1\nseed=x\nday=3\n", out) ==
+        LoadResult::BadFormat);
+}
+
+// Proves the registry machinery with a synthetic migration, so the first
+// real one (version 2) inherits working plumbing.
+static void TestMigrationMachinery() {
+  SaveFields fields;
+  fields["oldname"] = "42";
+  const std::vector<Migration> registry = {+[](SaveFields& f) {
+    f["newname"] = f["oldname"];
+    f.erase("oldname");
+  }};
+  CHECK(ApplyMigrations(fields, 1, 2, registry));
+  CHECK(fields.count("newname") == 1);
+  CHECK(fields.count("oldname") == 0);
+  // A gap in the registry refuses rather than skipping a version.
+  SaveFields f2;
+  CHECK(!ApplyMigrations(f2, 1, 3, registry));
+}
+
 int main() {
   TestRngDeterminism();
   TestRngUnicodeSeeds();
@@ -581,6 +798,15 @@ int main() {
   TestSkinBudgetBites();
   TestSessionLiveComposition();
   TestPsycheSwings();
+  TestDayBasics();
+  TestBillsLandWeekly();
+  TestSkinRegrowsOvernight();
+  TestHungrySleepRecoversPoorly();
+  TestTrainingCreep();
+  TestSevenDayLoop();
+  TestSaveRoundTrip();
+  TestSaveRejectsGarbageAndFuture();
+  TestMigrationMachinery();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);

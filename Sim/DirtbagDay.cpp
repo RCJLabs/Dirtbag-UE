@@ -1,0 +1,174 @@
+#include "DirtbagDay.h"
+
+#include <algorithm>
+#include <cmath>
+
+namespace dirtbag {
+
+namespace {
+
+double Clamp01(double v) { return std::clamp(v, 0.0, 1.0); }
+
+// Which skills a route type trains — mirrors the resolver's BlendedSkill
+// question ("what does this hold ask for?") from the training side.
+struct TrainingWeights {
+  double power = 0.0, fingers = 0.0, technique = 0.0;
+};
+
+TrainingWeights WeightsFor(RouteType type) {
+  switch (type) {
+    case RouteType::Crimp:     return {0.1, 0.7, 0.2};
+    case RouteType::Power:     return {0.6, 0.1, 0.3};
+    case RouteType::Endurance: return {0.2, 0.2, 0.2};  // endurance handled below
+    case RouteType::Technical: return {0.1, 0.2, 0.7};
+    case RouteType::Dyno:      return {0.7, 0.1, 0.2};
+    case RouteType::Crack:     return {0.2, 0.2, 0.6};
+  }
+  return {0.2, 0.2, 0.2};
+}
+
+void Gain(double& skill, double amount) {
+  skill = std::min(100.0, skill + amount);
+}
+
+}  // namespace
+
+DayState WakeUp(const PlayerState& player, const DayDials& dials) {
+  (void)player;
+  DayState day;
+  day.hour = dials.wakeHour;
+  day.energy = 100.0;
+  day.hunger = 0.0;
+  return day;
+}
+
+void PassHours(DayState& day, double hours, const DayDials& dials) {
+  if (hours <= 0.0) return;
+  day.hour += hours;
+  day.hunger = std::min(100.0, day.hunger + dials.hungerPerHour * hours);
+}
+
+bool EatMeal(PlayerState& player, DayState& day, const DayDials& dials) {
+  if (player.cash < dials.mealCost) return false;
+  player.cash -= dials.mealCost;
+  day.hunger = std::max(0.0, day.hunger - dials.mealHunger);
+  PassHours(day, 0.5, dials);
+  return true;
+}
+
+void WorkShift(PlayerState& player, DayState& day, const DayDials& dials) {
+  player.cash += dials.shiftWage;
+  day.energy = std::max(0.0, day.energy - dials.shiftEnergy);
+  PassHours(day, dials.shiftHours, dials);
+}
+
+Climber ClimberForSession(const PlayerState& player, const DayState& day,
+                          const DayDials& dials) {
+  Climber c = player.climber;
+  // Running on empty shows up as nerve before it shows up as strength.
+  if (day.energy < dials.fatigueEnergy) {
+    c.psyche = std::max(0.05, c.psyche - dials.fatiguePsyche);
+  }
+  return c;
+}
+
+void StartGymSession(PlayerState& player, DayState& day, const DayDials& dials) {
+  day.session = StartSession(ClimberForSession(player, day, dials));
+  day.atGym = true;
+}
+
+ProjectMemory& MemoryFor(PlayerState& player, const Route& route) {
+  for (ProjectMemory& mem : player.projects) {
+    if (mem.routeName == route.name) return mem;
+  }
+  player.projects.emplace_back();
+  player.projects.back().routeName = route.name;
+  return player.projects.back();
+}
+
+void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
+                       const AttemptResult& result, const DayDials& dials) {
+  PassHours(day, dials.attemptHours, dials);
+  day.energy = std::max(0.0, day.energy - dials.attemptEnergy);
+
+  if (result.timeline.empty()) return;
+
+  // Training creep: challenge relative to what the route asks of you.
+  // Two grades below you trains nothing; at your level trains most of the
+  // rate; above you trains the full rate — you get strong by trying hard.
+  const TrainingWeights w = WeightsFor(route.type);
+  const Skills& s = player.climber.skills;
+  const double routeAsk =
+      w.power * s.power + w.fingers * s.fingers + w.technique * s.technique;
+  const double skillGrade = routeAsk / 100.0 * kMaxGrade;
+  const double challenge =
+      Clamp01((static_cast<double>(route.trueGrade) - skillGrade + 2.0) / 3.0);
+  const double amount = dials.trainingRate * challenge;
+
+  Gain(player.climber.skills.power, amount * w.power * 3.0);
+  Gain(player.climber.skills.fingers, amount * w.fingers * 3.0);
+  Gain(player.climber.skills.technique, amount * w.technique * 3.0);
+  // Endurance trains by mileage: moves climbed, whatever the grade.
+  Gain(player.climber.skills.endurance,
+       dials.trainingRate * 0.15 * static_cast<double>(result.timeline.size()));
+}
+
+void SleepToNextDay(PlayerState& player, DayState& day, const DayDials& dials) {
+  // The wall's tab comes home: today's remaining skin is tomorrow's start.
+  if (day.atGym) {
+    player.climber.skin = day.session.skinLeft;
+    player.climber.psyche = day.session.psyche;
+  }
+  player.climber.skin =
+      std::min(dials.maxSkin, player.climber.skin + dials.skinRegenPerNight);
+  player.climber.psyche +=
+      (dials.psycheBaseline - player.climber.psyche) * dials.psycheHomeRate;
+
+  player.day += 1;
+  // Bills land on their morning, every billsEveryDays-th day after day 1.
+  if (dials.billsEveryDays > 0 && player.day > 1 &&
+      (player.day - 1) % dials.billsEveryDays == 0) {
+    player.cash -= dials.billsAmount;
+  }
+
+  // A hungry night is a bad night: recovery scales down toward the floor.
+  const double hungerPenalty =
+      Clamp01((day.hunger - dials.starvingHunger) / (100.0 - dials.starvingHunger));
+  const double recovered =
+      100.0 - (100.0 - dials.sleepEnergyFloor) * hungerPenalty;
+
+  day = DayState{};
+  day.hour = dials.wakeHour;
+  day.energy = recovered;
+}
+
+std::vector<Route> GymBoard(const Rng& worldRng, int count) {
+  // Setter-voice names; the board cycles through them as it grows.
+  static const char* kNames[] = {
+      "Jug Haul",        "Slab of Regret",  "Pink Crimps",   "Dyno Tax",
+      "Setter's Revenge", "Volume Country", "Campus Special", "The Blue One",
+      "Corner Office",   "Screwed-On Feet", "Pinch City",    "Reset Tuesday",
+      "Moonboard Refugee", "The Traverse",  "Cave Problem",  "The Fifty"};
+  constexpr int kNameCount = static_cast<int>(sizeof(kNames) / sizeof(kNames[0]));
+  static const RouteType kTypes[] = {RouteType::Endurance, RouteType::Technical,
+                                     RouteType::Crimp,     RouteType::Power,
+                                     RouteType::Dyno,      RouteType::Crimp,
+                                     RouteType::Power,     RouteType::Technical};
+  constexpr int kTypeCount = static_cast<int>(sizeof(kTypes) / sizeof(kTypes[0]));
+
+  Rng board = worldRng.Derive("gym-board");
+  std::vector<Route> routes;
+  routes.reserve(count);
+  for (int i = 0; i < count; i++) {
+    const int grade = i;  // a clean ladder: V0, V1, ... up the board
+    // Setters are people too: roughly one problem in six wears a soft tag
+    // over a harder truth.
+    const int trueGrade = board.Chance(1.0 / 6.0) ? grade + 1 : grade;
+    routes.push_back(BuildRoute(worldRng, kNames[i % kNameCount], grade,
+                                trueGrade, kTypes[i % kTypeCount],
+                                Discipline::Boulder));
+  }
+  return routes;
+}
+
+}  // namespace dirtbag
