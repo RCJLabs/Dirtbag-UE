@@ -8,6 +8,8 @@
 #include "CoreMinimal.h"
 
 #include "DirtbagCore.h"
+#include "DirtbagDay.h"
+#include "DirtbagSave.h"
 #include "DirtbagSession.h"
 #include "DirtbagSessionLoop.h"
 
@@ -203,6 +205,56 @@ struct FDirtbagProjectMemory
 	EDirtbagStyle FirstSendStyle = EDirtbagStyle::Fell;
 };
 
+/** Career state — everything that outlives a day; what the save carries. */
+USTRUCT(BlueprintType)
+struct FDirtbagPlayerState
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	FDirtbagClimber Climber;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double Cash = 420.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	int32 Day = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	TArray<FDirtbagProjectMemory> Projects;
+};
+
+/** One day's body-clock. Never saved — saves happen at day boundaries. */
+USTRUCT(BlueprintType)
+struct FDirtbagDayState
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double Hour = 7.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double Energy = 100.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double Hunger = 0.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	bool bAtGym = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	FDirtbagSessionState Session;
+};
+
+UENUM(BlueprintType)
+enum class EDirtbagLoadResult : uint8
+{
+	Ok,
+	BadFormat,
+	FutureVersion,
+	FileMissing
+};
+
 // UE-struct <-> sim-struct converters. Plain functions, not UFUNCTIONs.
 namespace DirtbagConvert
 {
@@ -210,10 +262,14 @@ namespace DirtbagConvert
 	dirtbag::Route ToSim(const FDirtbagRoute& In);
 	dirtbag::SessionState ToSim(const FDirtbagSessionState& In);
 	dirtbag::ProjectMemory ToSim(const FDirtbagProjectMemory& In);
+	dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In);
+	dirtbag::DayState ToSim(const FDirtbagDayState& In);
 
 	FDirtbagRoute FromSim(const dirtbag::Route& In);
 	FDirtbagAttemptResult FromSim(const dirtbag::AttemptResult& In);
 	FDirtbagMoveResult FromSim(const dirtbag::MoveResult& In);
 	FDirtbagSessionState FromSim(const dirtbag::SessionState& In);
 	FDirtbagProjectMemory FromSim(const dirtbag::ProjectMemory& In);
+	FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In);
+	FDirtbagDayState FromSim(const dirtbag::DayState& In);
 }

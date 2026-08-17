@@ -139,4 +139,61 @@ FDirtbagProjectMemory FromSim(const dirtbag::ProjectMemory& In)
 	return Out;
 }
 
+dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
+{
+	dirtbag::PlayerState Out;
+	Out.climber = ToSim(In.Climber);
+	Out.cash = In.Cash;
+	Out.day = In.Day;
+	Out.projects.reserve(In.Projects.Num());
+	for (const FDirtbagProjectMemory& M : In.Projects)
+	{
+		Out.projects.push_back(ToSim(M));
+	}
+	return Out;
+}
+
+dirtbag::DayState ToSim(const FDirtbagDayState& In)
+{
+	dirtbag::DayState Out;
+	Out.hour = In.Hour;
+	Out.energy = In.Energy;
+	Out.hunger = In.Hunger;
+	Out.atGym = In.bAtGym;
+	Out.session = ToSim(In.Session);
+	return Out;
+}
+
+FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
+{
+	FDirtbagPlayerState Out;
+	Out.Climber.Power = In.climber.skills.power;
+	Out.Climber.Fingers = In.climber.skills.fingers;
+	Out.Climber.Technique = In.climber.skills.technique;
+	Out.Climber.Endurance = In.climber.skills.endurance;
+	Out.Climber.Head = In.climber.skills.head;
+	Out.Climber.Morphology = static_cast<EDirtbagMorphology>(In.climber.morphology);
+	Out.Climber.Skin = In.climber.skin;
+	Out.Climber.Psyche = In.climber.psyche;
+	Out.Cash = In.cash;
+	Out.Day = In.day;
+	Out.Projects.Reserve(In.projects.size());
+	for (const dirtbag::ProjectMemory& M : In.projects)
+	{
+		Out.Projects.Add(FromSim(M));
+	}
+	return Out;
+}
+
+FDirtbagDayState FromSim(const dirtbag::DayState& In)
+{
+	FDirtbagDayState Out;
+	Out.Hour = In.hour;
+	Out.Energy = In.energy;
+	Out.Hunger = In.hunger;
+	Out.bAtGym = In.atGym;
+	Out.Session = FromSim(In.session);
+	return Out;
+}
+
 }  // namespace DirtbagConvert

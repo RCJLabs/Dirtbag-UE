@@ -103,4 +103,92 @@ public:
 	/** "V7" / "5.12a" — the guidebook's ladder for UI text. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	static FString GradeName(int32 Grade, EDirtbagDiscipline Discipline);
+
+	// --- The day loop ---------------------------------------------------
+
+	/** The gym's route board: Count routes laddered V0 upward, deterministic
+	 *  per seed, occasional in-house sandbag included. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static TArray<FDirtbagRoute> GymBoard(const FString& WorldSeed,
+	                                      int32 Count = 8);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FDirtbagDayState WakeUp(const FDirtbagPlayerState& Player);
+
+	/** Time is never free: hunger rides along. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static void PassHours(UPARAM(ref) FDirtbagDayState& Day, double Hours);
+
+	/** False when the wallet says no. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static bool EatMeal(UPARAM(ref) FDirtbagPlayerState& Player,
+	                    UPARAM(ref) FDirtbagDayState& Day);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static void WorkShift(UPARAM(ref) FDirtbagPlayerState& Player,
+	                      UPARAM(ref) FDirtbagDayState& Day);
+
+	/** The climber as they are right now — career skills plus today's
+	 *  fatigue speaking through psyche. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FDirtbagClimber ClimberForSession(const FDirtbagPlayerState& Player,
+	                                         const FDirtbagDayState& Day);
+
+	/** Pull on: seeds the day's session from the current climber. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static void StartGymSession(UPARAM(ref) FDirtbagPlayerState& Player,
+	                            UPARAM(ref) FDirtbagDayState& Day);
+
+	/** One bot-driven burn inside a day: resolves against the day's session
+	 *  and the player's ledger for this route, then books the day-costs and
+	 *  training creep. The one-stop replay node for the gym flow. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FDirtbagAttemptResult DayAttempt(
+	    const FString& SessionSeed, UPARAM(ref) FDirtbagPlayerState& Player,
+	    UPARAM(ref) FDirtbagDayState& Day, const FDirtbagRoute& Route,
+	    double Friction = 0.5, double BotExecution = 0.72);
+
+	/** One player-driven burn inside a day. Drive the returned attempt with
+	 *  PeekOdds/StepMove/ShakeOut, then hand it to CommitLiveAttempt. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static UDirtbagLiveAttempt* BeginDayLiveAttempt(
+	    const FString& SessionSeed, const FDirtbagPlayerState& Player,
+	    const FDirtbagDayState& Day, const FDirtbagRoute& Route,
+	    double Friction = 0.5);
+
+	/** Pays the session, the project ledger, and the day (time, energy,
+	 *  training) for a finished live attempt. Call once, when it's over. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FDirtbagAttemptResult CommitLiveAttempt(
+	    UDirtbagLiveAttempt* Attempt, UPARAM(ref) FDirtbagPlayerState& Player,
+	    UPARAM(ref) FDirtbagDayState& Day);
+
+	/** Lights out: skin regrows, psyche drifts home, day advances, bills
+	 *  land on their morning. Day state resets to the next wake. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static void SleepToNextDay(UPARAM(ref) FDirtbagPlayerState& Player,
+	                           UPARAM(ref) FDirtbagDayState& Day);
+
+	// --- Save / load ----------------------------------------------------
+	// Serialization itself lives in Sim/DirtbagSave (versioned, migrated,
+	// harness-tested); these nodes only move the bytes.
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
+	static FString SaveToText(const FString& Seed,
+	                          const FDirtbagPlayerState& Player);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
+	static EDirtbagLoadResult LoadFromText(const FString& Text, FString& OutSeed,
+	                                       FDirtbagPlayerState& OutPlayer);
+
+	/** Writes under <Project>/Saved/SaveGames/. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
+	static bool SaveToFile(const FString& Seed,
+	                       const FDirtbagPlayerState& Player,
+	                       const FString& Filename = TEXT("dirtbag-save.txt"));
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
+	static EDirtbagLoadResult LoadFromFile(
+	    const FString& Filename, FString& OutSeed,
+	    FDirtbagPlayerState& OutPlayer);
 };
