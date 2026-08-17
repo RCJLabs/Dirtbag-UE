@@ -15,6 +15,7 @@
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 
+#include "DirtbagGameInstance.h"
 #include "DirtbagSimLibrary.h"
 
 namespace
@@ -115,9 +116,21 @@ void ADirtbagClimbWall::BeginPlay()
 {
 	Super::BeginPlay();
 
-	Route = UDirtbagSimLibrary::BuildRoute(
-	    WorldSeed, RouteName, Grade, TrueGrade, RouteType,
-	    EDirtbagDiscipline::Boulder);
+	Game = Cast<UDirtbagGameInstance>(GetGameInstance());
+	if (Game)
+	{
+		// The board is the truth; the actor's route fields become display.
+		Route = Game->GetBoardRoute(BoardIndex);
+		RouteName = Route.Name;
+		Grade = Route.Grade;
+		TrueGrade = Route.TrueGrade;
+	}
+	else
+	{
+		Route = UDirtbagSimLibrary::BuildRoute(
+		    WorldSeed, RouteName, Grade, TrueGrade, RouteType,
+		    EDirtbagDiscipline::Boulder);
+	}
 	SimRoute = DirtbagConvert::ToSim(Route);
 	Session = UDirtbagSimLibrary::StartSession(ClimberStats);
 	Memory = FDirtbagProjectMemory();
@@ -192,9 +205,23 @@ void ADirtbagClimbWall::StartAttempt()
 	}
 
 	bLiveSession = bInteractive;
-	if (bLiveSession)
+	if (Game)
 	{
-		// The player drives; the sim still arbitrates every move.
+		// Day-integrated: session, ledger, time, energy, training all move
+		// together through the game instance.
+		if (bLiveSession)
+		{
+			Live = Game->BeginLiveFor(Route);
+		}
+		else
+		{
+			Current = Game->ReplayAttempt(Route);
+		}
+	}
+	else if (bLiveSession)
+	{
+		// Legacy standalone (no game instance): the player drives; the sim
+		// still arbitrates every move.
 		const dirtbag::Rng SessionRng = dirtbag::Rng::FromStream(
 		    TCHAR_TO_UTF8(*SessionSeed), dirtbag::Stream::Session);
 		const dirtbag::SessionState SimSession = DirtbagConvert::ToSim(Session);
@@ -207,7 +234,7 @@ void ADirtbagClimbWall::StartAttempt()
 	}
 	else
 	{
-		// The bot climbs; the whole attempt is decided up front and staged.
+		// Legacy standalone bot replay.
 		Current = UDirtbagSimLibrary::AttemptInSession(
 		    SessionSeed, Session, Memory, ClimberStats, Route);
 	}
@@ -231,8 +258,10 @@ void ADirtbagClimbWall::StartAttempt()
 	Climber->SetWorldLocation(HoldLocation(0));
 	Climber->SetVisibility(true);
 
-	Toast(FString::Printf(TEXT("Attempt %d"), Memory.Attempts + (bLiveSession ? 1 : 0)),
-	      FColor::Yellow);
+	const int32 AttemptNo =
+	    Game ? Game->AttemptsOn(Route) + (bLiveSession ? 1 : 0)
+	         : Memory.Attempts + (bLiveSession ? 1 : 0);
+	Toast(FString::Printf(TEXT("Attempt %d"), AttemptNo), FColor::Yellow);
 
 	if (MountAnim)
 	{
@@ -432,18 +461,33 @@ void ADirtbagClimbWall::FinishLiveAttempt()
 {
 	// The attempt is over; the ledger gets paid through the sim's own
 	// accounting — never presentation-side bookkeeping.
-	const dirtbag::AttemptResult SimResult = dirtbag::FinishAttempt(Live);
-	Current = DirtbagConvert::FromSim(SimResult);
-	dirtbag::SessionState SimSession = DirtbagConvert::ToSim(Session);
-	dirtbag::ProjectMemory SimMemory = DirtbagConvert::ToSim(Memory);
-	dirtbag::CommitAttempt(SimSession, SimMemory, SimRoute, SimResult);
-	Session = DirtbagConvert::FromSim(SimSession);
-	Memory = DirtbagConvert::FromSim(SimMemory);
+	if (Game)
+	{
+		Current = Game->CommitLiveFor(Live);
+	}
+	else
+	{
+		const dirtbag::AttemptResult SimResult = dirtbag::FinishAttempt(Live);
+		Current = DirtbagConvert::FromSim(SimResult);
+		dirtbag::SessionState SimSession = DirtbagConvert::ToSim(Session);
+		dirtbag::ProjectMemory SimMemory = DirtbagConvert::ToSim(Memory);
+		dirtbag::CommitAttempt(SimSession, SimMemory, SimRoute, SimResult);
+		Session = DirtbagConvert::FromSim(SimSession);
+		Memory = DirtbagConvert::FromSim(SimMemory);
+	}
 	FinishAttempt();
 }
 
 void ADirtbagClimbWall::UpdateHud()
 {
+	if (Game)
+	{
+		HudRow(100,
+		       FString::Printf(TEXT("DAY %d   $%.0f   ENERGY %.0f"),
+		                       Game->Player.Day, Game->Player.Cash,
+		                       Game->Day.Energy),
+		       FColor::Silver);
+	}
 	const double Pump = bLiveSession ? Live.pump : 0.0;
 	HudRow(101,
 	       FString::Printf(TEXT("PUMP  [%s] %.0f"), *Bar(Pump / 100.0), Pump),
@@ -487,9 +531,11 @@ void ADirtbagClimbWall::FinishAttempt()
 	}
 	else
 	{
+		const double SkinLeft =
+		    Game ? Game->Day.Session.SkinLeft : Session.SkinLeft;
 		Toast(FString::Printf(TEXT("Off at move %d of %d.  Skin left: %.1f"),
 		                      Current.Highpoint + 1, Route.Moves.Num(),
-		                      Session.SkinLeft),
+		                      SkinLeft),
 		      FColor::Orange, 5.f);
 	}
 	GetWorldTimerManager().SetTimer(PhaseTimer, this,

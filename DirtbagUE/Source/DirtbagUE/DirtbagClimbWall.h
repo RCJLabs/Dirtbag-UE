@@ -19,6 +19,7 @@
 class UAnimSequence;
 class UBoxComponent;
 class UCameraComponent;
+class UDirtbagGameInstance;
 class UInstancedStaticMeshComponent;
 class USkeletalMeshComponent;
 class USplineComponent;
@@ -94,6 +95,12 @@ protected:
 	bool bInteractive = true;
 
 	// --- Route / climber config -----------------------------------------
+
+	/** With a DirtbagGameInstance present, this wall carries gym-board
+	 *  problem #BoardIndex and the fields below become fallbacks (used only
+	 *  in levels without the game instance, e.g. isolated test maps). */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")
+	int32 BoardIndex = 0;
 
 	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")
 	FString WorldSeed = TEXT("gym-1");
@@ -193,6 +200,11 @@ private:
 	void UpdateHud();
 	void PlayAnim(UAnimSequence* Anim, bool bLoop);
 	FVector HoldLocation(int32 Index) const;
+
+	// Central state when present; the wall then reads the board and commits
+	// through it. Null in game-instance-less test maps → legacy standalone.
+	UPROPERTY()
+	TObjectPtr<UDirtbagGameInstance> Game;
 
 	FDirtbagRoute Route;
 	FDirtbagSessionState Session;
