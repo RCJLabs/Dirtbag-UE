@@ -91,6 +91,23 @@ struct SessionDials {
 // of this formula would drift, and the drift would be invisible.
 double SkillToGrade(double skill, const SessionDials& dials = SessionDials{});
 
+// What this climber can do on this route's kind of holds, in grades —
+// the ground-up read, before pump, execution, or luck get a say.
+double AbilityOnRoute(const Climber& climber, const Route& route,
+                      const SessionDials& dials = SessionDials{});
+
+// Reading the line from the ground. Judges against the route's *guidebook*
+// grade, never its true grade: a sandbag is supposed to look reasonable
+// right up until you're on it.
+enum class RouteRead { Warmup, Comfortable, AtYourLimit, Project, NotThisYear };
+
+RouteRead ReadRoute(const Climber& climber, const Route& route,
+                    const SessionDials& dials = SessionDials{});
+
+// The read in the game's own voice. Text lives here for now; it moves to
+// DataTables when route descriptions become content.
+const char* ReadRouteText(RouteRead read);
+
 struct AttemptInput {
   Climber climber;
   Route route;

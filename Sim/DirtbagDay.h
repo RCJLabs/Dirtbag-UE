@@ -33,9 +33,12 @@ struct DayDials {
   double shiftWage = 60.0;
   double shiftEnergy = 30.0;
 
-  // A burn costs time and body even before the wall takes its share.
+  // A burn costs time and body even before the wall takes its share, and
+  // trying hard costs more than cruising: energy per grade the line is
+  // above you, so a limit session drains where a mileage day doesn't.
   double attemptHours = 0.25;
   double attemptEnergy = 4.0;
+  double attemptEnergyPerGrade = 2.5;
 
   // Sleep: full recovery fed and rested; a hungry night bottoms out here.
   double sleepEnergyFloor = 55.0;
@@ -64,9 +67,13 @@ struct DayDials {
   // skills so volume supports a career instead of replacing it.
   double enduranceMileageRate = 0.06;
 
-  // Running on empty shows up as nerve before it shows up as strength.
-  double fatigueEnergy = 35.0;
-  double fatiguePsyche = 0.15;
+  // Running on empty shows up as nerve before it shows up as strength, and
+  // it arrives gradually: above freshEnergy you're fine, below it the fade
+  // ramps in, reaching fatiguePsyche at zero. A cliff-edge threshold was
+  // unreachable in practice — a session ends on skin long before energy —
+  // so the tax has to start while you're still climbing.
+  double freshEnergy = 75.0;
+  double fatiguePsyche = 0.3;
 
   // Overnight, psyche drifts a quarter of the way back to the 0.7 baseline
   // — yesterday's heartbreak fades, it doesn't vanish.

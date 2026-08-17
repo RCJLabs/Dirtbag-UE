@@ -609,6 +609,40 @@ static void TestPsycheSwings() {
   CHECK(down.psyche >= SessionLoopDials{}.psycheFloor);
 }
 
+// --- Reading the line from the ground -----------------------------------------
+
+static void TestRouteReads() {
+  Rng world = Rng::FromStream("read", Stream::Worldgen);
+  Climber c = MakeClimber(50, 50, 50, 50, 50);  // a V5 climber
+
+  auto readOf = [&](int grade, int trueGrade) {
+    Route r = BuildRoute(world, "Read V" + std::to_string(grade) + "-" +
+                                    std::to_string(trueGrade),
+                         grade, trueGrade, RouteType::Power,
+                         Discipline::Boulder);
+    return ReadRoute(c, r);
+  };
+
+  CHECK(readOf(1, 1) == RouteRead::Warmup);
+  CHECK(readOf(4, 4) == RouteRead::Comfortable);
+  CHECK(readOf(5, 5) == RouteRead::AtYourLimit);
+  CHECK(readOf(7, 7) == RouteRead::Project);
+  CHECK(readOf(10, 10) == RouteRead::NotThisYear);
+
+  // The whole point of a sandbag: it reads like its tag right up until
+  // you're on it. A V4-tagged V7 must look comfortable from the ground.
+  CHECK(readOf(4, 7) == readOf(4, 4));
+
+  // Ability moves the read, not just the grade: the same line is a project
+  // for a weaker climber and a warmup for a stronger one.
+  Route line = BuildRoute(world, "Same Line", 6, 6, RouteType::Power,
+                          Discipline::Boulder);
+  CHECK(ReadRoute(MakeClimber(35, 35, 35, 35, 35), line) == RouteRead::NotThisYear);
+  CHECK(ReadRoute(MakeClimber(85, 85, 85, 85, 85), line) == RouteRead::Warmup);
+
+  CHECK(std::string(ReadRouteText(RouteRead::NotThisYear)) == "Not this year.");
+}
+
 // --- Day loop ----------------------------------------------------------------
 
 static void TestDayBasics() {
@@ -638,6 +672,48 @@ static void TestDayBasics() {
   DayState brokeDay = WakeUp(broke);
   CHECK(!EatMeal(broke, brokeDay));
   CHECK(broke.cash == 3.0);
+}
+
+// Fatigue has to arrive while you can still climb, or it may as well not
+// exist: the old threshold sat below where any real session ever got.
+static void TestFatigueFadesIn() {
+  PlayerState player;
+  player.climber.skills = {50, 50, 50, 50, 50};
+  DayState fresh = WakeUp(player);
+  DayState worked = fresh;
+  worked.energy = 40.0;
+  DayState wrecked = fresh;
+  wrecked.energy = 0.0;
+
+  const double freshPsyche = ClimberForSession(player, fresh).psyche;
+  const double workedPsyche = ClimberForSession(player, worked).psyche;
+  const double wreckedPsyche = ClimberForSession(player, wrecked).psyche;
+  CHECK(freshPsyche == player.climber.psyche);   // rested is unpenalised
+  CHECK(workedPsyche < freshPsyche);             // and it fades in smoothly,
+  CHECK(wreckedPsyche < workedPsyche);           // not as a cliff
+
+  // Trying hard drains harder than cruising.
+  Rng world = Rng::FromStream("fatigue", Stream::Worldgen);
+  Route easy = BuildRoute(world, "Mileage", 2, 2, RouteType::Power,
+                          Discipline::Boulder);
+  Route limit = BuildRoute(world, "The Limit", 8, 8, RouteType::Power,
+                           Discipline::Boulder);
+  PlayerState cruiser = player, tryer = player;
+  DayState cruiseDay = WakeUp(cruiser), tryDay = WakeUp(tryer);
+  Rng rng = Rng::FromStream("fatigue", Stream::Session);
+  StartGymSession(cruiser, cruiseDay);
+  StartGymSession(tryer, tryDay);
+  for (int i = 0; i < 4; i++) {
+    AttemptResult a = AttemptInSession(rng, cruiseDay.session,
+                                       MemoryFor(cruiser, easy),
+                                       cruiser.climber, easy, Conditions{});
+    ApplyAttemptToDay(cruiser, cruiseDay, easy, a);
+    AttemptResult b = AttemptInSession(rng, tryDay.session,
+                                       MemoryFor(tryer, limit), tryer.climber,
+                                       limit, Conditions{});
+    ApplyAttemptToDay(tryer, tryDay, limit, b);
+  }
+  CHECK(tryDay.energy < cruiseDay.energy);
 }
 
 static void TestBillsLandWeekly() {
@@ -846,7 +922,9 @@ int main() {
   TestSkinBudgetBites();
   TestSessionLiveComposition();
   TestPsycheSwings();
+  TestRouteReads();
   TestDayBasics();
+  TestFatigueFadesIn();
   TestBillsLandWeekly();
   TestSkinRegrowsOvernight();
   TestHungrySleepRecoversPoorly();

@@ -84,6 +84,39 @@ double SkillToGrade(double skill, const SessionDials& dials) {
   return skill / 100.0 * dials.skillGradeSpan + dials.skillGradeFloor;
 }
 
+double AbilityOnRoute(const Climber& climber, const Route& route,
+                      const SessionDials& dials) {
+  if (route.moves.empty()) return SkillToGrade(0.0, dials);
+  double total = 0.0;
+  for (const Move& move : route.moves) {
+    total += BlendedSkill(climber.skills, move.hold);
+  }
+  return SkillToGrade(total / static_cast<double>(route.moves.size()), dials);
+}
+
+RouteRead ReadRoute(const Climber& climber, const Route& route,
+                    const SessionDials& dials) {
+  // The guidebook's opinion, not the rock's — you can't see a sandbag.
+  const double gap =
+      static_cast<double>(route.grade) - AbilityOnRoute(climber, route, dials);
+  if (gap <= -2.0) return RouteRead::Warmup;
+  if (gap <= -0.5) return RouteRead::Comfortable;
+  if (gap <= 1.0) return RouteRead::AtYourLimit;
+  if (gap <= 2.5) return RouteRead::Project;
+  return RouteRead::NotThisYear;
+}
+
+const char* ReadRouteText(RouteRead read) {
+  switch (read) {
+    case RouteRead::Warmup:      return "Warmup pace. Save something for later.";
+    case RouteRead::Comfortable: return "This should go.";
+    case RouteRead::AtYourLimit: return "Your grade, on a good day.";
+    case RouteRead::Project:     return "A project. Bring skin and patience.";
+    case RouteRead::NotThisYear: return "Not this year.";
+  }
+  return "";
+}
+
 LiveAttempt BeginAttempt(const Rng& rng, const AttemptInput& input,
                          const SessionDials& dials) {
   LiveAttempt la;

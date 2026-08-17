@@ -65,10 +65,12 @@ void WorkShift(PlayerState& player, DayState& day, const DayDials& dials) {
 Climber ClimberForSession(const PlayerState& player, const DayState& day,
                           const DayDials& dials) {
   Climber c = player.climber;
-  // Running on empty shows up as nerve before it shows up as strength.
-  if (day.energy < dials.fatigueEnergy) {
-    c.psyche = std::max(0.05, c.psyche - dials.fatiguePsyche);
-  }
+  // Running on empty shows up as nerve before it shows up as strength, and
+  // it fades in rather than snapping: the eighth burn of the day is worse
+  // than the second even when nothing has "run out" yet.
+  const double fatigue =
+      Clamp01((dials.freshEnergy - day.energy) / std::max(1.0, dials.freshEnergy));
+  c.psyche = std::max(0.05, c.psyche - dials.fatiguePsyche * fatigue);
   return c;
 }
 
@@ -89,7 +91,14 @@ ProjectMemory& MemoryFor(PlayerState& player, const Route& route) {
 void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
                        const AttemptResult& result, const DayDials& dials) {
   PassHours(day, dials.attemptHours, dials);
-  day.energy = std::max(0.0, day.energy - dials.attemptEnergy);
+
+  // Trying hard costs more than cruising: how far the line is above you,
+  // measured the same way the wall measures it.
+  const double over = std::max(
+      0.0, static_cast<double>(route.trueGrade) -
+               AbilityOnRoute(player.climber, route));
+  day.energy = std::max(
+      0.0, day.energy - dials.attemptEnergy - dials.attemptEnergyPerGrade * over);
 
   if (result.timeline.empty()) return;
 
