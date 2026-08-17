@@ -39,6 +39,21 @@ void Toast(const FString& Msg, FColor Color = FColor::White, float Seconds = 4.0
 		GEngine->AddOnScreenDebugMessage(-1, Seconds, Color, Msg);
 	}
 }
+
+// Keyed messages replace themselves in place — a poor man's HUD row.
+void HudRow(int32 Key, const FString& Msg, FColor Color)
+{
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(Key, 0.5f, Color, Msg);
+	}
+}
+
+FString Bar(double Frac, int32 Width = 20)
+{
+	const int32 Filled = FMath::Clamp(FMath::RoundToInt(Frac * Width), 0, Width);
+	return FString::ChrN(Filled, TEXT('#')) + FString::ChrN(Width - Filled, TEXT('-'));
+}
 }  // namespace
 
 ADirtbagClimbWall::ADirtbagClimbWall()
@@ -103,6 +118,7 @@ void ADirtbagClimbWall::BeginPlay()
 	Route = UDirtbagSimLibrary::BuildRoute(
 	    WorldSeed, RouteName, Grade, TrueGrade, RouteType,
 	    EDirtbagDiscipline::Boulder);
+	SimRoute = DirtbagConvert::ToSim(Route);
 	Session = UDirtbagSimLibrary::StartSession(ClimberStats);
 	Memory = FDirtbagProjectMemory();
 
@@ -132,6 +148,10 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 		{
 			InputComponent->BindKey(EKeys::E, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnInteract);
+			InputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this,
+			                        &ADirtbagClimbWall::OnHoldPressed);
+			InputComponent->BindKey(EKeys::SpaceBar, IE_Released, this,
+			                        &ADirtbagClimbWall::OnHoldReleased);
 			bBoundInput = true;
 		}
 	}
@@ -171,14 +191,32 @@ void ADirtbagClimbWall::StartAttempt()
 		return;
 	}
 
-	// The sim decides the whole attempt up front; everything after this
-	// call is staging.
-	Current = UDirtbagSimLibrary::AttemptInSession(
-	    SessionSeed, Session, Memory, ClimberStats, Route);
+	bLiveSession = bInteractive;
+	if (bLiveSession)
+	{
+		// The player drives; the sim still arbitrates every move.
+		const dirtbag::Rng SessionRng = dirtbag::Rng::FromStream(
+		    TCHAR_TO_UTF8(*SessionSeed), dirtbag::Stream::Session);
+		const dirtbag::SessionState SimSession = DirtbagConvert::ToSim(Session);
+		const dirtbag::ProjectMemory SimMemory = DirtbagConvert::ToSim(Memory);
+		Live = dirtbag::BeginAttempt(
+		    dirtbag::DeriveAttemptRng(SessionRng, SimMemory, SimRoute),
+		    dirtbag::BuildSessionAttemptInput(SimSession, SimMemory,
+		                                      DirtbagConvert::ToSim(ClimberStats),
+		                                      SimRoute, dirtbag::Conditions{}));
+	}
+	else
+	{
+		// The bot climbs; the whole attempt is decided up front and staged.
+		Current = UDirtbagSimLibrary::AttemptInSession(
+		    SessionSeed, Session, Memory, ClimberStats, Route);
+	}
 
 	TimelineIndex = 0;
 	HoldIndex = 0;
 	bReachLeft = false;
+	bCharging = false;
+	Charge = 0.f;
 
 	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 	if (PC)
@@ -192,10 +230,38 @@ void ADirtbagClimbWall::StartAttempt()
 
 	Climber->SetWorldLocation(HoldLocation(0));
 	Climber->SetVisibility(true);
-	PlayAnim(HangIdleAnim, true);
 
-	Toast(FString::Printf(TEXT("Attempt %d"), Memory.Attempts), FColor::Yellow);
-	ScheduleNextMove();
+	Toast(FString::Printf(TEXT("Attempt %d"), Memory.Attempts + (bLiveSession ? 1 : 0)),
+	      FColor::Yellow);
+
+	if (MountAnim)
+	{
+		Phase = EPhase::Mounting;
+		PlayAnim(MountAnim, false);
+		GetWorldTimerManager().SetTimer(PhaseTimer, this,
+		                                &ADirtbagClimbWall::BeginSessionBody,
+		                                MountAnim->GetPlayLength(), false);
+	}
+	else
+	{
+		BeginSessionBody();
+	}
+}
+
+void ADirtbagClimbWall::BeginSessionBody()
+{
+	PlayAnim(HangIdleAnim, true);
+	if (bLiveSession)
+	{
+		Phase = EPhase::AtStance;
+		Toast(TEXT("HOLD Space to load the move. Release in the window to "
+		           "latch it; release early to shake out."),
+		      FColor::Cyan, 6.f);
+	}
+	else
+	{
+		ScheduleNextMove();
+	}
 }
 
 void ADirtbagClimbWall::ScheduleNextMove()
@@ -210,18 +276,69 @@ void ADirtbagClimbWall::ScheduleNextMove()
 	const double Odds = Current.Timeline[TimelineIndex].Odds;
 	const float Wait =
 	    BaseHesitation + HesitationPerRisk * static_cast<float>(1.0 - Odds);
-	Phase = EPhase::Hesitating;
+	Phase = EPhase::AtStance;
 	GetWorldTimerManager().SetTimer(PhaseTimer, this,
 	                                &ADirtbagClimbWall::BeginMove, Wait, false);
 }
 
 void ADirtbagClimbWall::BeginMove()
 {
-	const FDirtbagMoveResult& Move = Current.Timeline[TimelineIndex];
+	StageMoveResult(Current.Timeline[TimelineIndex].bSuccess);
+}
+
+void ADirtbagClimbWall::OnHoldPressed()
+{
+	if (bLiveSession && Phase == EPhase::AtStance)
+	{
+		bCharging = true;
+		Charge = 0.f;
+	}
+}
+
+void ADirtbagClimbWall::OnHoldReleased()
+{
+	if (!bCharging)
+	{
+		return;
+	}
+	bCharging = false;
+
+	if (Charge < SweetWindowStart)
+	{
+		// The release verb: settle back into the stance and shake.
+		const double Recovered = dirtbag::ShakeOut(Live);
+		if (Recovered > 0.5)
+		{
+			Toast(FString::Printf(TEXT("shake  -%.0f pump"), Recovered),
+			      FColor::Cyan, 1.5f);
+		}
+		else if (Recovered < -0.5)
+		{
+			Toast(TEXT("nothing to milk here — that cost you"),
+			      FColor::Orange, 1.5f);
+		}
+		return;
+	}
+
+	// Latched: execution peaks dead-center in the window, tapers to the edges.
+	const float Mid = (SweetWindowStart + SweetWindowEnd) * 0.5f;
+	const float Half = FMath::Max(0.01f, (SweetWindowEnd - SweetWindowStart) * 0.5f);
+	const float Off = FMath::Clamp(FMath::Abs(Charge - Mid) / Half, 0.f, 1.f);
+	CommitMove(FMath::Lerp(PerfectExecution, EdgeExecution, Off));
+}
+
+void ADirtbagClimbWall::CommitMove(double Execution)
+{
+	const dirtbag::MoveResult MR = dirtbag::StepMove(Live, Execution);
+	StageMoveResult(MR.success);
+}
+
+void ADirtbagClimbWall::StageMoveResult(bool bSuccess)
+{
 	MoveFrom = Climber->GetComponentLocation();
 	MoveAlpha = 0.f;
 
-	if (Move.bSuccess)
+	if (bSuccess)
 	{
 		const int32 NextHold =
 		    FMath::Min(HoldIndex + 1, HoldLine->GetNumberOfSplinePoints() - 1);
@@ -242,6 +359,25 @@ void ADirtbagClimbWall::BeginMove()
 void ADirtbagClimbWall::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	// The grip meter: charging past full is the death grip — the move fires
+	// itself, badly.
+	if (bCharging)
+	{
+		Charge += DeltaSeconds / FMath::Max(0.05f, ChargeTime);
+		if (Charge >= 1.f)
+		{
+			bCharging = false;
+			Toast(TEXT("over-gripped"), FColor::Orange, 1.5f);
+			CommitMove(OvergripExecution);
+		}
+	}
+
+	if (bLiveSession && Phase != EPhase::Idle)
+	{
+		UpdateHud();
+	}
+
 	if (Phase != EPhase::Moving && Phase != EPhase::Falling)
 	{
 		return;
@@ -260,13 +396,77 @@ void ADirtbagClimbWall::Tick(float DeltaSeconds)
 	if (Phase == EPhase::Moving)
 	{
 		HoldIndex = FMath::Min(HoldIndex + 1, HoldLine->GetNumberOfSplinePoints() - 1);
-		TimelineIndex++;
-		PlayAnim(HangIdleAnim, true);
-		ScheduleNextMove();
+		if (bLiveSession)
+		{
+			if (dirtbag::AttemptOver(Live))
+			{
+				FinishLiveAttempt();  // topped out
+			}
+			else
+			{
+				PlayAnim(HangIdleAnim, true);
+				Phase = EPhase::AtStance;
+			}
+		}
+		else
+		{
+			TimelineIndex++;
+			PlayAnim(HangIdleAnim, true);
+			ScheduleNextMove();
+		}
 	}
 	else  // landed
 	{
-		FinishAttempt();
+		if (bLiveSession)
+		{
+			FinishLiveAttempt();
+		}
+		else
+		{
+			FinishAttempt();
+		}
+	}
+}
+
+void ADirtbagClimbWall::FinishLiveAttempt()
+{
+	// The attempt is over; the ledger gets paid through the sim's own
+	// accounting — never presentation-side bookkeeping.
+	const dirtbag::AttemptResult SimResult = dirtbag::FinishAttempt(Live);
+	Current = DirtbagConvert::FromSim(SimResult);
+	dirtbag::SessionState SimSession = DirtbagConvert::ToSim(Session);
+	dirtbag::ProjectMemory SimMemory = DirtbagConvert::ToSim(Memory);
+	dirtbag::CommitAttempt(SimSession, SimMemory, SimRoute, SimResult);
+	Session = DirtbagConvert::FromSim(SimSession);
+	Memory = DirtbagConvert::FromSim(SimMemory);
+	FinishAttempt();
+}
+
+void ADirtbagClimbWall::UpdateHud()
+{
+	const double Pump = bLiveSession ? Live.pump : 0.0;
+	HudRow(101,
+	       FString::Printf(TEXT("PUMP  [%s] %.0f"), *Bar(Pump / 100.0), Pump),
+	       Pump > 75.0 ? FColor::Red : FColor::Orange);
+
+	if (Phase == EPhase::AtStance)
+	{
+		if (bCharging)
+		{
+			const bool bInWindow =
+			    Charge >= SweetWindowStart && Charge <= SweetWindowEnd;
+			HudRow(102, FString::Printf(TEXT("GRIP  [%s]"), *Bar(Charge)),
+			       bInWindow ? FColor::Green : FColor::White);
+		}
+		else
+		{
+			HudRow(102, TEXT("GRIP  hold Space"), FColor::White);
+		}
+		const double BestOdds = dirtbag::PeekOdds(Live, PerfectExecution);
+		HudRow(103,
+		       FString::Printf(TEXT("NEXT  %.0f%% at best"), BestOdds * 100.0),
+		       BestOdds > 0.7 ? FColor::Green
+		                      : (BestOdds > 0.4 ? FColor::Yellow : FColor::Red));
 	}
 }
 
@@ -277,6 +477,10 @@ void ADirtbagClimbWall::FinishAttempt()
 	    UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder);
 	if (Current.bSent)
 	{
+		if (TopOutAnim)
+		{
+			PlayAnim(TopOutAnim, false);
+		}
 		Toast(FString::Printf(TEXT("%s  %s  —  %s"), *RouteName, *GradeText,
 		                      *StyleText(Current.Style)),
 		      FColor::Green, 5.f);

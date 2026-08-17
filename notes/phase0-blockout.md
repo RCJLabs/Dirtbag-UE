@@ -67,5 +67,32 @@ can tell which is which without being told. Then push the project.
 
 Tuning lives on the actor under **Dirtbag|Staging** (hesitation, move
 speed, fall speed, end pause) — feel free to turn those; they are
-presentation dials, not sim dials. Next after this works: the pump bar and
-the interactive HOLD TO CLIMB verb (the live-attempt nodes are ready).
+presentation dials, not sim dials.
+
+## E. Interactive mode — HOLD TO CLIMB (the point of Phase 0)
+
+With **Interactive** checked on the actor (the default), E starts a
+player-driven attempt instead of a replay. Also assign the two new anim
+slots: **Mount Anim** = `Climbing_GrabWall_FromGround_IP`, **Top Out
+Anim** = `Climbing_ClimbUpAtTop_IP`.
+
+The verb, at each hold:
+- **Hold Space** — the GRIP meter charges. The HUD (top-left rows) shows
+  PUMP, GRIP, and the next move's best-case odds.
+- **Release inside the sweet window** (meter turns green) — the move
+  fires; execution peaks dead-center and tapers at the edges.
+- **Release early** (before the window) — you shake out instead: worth
+  real pump at a good stance, a net loss at a bad one.
+- **Hold too long** — over-grip: the move fires itself with terrible
+  execution. Decisiveness is the skill.
+
+The sim still decides everything: the verb only produces the 0..1
+execution scalar the resolver consumes. Verb feel lives under
+**Dirtbag|Verb** (charge time, window, execution mapping) — tune freely,
+these are presentation. Uncheck Interactive any time to compare against
+the bot replay.
+
+**The Phase 0 test (Done-when #2):** set Grade/TrueGrade ~6–7 and climb
+it yourself, badly warmed up. If your palms aren't slightly sweaty by the
+crux with the pump bar in the red, the dials need turning — say which
+part felt flat.

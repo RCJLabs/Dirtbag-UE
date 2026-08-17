@@ -77,8 +77,21 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Dirtbag|Anims")
 	TObjectPtr<UAnimSequence> FallAnim;
 
+	/** Optional: played once when the session starts (grab wall from ground). */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Anims")
+	TObjectPtr<UAnimSequence> MountAnim;
+
+	/** Optional: played on a send (climb up over the top). */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Anims")
+	TObjectPtr<UAnimSequence> TopOutAnim;
+
 	UPROPERTY(EditAnywhere, Category = "Dirtbag")
 	TObjectPtr<UStaticMesh> HoldMarkerMesh;
+
+	/** True: the player drives each move with HOLD TO CLIMB (Space).
+	 *  False: the bot-staged replay, as before. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag")
+	bool bInteractive = true;
 
 	// --- Route / climber config -----------------------------------------
 
@@ -125,8 +138,36 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Dirtbag|Staging")
 	float EndPause = 2.0f;
 
+	// --- The HOLD TO CLIMB verb (interactive mode; presentation dials — the
+	// --- sim only ever sees the resulting 0..1 execution scalar) -----------
+
+	/** Seconds of holding Space for the grip meter to reach full. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Verb")
+	float ChargeTime = 0.9f;
+
+	/** Sweet window on the grip meter: release inside it to latch the move.
+	 *  Release below the window = shake out instead; charge past 1.0 =
+	 *  over-grip, the move fires itself with OvergripExecution. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Verb")
+	float SweetWindowStart = 0.6f;
+
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Verb")
+	float SweetWindowEnd = 0.95f;
+
+	/** Execution for a release dead-center in the window... */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Verb")
+	float PerfectExecution = 0.95f;
+
+	/** ...tapering to this at the window's edges. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Verb")
+	float EdgeExecution = 0.6f;
+
+	/** The death grip: what holding on too long costs you. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Verb")
+	float OvergripExecution = 0.35f;
+
 private:
-	enum class EPhase : uint8 { Idle, Hesitating, Moving, Falling, Ending };
+	enum class EPhase : uint8 { Idle, Mounting, AtStance, Moving, Falling, Ending };
 
 	UFUNCTION()
 	void OnApproachBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
@@ -138,11 +179,18 @@ private:
 	                   UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	void OnInteract();
+	void OnHoldPressed();
+	void OnHoldReleased();
 	void StartAttempt();
+	void BeginSessionBody();
 	void ScheduleNextMove();
 	void BeginMove();
+	void CommitMove(double Execution);
+	void StageMoveResult(bool bSuccess);
+	void FinishLiveAttempt();
 	void FinishAttempt();
 	void EndSession();
+	void UpdateHud();
 	void PlayAnim(UAnimSequence* Anim, bool bLoop);
 	FVector HoldLocation(int32 Index) const;
 
@@ -150,6 +198,13 @@ private:
 	FDirtbagSessionState Session;
 	FDirtbagProjectMemory Memory;
 	FDirtbagAttemptResult Current;
+
+	// Interactive-session state: the live attempt the player is driving.
+	dirtbag::Route SimRoute;
+	dirtbag::LiveAttempt Live;
+	bool bLiveSession = false;
+	bool bCharging = false;
+	float Charge = 0.0f;
 
 	EPhase Phase = EPhase::Idle;
 	int32 TimelineIndex = 0;
