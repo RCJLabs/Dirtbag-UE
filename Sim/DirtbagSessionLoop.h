@@ -47,6 +47,8 @@ struct SessionLoopDials {
 // Persists between sessions; will live in the save file from Phase 1.
 struct ProjectMemory {
   std::string routeName;
+  int grade = -1;            // the guidebook grade, recorded on first touch;
+                             // -1 = unknown (a pre-v2 save, see DirtbagSave)
   int attempts = 0;          // lifetime burns; feeds AttemptInput::attemptNumber
   int bestHighpoint = 0;     // moves completed, best ever
   double beta = 0.0;         // 0..1 move knowledge; feeds AttemptInput::beta

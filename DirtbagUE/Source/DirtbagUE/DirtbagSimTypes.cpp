@@ -61,6 +61,7 @@ dirtbag::ProjectMemory ToSim(const FDirtbagProjectMemory& In)
 {
 	dirtbag::ProjectMemory Out;
 	Out.routeName = TCHAR_TO_UTF8(*In.RouteName);
+	Out.grade = In.Grade;
 	Out.attempts = In.Attempts;
 	Out.bestHighpoint = In.BestHighpoint;
 	Out.beta = In.Beta;
@@ -131,6 +132,7 @@ FDirtbagProjectMemory FromSim(const dirtbag::ProjectMemory& In)
 {
 	FDirtbagProjectMemory Out;
 	Out.RouteName = UTF8_TO_TCHAR(In.routeName.c_str());
+	Out.Grade = In.grade;
 	Out.Attempts = In.attempts;
 	Out.BestHighpoint = In.bestHighpoint;
 	Out.Beta = In.beta;

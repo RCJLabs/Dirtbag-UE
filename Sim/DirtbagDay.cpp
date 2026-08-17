@@ -167,6 +167,53 @@ void SleepToNextDay(PlayerState& player, DayState& day, const DayDials& dials) {
   day.energy = recovered;
 }
 
+CareerSummary SummarizeCareer(const PlayerState& player) {
+  CareerSummary out;
+  // Ability is the all-round read: the wall weights skills per hold, but a
+  // career card wants one honest number.
+  const Skills& s = player.climber.skills;
+  out.abilityGrade =
+      SkillToGrade((s.power + s.fingers + s.technique + s.endurance) / 4.0);
+
+  for (const ProjectMemory& m : player.projects) {
+    out.totalAttempts += m.attempts;
+    if (m.sent) {
+      out.totalSends++;
+      if (m.grade > out.hardestSendGrade) {
+        out.hardestSendGrade = m.grade;
+        out.hardestSendName = m.routeName;
+        out.hardestSendStyle = m.firstSendStyle;
+      }
+    } else if (m.attempts > 0) {
+      out.openProjects++;
+      if (m.attempts > out.nemesisAttempts) {
+        out.nemesisAttempts = m.attempts;
+        out.nemesis = m.routeName;
+      }
+    }
+  }
+  return out;
+}
+
+std::string CareerLine(const CareerSummary& career) {
+  std::string line = "You climb ";
+  line += BoulderGradeName(static_cast<int>(career.abilityGrade));
+  line += ".";
+
+  if (career.hardestSendGrade >= 0) {
+    line += "  Hardest: " + career.hardestSendName + " (" +
+            BoulderGradeName(career.hardestSendGrade) + ").";
+  } else if (career.totalAttempts > 0) {
+    line += "  Nothing sent yet.";
+  }
+
+  if (!career.nemesis.empty() && career.nemesisAttempts > 3) {
+    line += "  " + career.nemesis + " has taken " +
+            std::to_string(career.nemesisAttempts) + " burns and counting.";
+  }
+  return line;
+}
+
 std::vector<Route> GymBoard(const Rng& worldRng, int count) {
   // Setter-voice names; the board cycles through them as it grows.
   static const char* kNames[] = {

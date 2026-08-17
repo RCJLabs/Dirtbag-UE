@@ -138,4 +138,25 @@ void SleepToNextDay(PlayerState& player, DayState& day,
 // per seed, with the occasional in-house sandbag (setters are people too).
 std::vector<Route> GymBoard(const Rng& worldRng, int count = 8);
 
+// --- The career, read back ---------------------------------------------------
+
+// What the ledgers add up to. Derived, never stored: the project ledgers are
+// the truth, this is only how you'd say it out loud.
+struct CareerSummary {
+  double abilityGrade = 0.0;   // what the sim says you are
+  int hardestSendGrade = -1;   // what you have actually done; -1 = nothing yet
+  std::string hardestSendName;
+  Style hardestSendStyle = Style::Fell;
+  int totalSends = 0;
+  int totalAttempts = 0;
+  int openProjects = 0;        // touched, not sent
+  std::string nemesis;         // the unsent line you have fed the most burns
+  int nemesisAttempts = 0;
+};
+
+CareerSummary SummarizeCareer(const PlayerState& player);
+
+// The summary in the game's own voice — one dry line for a stats card.
+std::string CareerLine(const CareerSummary& career);
+
 }  // namespace dirtbag

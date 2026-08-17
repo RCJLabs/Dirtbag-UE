@@ -53,9 +53,24 @@ std::string ProjKey(int i, const char* field) {
 
 }  // namespace
 
+namespace {
+
+// v1 → v2: project ledgers gained the route's guidebook grade. Old ledgers
+// name routes that may not exist any more (a gym resets its walls), so the
+// honest answer is "unknown" — a guess here would put fictional grades in
+// somebody's career history, which is exactly the data you can't fake.
+void MigrateV1ToV2(SaveFields& fields) {
+  int count = 0;
+  if (!ParseInt(fields, "projects", count)) return;
+  for (int i = 0; i < count; i++) {
+    fields[ProjKey(i, "grade")] = "-1";
+  }
+}
+
+}  // namespace
+
 const std::vector<Migration>& DefaultMigrations() {
-  // Empty at version 1 — see the header's contract for how it grows.
-  static const std::vector<Migration> kMigrations;
+  static const std::vector<Migration> kMigrations = {&MigrateV1ToV2};
   return kMigrations;
 }
 
@@ -91,6 +106,7 @@ std::string SerializeSave(const SaveGame& save) {
     const ProjectMemory& m = save.player.projects[i];
     const int n = static_cast<int>(i);
     out << ProjKey(n, "name") << "=" << m.routeName << "\n";
+    out << ProjKey(n, "grade") << "=" << IntToStr(m.grade) << "\n";
     out << ProjKey(n, "attempts") << "=" << IntToStr(m.attempts) << "\n";
     out << ProjKey(n, "best") << "=" << IntToStr(m.bestHighpoint) << "\n";
     out << ProjKey(n, "beta") << "=" << NumToStr(m.beta) << "\n";
@@ -149,6 +165,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     ProjectMemory m;
     int sent = 0, style = 0;
     if (!ParseString(fields, ProjKey(i, "name"), m.routeName) ||
+        !ParseInt(fields, ProjKey(i, "grade"), m.grade) ||
         !ParseInt(fields, ProjKey(i, "attempts"), m.attempts) ||
         !ParseInt(fields, ProjKey(i, "best"), m.bestHighpoint) ||
         !ParseDouble(fields, ProjKey(i, "beta"), m.beta) ||

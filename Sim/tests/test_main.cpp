@@ -883,6 +883,121 @@ static void TestSaveRejectsGarbageAndFuture() {
         LoadResult::BadFormat);
 }
 
+// The real thing: a save written by the v1 build, loaded by this one. Hand
+// written rather than generated, because the whole point is that it is a
+// file this code can no longer produce. If this ever fails, someone's
+// career history just evaporated.
+static void TestLoadsVersion1Save() {
+  const std::string v1 =
+      "version=1\n"
+      "seed=grim-fjord-123\n"
+      "day=9\n"
+      "cash=212.5\n"
+      "skills.power=48\n"
+      "skills.fingers=52\n"
+      "skills.technique=50\n"
+      "skills.endurance=47\n"
+      "skills.head=55\n"
+      "morphology=2\n"
+      "skin=5.5\n"
+      "psyche=0.65\n"
+      "projects=2\n"
+      "project.0.name=Pink Crimps\n"
+      "project.0.attempts=11\n"
+      "project.0.best=6\n"
+      "project.0.beta=0.5\n"
+      "project.0.sent=1\n"
+      "project.0.style=2\n"
+      "project.1.name=Campus Special\n"
+      "project.1.attempts=4\n"
+      "project.1.best=2\n"
+      "project.1.beta=0.25\n"
+      "project.1.sent=0\n"
+      "project.1.style=4\n";
+
+  SaveGame loaded;
+  CHECK(DeserializeSave(v1, loaded) == LoadResult::Ok);
+  CHECK(loaded.version == kSaveVersion);       // arrives upgraded,
+  CHECK(loaded.seed == "grim-fjord-123");      // with everything intact
+  CHECK(loaded.player.day == 9);
+  CHECK(loaded.player.cash == 212.5);
+  CHECK(loaded.player.climber.morphology == Morphology::Lanky);
+  CHECK(loaded.player.projects.size() == 2);
+  CHECK(loaded.player.projects[0].routeName == "Pink Crimps");
+  CHECK(loaded.player.projects[0].attempts == 11);
+  CHECK(loaded.player.projects[0].sent);
+  CHECK(loaded.player.projects[0].firstSendStyle == Style::Redpoint);
+  // The field v1 never had: unknown, not invented.
+  CHECK(loaded.player.projects[0].grade == -1);
+  CHECK(loaded.player.projects[1].grade == -1);
+
+  // And it re-saves in the new format, so the upgrade is permanent.
+  SaveGame again;
+  CHECK(DeserializeSave(SerializeSave(loaded), again) == LoadResult::Ok);
+  CHECK(again.player.projects[0].attempts == 11);
+}
+
+// A career reads back out of the ledgers alone — no route list required,
+// which is the point of storing the grade.
+static void TestCareerSummary() {
+  PlayerState player;
+  player.climber.skills = {50, 50, 50, 50, 50};
+
+  CareerSummary empty = SummarizeCareer(player);
+  CHECK(empty.hardestSendGrade == -1);
+  CHECK(empty.totalSends == 0);
+  CHECK(std::string(CareerLine(empty)).find("You climb V5") == 0);
+
+  ProjectMemory easy;
+  easy.routeName = "Jug Haul";
+  easy.grade = 2;
+  easy.attempts = 1;
+  easy.sent = true;
+  easy.firstSendStyle = Style::Onsight;
+  ProjectMemory best;
+  best.routeName = "Volume Country";
+  best.grade = 5;
+  best.attempts = 6;
+  best.sent = true;
+  best.firstSendStyle = Style::Redpoint;
+  ProjectMemory nemesis;
+  nemesis.routeName = "Campus Special";
+  nemesis.grade = 6;
+  nemesis.attempts = 14;
+  nemesis.sent = false;
+  player.projects = {easy, best, nemesis};
+
+  CareerSummary c = SummarizeCareer(player);
+  CHECK(c.totalSends == 2);
+  CHECK(c.totalAttempts == 21);
+  CHECK(c.hardestSendGrade == 5);
+  CHECK(c.hardestSendName == "Volume Country");
+  CHECK(c.hardestSendStyle == Style::Redpoint);
+  CHECK(c.openProjects == 1);
+  CHECK(c.nemesis == "Campus Special");
+  CHECK(c.nemesisAttempts == 14);
+
+  const std::string line = CareerLine(c);
+  CHECK(line.find("Volume Country") != std::string::npos);
+  CHECK(line.find("14 burns") != std::string::npos);
+}
+
+// A ledger records the grade the first time you touch a line, so a career
+// survives the gym resetting its walls.
+static void TestLedgerRecordsGrade() {
+  Rng world = Rng::FromStream("ledger", Stream::Worldgen);
+  Route route = BuildRoute(world, "Reset Tuesday", 4, 6, RouteType::Crimp,
+                           Discipline::Boulder);
+  Climber c = MakeClimber(50, 50, 50, 50, 50);
+  Rng sessionRng = Rng::FromStream("ledger", Stream::Session);
+  SessionState session = StartSession(c);
+  ProjectMemory mem;
+  AttemptInSession(sessionRng, session, mem, c, route, Conditions{});
+  // The guidebook's grade, not the rock's — your logbook records what the
+  // tag said, sandbag and all.
+  CHECK(mem.grade == 4);
+}
+
 // Proves the registry machinery with a synthetic migration, so the first
 // real one (version 2) inherits working plumbing.
 static void TestMigrationMachinery() {
@@ -932,6 +1047,9 @@ int main() {
   TestSevenDayLoop();
   TestSaveRoundTrip();
   TestSaveRejectsGarbageAndFuture();
+  TestLoadsVersion1Save();
+  TestCareerSummary();
+  TestLedgerRecordsGrade();
   TestMigrationMachinery();
 
   if (g_failures == 0) {

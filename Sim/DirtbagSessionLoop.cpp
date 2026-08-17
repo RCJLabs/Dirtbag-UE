@@ -66,6 +66,9 @@ void CommitAttempt(SessionState& session, ProjectMemory& memory,
   // betaLearnRate, known ground refines but never past the historical
   // highwater (touched fraction), so lapping the start can't unlock the crux.
   memory.routeName = route.name;
+  // The ledger keeps the grade itself: a career has to be able to answer
+  // "what do you climb?" long after a gym has reset the wall.
+  memory.grade = route.grade;
   memory.attempts++;
   memory.bestHighpoint = std::max(memory.bestHighpoint, result.highpoint);
   if (!route.moves.empty()) {

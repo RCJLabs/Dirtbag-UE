@@ -189,6 +189,10 @@ struct FDirtbagProjectMemory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	FString RouteName;
 
+	/** Guidebook grade, recorded on first touch; -1 = unknown (pre-v2 save). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	int32 Grade = -1;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	int32 Attempts = 0;
 

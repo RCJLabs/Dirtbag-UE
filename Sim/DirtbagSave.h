@@ -18,8 +18,11 @@
 namespace dirtbag {
 
 // Version 1: seed + career state (climber, cash, day, project ledgers).
-// DayState is deliberately absent — saves happen at day boundaries.
-constexpr int kSaveVersion = 1;
+//   DayState is deliberately absent — saves happen at day boundaries.
+// Version 2: project ledgers record the route's guidebook grade, so a
+//   career can answer "what do you climb?" without the route still
+//   existing. v1 ledgers migrate to grade -1 (unknown) rather than a guess.
+constexpr int kSaveVersion = 2;
 
 struct SaveGame {
   int version = kSaveVersion;
@@ -30,9 +33,7 @@ struct SaveGame {
 using SaveFields = std::map<std::string, std::string>;
 
 // A migration upgrades the raw field map by exactly one version.
-// DefaultMigrations()[i] takes a version (i+1) map to version (i+2); with
-// kSaveVersion == 1 the registry is empty, but the machinery is live and
-// tested so version 2 is a diff, not a design session.
+// DefaultMigrations()[i] takes a version (i+1) map to version (i+2).
 using Migration = void (*)(SaveFields&);
 const std::vector<Migration>& DefaultMigrations();
 
