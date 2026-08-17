@@ -185,7 +185,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
 	static bool SaveToFile(const FString& Seed,
 	                       const FDirtbagPlayerState& Player,
-	                       const FString& Filename = TEXT("dirtbag-save.txt"));
+	                       const FString& Filename = FString(TEXT("dirtbag-save.txt")));
 
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
 	static EDirtbagLoadResult LoadFromFile(

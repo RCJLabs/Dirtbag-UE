@@ -63,7 +63,7 @@ public:
 
 	/** The gym's board for this world, cached. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
-	const TArray<FDirtbagRoute>& GetBoard();
+	TArray<FDirtbagRoute> GetBoard();
 
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	FDirtbagRoute GetBoardRoute(int32 Index);
@@ -87,6 +87,8 @@ public:
 	FString TodaysSessionSeed() const;
 
 private:
+	void EnsureBoard();
+
 	UPROPERTY()
 	TArray<FDirtbagRoute> Board;
 };

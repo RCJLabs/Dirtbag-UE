@@ -57,23 +57,28 @@ bool UDirtbagGameInstance::SaveNow()
 	return UDirtbagSimLibrary::SaveToFile(Seed, Player, SaveFilename);
 }
 
-const TArray<FDirtbagRoute>& UDirtbagGameInstance::GetBoard()
+void UDirtbagGameInstance::EnsureBoard()
 {
 	if (Board.Num() == 0)
 	{
 		Board = UDirtbagSimLibrary::GymBoard(Seed);
 	}
+}
+
+TArray<FDirtbagRoute> UDirtbagGameInstance::GetBoard()
+{
+	EnsureBoard();
 	return Board;
 }
 
 FDirtbagRoute UDirtbagGameInstance::GetBoardRoute(int32 Index)
 {
-	const TArray<FDirtbagRoute>& Routes = GetBoard();
-	if (Routes.Num() == 0)
+	EnsureBoard();
+	if (Board.Num() == 0)
 	{
 		return FDirtbagRoute();
 	}
-	return Routes[FMath::Clamp(Index, 0, Routes.Num() - 1)];
+	return Board[FMath::Clamp(Index, 0, Board.Num() - 1)];
 }
 
 FDirtbagAttemptResult UDirtbagGameInstance::ReplayAttempt(
