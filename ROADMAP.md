@@ -13,9 +13,9 @@ Convention (house style): numbered phases, explicit **Done when** gates, one CUR
 
 ---
 
-## Phase 0 — Session Proof   **<<< CURRENT MILESTONE**
+## Phase 0 — Session Proof   ✅ DONE 2026-08-17
 
-The one question this phase answers: **is a minigame-driven session tense and legible on a 3D wall?**
+The one question this phase answered: **is a minigame-driven session tense and legible on a 3D wall?** — **Yes.** Gates passed on the blockout wall: the stat-block test (same route, two climbers, visibly different attempts, zero animation changes), the tension test (a pumped HOLD TO CLIMB attempt at the limit feels tense), and the watcher test (a V4 and a V7 distinguishable by watching alone). The kill-switch question is retired; from here the risk profile is ordinary game production.
 
 Scope: a blockout gym room (no art pass), third-person walk-up, tap the wall to enter a session. The climber ascends a route spline hold-to-hold using a basic climbing animation set. The pump bar and the HOLD TO CLIMB verb (hold to move, release to shake out) drive per-move resolution through the C++ session sim. Falls and sends both staged: the peel-off, the mat landing, the top-out.
 
@@ -27,7 +27,7 @@ Container-side groundwork (done first, no editor needed): `Sim/` core — RNG, c
 3. The same route resolves visibly differently for two climber stat blocks with zero animation changes (the sim, not the staging, decides).
 4. `Sim/run-tests.sh` green; session resolution is deterministic per seed.
 
-## Phase 1 — Gym Slice
+## Phase 1 — Gym Slice   **<<< CURRENT MILESTONE**
 
 The 2D game's gym day-loop in 3D: wake in the van (static scene), drive to the gym, session with multiple routes and grades, rest/eat, work a shift, sleep, bills land. Skills creep, pump/skin budgets across a week. First save file (versioned).
 **Done when:** a 7-day loop plays start to finish; a session on a too-hard route and a too-easy route both *read* correctly; save/load round-trips.
@@ -50,6 +50,7 @@ Sport/rope presentation, crags 2–3, ethics arcs, sponsorship, injuries/aging, 
 
 ## Changelog
 
+- 2026-08-17 — **Phase 0 — Session Proof: DONE.** All four gates passed on the blockout wall (stat-block, tension, watcher, deterministic sim). The session-model pivot is validated. CURRENT MILESTONE advances to Phase 1 — Gym Slice.
 - 2026-08-17 — HOLD TO CLIMB goes interactive: ADirtbagClimbWall gains a live mode driven by the live-attempt API — hold Space to charge the grip meter, release in the sweet window to latch (execution from timing), release early to shake out, over-grip and the move fires itself badly. Debug HUD (pump / grip / best-case odds), mount + top-out anims, sim-side commit of live attempts. Verb dials on the actor; replay mode kept as a toggle.
 - 2026-08-15 — Engine wrapper layer (`Source/DirtbagUE/DirtbagSimTypes.*`, `DirtbagSimLibrary.*`): USTRUCT/UENUM mirrors and Blueprint nodes over route gen, the session loop, and the live attempt. Sim-side, `AttemptInSession` decomposed into `DeriveAttemptRng`/`BuildSessionAttemptInput`/`CommitAttempt` so live attempts commit through the same accounting (equivalence pinned by test). SETUP.md §4 rewritten as a Blueprint-level checklist.
 - 2026-08-15 — Live attempt API (`BeginAttempt`/`PeekOdds`/`StepMove`/`ShakeOut`/`FinishAttempt`): the resolver unrolled so HOLD TO CLIMB can drive move-by-move, with release-to-shake as a sim-arbitrated verb (diminishing returns + hang tax). `ResolveAttempt` reimplemented as a bot on the live core — equivalence pinned by test. Deliberate delta: `peakPump` now records the true pre-recovery peak.
