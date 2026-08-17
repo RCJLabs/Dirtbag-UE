@@ -166,17 +166,31 @@ static void TestEnduranceControlsPump() {
   Rng world = Rng::FromStream("seed-z", Stream::Worldgen);
   Route pitch = BuildRoute(world, "The Long Haul", 7, 7, RouteType::Endurance,
                            Discipline::Sport);
-  Climber fit = MakeClimber(55, 55, 55, 85, 50);
-  Climber unfit = MakeClimber(55, 55, 55, 25, 50);
+  // Both are 5.12-capable climbers on a 5.12 pitch (SkillToGrade(70) ≈ V7.8)
+  // — the pitch has to be *climbable* for pump to be the variable. Two
+  // climbers who both redline on move three tell you nothing.
+  Climber fit = MakeClimber(70, 70, 70, 90, 60);
+  Climber unfit = MakeClimber(70, 70, 70, 30, 60);
+
+  // Compare pump at a move both climbers reach, not peak pump: peak is
+  // confounded by how far each got, and on a long pitch everyone redlines
+  // eventually — falling off early would read as "less pumped".
+  const size_t kAt = 3;
   double fitPump = 0.0, unfitPump = 0.0;
-  const int n = 400;
-  for (int i = 0; i < n; i++) {
+  int paired = 0;
+  for (int i = 0; i < 400; i++) {
     Rng r1 = Rng::FromSeed("p-" + std::to_string(i));
     Rng r2 = Rng::FromSeed("p-" + std::to_string(i));
-    fitPump += ResolveAttempt(r1, MakeInput(fit, pitch)).peakPump;
-    unfitPump += ResolveAttempt(r2, MakeInput(unfit, pitch)).peakPump;
+    const AttemptResult a = ResolveAttempt(r1, MakeInput(fit, pitch));
+    const AttemptResult b = ResolveAttempt(r2, MakeInput(unfit, pitch));
+    if (a.timeline.size() > kAt && b.timeline.size() > kAt) {
+      fitPump += a.timeline[kAt].pumpAfter;
+      unfitPump += b.timeline[kAt].pumpAfter;
+      paired++;
+    }
   }
-  CHECK(fitPump / n < unfitPump / n);
+  CHECK(paired > 100);
+  CHECK(fitPump / paired < unfitPump / paired);
 }
 
 static void TestSandbagBites() {
@@ -187,8 +201,38 @@ static void TestSandbagBites() {
                              Discipline::Boulder);
   // A climber near the grade — strong enough to send the honest V6 often,
   // close enough to the margin that the hidden two grades genuinely bite.
-  Climber c = MakeClimber(38, 38, 38, 38, 38);
+  // SkillToGrade(60) = V6.4: exactly the climber this test wants.
+  Climber c = MakeClimber(60, 60, 60, 60, 60);
   CHECK(SendRate(c, honest, 400) > SendRate(c, sandbag, 400));
+}
+
+// The ladder must resist. A V5 climber sends V5 often and V7 rarely; if that
+// spread ever flattens, the gym board is decoration and every grade reads the
+// same. (It *was* flat once: a skill→grade mapping that made every 50-stat
+// climber a V9 sent everything on the board — caught by measuring a month,
+// not by any test, which is why this one exists.)
+static void TestGradesResist() {
+  CHECK(std::fabs(SkillToGrade(50.0) - 5.0) < 1e-9);
+  CHECK(std::fabs(SkillToGrade(80.0) - 9.2) < 1e-9);
+
+  Rng world = Rng::FromStream("resist", Stream::Worldgen);
+  Climber c = MakeClimber(50, 50, 50, 50, 50);
+  Route below = BuildRoute(world, "Comfortable", 4, 4, RouteType::Power,
+                           Discipline::Boulder);
+  Route atLevel = BuildRoute(world, "At The Limit", 5, 5, RouteType::Power,
+                             Discipline::Boulder);
+  Route twoUp = BuildRoute(world, "Two Grades Up", 7, 7, RouteType::Power,
+                           Discipline::Boulder);
+
+  // The shape of a climbing life: a grade below is a warmup, your grade
+  // goes down in a few burns, two above is next year's problem.
+  const double belowRate = SendRate(c, below, 400);
+  const double atRate = SendRate(c, atLevel, 400);
+  const double upRate = SendRate(c, twoUp, 400);
+  CHECK(belowRate > 0.70);
+  CHECK(atRate > 0.15);
+  CHECK(upRate < 0.05);
+  CHECK(belowRate > atRate && atRate > upRate);
 }
 
 static void TestExecutionMatters() {
@@ -233,7 +277,10 @@ static void TestLiveDriveMatchesBatch() {
   Rng world = Rng::FromStream("live-eq", Stream::Worldgen);
   Route route = BuildRoute(world, "Mirror Image", 7, 7, RouteType::Endurance,
                            Discipline::Sport);
-  Climber c = MakeClimber(52, 52, 52, 60, 50);
+  // Strong enough to get deep into a 5.12 pitch: equivalence is only worth
+  // checking over long timelines, and a climber who falls on move two
+  // silently turns this into a two-move test.
+  Climber c = MakeClimber(75, 75, 75, 80, 70);
 
   for (int i = 0; i < 50; i++) {
     Rng batchRng = Rng::FromSeed("eq-" + std::to_string(i));
@@ -786,6 +833,7 @@ int main() {
   TestFingersMatterOnCrimps();
   TestEnduranceControlsPump();
   TestSandbagBites();
+  TestGradesResist();
   TestExecutionMatters();
   TestStyleLadder();
   TestLiveDriveMatchesBatch();

@@ -96,21 +96,37 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
   // Training creep: challenge relative to what the route asks of you.
   // Two grades below you trains nothing; at your level trains most of the
   // rate; above you trains the full rate — you get strong by trying hard.
+  // The skill→grade mapping is the resolver's own (SkillToGrade), so "at
+  // your level" means the same thing to the trainer as to the wall.
   const TrainingWeights w = WeightsFor(route.type);
   const Skills& s = player.climber.skills;
   const double routeAsk =
       w.power * s.power + w.fingers * s.fingers + w.technique * s.technique;
-  const double skillGrade = routeAsk / 100.0 * kMaxGrade;
+  const double skillGrade = SkillToGrade(routeAsk);
   const double challenge =
       Clamp01((static_cast<double>(route.trueGrade) - skillGrade + 2.0) / 3.0);
+
+  // Diminishing returns: the same session that builds a beginner barely
+  // moves a veteran. Newcomers feel progress; the top of the range is a
+  // grind, which is the honest version of a climbing career.
+  const auto headroom = [&](double skill) {
+    return std::max(0.15, 1.0 - skill / dials.trainingCeiling);
+  };
   const double amount = dials.trainingRate * challenge;
 
-  Gain(player.climber.skills.power, amount * w.power * 3.0);
-  Gain(player.climber.skills.fingers, amount * w.fingers * 3.0);
-  Gain(player.climber.skills.technique, amount * w.technique * 3.0);
-  // Endurance trains by mileage: moves climbed, whatever the grade.
+  Gain(player.climber.skills.power,
+       amount * w.power * 3.0 * headroom(s.power));
+  Gain(player.climber.skills.fingers,
+       amount * w.fingers * 3.0 * headroom(s.fingers));
+  Gain(player.climber.skills.technique,
+       amount * w.technique * 3.0 * headroom(s.technique));
+  // Endurance trains by mileage — moves climbed, whatever the grade — but
+  // mileage is a slower teacher than trying hard, so it stays below the
+  // targeted skills rather than outrunning them.
   Gain(player.climber.skills.endurance,
-       dials.trainingRate * 0.15 * static_cast<double>(result.timeline.size()));
+       dials.trainingRate * dials.enduranceMileageRate *
+           static_cast<double>(result.timeline.size()) *
+           headroom(s.endurance));
 }
 
 void SleepToNextDay(PlayerState& player, DayState& day, const DayDials& dials) {

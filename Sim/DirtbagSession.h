@@ -24,6 +24,14 @@ enum class Style { Onsight, Flash, Redpoint, Sent, Fell };
 
 // Every number a designer might turn, in one place, with its reason.
 struct SessionDials {
+  // What a skill number *means* in grades — the ladder's whole calibration.
+  // At span 14 / floor -2: skill 50 is a V5 climber, 65 is V7, 80 is V9,
+  // 100 is V12, leaving the top of the ladder for the exceptional (both
+  // ladders are open-ended at the top). The 0..100 range therefore spans a
+  // whole climbing life, not a warmup: most careers live between 30 and 70.
+  double skillGradeSpan = 14.0;
+  double skillGradeFloor = -2.0;
+
   // Odds curve: how steeply per-move odds fall as move difficulty exceeds
   // effective skill. At 1.9, a fresh climber lands a move at their exact
   // level ~82% of the time (≈30% over a 6-move boulder — a project at your
@@ -76,6 +84,12 @@ struct SessionDials {
   // Morphology: how loudly reach fit speaks on a biased move.
   double morphologyWeight = 4.0;
 };
+
+// A skill number (0..100) as a grade on the V ladder. The single source of
+// this mapping: the resolver reads it to price a move, the day loop reads it
+// to decide whether an attempt was hard enough to train anything. Two copies
+// of this formula would drift, and the drift would be invisible.
+double SkillToGrade(double skill, const SessionDials& dials = SessionDials{});
 
 struct AttemptInput {
   Climber climber;

@@ -50,7 +50,7 @@ double MorphologyAdjust(const Climber& climber, const Move& move,
 double MoveEffective(const AttemptInput& input, const Move& move, double exec,
                      double pump, const SessionDials& dials) {
   const Climber& c = input.climber;
-  double effective = BlendedSkill(c.skills, move.hold) / 100.0 * kMaxGrade;
+  double effective = SkillToGrade(BlendedSkill(c.skills, move.hold), dials);
 
   // The minigame's say: a perfect move beats a botched one by ~25 skill
   // points (executionWeight 0.5 → ±2.25 grades either side of neutral).
@@ -79,6 +79,10 @@ double MoveEffective(const AttemptInput& input, const Move& move, double exec,
 }
 
 }  // namespace
+
+double SkillToGrade(double skill, const SessionDials& dials) {
+  return skill / 100.0 * dials.skillGradeSpan + dials.skillGradeFloor;
+}
 
 LiveAttempt BeginAttempt(const Rng& rng, const AttemptInput& input,
                          const SessionDials& dials) {

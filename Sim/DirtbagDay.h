@@ -50,9 +50,19 @@ struct DayDials {
   double billsAmount = 85.0;
 
   // Training: attempts near or above your level move the needle; laps on
-  // jugs two grades below you move nothing. ~0.1/attempt means a committed
-  // week visibly creeps a skill — the 2D game's glacier pace.
-  double trainingRate = 0.12;
+  // jugs two grades below you move nothing. Calibrated so a committed week
+  // (≈28 burns at or above your limit) is worth roughly a third of a grade
+  // at mid-career — visible progress, glacial mastery, the 2D game's pace.
+  // One grade is ~7 skill points under the resolver's skillGradeSpan.
+  double trainingRate = 0.07;
+
+  // Skill approaches this asymptote, never reaches it: at skill 45 a session
+  // trains at ~0.64 rate, at 80 ~0.36, and the last few points cost years.
+  double trainingCeiling = 125.0;
+
+  // Mileage's share, per move climbed — deliberately below the targeted
+  // skills so volume supports a career instead of replacing it.
+  double enduranceMileageRate = 0.06;
 
   // Running on empty shows up as nerve before it shows up as strength.
   double fatigueEnergy = 35.0;
