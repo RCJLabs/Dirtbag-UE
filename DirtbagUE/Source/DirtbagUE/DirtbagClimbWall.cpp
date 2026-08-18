@@ -470,6 +470,61 @@ void ADirtbagClimbWall::FinishLiveAttempt()
 	FinishAttempt();
 }
 
+void ADirtbagClimbWall::FinishAttempt()
+{
+	Phase = EPhase::Ending;
+	const FString GradeText =
+	    UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder);
+	if (Current.bSent)
+	{
+		if (TopOutAnim)
+		{
+			PlayAnim(TopOutAnim, false);
+		}
+		Toast(FString::Printf(TEXT("%s  %s  —  %s"), *RouteName, *GradeText,
+		                      *StyleText(Current.Style)),
+		      FColor::Green, 5.f);
+	}
+	else
+	{
+		const double SkinLeft =
+		    Game ? Game->Day.Session.SkinLeft : Session.SkinLeft;
+		Toast(FString::Printf(TEXT("Off at move %d of %d.  Skin left: %.1f"),
+		                      Current.Highpoint + 1, Route.Moves.Num(),
+		                      SkinLeft),
+		      FColor::Orange, 5.f);
+	}
+	GetWorldTimerManager().SetTimer(PhaseTimer, this,
+	                                &ADirtbagClimbWall::EndSession, EndPause,
+	                                false);
+}
+
+void ADirtbagClimbWall::EndSession()
+{
+	Climber->SetVisibility(false);
+	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
+	{
+		if (APawn* Pawn = PC->GetPawn())
+		{
+			Pawn->SetActorHiddenInGame(false);
+			PC->SetViewTargetWithBlend(Pawn, 0.5f);
+		}
+	}
+	Phase = EPhase::Idle;
+
+	// The session panel is drawn off this flag, so leaving it set would
+	// pin a dead route's pump bar to the screen for the rest of the day.
+	if (Game)
+	{
+		Game->SessionReadout = FDirtbagSessionReadout();
+	}
+
+	if (bPlayerNear)
+	{
+		Toast(TEXT("Press E to go again."), FColor::Cyan);
+	}
+}
+
 void ADirtbagClimbWall::UpdateHud()
 {
 	if (!Game)
