@@ -25,7 +25,11 @@ enum class EDirtbagSpotKind : uint8
 	/** Lights out — advances the day and writes the save. */
 	Sleep,
 	/** The drive: half an hour of the day, and you are somewhere else. */
-	Travel
+	Travel,
+	/** Sitting it out — the log by the pads, the tailgate, the fire. Passes
+	 *  time, and outdoors will wait exactly until the rock comes good, which
+	 *  is the verb the whole conditions system was missing. */
+	Rest
 };
 
 UCLASS()
@@ -60,6 +64,17 @@ protected:
 	 *  from whenever you first touch a wall. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
 	EDirtbagVenue ArriveAt = EDirtbagVenue::Gym;
+
+	/** Rest only. How long one press sits for, when there is no window to
+	 *  wait for. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Rest")
+	double RestHours = 1.0;
+
+	/** Rest only. With a window later today, one press waits exactly until
+	 *  it opens rather than an hour at a time. Turn it off to sit in fixed
+	 *  chunks and watch the forecast change under you. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Rest")
+	bool bWaitForWindow = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
 	float FadeSeconds = 0.4f;

@@ -75,6 +75,11 @@ struct DayDials {
   double freshEnergy = 75.0;
   double fatiguePsyche = 0.3;
 
+  // What an hour of sitting buys back. Small on purpose: resting is how you
+  // spend time you cannot climb in, not a way to farm energy — at 4 an hour
+  // a whole afternoon in the shade is worth less than a night's sleep.
+  double restEnergyPerHour = 4.0;
+
   // Overnight, psyche drifts a quarter of the way back to the 0.7 baseline
   // — yesterday's heartbreak fades, it doesn't vanish.
   double psycheBaseline = 0.7;
@@ -104,6 +109,13 @@ DayState WakeUp(const PlayerState& player, const DayDials& dials = DayDials{});
 
 // Time passing is never free: hunger rides along.
 void PassHours(DayState& day, double hours, const DayDials& dials = DayDials{});
+
+// Sitting it out — in the shade, at the fire, waiting for the rock to come
+// into condition. The hours pass and hunger rides along exactly as it would
+// anyway; what you get back is a little energy, nothing like a night's
+// worth. Waiting is a real move at a crag and needs to cost time without
+// being punished for it.
+void Rest(DayState& day, double hours, const DayDials& dials = DayDials{});
 
 // Returns false when the wallet says no.
 bool EatMeal(PlayerState& player, DayState& day, const DayDials& dials = DayDials{});

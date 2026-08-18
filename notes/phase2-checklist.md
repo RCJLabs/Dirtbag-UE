@@ -98,6 +98,37 @@ morning sun), west-facing peaks in the morning before the sun swings on,
 south-facing bakes all midday and comes good around 6pm, north-facing never
 takes a direct hit and just tracks the air.
 
+## 3b. Place a rest spot (this is the one that makes the window mean anything)
+
+Until now nothing in the game passed time on purpose, so "wait for the
+window" was advice with no verb attached. There is one now.
+
+1. **Place Actors** → `Dirtbag Day Spot` → drop it near the boulders. Set
+   **Kind = `Rest`**. A log, a rock, or nothing at all — the actor has no
+   mesh, so put a cube next to it if you want to find it again.
+2. Leave **Wait For Window** ticked. One press then sits *exactly* until the
+   rock comes good, rather than making you press it eight more times.
+3. Walk up to it. The prompt carries the forecast, because that is the only
+   reason anyone sits down:
+
+   > `Sit and wait?  (E)  -  The rock comes good in 95 minutes.`
+
+   and afterwards:
+
+   > `Sat for 1.6 hours.  It is on, right now.`
+
+4. On a day with no window at all it says so plainly — *"Today is not going
+   to come good. Go and do something else."* — which is your cue to take a
+   shift instead. About a third of days are like that.
+
+Resting buys back a little energy (4 an hour), nowhere near a night's sleep.
+It is how you spend hours you cannot climb in, not a way to farm energy.
+
+**The day this unlocks:** wake, drive out, brush the project through the
+greasy middle of the day, sit until the shade line arrives, then spend your
+skin in the hour that is worth it. That is the loop the whole phase is for,
+and it is now playable end to end.
+
 ## 4. What to actually judge
 
 The measurements say the decision is live (`notes/phase2-window.md`). What

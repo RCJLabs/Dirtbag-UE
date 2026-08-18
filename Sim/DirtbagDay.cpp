@@ -46,6 +46,12 @@ void PassHours(DayState& day, double hours, const DayDials& dials) {
   day.hunger = std::min(100.0, day.hunger + dials.hungerPerHour * hours);
 }
 
+void Rest(DayState& day, double hours, const DayDials& dials) {
+  if (hours <= 0.0) return;
+  PassHours(day, hours, dials);
+  day.energy = std::min(100.0, day.energy + dials.restEnergyPerHour * hours);
+}
+
 bool EatMeal(PlayerState& player, DayState& day, const DayDials& dials) {
   if (player.cash < dials.mealCost) return false;
   player.cash -= dials.mealCost;

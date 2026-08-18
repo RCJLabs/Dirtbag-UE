@@ -472,6 +472,38 @@ static void TestGuidebookReadsRight() {
 
 // --- First ascents -------------------------------------------------------------
 
+static void TestRestingBuysTimeNotStrength() {
+  DayDials d;
+  PlayerState player;
+  DayState day = WakeUp(player);
+  day.energy = 40.0;
+  const double hour0 = day.hour;
+  const double hunger0 = day.hunger;
+
+  Rest(day, 3.0, d);
+  CHECK(day.hour == hour0 + 3.0);                      // the hours go
+  CHECK(day.hunger > hunger0);                         // and cost the same
+  CHECK(day.energy > 40.0);                            // you get a little back
+  CHECK(day.energy < 40.0 + 3.0 * d.restEnergyPerHour + 1e-9);
+
+  // An afternoon in the shade is worth less than a night: resting is how you
+  // spend hours you cannot climb in, not a way to farm energy.
+  DayState rested = WakeUp(player);
+  rested.energy = 40.0;
+  Rest(rested, 6.0, d);
+  CHECK(rested.energy < d.sleepEnergyFloor + 6.0 * d.restEnergyPerHour);
+  CHECK(rested.energy <= 100.0);
+
+  // It never overfills, and zero hours does nothing at all.
+  DayState full = WakeUp(player);
+  full.energy = 99.0;
+  Rest(full, 10.0, d);
+  CHECK(full.energy == 100.0);
+  const double before = full.hour;
+  Rest(full, 0.0, d);
+  CHECK(full.hour == before);
+}
+
 static void TestVirginLinesStartFilthy() {
   Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
   for (const CragLine& l : crag.lines) {
@@ -1842,6 +1874,7 @@ int main() {
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();
   TestGuidebookReadsRight();
+  TestRestingBuysTimeNotStrength();
   TestVirginLinesStartFilthy();
   TestADefaultLedgerIsClean();
   TestDirtIsWhatStandsInTheWay();

@@ -260,6 +260,53 @@ FDirtbagPrimeWindow UDirtbagGameInstance::TodaysWindow() const
 	return CachedWindow;
 }
 
+void UDirtbagGameInstance::Rest(double Hours)
+{
+	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
+	dirtbag::Rest(SimDay, Hours);
+	Day = DirtbagConvert::FromSim(SimDay);
+}
+
+double UDirtbagGameInstance::HoursUntilWindow()
+{
+	if (bIndoors)
+	{
+		return 0.0;   // a gym is always as good as it gets
+	}
+	const FDirtbagPrimeWindow Window = TodaysWindow();
+	if (!Window.bExists || Day.Hour >= Window.StartHour)
+	{
+		return 0.0;   // open, missed, or never coming
+	}
+	return Window.StartHour - Day.Hour;
+}
+
+FString UDirtbagGameInstance::WaitAdvice()
+{
+	if (bIndoors)
+	{
+		return TEXT("Nothing to wait for. It is a gym.");
+	}
+	const FDirtbagPrimeWindow Window = TodaysWindow();
+	if (!Window.bExists)
+	{
+		return TEXT("Today is not going to come good. Go and do something "
+		            "else.");
+	}
+	if (Day.Hour > Window.EndHour)
+	{
+		return TEXT("You missed it. It was better an hour ago and it will be "
+		            "better tomorrow.");
+	}
+	if (Day.Hour >= Window.StartHour)
+	{
+		return TEXT("It is on, right now.");
+	}
+	const double Wait = Window.StartHour - Day.Hour;
+	return FString::Printf(TEXT("The rock comes good in %.0f minutes."),
+	                       Wait * 60.0);
+}
+
 void UDirtbagGameInstance::SetVenue(EDirtbagVenue NewVenue)
 {
 	if (Venue == NewVenue)

@@ -65,6 +65,19 @@ FString ADirtbagDaySpot::PromptText() const
 	case EDirtbagSpotKind::Travel:
 		return FString::Printf(TEXT("Drive to %s?  (E)  -  %.0f minutes"),
 		                       *TravelName, TravelHours * 60.0);
+	case EDirtbagSpotKind::Rest:
+	{
+		// The prompt carries the forecast, because that is the entire
+		// reason anybody sits down here.
+		const double Until = Game->HoursUntilWindow();
+		if (bWaitForWindow && Until > 0.0)
+		{
+			return FString::Printf(
+			    TEXT("Sit and wait?  (E)  -  %s"), *Game->WaitAdvice());
+		}
+		return FString::Printf(TEXT("Sit a while?  (E)  -  %.0f minutes.  %s"),
+		                       RestHours * 60.0, *Game->WaitAdvice());
+	}
 	}
 	return FString();
 }
@@ -144,6 +157,25 @@ void ADirtbagDaySpot::OnInteract()
 	case EDirtbagSpotKind::Travel:
 	{
 		BeginDrive();
+		break;
+	}
+	case EDirtbagSpotKind::Rest:
+	{
+		// Waiting is only interesting when it is waiting *for* something,
+		// so a press skips straight to the moment the rock comes good
+		// rather than making you press it eight more times.
+		const double Until = Game->HoursUntilWindow();
+		const double Hours =
+		    (bWaitForWindow && Until > 0.0) ? Until : RestHours;
+		Game->Rest(Hours);
+		Say(FString::Printf(TEXT("%s  %s"),
+		                    Hours >= 1.0
+		                        ? *FString::Printf(TEXT("Sat for %.1f hours."),
+		                                           Hours)
+		                        : *FString::Printf(TEXT("Sat for %.0f minutes."),
+		                                           Hours * 60.0),
+		                    *Game->WaitAdvice()),
+		    FColor::Cyan, 5.f);
 		break;
 	}
 	case EDirtbagSpotKind::Sleep:

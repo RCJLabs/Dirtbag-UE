@@ -6,6 +6,10 @@
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 
+#include "EngineUtils.h"
+
+#include "DirtbagClimbWall.h"
+#include "DirtbagGameInstance.h"
 #include "DirtbagHUD.h"
 #include "DirtbagRng.h"
 
@@ -27,6 +31,37 @@ void ADirtbagUEGameMode::BeginPlay()
 	for (int i = 0; i < 5; i++)
 	{
 		UE_LOG(LogDirtbagSim, Display, TEXT("golden[%d] = %.17g"), i, Rng.NextDouble());
+	}
+
+	// Where are we, before anyone has walked up to anything? Walls declare
+	// their own venue, so a level whose walls all agree simply is that
+	// place — and saying "indoors" while the player stands in front of a
+	// crag is wrong from the first frame to whenever they first touch a
+	// wall. Mixed levels keep the default and wait to be told by arrival,
+	// which is the only honest answer there.
+	if (UDirtbagGameInstance* Game =
+	        Cast<UDirtbagGameInstance>(GetGameInstance()))
+	{
+		bool bFound = false;
+		bool bUnanimous = true;
+		EDirtbagVenue Agreed = EDirtbagVenue::Gym;
+		for (TActorIterator<ADirtbagClimbWall> It(GetWorld()); It; ++It)
+		{
+			if (!bFound)
+			{
+				Agreed = It->GetVenue();
+				bFound = true;
+			}
+			else if (It->GetVenue() != Agreed)
+			{
+				bUnanimous = false;
+				break;
+			}
+		}
+		if (bFound && bUnanimous)
+		{
+			Game->SetVenue(Agreed);
+		}
 	}
 
 	// A missing HUD is otherwise a silent blank screen: say so plainly.

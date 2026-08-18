@@ -34,6 +34,11 @@ public:
 	ADirtbagClimbWall();
 
 	virtual void OnConstruction(const FTransform& Transform) override;
+
+	/** Which place this wall belongs to. Read by the game mode at BeginPlay
+	 *  so a level whose walls agree knows where it is before the player has
+	 *  walked up to anything. */
+	EDirtbagVenue GetVenue() const { return Venue; }
 	virtual void Tick(float DeltaSeconds) override;
 
 protected:

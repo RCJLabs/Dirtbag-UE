@@ -107,6 +107,22 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	void PassHours(double Hours);
 
+	/** Sit it out. Hours pass, hunger with them, and a little energy comes
+	 *  back — the shade, not a night's sleep. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	void Rest(double Hours);
+
+	/** Hours until today's window opens: 0 if it is already open, has been
+	 *  and gone, or the day never comes good at all. The thing waiting is
+	 *  actually for. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	double HoursUntilWindow();
+
+	/** "the rock comes good at 3:45pm" / "it is on, right now" / "today is
+	 *  not going to happen". */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	FString WaitAdvice();
+
 	/** First pull-on of the day seeds the session; later calls no-op. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	void EnsureAtGym();
