@@ -21,7 +21,9 @@ enum class EDirtbagSpotKind : uint8
 	/** The belay-desk shift: pays, and takes the hours and the energy. */
 	Shift,
 	/** Lights out — advances the day and writes the save. */
-	Sleep
+	Sleep,
+	/** The drive: half an hour of the day, and you are somewhere else. */
+	Travel
 };
 
 UCLASS()
@@ -37,6 +39,22 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	EDirtbagSpotKind Kind = EDirtbagSpotKind::Meal;
+
+	/** Travel only: the spot at the other end of the drive. Point the van's
+	 *  spot at the gym's and vice versa. */
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Dirtbag|Travel")
+	TObjectPtr<AActor> TravelTarget;
+
+	/** Where this drive goes, for the prompt: "Drive to the gym?" */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
+	FString TravelName = TEXT("the gym");
+
+	/** Hours the drive eats. The van is not fast and the crag is not close. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
+	double TravelHours = 0.5;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
+	float FadeSeconds = 0.4f;
 
 	UPROPERTY(VisibleAnywhere, Category = "Dirtbag")
 	TObjectPtr<USceneComponent> Root;
@@ -55,6 +73,8 @@ private:
 	                  UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	void OnInteract();
+	void BeginDrive();
+	void ArriveFromDrive();
 	FString PromptText() const;
 
 	UPROPERTY()
@@ -62,4 +82,5 @@ private:
 
 	bool bPlayerNear = false;
 	bool bBoundInput = false;
+	FTimerHandle DriveTimer;
 };

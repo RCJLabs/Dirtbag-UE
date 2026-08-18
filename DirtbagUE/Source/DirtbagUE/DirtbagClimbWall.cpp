@@ -40,21 +40,6 @@ void Toast(const FString& Msg, FColor Color = FColor::White, float Seconds = 4.0
 		GEngine->AddOnScreenDebugMessage(-1, Seconds, Color, Msg);
 	}
 }
-
-// Keyed messages replace themselves in place — a poor man's HUD row.
-void HudRow(int32 Key, const FString& Msg, FColor Color)
-{
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(Key, 0.5f, Color, Msg);
-	}
-}
-
-FString Bar(double Frac, int32 Width = 20)
-{
-	const int32 Filled = FMath::Clamp(FMath::RoundToInt(Frac * Width), 0, Width);
-	return FString::ChrN(Filled, TEXT('#')) + FString::ChrN(Width - Filled, TEXT('-'));
-}
 }  // namespace
 
 ADirtbagClimbWall::ADirtbagClimbWall()
@@ -409,7 +394,7 @@ void ADirtbagClimbWall::Tick(float DeltaSeconds)
 		}
 	}
 
-	if (bLiveSession && Phase != EPhase::Idle)
+	if (Phase != EPhase::Idle)
 	{
 		UpdateHud();
 	}
@@ -487,76 +472,35 @@ void ADirtbagClimbWall::FinishLiveAttempt()
 
 void ADirtbagClimbWall::UpdateHud()
 {
-	const double Pump = bLiveSession ? Live.pump : 0.0;
-	HudRow(101,
-	       FString::Printf(TEXT("PUMP  [%s] %.0f"), *Bar(Pump / 100.0), Pump),
-	       Pump > 75.0 ? FColor::Red : FColor::Orange);
+	if (!Game)
+	{
+		return;
+	}
 
-	if (Phase == EPhase::AtStance)
-	{
-		if (bCharging)
-		{
-			const bool bInWindow =
-			    Charge >= SweetWindowStart && Charge <= SweetWindowEnd;
-			HudRow(102, FString::Printf(TEXT("GRIP  [%s]"), *Bar(Charge)),
-			       bInWindow ? FColor::Green : FColor::White);
-		}
-		else
-		{
-			HudRow(102, TEXT("GRIP  hold Space"), FColor::White);
-		}
-		const double BestOdds = dirtbag::PeekOdds(Live, PerfectExecution);
-		HudRow(103,
-		       FString::Printf(TEXT("NEXT  %.0f%% at best"), BestOdds * 100.0),
-		       BestOdds > 0.7 ? FColor::Green
-		                      : (BestOdds > 0.4 ? FColor::Yellow : FColor::Red));
-	}
-}
+	// Publish, never draw: ADirtbagHUD owns how any of this looks.
+	FDirtbagSessionReadout& S = Game->SessionReadout;
+	S.bActive = true;
+	S.RouteLine = FString::Printf(
+	    TEXT("%s      %s"), *RouteName,
+	    *UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder));
+	S.WindowStart = SweetWindowStart;
+	S.WindowEnd = SweetWindowEnd;
+	S.Grip = bCharging ? Charge : -1.0;
 
-void ADirtbagClimbWall::FinishAttempt()
-{
-	Phase = EPhase::Ending;
-	const FString GradeText =
-	    UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder);
-	if (Current.bSent)
+	if (bLiveSession)
 	{
-		if (TopOutAnim)
-		{
-			PlayAnim(TopOutAnim, false);
-		}
-		Toast(FString::Printf(TEXT("%s  %s  —  %s"), *RouteName, *GradeText,
-		                      *StyleText(Current.Style)),
-		      FColor::Green, 5.f);
+		S.Pump = Live.pump;
+		S.Odds = Phase == EPhase::AtStance
+		             ? dirtbag::PeekOdds(Live, PerfectExecution)
+		             : -1.0;
 	}
-	else
+	else if (Current.Timeline.IsValidIndex(TimelineIndex))
 	{
-		const double SkinLeft =
-		    Game ? Game->Day.Session.SkinLeft : Session.SkinLeft;
-		Toast(FString::Printf(TEXT("Off at move %d of %d.  Skin left: %.1f"),
-		                      Current.Highpoint + 1, Route.Moves.Num(),
-		                      SkinLeft),
-		      FColor::Orange, 5.f);
-	}
-	GetWorldTimerManager().SetTimer(PhaseTimer, this,
-	                                &ADirtbagClimbWall::EndSession, EndPause,
-	                                false);
-}
-
-void ADirtbagClimbWall::EndSession()
-{
-	Climber->SetVisibility(false);
-	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
-	{
-		if (APawn* Pawn = PC->GetPawn())
-		{
-			Pawn->SetActorHiddenInGame(false);
-			PC->SetViewTargetWithBlend(Pawn, 0.5f);
-		}
-	}
-	Phase = EPhase::Idle;
-	if (bPlayerNear)
-	{
-		Toast(TEXT("Press E to go again."), FColor::Cyan);
+		// The replay reads off its own script, so a watched attempt shows
+		// the same rising pump and thinning odds a driven one does.
+		const FDirtbagMoveResult& Move = Current.Timeline[TimelineIndex];
+		S.Pump = Move.PumpAfter;
+		S.Odds = Phase == EPhase::AtStance ? Move.Odds : -1.0;
 	}
 }
 

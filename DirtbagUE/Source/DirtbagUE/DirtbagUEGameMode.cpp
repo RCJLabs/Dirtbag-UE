@@ -3,15 +3,17 @@
 #include "DirtbagUEGameMode.h"
 
 #include "Engine/Engine.h"
+#include "GameFramework/PlayerController.h"
+#include "Kismet/GameplayStatics.h"
 
-#include "DirtbagGameInstance.h"
+#include "DirtbagHUD.h"
 #include "DirtbagRng.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDirtbagSim, Log, All);
 
 ADirtbagUEGameMode::ADirtbagUEGameMode()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	HUDClass = ADirtbagHUD::StaticClass();
 }
 
 void ADirtbagUEGameMode::BeginPlay()
@@ -26,31 +28,13 @@ void ADirtbagUEGameMode::BeginPlay()
 	{
 		UE_LOG(LogDirtbagSim, Display, TEXT("golden[%d] = %.17g"), i, Rng.NextDouble());
 	}
-}
 
-void ADirtbagUEGameMode::Tick(float DeltaSeconds)
-{
-	Super::Tick(DeltaSeconds);
-
-	UDirtbagGameInstance* Game = Cast<UDirtbagGameInstance>(GetGameInstance());
-	if (!Game || !GEngine)
+	// A missing HUD is otherwise a silent blank screen: say so plainly.
+	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+	if (PC && !Cast<ADirtbagHUD>(PC->GetHUD()))
 	{
-		return;
+		UE_LOG(LogDirtbagSim, Warning,
+		       TEXT("Dirtbag HUD is not active - set HUD Class to DirtbagHUD in "
+		            "the game mode blueprint's Class Defaults."));
 	}
-
-	const int32 Hour =
-	    FMath::Clamp(FMath::FloorToInt(static_cast<float>(Game->Day.Hour)), 0, 23);
-	const int32 Minute = FMath::Clamp(
-	    FMath::FloorToInt(static_cast<float>((Game->Day.Hour - Hour) * 60.0)), 0,
-	    59);
-
-	// Keyed rows replace themselves in place rather than scrolling.
-	GEngine->AddOnScreenDebugMessage(
-	    1, 0.5f, FColor::White,
-	    FString::Printf(
-	        TEXT("DAY %d   %02d:%02d   $%.0f   energy %.0f   hunger %.0f   skin %.1f"),
-	        Game->Player.Day, Hour, Minute, Game->Player.Cash, Game->Day.Energy,
-	        Game->Day.Hunger, Game->Player.Climber.Skin));
-	GEngine->AddOnScreenDebugMessage(2, 0.5f, FColor::Silver,
-	                                 Game->GetCareerLine());
 }
