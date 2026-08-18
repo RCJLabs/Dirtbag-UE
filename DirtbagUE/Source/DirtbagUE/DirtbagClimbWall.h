@@ -113,22 +113,29 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")
 	int32 BoardIndex = 0;
 
-	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")
+	// --- Fallbacks -------------------------------------------------------
+	// Used only in levels with no game instance (isolated test maps). With
+	// one present these are overwritten at BeginPlay from the board or the
+	// guidebook, so whatever the panel shows here is last run's answer, not
+	// this wall's route. Collapsed under Advanced so they stop reading as
+	// settings you are supposed to keep in sync.
+
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Dirtbag|Route")
 	FString WorldSeed = TEXT("gym-1");
 
-	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Dirtbag|Route")
 	FString SessionSeed = TEXT("gym-1");
 
-	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Dirtbag|Route")
 	FString RouteName = TEXT("First Blood");
 
-	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Dirtbag|Route")
 	int32 Grade = 4;
 
-	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Dirtbag|Route")
 	int32 TrueGrade = 4;
 
-	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Dirtbag|Route")
 	EDirtbagRouteType RouteType = EDirtbagRouteType::Power;
 
 	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")

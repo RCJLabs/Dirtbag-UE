@@ -116,7 +116,10 @@ void ADirtbagClimbWall::BeginPlay()
 	if (Game)
 	{
 		// The board is the truth; the actor's route fields become display.
-		Route = Game->GetBoardRoute(BoardIndex);
+		// Asked by venue, not by "where is the player" — at BeginPlay nobody
+		// has walked up to anything yet, and asking the live venue here is
+		// what handed a crag wall a gym problem.
+		Route = Game->GetRouteAt(Venue, BoardIndex);
 		RouteName = Route.Name;
 		Grade = Route.Grade;
 		TrueGrade = Route.TrueGrade;
@@ -164,7 +167,7 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 	// good the line is, and whether anyone has done it at all. A three-star
 	// V4 and a no-star V4 are different decisions.
 	FString Book;
-	if (Game && !Game->bIndoors)
+	if (Game && Venue == EDirtbagVenue::Crag)
 	{
 		const FDirtbagCragLine Line = Game->GetCragLine(BoardIndex);
 		if (Line.bIsProject)
@@ -242,7 +245,7 @@ void ADirtbagClimbWall::OnClean()
 	{
 		return;
 	}
-	if (Game->bIndoors)
+	if (Venue != EDirtbagVenue::Crag)
 	{
 		Toast(TEXT("Someone else cleans the holds here."), FColor::Silver,
 		      4.f, kToastClean);

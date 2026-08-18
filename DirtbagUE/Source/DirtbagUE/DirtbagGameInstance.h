@@ -175,9 +175,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	TArray<FDirtbagRoute> GetBoard();
 
-	/** The route at this index in whichever venue is live. */
+	/** The route at this index in whichever venue is live. Prefer
+	 *  GetRouteAt from anything that knows its own venue: this one reads
+	 *  global state, which is only correct once the player has arrived. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	FDirtbagRoute GetBoardRoute(int32 Index);
+
+	/** The route at this index in a named venue, independent of where the
+	 *  player currently is. A wall resolves its route at BeginPlay, long
+	 *  before anyone has walked up to it, so asking "where am I?" at that
+	 *  moment gives the wrong answer — and gave a crag wall a gym problem. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	FDirtbagRoute GetRouteAt(EDirtbagVenue AtVenue, int32 Index);
 
 	/** This world's crag, cached. Outdoors only. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
