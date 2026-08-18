@@ -73,7 +73,13 @@ TArray<FDirtbagRoute> UDirtbagGameInstance::GetBoard()
 
 FDirtbagRoute UDirtbagGameInstance::GetBoardRoute(int32 Index)
 {
-	if (!bIndoors)
+	return GetRouteAt(Venue, Index);
+}
+
+FDirtbagRoute UDirtbagGameInstance::GetRouteAt(EDirtbagVenue AtVenue,
+                                               int32 Index)
+{
+	if (AtVenue == EDirtbagVenue::Crag)
 	{
 		return GetCragLine(Index).Route;
 	}
@@ -306,7 +312,10 @@ FString UDirtbagGameInstance::ConditionsLine() const
 
 FDirtbagProjectMemory* UDirtbagGameInstance::LedgerFor(int32 BoardIndex)
 {
-	const FDirtbagRoute Route = GetBoardRoute(BoardIndex);
+	// Cleaning and naming only happen while you are standing at the wall,
+	// so the live venue is the right one here — unlike route resolution,
+	// which happens before anyone has arrived anywhere.
+	const FDirtbagRoute Route = GetRouteAt(Venue, BoardIndex);
 	if (Route.Name.IsEmpty())
 	{
 		return nullptr;

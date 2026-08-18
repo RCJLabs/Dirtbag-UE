@@ -65,6 +65,18 @@ rock looks like rock.
    > the wall and on travel spots (**Arrive At**), so where the game thinks
    > you are can never disagree with what you are standing in front of.
 
+   **Two fields, both on the wall: `Venue` and `Board Index`.** Venue
+   decides which book the index reads from, so changing the index alone on a
+   Gym wall just picks a different gym problem — and an index past the
+   eight-problem board clamps to the last one, which is how a wall set to 25
+   ends up showing *The Blue One V7*.
+
+   Everything under **Advanced** in `Dirtbag|Route` (Route Name, Grade, True
+   Grade, World Seed, Route Type) is a fallback for test maps with no game
+   instance. With one present they are overwritten at BeginPlay, so what the
+   panel shows there is last run's answer rather than a setting to maintain.
+   They are collapsed under Advanced for exactly that reason.
+
    Setting Venue to `Crag` also sets **Crag Aspect** to the crag's own
    (east) on load. Change the aspect afterwards if you want to feel how it
    moves the window — the crag will not fight you, it only refuses to
