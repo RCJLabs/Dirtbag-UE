@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "../DirtbagConditions.h"
 #include "../DirtbagCore.h"
 #include "../DirtbagDay.h"
 #include "../DirtbagRng.h"
@@ -27,6 +28,253 @@ static int g_checks = 0;
       std::printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, #cond);      \
     }                                                                  \
   } while (0)
+
+// --- Conditions ---------------------------------------------------------------
+
+static void TestWeatherDeterminism() {
+  Rng world = Rng::FromSeed("crag-1");
+  for (int day = 1; day <= 30; day++) {
+    Weather a = GenerateWeather(world, day);
+    Weather b = GenerateWeather(world, day);
+    CHECK(a.highTempF == b.highTempF);
+    CHECK(a.lowTempF == b.lowTempF);
+    CHECK(a.humidity == b.humidity);
+    CHECK(a.cloud == b.cloud);
+    CHECK(a.wind == b.wind);
+  }
+  // Different worlds get different weather; different days do too.
+  Rng other = Rng::FromSeed("crag-2");
+  bool differsByWorld = false, differsByDay = false;
+  for (int day = 1; day <= 30; day++) {
+    if (GenerateWeather(world, day).highTempF !=
+        GenerateWeather(other, day).highTempF) differsByWorld = true;
+    if (GenerateWeather(world, day).humidity !=
+        GenerateWeather(world, day + 1).humidity) differsByDay = true;
+  }
+  CHECK(differsByWorld);
+  CHECK(differsByDay);
+
+  // Weather must never move the sim's frozen vectors: it lives on its own
+  // named stream, so drawing a season of it leaves worldgen untouched.
+  Rng before = Rng::FromSeed("crag-1");
+  Route r1 = BuildRoute(before, "Line", 5, 5, RouteType::Crimp,
+                        Discipline::Boulder);
+  for (int day = 1; day <= 200; day++) GenerateWeather(world, day);
+  Rng after = Rng::FromSeed("crag-1");
+  Route r2 = BuildRoute(after, "Line", 5, 5, RouteType::Crimp,
+                        Discipline::Boulder);
+  CHECK(r1.moves.size() == r2.moves.size());
+  for (size_t i = 0; i < r1.moves.size(); i++)
+    CHECK(r1.moves[i].difficulty == r2.moves[i].difficulty);
+}
+
+static void TestTemperatureCurve() {
+  Weather w;
+  w.lowTempF = 30.0;
+  w.highTempF = 60.0;
+  ConditionsDials d;
+  // Coldest before dawn, hottest mid-afternoon, and the whole day inside
+  // the day's own range.
+  CHECK(TemperatureAt(w, d.coldestHour) < TemperatureAt(w, 10.0));
+  CHECK(TemperatureAt(w, d.hottestHour) > TemperatureAt(w, 10.0));
+  for (double h = 0.0; h <= 24.0; h += 0.5) {
+    CHECK(TemperatureAt(w, h) >= w.lowTempF - 1e-9);
+    CHECK(TemperatureAt(w, h) <= w.highTempF + 1e-9);
+  }
+}
+
+static void TestSunFollowsAspect() {
+  Weather w;
+  w.cloud = 0.0;
+  // North never takes a direct hit — the whole reason it is the summer plan.
+  for (double h = 0.0; h <= 24.0; h += 0.5)
+    CHECK(SunOnRock(Aspect::North, h, w) == 0.0);
+  // The others take it in the order the sun travels.
+  CHECK(SunOnRock(Aspect::East, 9.5, w) > SunOnRock(Aspect::East, 16.5, w));
+  CHECK(SunOnRock(Aspect::West, 16.5, w) > SunOnRock(Aspect::West, 9.5, w));
+  CHECK(SunOnRock(Aspect::South, 13.0, w) > SunOnRock(Aspect::South, 7.0, w));
+  // Cloud is the reprieve.
+  Weather overcast = w;
+  overcast.cloud = 1.0;
+  CHECK(SunOnRock(Aspect::South, 13.0, overcast) <
+        SunOnRock(Aspect::South, 13.0, w));
+}
+
+static void TestRockHoldsTheSun() {
+  Weather w;
+  w.lowTempF = 30.0;
+  w.highTempF = 60.0;
+  w.cloud = 0.0;
+  // A sunny face runs hotter than the air; a north face is just the air.
+  CHECK(RockTempAt(w, Aspect::South, 14.0) > TemperatureAt(w, 14.0));
+  CHECK(std::fabs(RockTempAt(w, Aspect::North, 14.0) -
+                  TemperatureAt(w, 14.0)) < 1e-9);
+  // The lag is the point: an east face is still giving back heat well after
+  // the sun has left it, so the rock peaks later than the sun does.
+  const double sunPeak = 9.5;
+  CHECK(RockTempAt(w, Aspect::East, sunPeak + 2.0) -
+            TemperatureAt(w, sunPeak + 2.0) >
+        RockTempAt(w, Aspect::East, sunPeak) - TemperatureAt(w, sunPeak));
+}
+
+static void TestFrictionRespondsToWeather() {
+  ConditionsDials d;
+  Weather dry;
+  dry.lowTempF = 40.0; dry.highTempF = 60.0;
+  dry.humidity = 0.05; dry.cloud = 0.5; dry.wind = 0.3;
+  Weather humid = dry;
+  humid.humidity = 1.0;
+  // Humidity is the dirtbag's real enemy.
+  CHECK(ConditionsAt(dry, Aspect::North, 12.0).friction >
+        ConditionsAt(humid, Aspect::North, 12.0).friction);
+  // Wind saves a marginal day.
+  Weather windy = dry;
+  windy.wind = 1.0;
+  CHECK(ConditionsAt(windy, Aspect::North, 12.0).friction >=
+        ConditionsAt(dry, Aspect::North, 12.0).friction);
+  // Friction stays a probability-shaped 0..1 for every hour and aspect.
+  Rng world = Rng::FromSeed("crag-1");
+  for (int day = 1; day <= 60; day++) {
+    Weather w = GenerateWeather(world, day);
+    for (Aspect a : {Aspect::North, Aspect::East, Aspect::South, Aspect::West})
+      for (double h = d.firstLight; h <= d.lastLight; h += 0.5) {
+        const double f = ConditionsAt(w, a, h).friction;
+        CHECK(f >= 0.0 && f <= 1.0);
+      }
+  }
+}
+
+static void TestWindowIsShortEnoughToBeADecision() {
+  // The load-bearing balance fact (notes/phase2-window.md): skin allows
+  // 8-12 burns a day, so a window that fits a whole day's skin makes waiting
+  // free and deletes the projecting loop. Windows must stay near an hour.
+  ConditionsDials d;
+  Rng world = Rng::FromSeed("crag-1");
+  const int DAYS = 300;
+  for (Aspect a : {Aspect::North, Aspect::East, Aspect::South, Aspect::West}) {
+    int withWindow = 0;
+    double total = 0.0;
+    for (int day = 1; day <= DAYS; day++) {
+      PrimeWindow win = FindPrimeWindow(GenerateWeather(world, day, d), a, d);
+      if (!win.exists) continue;
+      withWindow++;
+      total += win.hours();
+      // The window contains its own peak, and sits inside daylight.
+      CHECK(win.startHour <= win.peakHour + 1e-9);
+      CHECK(win.endHour >= win.peakHour - 1e-9);
+      CHECK(win.startHour >= d.firstLight - 1e-9);
+      CHECK(win.endHour <= d.lastLight + 1e-9);
+      CHECK(win.peakFriction >= d.primeThreshold);
+    }
+    // Some days refuse you outright, and most days do not.
+    CHECK(withWindow > DAYS / 4);
+    CHECK(withWindow < DAYS);
+    const double mean = total / withWindow;
+    CHECK(mean > 0.4);   // long enough to be worth waiting for
+    CHECK(mean < 2.5);   // short enough that a day's skin will not fit inside
+  }
+}
+
+static void TestAspectDecidesWhen() {
+  // The shade line is the mechanic: a face that bakes in the morning comes
+  // good in the evening, and vice versa. Averaged over a season so one
+  // freak day cannot carry it.
+  ConditionsDials d;
+  Rng world = Rng::FromSeed("crag-1");
+  double eastPeak = 0.0, westPeak = 0.0;
+  int eastN = 0, westN = 0;
+  for (int day = 1; day <= 300; day++) {
+    Weather w = GenerateWeather(world, day, d);
+    PrimeWindow e = FindPrimeWindow(w, Aspect::East, d);
+    PrimeWindow t = FindPrimeWindow(w, Aspect::West, d);
+    if (e.exists) { eastPeak += e.peakHour; eastN++; }
+    if (t.exists) { westPeak += t.peakHour; westN++; }
+  }
+  CHECK(eastN > 0 && westN > 0);
+  // East bakes early and is climbable late; west is the mirror.
+  CHECK(eastPeak / eastN > westPeak / westN);
+}
+
+static void TestWindowChangesWhenYouBurn() {
+  // Phase 2's gate, as a test, in its two halves.
+  //
+  // Averaged over five generated routes on purpose: a single route name can
+  // roll an eight-move V6 with three crux moves that a V5 climber cannot do
+  // in any conditions, and a gate test hostage to one generation is not a
+  // gate test.
+  ConditionsDials d;
+  Rng world = Rng::FromSeed("crag-1");
+  Climber c;
+  c.skills.power = c.skills.fingers = c.skills.technique =
+      c.skills.endurance = c.skills.head = 50.0;
+  c.skin = 9.0;
+
+  std::vector<Route> projects;
+  for (int i = 1; i <= 5; i++)
+    projects.push_back(BuildRoute(world, "Gate " + std::to_string(i), 5, 5,
+                                  RouteType::Crimp, Discipline::Boulder));
+
+  // Half one: burns outside the window buy beta, and beta is worth real
+  // percentage points once the window opens.
+  auto Play = [&](int recon) {
+    int sends = 0, days = 0;
+    for (const Route& p : projects) {
+      for (int day = 1; day <= 200; day++) {
+        Weather w = GenerateWeather(world, day, d);
+        PrimeWindow win = FindPrimeWindow(w, Aspect::East, d);
+        if (!win.exists) continue;
+        days++;
+        const double reconHour = std::max(d.firstLight, win.startHour - 2.0);
+        const Conditions poor = ConditionsAt(w, Aspect::East, reconHour, d);
+        const Conditions prime = ConditionsAt(w, Aspect::East, win.peakHour, d);
+        const int windowBurns = static_cast<int>(win.hours() / 0.25);
+
+        Rng session = Rng::FromSeed("gate-" + p.name + "-" +
+                                    std::to_string(day));
+        SessionState st = StartSession(c);
+        ProjectMemory mem;
+        mem.routeName = p.name;
+        mem.grade = p.grade;
+        bool sent = false;
+        for (int i = 0; i < recon && st.skinLeft > 0.5 && !sent; i++)
+          sent = AttemptInSession(session, st, mem, c, p, poor).sent;
+        for (int i = 0; i < windowBurns && st.skinLeft > 0.5 && !sent; i++)
+          sent = AttemptInSession(session, st, mem, c, p, prime).sent;
+        if (sent) sends++;
+      }
+    }
+    CHECK(days > 0);
+    return 100.0 * sends / days;
+  };
+  const double cold = Play(0);   // straight into the window, knowing nothing
+  const double read = Play(6);   // six burns of recon first
+  CHECK(read > cold + 10.0);
+
+  // Half two: skin is the budget the window is spent from. This half is
+  // mechanical rather than statistical — at your own grade you often send
+  // during recon, which flatters the send rate while hiding the real cost.
+  // Count the burns the window actually gets instead.
+  auto WindowBurnsLeft = [&](int recon) {
+    const Route& p = projects[0];
+    Weather w = GenerateWeather(world, 3, d);
+    PrimeWindow win = FindPrimeWindow(w, Aspect::East, d);
+    CHECK(win.exists);
+    const Conditions poor =
+        ConditionsAt(w, Aspect::East,
+                     std::max(d.firstLight, win.startHour - 2.0), d);
+    Rng session = Rng::FromSeed("skin-budget");
+    SessionState st = StartSession(c);
+    ProjectMemory mem;
+    mem.routeName = p.name;
+    mem.grade = p.grade;
+    for (int i = 0; i < recon && st.skinLeft > 0.5; i++)
+      AttemptInSession(session, st, mem, c, p, poor);
+    return st.skinLeft;
+  };
+  CHECK(WindowBurnsLeft(14) < WindowBurnsLeft(6));
+  CHECK(WindowBurnsLeft(6) < WindowBurnsLeft(0));
+  CHECK(WindowBurnsLeft(14) < 1.0);  // nothing left for the window at all
+}
 
 // --- RNG ---------------------------------------------------------------------
 
@@ -1051,6 +1299,14 @@ int main() {
   TestCareerSummary();
   TestLedgerRecordsGrade();
   TestMigrationMachinery();
+  TestWeatherDeterminism();
+  TestTemperatureCurve();
+  TestSunFollowsAspect();
+  TestRockHoldsTheSun();
+  TestFrictionRespondsToWeather();
+  TestWindowIsShortEnoughToBeADecision();
+  TestAspectDecidesWhen();
+  TestWindowChangesWhenYouBurn();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);
