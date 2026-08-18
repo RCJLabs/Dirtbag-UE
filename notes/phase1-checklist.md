@@ -202,3 +202,25 @@ you forget it, the spot tells you so instead of silently doing nothing.
 stop → eat → shift → drive home → sleep, with the day's clock and the save
 carrying it all. That is the Phase 1 day loop, whole. What remains for the
 milestone is playing seven of them in a row and telling me what annoyed you.
+
+---
+
+## 10. The real HUD
+
+The `####----` debug rows are gone; `ADirtbagHUD` draws proper bars on the
+canvas. **No placement and no widget blueprints** — the game mode sets its
+own HUD class.
+
+Always on, top left: day, clock, cash, and bars for **energy**, **skin**
+(the one that actually ends sessions, so it gets the warm colour) and
+**hunger**. Your career line sits small at the bottom.
+
+During a session, bottom centre: the route, a **pump bar** that goes green →
+amber → red, the **grip meter with its latch window drawn on the track** —
+so releasing in the window is something you can see rather than memorise —
+and the next move's odds. The staged replay gets the same bars, reading off
+its own timeline, so watching an attempt and driving one look alike.
+
+**If no HUD appears**, the log says so in as many words: filter the Output
+Log for `Dirtbag HUD is not active`. The fix is one property — open
+`BP_ThirdPersonGameMode`, Class Defaults, set **HUD Class** to `DirtbagHUD`.

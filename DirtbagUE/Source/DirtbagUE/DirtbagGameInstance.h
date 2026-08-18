@@ -13,6 +13,42 @@
 
 #include "DirtbagGameInstance.generated.h"
 
+/**
+ * What the session wants drawn right now. Published by the wall, read by
+ * the HUD — so the presentation layer shares one truth and a future UMG
+ * widget binds to the same fields the debug HUD uses.
+ */
+USTRUCT(BlueprintType)
+struct FDirtbagSessionReadout
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	bool bActive = false;
+
+	/** "Volume Country  V5" */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	FString RouteLine;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	double Pump = 0.0;
+
+	/** Best-case odds for the move you're on; < 0 when no move is pending. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	double Odds = -1.0;
+
+	/** Grip charge 0..1; < 0 when not charging. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	double Grip = -1.0;
+
+	/** The latch window, so the bar can show you where to let go. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	double WindowStart = 0.6;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	double WindowEnd = 0.95;
+};
+
 UCLASS()
 class UDirtbagGameInstance : public UGameInstance
 {
@@ -33,6 +69,10 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	FDirtbagDayState Day;
+
+	/** Live session readout for the HUD; the wall keeps this current. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	FDirtbagSessionReadout SessionReadout;
 
 	/** True when the current Player came from disk rather than a fresh start. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
