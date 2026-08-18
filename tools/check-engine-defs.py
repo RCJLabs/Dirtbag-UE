@@ -29,6 +29,31 @@ SKIP = ("UPROPERTY", "UFUNCTION", "GENERATED_BODY", "DECLARE_", "DEFINE_",
 DECL = re.compile(r"(~?\w+)\s*\([^()]*\)\s*(?:const\s*)?(?:override\s*)?;$")
 
 
+def strip_macros(text):
+    """Remove UHT macro invocations with balanced parens.
+
+    Without this every UFUNCTION/UPROPERTY-decorated declaration merges into
+    the macro line, gets skipped as a macro, and the entire Blueprint library
+    goes unchecked — which is exactly the code most likely to lose a
+    definition.
+    """
+    for macro in ("UFUNCTION", "UPROPERTY", "UCLASS", "USTRUCT", "UENUM",
+                  "UINTERFACE", "UDELEGATE", "META"):
+        while True:
+            m = re.search(r"\b%s\s*\(" % macro, text)
+            if not m:
+                break
+            depth, i = 1, m.end()
+            while i < len(text) and depth:
+                if text[i] == "(":
+                    depth += 1
+                elif text[i] == ")":
+                    depth -= 1
+                i += 1
+            text = text[:m.start()] + text[i:]
+    return text.replace("GENERATED_BODY()", "")
+
+
 def strip_noise(text):
     """Comments and string bodies out; brace structure preserved."""
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
@@ -84,7 +109,7 @@ for header in sorted(glob.glob("DirtbagUE/Source/DirtbagUE/*.h")):
         continue
     pairs += 1
     hs_raw = io.open(header, encoding="utf-8").read()
-    hs = strip_noise(hs_raw)
+    hs = strip_macros(strip_noise(hs_raw))
     body = strip_noise(io.open(cpp, encoding="utf-8").read())
 
     bodies = class_bodies(hs)
@@ -103,20 +128,47 @@ for header in sorted(glob.glob("DirtbagUE/Source/DirtbagUE/*.h")):
                 bad.append((os.path.basename(header), cls, name, decl[:80]))
 
     # Free/namespace-scope functions: everything outside any class body.
+    # Counted rather than merely matched, so that adding an overload without
+    # its definition is caught — a bare name match is satisfied by any one of
+    # the siblings and would sail straight past it.
     outside = hs
     for _, cbody in bodies:
         outside = outside.replace(cbody, "", 1)
+    declared = {}
     for name, decl in declarations(outside):
         checked += 1
-        if re.search(r"\b%s\s*\([^;{]*?\)\s*(?:const\s*)?\{"
-                     % re.escape(name), body, re.S):
-            continue
-        if re.search(r"::\s*%s\s*\(" % re.escape(name), body):
-            continue
-        bad.append((os.path.basename(header), "<free>", name, decl[:80]))
+        declared.setdefault(name, []).append(decl)
+    for name, decls in declared.items():
+        defined = len(re.findall(
+            r"\b%s\s*\([^;{]*?\)\s*(?:const\s*)?\{" % re.escape(name),
+            body, re.S))
+        defined += len(re.findall(r"::\s*%s\s*\(" % re.escape(name), body))
+        if defined < len(decls):
+            bad.append((os.path.basename(header), "<free>", name,
+                        "%d declared, %d defined" % (len(decls), defined)))
+
+# Second check, guarding the other build failure this file exists because of:
+# UBT only compiles translation units under the module, so every Sim/*.cpp
+# needs a one-line bridge in Source/ that #includes it. A sim file added
+# without its bridge builds fine here and fails to link in the editor.
+unbridged = []
+engine_src = "DirtbagUE/Source/DirtbagUE"
+bridge_text = ""
+for cpp in glob.glob(os.path.join(engine_src, "*.cpp")):
+    bridge_text += io.open(cpp, encoding="utf-8").read()
+for sim in sorted(glob.glob("Sim/*.cpp")):
+    if "/tests/" in sim:
+        continue
+    if os.path.basename(sim) not in bridge_text:
+        unbridged.append(sim)
 
 for f, c, n, d in bad:
     print("MISSING DEFINITION: %s -> %s::%s()   [%s]" % (f, c, n, d))
-print("checked %d declarations across %d header/cpp pairs; missing: %d"
-      % (checked, pairs, len(bad)))
-sys.exit(1 if bad else 0)
+for sim in unbridged:
+    print("NO BRIDGE FILE: %s is never #included from %s/ - it will not be "
+          "compiled into the module" % (sim, engine_src))
+print("checked %d declarations across %d header/cpp pairs; "
+      "%d sim files bridged; problems: %d"
+      % (checked, pairs, len(glob.glob("Sim/*.cpp")) - len(unbridged),
+         len(bad) + len(unbridged)))
+sys.exit(1 if (bad or unbridged) else 0)

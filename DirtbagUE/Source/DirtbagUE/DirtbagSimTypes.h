@@ -7,6 +7,7 @@
 
 #include "CoreMinimal.h"
 
+#include "DirtbagConditions.h"
 #include "DirtbagCore.h"
 #include "DirtbagDay.h"
 #include "DirtbagSave.h"
@@ -297,6 +298,63 @@ struct FDirtbagCareerSummary
 	int32 NemesisAttempts = 0;
 };
 
+// Which way the rock faces. This, not the forecast, decides what time of day
+// a crag is climbable — an east face bakes at breakfast and comes into the
+// shade mid-afternoon.
+UENUM(BlueprintType)
+enum class EDirtbagAspect : uint8
+{
+	North,
+	East,
+	South,
+	West
+};
+
+/** One day's weather. Derived from world seed + day, so it never needs saving. */
+USTRUCT(BlueprintType)
+struct FDirtbagWeather
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	double HighTempF = 60.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	double LowTempF = 40.0;
+
+	/** 0..1. The dirtbag's real enemy. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	double Humidity = 0.5;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	double Cloud = 0.3;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	double Wind = 0.2;
+};
+
+/** The day's best span. bExists is false on a day that never comes good. */
+USTRUCT(BlueprintType)
+struct FDirtbagPrimeWindow
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	bool bExists = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	double StartHour = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	double EndHour = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	double PeakHour = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	double PeakFriction = 0.0;
+};
+
 UENUM(BlueprintType)
 enum class EDirtbagLoadResult : uint8
 {
@@ -324,4 +382,9 @@ namespace DirtbagConvert
 	FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In);
 	FDirtbagDayState FromSim(const dirtbag::DayState& In);
 	FDirtbagCareerSummary FromSim(const dirtbag::CareerSummary& In);
+	FDirtbagWeather FromSim(const dirtbag::Weather& In);
+	FDirtbagPrimeWindow FromSim(const dirtbag::PrimeWindow& In);
+
+	dirtbag::Weather ToSim(const FDirtbagWeather& In);
+	dirtbag::Aspect ToSim(EDirtbagAspect In);
 }

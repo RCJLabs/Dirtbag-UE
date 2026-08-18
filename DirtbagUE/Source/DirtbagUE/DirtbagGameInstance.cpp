@@ -86,7 +86,7 @@ FDirtbagAttemptResult UDirtbagGameInstance::ReplayAttempt(
 {
 	EnsureAtGym();
 	return UDirtbagSimLibrary::DayAttempt(TodaysSessionSeed(), Player, Day,
-	                                      Route);
+	                                      Route, CurrentFriction());
 }
 
 FDirtbagCareerSummary UDirtbagGameInstance::GetCareer() const
@@ -116,7 +116,7 @@ dirtbag::LiveAttempt UDirtbagGameInstance::BeginLiveFor(
 {
 	EnsureAtGym();
 	UDirtbagLiveAttempt* Attempt = UDirtbagSimLibrary::BeginDayLiveAttempt(
-	    TodaysSessionSeed(), Player, Day, Route);
+	    TodaysSessionSeed(), Player, Day, Route, CurrentFriction());
 	return Attempt->Live;
 }
 
@@ -141,4 +141,45 @@ FDirtbagAttemptResult UDirtbagGameInstance::CommitLiveFor(
 FString UDirtbagGameInstance::TodaysSessionSeed() const
 {
 	return FString::Printf(TEXT("%s#day%d"), *Seed, Player.Day);
+}
+
+// --- Conditions --------------------------------------------------------------
+
+FDirtbagWeather UDirtbagGameInstance::TodaysWeather() const
+{
+	return UDirtbagSimLibrary::WeatherFor(Seed, Day.Day);
+}
+
+FDirtbagPrimeWindow UDirtbagGameInstance::TodaysWindow() const
+{
+	return UDirtbagSimLibrary::PrimeWindowFor(TodaysWeather(), CragAspect);
+}
+
+double UDirtbagGameInstance::CurrentFriction() const
+{
+	// A gym has no shade line: the whole mechanic is an outdoor one, and
+	// pretending otherwise would make the Phase 1 gym behave differently
+	// after this change for no reason the player could read.
+	if (bIndoors)
+	{
+		return IndoorFriction;
+	}
+	return UDirtbagSimLibrary::FrictionAt(TodaysWeather(), CragAspect,
+	                                      Day.Hour);
+}
+
+FString UDirtbagGameInstance::ConditionsLine() const
+{
+	if (bIndoors)
+	{
+		return TEXT("indoors - the holds are exactly as good as they ever are");
+	}
+	const FDirtbagWeather Weather = TodaysWeather();
+	const double Friction = CurrentFriction();
+	return FString::Printf(
+	    TEXT("%s  -  %.0fF on the rock, %.0f%% humidity.  %s"),
+	    *UDirtbagSimLibrary::ConditionsText(Friction),
+	    UDirtbagSimLibrary::RockTempF(Weather, CragAspect, Day.Hour),
+	    Weather.Humidity * 100.0,
+	    *UDirtbagSimLibrary::WindowText(TodaysWindow()));
 }

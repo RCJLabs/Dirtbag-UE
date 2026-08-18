@@ -61,6 +61,21 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	DrawBar(TEXT("HUNGER"), Game->Day.Hunger / 100.0, X, Y, 210.f, 9.f,
 	        FLinearColor(0.70f, 0.60f, 0.35f, 1.f));
 
+	// Conditions, under the bars. Outdoors this is the line the day is
+	// planned around, so it is coloured by how good it actually is rather
+	// than left as flat text you stop reading.
+	Y += 34.f;
+	const double Friction = Game->CurrentFriction();
+	const FLinearColor ConditionsInk =
+	    Game->bIndoors
+	        ? kDim
+	        : (Friction >= 0.62 ? FLinearColor(0.45f, 0.80f, 0.50f, 1.f)
+	                            : (Friction >= 0.40
+	                                   ? FLinearColor(0.90f, 0.75f, 0.30f, 1.f)
+	                                   : FLinearColor(0.85f, 0.35f, 0.30f, 1.f)));
+	DrawText(Game->ConditionsLine(), ConditionsInk, X, Y,
+	         GEngine->GetSmallFont(), 1.f);
+
 	// The career, small, bottom left — it is a slow number and reads like one.
 	DrawText(Game->GetCareerLine(), kDim, X, H - 38.f, GEngine->GetSmallFont(),
 	         1.f);

@@ -101,6 +101,41 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	bool SaveNow();
 
+	// --- Conditions ------------------------------------------------------
+	// Weather is derived from Seed + Day, so it is never saved and cannot
+	// drift from a reload. Aspect is a property of the place you are
+	// climbing; the gym is indoors and ignores all of this.
+
+	/** Which way the current crag faces. Indoors this is ignored — a gym has
+	 *  no shade line and IndoorFriction stands in. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Conditions")
+	EDirtbagAspect CragAspect = EDirtbagAspect::North;
+
+	/** True while the player is climbing indoors, where conditions are a
+	 *  thermostat rather than a decision. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Conditions")
+	bool bIndoors = true;
+
+	/** The gym's flat, boring friction. Slightly under outdoor prime on
+	 *  purpose: plastic in a warm room is never actually good. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Conditions")
+	double IndoorFriction = 0.5;
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	FDirtbagWeather TodaysWeather() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	FDirtbagPrimeWindow TodaysWindow() const;
+
+	/** Friction right now — indoors, the thermostat; outdoors, the rock. This
+	 *  is what every attempt this instance starts is resolved against. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	double CurrentFriction() const;
+
+	/** "greasy - 61F on the rock. window 5:30pm to 7:15pm, best at 6:30pm" */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	FString ConditionsLine() const;
+
 	/** The gym's board for this world, cached. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	TArray<FDirtbagRoute> GetBoard();

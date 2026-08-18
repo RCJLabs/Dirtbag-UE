@@ -8,6 +8,7 @@ static_assert(static_cast<int>(EDirtbagDiscipline::Sport) == static_cast<int>(di
 static_assert(static_cast<int>(EDirtbagStyle::Fell) == static_cast<int>(dirtbag::Style::Fell), "Style enums out of sync");
 static_assert(static_cast<int>(EDirtbagMorphology::Powerful) == static_cast<int>(dirtbag::Morphology::Powerful), "Morphology enums out of sync");
 static_assert(static_cast<int>(EDirtbagRouteRead::NotThisYear) == static_cast<int>(dirtbag::RouteRead::NotThisYear), "RouteRead enums out of sync");
+static_assert(static_cast<int>(EDirtbagAspect::West) == static_cast<int>(dirtbag::Aspect::West), "Aspect enums out of sync");
 
 namespace DirtbagConvert
 {
@@ -212,6 +213,44 @@ FDirtbagCareerSummary FromSim(const dirtbag::CareerSummary& In)
 	Out.Nemesis = UTF8_TO_TCHAR(In.nemesis.c_str());
 	Out.NemesisAttempts = In.nemesisAttempts;
 	return Out;
+}
+
+FDirtbagWeather FromSim(const dirtbag::Weather& In)
+{
+	FDirtbagWeather Out;
+	Out.HighTempF = In.highTempF;
+	Out.LowTempF = In.lowTempF;
+	Out.Humidity = In.humidity;
+	Out.Cloud = In.cloud;
+	Out.Wind = In.wind;
+	return Out;
+}
+
+dirtbag::Weather ToSim(const FDirtbagWeather& In)
+{
+	dirtbag::Weather Out;
+	Out.highTempF = In.HighTempF;
+	Out.lowTempF = In.LowTempF;
+	Out.humidity = In.Humidity;
+	Out.cloud = In.Cloud;
+	Out.wind = In.Wind;
+	return Out;
+}
+
+FDirtbagPrimeWindow FromSim(const dirtbag::PrimeWindow& In)
+{
+	FDirtbagPrimeWindow Out;
+	Out.bExists = In.exists;
+	Out.StartHour = In.startHour;
+	Out.EndHour = In.endHour;
+	Out.PeakHour = In.peakHour;
+	Out.PeakFriction = In.peakFriction;
+	return Out;
+}
+
+dirtbag::Aspect ToSim(EDirtbagAspect In)
+{
+	return static_cast<dirtbag::Aspect>(In);
 }
 
 }  // namespace DirtbagConvert

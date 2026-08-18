@@ -390,3 +390,51 @@ EDirtbagLoadResult UDirtbagSimLibrary::LoadFromFile(
 	}
 	return LoadFromText(Text, OutSeed, OutPlayer);
 }
+
+// --- Conditions --------------------------------------------------------------
+
+FDirtbagWeather UDirtbagSimLibrary::WeatherFor(const FString& WorldSeed,
+                                               int32 Day)
+{
+	const dirtbag::Rng World =
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*WorldSeed));
+	return DirtbagConvert::FromSim(dirtbag::GenerateWeather(World, Day));
+}
+
+double UDirtbagSimLibrary::FrictionAt(const FDirtbagWeather& Weather,
+                                      EDirtbagAspect Aspect, double Hour)
+{
+	return dirtbag::ConditionsAt(DirtbagConvert::ToSim(Weather),
+	                             DirtbagConvert::ToSim(Aspect), Hour)
+	    .friction;
+}
+
+double UDirtbagSimLibrary::RockTempF(const FDirtbagWeather& Weather,
+                                     EDirtbagAspect Aspect, double Hour)
+{
+	return dirtbag::RockTempAt(DirtbagConvert::ToSim(Weather),
+	                           DirtbagConvert::ToSim(Aspect), Hour);
+}
+
+FDirtbagPrimeWindow UDirtbagSimLibrary::PrimeWindowFor(
+    const FDirtbagWeather& Weather, EDirtbagAspect Aspect)
+{
+	return DirtbagConvert::FromSim(dirtbag::FindPrimeWindow(
+	    DirtbagConvert::ToSim(Weather), DirtbagConvert::ToSim(Aspect)));
+}
+
+FString UDirtbagSimLibrary::ConditionsText(double Friction)
+{
+	return FString(UTF8_TO_TCHAR(dirtbag::ConditionsText(Friction)));
+}
+
+FString UDirtbagSimLibrary::WindowText(const FDirtbagPrimeWindow& Window)
+{
+	dirtbag::PrimeWindow W;
+	W.exists = Window.bExists;
+	W.startHour = Window.StartHour;
+	W.endHour = Window.EndHour;
+	W.peakHour = Window.PeakHour;
+	W.peakFriction = Window.PeakFriction;
+	return FString(UTF8_TO_TCHAR(dirtbag::WindowText(W).c_str()));
+}

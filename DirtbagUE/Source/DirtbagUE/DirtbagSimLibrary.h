@@ -208,4 +208,38 @@ public:
 	static EDirtbagLoadResult LoadFromFile(
 	    const FString& Filename, FString& OutSeed,
 	    FDirtbagPlayerState& OutPlayer);
+
+	// --- Conditions ------------------------------------------------------
+	// The day's weather and its prime window. All derived from world seed +
+	// day, so none of it is saved and none of it can drift from a reload.
+
+	/** This world's weather on this day. Deterministic; costs nothing to
+	 *  ask twice. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static FDirtbagWeather WeatherFor(const FString& WorldSeed, int32 Day);
+
+	/** Friction 0..1 on this face at this hour — the number the resolver
+	 *  eats. Below ~0.3 you are wasting skin. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static double FrictionAt(const FDirtbagWeather& Weather,
+	                         EDirtbagAspect Aspect, double Hour);
+
+	/** What the holds actually feel like: air temperature plus the heat the
+	 *  wall has banked from the sun, shed on a lag. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static double RockTempF(const FDirtbagWeather& Weather,
+	                        EDirtbagAspect Aspect, double Hour);
+
+	/** The day's best span, or bExists false on a day that never comes good. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static FDirtbagPrimeWindow PrimeWindowFor(const FDirtbagWeather& Weather,
+	                                          EDirtbagAspect Aspect);
+
+	/** "sticky - this is the day" / "greasy". */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static FString ConditionsText(double Friction);
+
+	/** "window 5:30pm to 7:15pm, best at 6:30pm". */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static FString WindowText(const FDirtbagPrimeWindow& Window);
 };
