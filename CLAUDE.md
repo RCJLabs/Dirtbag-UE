@@ -14,6 +14,7 @@ Decision history lives in `concepts/` (brainstorm → finalists → the pivot). 
 
 ## Commands
 
+- `tools/patch.py` — edit engine files through `edit(path, old, new)`, which raises unless the anchor matches exactly once. A scripted edit that silently matches nothing has twice removed or omitted a declaration while leaving its use behind, and with no Unreal compiler here that costs a whole build cycle to discover.
 - `tools/preflight.sh` — **run before any commit touching `Sim/` or `DirtbagUE/Source/`.** Runs everything checkable without Unreal: the sim harness, a unity-build compile, the definition/bridge check, and the field-name check. Every one of those exists because a specific mistake reached Evan's PC and cost a build cycle; none of them is theoretical.
 - `Sim/run-tests.sh` — build + run the sim core's standalone g++ harness, then compile all of `Sim/` as one translation unit the way UBT will. Must be green before any commit that touches `Sim/`.
 - There is no Unreal *compiler* either, so engine-side C++ is written blind and Evan's PC is the first thing to compile it. That makes `tools/preflight.sh` the difference between a mistake costing seconds and costing a round trip — never push engine changes without it.

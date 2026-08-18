@@ -203,6 +203,7 @@ void ADirtbagDaySpot::ArriveFromDrive()
 	}
 
 	Game->PassHours(TravelHours);
+	Game->SetVenue(ArriveAt);
 
 	if (PC && PC->PlayerCameraManager)
 	{

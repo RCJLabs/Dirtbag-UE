@@ -49,6 +49,23 @@ struct FDirtbagSessionReadout
 	double WindowEnd = 0.95;
 };
 
+/**
+ * Where you are climbing. A gym has a thermostat and somebody else's brush;
+ * a crag has a shade line, dirt, and lines nobody has done.
+ *
+ * This is a property of the place, set by the walls and travel spots you
+ * actually walk up to, rather than a switch on the game instance — a game
+ * instance is not an actor, has no details panel, and cannot be selected in
+ * the level, so anything that has to be flipped by hand there is a setting
+ * nobody can find.
+ */
+UENUM(BlueprintType)
+enum class EDirtbagVenue : uint8
+{
+	Gym,
+	Crag
+};
+
 UCLASS()
 class UDirtbagGameInstance : public UGameInstance
 {
@@ -114,9 +131,20 @@ public:
 	EDirtbagAspect CragAspect = EDirtbagAspect::North;
 
 	/** True while the player is climbing indoors, where conditions are a
-	 *  thermostat rather than a decision. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Conditions")
+	 *  thermostat rather than a decision. Set by SetVenue, which the walls
+	 *  and travel spots call — do not expect to find this in a details
+	 *  panel, because a game instance does not have one. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
 	bool bIndoors = true;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	EDirtbagVenue Venue = EDirtbagVenue::Gym;
+
+	/** Arrive somewhere. Cheap and idempotent — the walls call it every time
+	 *  you walk up to one, so where you are can never drift from what you
+	 *  are standing in front of. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	void SetVenue(EDirtbagVenue NewVenue);
 
 	/** The gym's flat, boring friction. Slightly under outdoor prime on
 	 *  purpose: plastic in a warm room is never actually good. */

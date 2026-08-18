@@ -15,10 +15,15 @@ unless you have not pulled yet.
 1. Close Unreal. **Fetch origin → Pull.** Delete
    `C:\Dev\DirtbagUE\Dirtbag-UE\DirtbagUE\Binaries`. Reopen the
    `.uproject`, **Yes** to rebuild.
-2. Select your **DirtbagGameInstance** and confirm **b Indoors** = `false`.
-3. Point a wall at **Board Index 25** — *the arete left of Diesel*, the
-   easiest of the three open projects (it is really V7, though the book only
-   guesses).
+2. Select the wall and set **Details → Dirtbag|Route → Venue = `Crag`**.
+   This is the switch that moves a wall outdoors; there is no global one.
+   (An earlier version of this file said to set `b Indoors` on the
+   DirtbagGameInstance — you cannot, because a game instance is not an actor
+   and has no details panel. If you followed that and got *The Blue One V7*,
+   this is why: the index clamped to the eight-problem gym board.)
+3. Set the same wall's **Board Index** to `25` — *the arete left of Diesel*,
+   the easiest of the three open projects (it is really V7, though the book
+   only guesses).
 4. Press Play, walk up to it. The prompt should read:
 
    > `the arete left of Diesel  V7   unclimbed — untouched: moss, dirt, and a rumour of a line`

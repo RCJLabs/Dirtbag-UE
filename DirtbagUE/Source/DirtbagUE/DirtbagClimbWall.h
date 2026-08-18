@@ -12,6 +12,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 
+#include "DirtbagGameInstance.h"
 #include "DirtbagSimTypes.h"
 
 #include "DirtbagClimbWall.generated.h"
@@ -96,9 +97,19 @@ protected:
 
 	// --- Route / climber config -----------------------------------------
 
-	/** With a DirtbagGameInstance present, this wall carries gym-board
-	 *  problem #BoardIndex and the fields below become fallbacks (used only
-	 *  in levels without the game instance, e.g. isolated test maps). */
+	/** Which place this wall is part of, and the only switch that moves a
+	 *  wall outdoors — there is no global one, because the game instance is
+	 *  not an actor and has no details panel to put it in. Gym walls take a
+	 *  problem off the board; crag walls take a line out of the guidebook
+	 *  and get weather, dirt and lines nobody has climbed. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Route")
+	EDirtbagVenue Venue = EDirtbagVenue::Gym;
+
+	/** With a DirtbagGameInstance present, this wall carries the route at
+	 *  #BoardIndex in whichever venue it belongs to — the gym board indoors,
+	 *  the guidebook outdoors (where 25-27 are the open projects) — and the
+	 *  fields below become fallbacks (used only in levels without the game
+	 *  instance, e.g. isolated test maps). */
 	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")
 	int32 BoardIndex = 0;
 

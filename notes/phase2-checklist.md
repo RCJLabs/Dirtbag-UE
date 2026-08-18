@@ -53,12 +53,22 @@ rock looks like rock.
 2. Put climb walls on it as in Phase 1 (`Board Index` still chooses the
    problem for now — a real outdoor route table is the next container-side
    bite).
-3. Select the **DirtbagGameInstance** settings and set **b Indoors** =
-   `false`. That is the whole switch: the same **Board Index** on a wall now
-   selects a line from the guidebook instead of a gym problem, and **Crag
-   Aspect** sets itself to the crag's own (east). Change the aspect
-   afterwards if you want to feel how it moves the window — the crag will
-   not fight you, it only refuses to disagree with itself on load.
+3. Select each wall you want outdoors and set **Details → Dirtbag|Route →
+   Venue = `Crag`**. That is the whole switch, and it lives on the wall
+   because that is the thing you can actually click.
+
+   > **Correction.** An earlier version of this file told you to set
+   > `b Indoors` on the DirtbagGameInstance. You cannot: a game instance is
+   > not an actor, it is not in the outliner, and it has no details panel.
+   > That instruction was impossible to follow, and the symptom was a crag
+   > wall serving *The Blue One V7* off the gym board. Venue now lives on
+   > the wall and on travel spots (**Arrive At**), so where the game thinks
+   > you are can never disagree with what you are standing in front of.
+
+   Setting Venue to `Crag` also sets **Crag Aspect** to the crag's own
+   (east) on load. Change the aspect afterwards if you want to feel how it
+   moves the window — the crag will not fight you, it only refuses to
+   disagree with itself.
 
    **Board Index now means the guidebook.** In book order: 0 Roadside
    Attraction V0 · 2 Second Breakfast V2 (the famous sandbag — says V2,

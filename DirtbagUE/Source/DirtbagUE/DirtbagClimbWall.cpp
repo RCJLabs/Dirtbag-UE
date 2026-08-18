@@ -33,11 +33,22 @@ FString StyleText(EDirtbagStyle Style)
 	return TEXT("?");
 }
 
-void Toast(const FString& Msg, FColor Color = FColor::White, float Seconds = 4.0f)
+// Key -1 appends a new line every time, so pressing a key four times stacks
+// four identical messages. A stable key per kind of message replaces instead,
+// which is what "you pressed the same key again" should look like.
+enum : int32
+{
+	kToastPrompt = 4101,
+	kToastClean = 4102,
+	kToastResult = 4103,
+};
+
+void Toast(const FString& Msg, FColor Color = FColor::White,
+           float Seconds = 4.0f, int32 Key = -1)
 {
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, Seconds, Color, Msg);
+		GEngine->AddOnScreenDebugMessage(Key, Seconds, Color, Msg);
 	}
 }
 }  // namespace
@@ -136,6 +147,14 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 	}
 	bPlayerNear = true;
 
+	// Arriving at a wall is arriving somewhere. Doing this here rather than
+	// asking anyone to set a flag means where the game thinks you are can
+	// never disagree with what you are standing in front of.
+	if (Game)
+	{
+		Game->SetVenue(Venue);
+	}
+
 	// Read the line from the ground before touching it — the sim's judgement
 	// against the guidebook grade, so a sandbag still looks reasonable here.
 	const FDirtbagClimber& Who = Game ? Game->Player.Climber : ClimberStats;
@@ -169,7 +188,7 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 	          TEXT("%s  %s%s — %s   (E to climb)"), *RouteName,
 	          *UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder),
 	          *Book, *UDirtbagSimLibrary::ReadRouteText(Read)),
-	      FColor::Cyan, 5.f);
+	      FColor::Cyan, 5.f, kToastPrompt);
 
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
 	{
@@ -225,18 +244,20 @@ void ADirtbagClimbWall::OnClean()
 	}
 	if (Game->bIndoors)
 	{
-		Toast(TEXT("Someone else cleans the holds here."), FColor::Silver);
+		Toast(TEXT("Someone else cleans the holds here."), FColor::Silver,
+		      4.f, kToastClean);
 		return;
 	}
 	if (Game->CleanLine(BoardIndex, CleanHoursPerPress) <= 0.0)
 	{
-		Toast(TEXT("It is as clean as it is going to get."), FColor::Silver);
+		Toast(TEXT("It is as clean as it is going to get."), FColor::Silver,
+		      4.f, kToastClean);
 		return;
 	}
 	Toast(FString::Printf(TEXT("%.0f minutes on the brush.  %s"),
 	                      CleanHoursPerPress * 60.f,
 	                      *Game->CleanlinessText(BoardIndex)),
-	      FColor::Silver, 4.f);
+	      FColor::Silver, 4.f, kToastClean);
 }
 
 void ADirtbagClimbWall::StartAttempt()

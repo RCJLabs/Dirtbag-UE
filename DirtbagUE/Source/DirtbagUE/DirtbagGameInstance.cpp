@@ -254,6 +254,25 @@ FDirtbagPrimeWindow UDirtbagGameInstance::TodaysWindow() const
 	return CachedWindow;
 }
 
+void UDirtbagGameInstance::SetVenue(EDirtbagVenue NewVenue)
+{
+	if (Venue == NewVenue)
+	{
+		return;
+	}
+	Venue = NewVenue;
+	bIndoors = (NewVenue == EDirtbagVenue::Gym);
+
+	// The window is computed per aspect, and arriving somewhere changes
+	// which aspect applies.
+	CachedWindowDay = -1;
+
+	if (!bIndoors)
+	{
+		EnsureCrag();   // seeds the project ledgers, filthy, before any burn
+	}
+}
+
 double UDirtbagGameInstance::CurrentFriction() const
 {
 	// A gym has no shade line: the whole mechanic is an outdoor one, and

@@ -7,6 +7,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 
+#include "DirtbagGameInstance.h"
+
 #include "DirtbagDaySpot.generated.h"
 
 class UBoxComponent;
@@ -52,6 +54,12 @@ protected:
 	/** Hours the drive eats. The van is not fast and the crag is not close. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
 	double TravelHours = 0.5;
+
+	/** Where this drive lands you. Set on arrival, so the HUD's conditions
+	 *  line is right from the moment you step out of the van rather than
+	 *  from whenever you first touch a wall. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
+	EDirtbagVenue ArriveAt = EDirtbagVenue::Gym;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
 	float FadeSeconds = 0.4f;
