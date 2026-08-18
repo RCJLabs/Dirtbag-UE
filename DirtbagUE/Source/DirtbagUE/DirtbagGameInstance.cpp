@@ -147,10 +147,10 @@ FString UDirtbagGameInstance::TodaysSessionSeed() const
 
 FDirtbagWeather UDirtbagGameInstance::TodaysWeather() const
 {
-	if (CachedWeatherDay != Day.Day)
+	if (CachedWeatherDay != Player.Day)
 	{
-		CachedWeather = UDirtbagSimLibrary::WeatherFor(Seed, Day.Day);
-		CachedWeatherDay = Day.Day;
+		CachedWeather = UDirtbagSimLibrary::WeatherFor(Seed, Player.Day);
+		CachedWeatherDay = Player.Day;
 	}
 	return CachedWeather;
 }
@@ -158,10 +158,10 @@ FDirtbagWeather UDirtbagGameInstance::TodaysWeather() const
 FDirtbagPrimeWindow UDirtbagGameInstance::TodaysWindow() const
 {
 	const FDirtbagWeather Weather = TodaysWeather();
-	if (CachedWindowDay != Day.Day || CachedWindowAspect != CragAspect)
+	if (CachedWindowDay != Player.Day || CachedWindowAspect != CragAspect)
 	{
 		CachedWindow = UDirtbagSimLibrary::PrimeWindowFor(Weather, CragAspect);
-		CachedWindowDay = Day.Day;
+		CachedWindowDay = Player.Day;
 		CachedWindowAspect = CragAspect;
 	}
 	return CachedWindow;

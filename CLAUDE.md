@@ -14,7 +14,9 @@ Decision history lives in `concepts/` (brainstorm → finalists → the pivot). 
 
 ## Commands
 
-- `Sim/run-tests.sh` — build + run the sim core's standalone g++ harness. Must be green before any commit that touches `Sim/`.
+- `tools/preflight.sh` — **run before any commit touching `Sim/` or `DirtbagUE/Source/`.** Runs everything checkable without Unreal: the sim harness, a unity-build compile, the definition/bridge check, and the field-name check. Every one of those exists because a specific mistake reached Evan's PC and cost a build cycle; none of them is theoretical.
+- `Sim/run-tests.sh` — build + run the sim core's standalone g++ harness, then compile all of `Sim/` as one translation unit the way UBT will. Must be green before any commit that touches `Sim/`.
+- There is no Unreal *compiler* either, so engine-side C++ is written blind and Evan's PC is the first thing to compile it. That makes `tools/preflight.sh` the difference between a mistake costing seconds and costing a round trip — never push engine changes without it.
 - There is no Unreal Editor in cloud/container sessions. Editor-side work (Blueprints, levels, animation wiring) is specified as precise checklists in `SETUP.md` or milestone notes for Evan to run locally — never guessed at, never marked done from here.
 
 ## Architecture (load-bearing rules)
