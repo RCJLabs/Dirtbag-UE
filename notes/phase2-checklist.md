@@ -53,9 +53,19 @@ rock looks like rock.
 2. Put climb walls on it as in Phase 1 (`Board Index` still chooses the
    problem for now — a real outdoor route table is the next container-side
    bite).
-3. Select the **DirtbagGameInstance** settings and set:
-   - **b Indoors** = `false`
-   - **Crag Aspect** = `East`
+3. Select the **DirtbagGameInstance** settings and set **b Indoors** =
+   `false`. That is the whole switch: the same **Board Index** on a wall now
+   selects a line from the guidebook instead of a gym problem, and **Crag
+   Aspect** sets itself to the crag's own (east). Change the aspect
+   afterwards if you want to feel how it moves the window — the crag will
+   not fight you, it only refuses to disagree with itself on load.
+
+   **Board Index now means the guidebook.** In book order: 0 Roadside
+   Attraction V0 · 2 Second Breakfast V2 (the famous sandbag — says V2,
+   climbs V3) · 5 Diesel V5 \*\*\* · 6 Shade Line V4 \*\*\* · 13 Chalk Ghost
+   V6 \*\*\* · 20 The Guidebook Lied V7 \*\*\* · 23 Send Train V8 \*\*\* ·
+   25–27 the three open projects. Point four walls at 6, 5, 13 and 25 for a
+   proper spread.
 4. Now the HUD line becomes the real one:
 
 > `greasy - 71F on the rock, 34% humidity.  window 6:30pm to 7:45pm, best at 7:15pm`

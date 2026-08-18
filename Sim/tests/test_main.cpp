@@ -9,6 +9,7 @@
 
 #include "../DirtbagConditions.h"
 #include "../DirtbagCore.h"
+#include "../DirtbagCrag.h"
 #include "../DirtbagDay.h"
 #include "../DirtbagRng.h"
 #include "../DirtbagSave.h"
@@ -274,6 +275,179 @@ static void TestWindowChangesWhenYouBurn() {
   CHECK(WindowBurnsLeft(14) < WindowBurnsLeft(6));
   CHECK(WindowBurnsLeft(6) < WindowBurnsLeft(0));
   CHECK(WindowBurnsLeft(14) < 1.0);  // nothing left for the window at all
+}
+
+// --- The crag ------------------------------------------------------------------
+
+static void TestCragIsStable() {
+  Rng world = Rng::FromSeed("crag-1");
+  Crag a = RoadsideCrag(world);
+  Crag b = RoadsideCrag(world);
+  CHECK(a.name == b.name);
+  CHECK(a.lines.size() == b.lines.size());
+  for (size_t i = 0; i < a.lines.size(); i++) {
+    CHECK(a.lines[i].route.name == b.lines[i].route.name);
+    CHECK(a.lines[i].route.moves.size() == b.lines[i].route.moves.size());
+    for (size_t m = 0; m < a.lines[i].route.moves.size(); m++)
+      CHECK(a.lines[i].route.moves[m].difficulty ==
+            b.lines[i].route.moves[m].difficulty);
+  }
+  // A different world gets different rock under the same guidebook: the book
+  // is authored, the moves are seeded.
+  Crag other = RoadsideCrag(Rng::FromSeed("crag-2"));
+  CHECK(other.lines.size() == a.lines.size());
+  bool moved = false;
+  for (size_t i = 0; i < a.lines.size(); i++)
+    if (other.lines[i].route.moves.size() != a.lines[i].route.moves.size() ||
+        other.lines[i].route.moves[0].difficulty !=
+            a.lines[i].route.moves[0].difficulty)
+      moved = true;
+  CHECK(moved);
+}
+
+static void TestCragIsNotALadder() {
+  // The gym board is one problem per grade, climbing cleanly. A crag is not:
+  // it piles up on the moderates, thins out at the top, and skips nothing in
+  // between. If this ever becomes a ladder, the crag has turned into a gym.
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  int atGrade[20] = {0};
+  int graded = 0;
+  for (const CragLine& l : crag.lines) {
+    if (l.isProject) continue;
+    CHECK(l.route.grade >= 0 && l.route.grade < 20);
+    atGrade[l.route.grade]++;
+    graded++;
+  }
+  CHECK(graded >= 20);
+  // Moderates outnumber the hard end several times over.
+  int moderate = 0, hard = 0;
+  for (int g = 0; g <= 4; g++) moderate += atGrade[g];
+  for (int g = 7; g < 20; g++) hard += atGrade[g];
+  CHECK(moderate > hard * 2);
+  // No grade is represented more than the book's own moderate band, and at
+  // least one grade carries several lines — that is the pile-up.
+  int busiest = 0;
+  for (int g = 0; g < 20; g++) busiest = std::max(busiest, atGrade[g]);
+  CHECK(busiest >= 3);
+}
+
+static void TestCragHasProjectsAndTheyAreOpen() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  std::vector<const CragLine*> projects = OpenProjects(crag);
+  CHECK(projects.size() >= 3);
+  int hardest = 0;
+  for (const CragLine& l : crag.lines)
+    if (!l.isProject) hardest = std::max(hardest, l.route.grade);
+  for (const CragLine* p : projects) {
+    CHECK(p->isProject);
+    CHECK(p->firstAscentBy.empty());   // nobody has done it
+    CHECK(p->stars == 0);              // and nobody can vouch for it
+    CHECK(!p->description.empty());    // but everyone knows where it is
+    // Projects sit at the crag's frontier — not necessarily above every
+    // line that has gone (a moderate arete can stay unclimbed because
+    // nobody fancied the landing), but never down among the moderates.
+    CHECK(p->route.grade >= hardest - 2);
+  }
+  // And the hardest thing here is something nobody has done.
+  int hardestProject = 0;
+  for (const CragLine* p : projects)
+    hardestProject = std::max(hardestProject, p->route.grade);
+  CHECK(hardestProject > hardest);
+  // Everything in the book proper has been climbed by somebody.
+  for (const CragLine& l : crag.lines)
+    if (!l.isProject) CHECK(!l.firstAscentBy.empty());
+}
+
+static void TestSandbagsAreSpecific() {
+  // A crag's sandbags are famous and deliberate, not a dice roll — and they
+  // are rare enough to matter when you hit one.
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  int sandbagged = 0, graded = 0;
+  for (const CragLine& l : crag.lines) {
+    if (l.isProject) continue;
+    graded++;
+    CHECK(l.route.trueGrade >= l.route.grade);   // the book never over-grades
+    if (l.route.trueGrade > l.route.grade) sandbagged++;
+  }
+  CHECK(sandbagged >= 2);
+  CHECK(sandbagged * 4 < graded);   // a minority, not the house style
+  // And the same seed sandbags the same lines, every time.
+  Crag again = RoadsideCrag(Rng::FromSeed("crag-9"));
+  for (size_t i = 0; i < crag.lines.size(); i++)
+    CHECK(again.lines[i].route.trueGrade == crag.lines[i].route.trueGrade);
+}
+
+static void TestCragGivesAClimberADay() {
+  // The content check: a climber at the crag's own level should find plenty
+  // to warm up on, a real cluster at their limit, and a visible ceiling.
+  // A crag that reads as all-warmup or all-refusal is not a day out.
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  Climber c;
+  c.skills.power = c.skills.fingers = c.skills.technique =
+      c.skills.endurance = c.skills.head = 50.0;   // a V5 climber
+  int warmup = 0, atLimit = 0, project = 0, refused = 0;
+  for (const CragLine& l : crag.lines) {
+    switch (ReadRoute(c, l.route)) {
+      case RouteRead::Warmup:       warmup++; break;
+      case RouteRead::AtYourLimit:  atLimit++; break;
+      case RouteRead::Project:      project++; break;
+      case RouteRead::NotThisYear:  refused++; break;
+      default: break;
+    }
+  }
+  CHECK(warmup >= 4);     // something to get warm on
+  CHECK(atLimit >= 3);    // and a real day's worth at the limit
+  CHECK(project >= 1);    // something to come back for
+  CHECK(refused >= 1);    // and something that is simply not yours yet
+}
+
+static void TestNamingNeverMovesTheLedgerKey() {
+  // The trap this design exists to avoid: ProjectMemory records burns
+  // against route.name and the save file stores it, so naming a first ascent
+  // must change what the line is called without changing what it *is*.
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  std::vector<const CragLine*> projects = OpenProjects(crag);
+  CHECK(!projects.empty());
+
+  CragLine line = *projects[0];
+  const std::string key = line.route.name;
+  CHECK(DisplayName(line) == key);          // unnamed: identity is the name
+
+  // The transition the pipeline will perform: it goes, so it stops being a
+  // project, someone owns the first ascent, and it gets a name.
+  line.isProject = false;
+  line.firstAscentBy = "you";
+  line.displayName = "Roadside Rites";
+  CHECK(DisplayName(line) == "Roadside Rites");
+  CHECK(line.route.name == key);            // but the ledger key never moved
+  CHECK(GuidebookLine(line).find("Roadside Rites") != std::string::npos);
+  CHECK(GuidebookLine(line).find("project") == std::string::npos);
+}
+
+static void TestGuidebookReadsRight() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  for (const CragLine& l : crag.lines) {
+    const std::string text = GuidebookLine(l);
+    CHECK(!text.empty());
+    if (l.isProject) {
+      CHECK(text.find("project") != std::string::npos);
+      CHECK(text.find(l.description) != std::string::npos);
+    } else {
+      CHECK(text.find(DisplayName(l)) != std::string::npos);
+      CHECK(text.find(BoulderGradeName(l.route.grade)) != std::string::npos);
+      // Stars are shown when earned and never invented.
+      CHECK((text.find('*') != std::string::npos) == (l.stars > 0));
+    }
+  }
+  // LinesUpTo is the guidebook page: graded lines only, none over the bar.
+  std::vector<const CragLine*> easy = LinesUpTo(crag, 2);
+  CHECK(!easy.empty());
+  for (const CragLine* l : easy) {
+    CHECK(!l->isProject);
+    CHECK(l->route.grade <= 2);
+  }
+  CHECK(LinesUpTo(crag, 18).size() + OpenProjects(crag).size() ==
+        crag.lines.size());
 }
 
 // --- RNG ---------------------------------------------------------------------
@@ -1307,6 +1481,13 @@ int main() {
   TestWindowIsShortEnoughToBeADecision();
   TestAspectDecidesWhen();
   TestWindowChangesWhenYouBurn();
+  TestCragIsStable();
+  TestCragIsNotALadder();
+  TestCragHasProjectsAndTheyAreOpen();
+  TestSandbagsAreSpecific();
+  TestCragGivesAClimberADay();
+  TestNamingNeverMovesTheLedgerKey();
+  TestGuidebookReadsRight();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);

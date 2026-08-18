@@ -73,12 +73,59 @@ TArray<FDirtbagRoute> UDirtbagGameInstance::GetBoard()
 
 FDirtbagRoute UDirtbagGameInstance::GetBoardRoute(int32 Index)
 {
+	if (!bIndoors)
+	{
+		return GetCragLine(Index).Route;
+	}
 	EnsureBoard();
 	if (Board.Num() == 0)
 	{
 		return FDirtbagRoute();
 	}
 	return Board[FMath::Clamp(Index, 0, Board.Num() - 1)];
+}
+
+void UDirtbagGameInstance::EnsureCrag()
+{
+	if (bCragLoaded)
+	{
+		return;
+	}
+	Crag = UDirtbagSimLibrary::RoadsideCrag(Seed);
+	bCragLoaded = true;
+
+	// The guidebook owns which way its rock faces. Keeping a second copy of
+	// that on the game instance is how a crag ends up climbing in one
+	// aspect's shade while its window is computed for another.
+	CragAspect = Crag.Aspect;
+	CachedWindowDay = -1;
+}
+
+FDirtbagCrag UDirtbagGameInstance::GetCrag()
+{
+	EnsureCrag();
+	return Crag;
+}
+
+FDirtbagCragLine UDirtbagGameInstance::GetCragLine(int32 Index)
+{
+	EnsureCrag();
+	if (Crag.Lines.Num() == 0)
+	{
+		return FDirtbagCragLine();
+	}
+	return Crag.Lines[FMath::Clamp(Index, 0, Crag.Lines.Num() - 1)];
+}
+
+int32 UDirtbagGameInstance::NumRoutesHere()
+{
+	if (!bIndoors)
+	{
+		EnsureCrag();
+		return Crag.Lines.Num();
+	}
+	EnsureBoard();
+	return Board.Num();
 }
 
 FDirtbagAttemptResult UDirtbagGameInstance::ReplayAttempt(

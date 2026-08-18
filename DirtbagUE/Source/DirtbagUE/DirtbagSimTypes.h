@@ -9,6 +9,7 @@
 
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
+#include "DirtbagCrag.h"
 #include "DirtbagDay.h"
 #include "DirtbagSave.h"
 #include "DirtbagSession.h"
@@ -355,6 +356,54 @@ struct FDirtbagPrimeWindow
 	double PeakFriction = 0.0;
 };
 
+/** One line in the guidebook: a route, plus what the book says about it. */
+USTRUCT(BlueprintType)
+struct FDirtbagCragLine
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crag")
+	FDirtbagRoute Route;
+
+	/** Guidebook quality 0..3. Quality and difficulty are separate axes. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crag")
+	int32 Stars = 0;
+
+	/** An unclimbed line: the grade is a guess and nobody has vouched for it. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crag")
+	bool bIsProject = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crag")
+	FString FirstAscentBy;
+
+	/** Where to find it, when it has no name: "the arete left of Diesel". */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crag")
+	FString Description;
+
+	/** Its given name, once earned. Never a key — Route.Name is the key. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crag")
+	FString DisplayName;
+};
+
+USTRUCT(BlueprintType)
+struct FDirtbagCrag
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crag")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crag")
+	EDirtbagAspect Aspect = EDirtbagAspect::North;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crag")
+	TArray<FDirtbagCragLine> Lines;
+
+	/** Hours from the van. The crag's real cost. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crag")
+	double ApproachHours = 0.5;
+};
+
 UENUM(BlueprintType)
 enum class EDirtbagLoadResult : uint8
 {
@@ -384,6 +433,9 @@ namespace DirtbagConvert
 	FDirtbagCareerSummary FromSim(const dirtbag::CareerSummary& In);
 	FDirtbagWeather FromSim(const dirtbag::Weather& In);
 	FDirtbagPrimeWindow FromSim(const dirtbag::PrimeWindow& In);
+
+	FDirtbagCragLine FromSim(const dirtbag::CragLine& In);
+	FDirtbagCrag FromSim(const dirtbag::Crag& In);
 
 	dirtbag::Weather ToSim(const FDirtbagWeather& In);
 	dirtbag::Aspect ToSim(EDirtbagAspect In);

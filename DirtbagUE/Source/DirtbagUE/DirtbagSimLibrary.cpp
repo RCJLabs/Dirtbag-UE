@@ -438,3 +438,29 @@ FString UDirtbagSimLibrary::WindowText(const FDirtbagPrimeWindow& Window)
 	W.peakFriction = Window.PeakFriction;
 	return FString(UTF8_TO_TCHAR(dirtbag::WindowText(W).c_str()));
 }
+
+// --- The crag ----------------------------------------------------------------
+
+FDirtbagCrag UDirtbagSimLibrary::RoadsideCrag(const FString& WorldSeed)
+{
+	const dirtbag::Rng World =
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*WorldSeed));
+	return DirtbagConvert::FromSim(dirtbag::RoadsideCrag(World));
+}
+
+FString UDirtbagSimLibrary::GuidebookLine(const FDirtbagCragLine& Line)
+{
+	// Rebuilt rather than round-tripped: the sim owns how a book entry
+	// reads, and only the fields it reads need to make the trip.
+	dirtbag::CragLine Sim;
+	Sim.route.name = TCHAR_TO_UTF8(*Line.Route.Name);
+	Sim.route.grade = Line.Route.Grade;
+	Sim.stars = Line.Stars;
+	Sim.isProject = Line.bIsProject;
+	Sim.description = TCHAR_TO_UTF8(*Line.Description);
+	if (Line.DisplayName != Line.Route.Name)
+	{
+		Sim.displayName = TCHAR_TO_UTF8(*Line.DisplayName);
+	}
+	return FString(UTF8_TO_TCHAR(dirtbag::GuidebookLine(Sim).c_str()));
+}

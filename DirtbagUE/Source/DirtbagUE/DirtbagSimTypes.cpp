@@ -253,4 +253,30 @@ dirtbag::Aspect ToSim(EDirtbagAspect In)
 	return static_cast<dirtbag::Aspect>(In);
 }
 
+FDirtbagCragLine FromSim(const dirtbag::CragLine& In)
+{
+	FDirtbagCragLine Out;
+	Out.Route = FromSim(In.route);
+	Out.Stars = In.stars;
+	Out.bIsProject = In.isProject;
+	Out.FirstAscentBy = UTF8_TO_TCHAR(In.firstAscentBy.c_str());
+	Out.Description = UTF8_TO_TCHAR(In.description.c_str());
+	Out.DisplayName = UTF8_TO_TCHAR(dirtbag::DisplayName(In).c_str());
+	return Out;
+}
+
+FDirtbagCrag FromSim(const dirtbag::Crag& In)
+{
+	FDirtbagCrag Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Aspect = static_cast<EDirtbagAspect>(In.aspect);
+	Out.ApproachHours = In.approachHours;
+	Out.Lines.Reserve(static_cast<int32>(In.lines.size()));
+	for (const dirtbag::CragLine& Line : In.lines)
+	{
+		Out.Lines.Add(FromSim(Line));
+	}
+	return Out;
+}
+
 }  // namespace DirtbagConvert

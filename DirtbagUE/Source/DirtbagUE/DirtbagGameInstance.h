@@ -106,8 +106,10 @@ public:
 	// drift from a reload. Aspect is a property of the place you are
 	// climbing; the gym is indoors and ignores all of this.
 
-	/** Which way the current crag faces. Indoors this is ignored — a gym has
-	 *  no shade line and IndoorFriction stands in. */
+	/** Which way the current crag faces. Set from the crag itself the moment
+	 *  one is loaded, so the guidebook and the shade line cannot disagree;
+	 *  change it afterwards to feel out how aspect moves the window. Indoors
+	 *  it is ignored — a gym has no shade line. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Conditions")
 	EDirtbagAspect CragAspect = EDirtbagAspect::North;
 
@@ -136,12 +138,31 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
 	FString ConditionsLine() const;
 
-	/** The gym's board for this world, cached. */
+	// --- What you are climbing on ----------------------------------------
+	// One index, two venues: indoors it selects a gym problem, outdoors a
+	// line from the guidebook. Walls carry only the index, so moving a wall
+	// between venues is a flag rather than a rebuild.
+
+	/** The gym's board for this world, cached. Indoor venue only. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	TArray<FDirtbagRoute> GetBoard();
 
+	/** The route at this index in whichever venue is live. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	FDirtbagRoute GetBoardRoute(int32 Index);
+
+	/** This world's crag, cached. Outdoors only. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	FDirtbagCrag GetCrag();
+
+	/** The guidebook entry at this index — stars, project status, the lot.
+	 *  Meaningless indoors, where a gym problem has no book. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	FDirtbagCragLine GetCragLine(int32 Index);
+
+	/** How many things there are to climb where you are standing. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	int32 NumRoutesHere();
 
 	/** Bot-driven burn on a route, day-integrated (session, ledger, time,
 	 *  energy, training all move together). */
@@ -170,6 +191,7 @@ public:
 
 private:
 	void EnsureBoard();
+	void EnsureCrag();
 
 	// The forecast changes once a day; the HUD asks for it every frame.
 	// Cheap either way (~23us), but there is no reason to re-hash the seed
@@ -182,4 +204,9 @@ private:
 
 	UPROPERTY()
 	TArray<FDirtbagRoute> Board;
+
+	UPROPERTY()
+	FDirtbagCrag Crag;
+
+	bool bCragLoaded = false;
 };

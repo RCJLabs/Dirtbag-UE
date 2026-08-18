@@ -242,4 +242,15 @@ public:
 	/** "window 5:30pm to 7:15pm, best at 6:30pm". */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
 	static FString WindowText(const FDirtbagPrimeWindow& Window);
+
+	// --- The crag --------------------------------------------------------
+
+	/** The guidebook for this world's roadside crag. Authored lines, seeded
+	 *  moves — same seed, same rock, forever. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static FDirtbagCrag RoadsideCrag(const FString& WorldSeed);
+
+	/** "Diesel  V5  ***" / "project, the arete left of Diesel — ..." */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static FString GuidebookLine(const FDirtbagCragLine& Line);
 };

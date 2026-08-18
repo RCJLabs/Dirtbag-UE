@@ -140,10 +140,32 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 	// against the guidebook grade, so a sandbag still looks reasonable here.
 	const FDirtbagClimber& Who = Game ? Game->Player.Climber : ClimberStats;
 	const EDirtbagRouteRead Read = UDirtbagSimLibrary::ReadRoute(Who, Route);
+
+	// Outdoors the guidebook has more to say than a name and a number: how
+	// good the line is, and whether anyone has done it at all. A three-star
+	// V4 and a no-star V4 are different decisions.
+	FString Book;
+	if (Game && !Game->bIndoors)
+	{
+		const FDirtbagCragLine Line = Game->GetCragLine(BoardIndex);
+		if (Line.bIsProject)
+		{
+			Book = TEXT("   unclimbed");
+		}
+		else if (Line.Stars > 0)
+		{
+			Book = TEXT("   ");
+			for (int32 i = 0; i < Line.Stars; i++)
+			{
+				Book += TEXT("*");
+			}
+		}
+	}
+
 	Toast(FString::Printf(
-	          TEXT("%s  %s — %s   (E to climb)"), *RouteName,
+	          TEXT("%s  %s%s — %s   (E to climb)"), *RouteName,
 	          *UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder),
-	          *UDirtbagSimLibrary::ReadRouteText(Read)),
+	          *Book, *UDirtbagSimLibrary::ReadRouteText(Read)),
 	      FColor::Cyan, 5.f);
 
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
