@@ -7,10 +7,18 @@
 
 #pragma once
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
 namespace dirtbag {
+
+// Shared because more than one translation unit wants it, and because two
+// file-local copies is not a saving: the Unreal build concatenates these
+// units into one, where a second anonymous-namespace definition of the same
+// signature is a redefinition error. The g++ harness compiles each file
+// separately and never sees it.
+inline double Clamp01(double v) { return std::max(0.0, std::min(1.0, v)); }
 
 // --- Grades -----------------------------------------------------------------
 

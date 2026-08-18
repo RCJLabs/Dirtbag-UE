@@ -9,8 +9,6 @@ namespace dirtbag {
 namespace {
 constexpr double kPi = 3.14159265358979323846;
 
-double Clamp01(double v) { return std::max(0.0, std::min(1.0, v)); }
-
 // Peak sun hour per aspect. The sun tracks east to west, so the face it hits
 // hardest walks with it; north never gets a direct hit at these latitudes.
 double PeakSunHour(Aspect a) {

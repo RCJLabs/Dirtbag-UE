@@ -7,8 +7,6 @@ namespace dirtbag {
 
 namespace {
 
-double Clamp01(double v) { return std::clamp(v, 0.0, 1.0); }
-
 // Which skills a route type trains — mirrors the resolver's BlendedSkill
 // question ("what does this hold ask for?") from the training side.
 struct TrainingWeights {
