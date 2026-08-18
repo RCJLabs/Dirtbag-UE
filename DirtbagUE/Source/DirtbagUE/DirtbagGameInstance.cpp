@@ -368,6 +368,27 @@ bool UDirtbagGameInstance::CanNameLine(int32 BoardIndex)
 	return dirtbag::CanName(SimLine, DirtbagConvert::ToSim(*Ledger));
 }
 
+void UDirtbagGameInstance::OfferNaming(int32 BoardIndex)
+{
+	if (!CanNameLine(BoardIndex))
+	{
+		return;
+	}
+	bNamingPending = true;
+	NamingBoardIndex = BoardIndex;
+	const FDirtbagCragLine Line = GetCragLine(BoardIndex);
+	NamingLineText =
+	    Line.Description.IsEmpty() ? Line.Route.Name : Line.Description;
+}
+
+void UDirtbagGameInstance::DismissNaming()
+{
+	// Only the prompt goes away. CanNameLine still answers true tomorrow:
+	// you did the first ascent, and that does not expire because you closed
+	// a window.
+	bNamingPending = false;
+}
+
 bool UDirtbagGameInstance::NameFirstAscent(int32 BoardIndex,
                                            const FString& Name)
 {
@@ -389,6 +410,8 @@ bool UDirtbagGameInstance::NameFirstAscent(int32 BoardIndex,
 		return false;
 	}
 	*Ledger = DirtbagConvert::FromSim(SimLedger);
+
+	bNamingPending = false;
 
 	// A first ascent is the one thing in this game worth writing down the
 	// moment it happens rather than at lights out.

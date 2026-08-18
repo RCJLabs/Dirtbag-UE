@@ -145,6 +145,12 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Dirtbag|Staging")
 	float EndPause = 2.0f;
 
+	/** Hours of brushing per press of the clean key. Half an hour is small
+	 *  enough that cleaning a line is several deliberate presses rather than
+	 *  one, which is roughly what it feels like. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Verb")
+	float CleanHoursPerPress = 0.5f;
+
 	// --- The HOLD TO CLIMB verb (interactive mode; presentation dials — the
 	// --- sim only ever sees the resulting 0..1 execution scalar) -----------
 
@@ -186,6 +192,7 @@ private:
 	                   UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	void OnInteract();
+	void OnClean();
 	void OnHoldPressed();
 	void OnHoldReleased();
 	void StartAttempt();

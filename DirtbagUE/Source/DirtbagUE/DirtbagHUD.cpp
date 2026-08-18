@@ -76,6 +76,20 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	DrawText(Game->ConditionsLine(), ConditionsInk, X, Y,
 	         GEngine->GetSmallFont(), 1.f);
 
+	// A first ascent waiting to be named. Drawn here as well as in the
+	// widget so that the moment is never invisible — if the naming widget is
+	// missing or not wired yet, the game still says plainly that something
+	// happened and is waiting on you.
+	if (Game->bNamingPending)
+	{
+		Y += 22.f;
+		DrawText(FString::Printf(
+		             TEXT("FIRST ASCENT — %s is yours to name"),
+		             *Game->NamingLineText),
+		         FLinearColor(0.95f, 0.85f, 0.40f, 1.f), X, Y,
+		         GEngine->GetMediumFont(), 1.f);
+	}
+
 	// The career, small, bottom left — it is a slow number and reads like one.
 	DrawText(Game->GetCareerLine(), kDim, X, H - 38.f, GEngine->GetSmallFont(),
 	         1.f);

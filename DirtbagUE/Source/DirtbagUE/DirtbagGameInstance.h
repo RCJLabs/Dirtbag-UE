@@ -201,6 +201,34 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	FString FirstAscentLine(int32 BoardIndex);
 
+	// --- The naming prompt -----------------------------------------------
+	// Typing a name needs a text box, and a text box means UMG. Rather than
+	// bind C++ to one widget class, the wall raises a flag here and a widget
+	// blueprint watches it — so the look of the prompt stays entirely in the
+	// editor and this layer only says "there is a line waiting to be named".
+
+	/** True from the moment a nameable line goes until the name is given or
+	 *  the prompt is dismissed. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|FirstAscent")
+	bool bNamingPending = false;
+
+	/** Which line is waiting. Pass this straight back to NameFirstAscent. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|FirstAscent")
+	int32 NamingBoardIndex = 0;
+
+	/** "the arete left of Diesel" — what to show above the text box. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|FirstAscent")
+	FString NamingLineText;
+
+	/** Raised by the wall when a line nobody had done goes. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
+	void OfferNaming(int32 BoardIndex);
+
+	/** Walk away without naming it. The line stays yours to name later —
+	 *  the ascent happened, and nothing about it expires. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
+	void DismissNaming();
+
 	/** Every first ascent in this career, hardest first. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	TArray<FDirtbagProjectMemory> GetFirstAscents() const;

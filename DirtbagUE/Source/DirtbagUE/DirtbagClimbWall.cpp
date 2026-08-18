@@ -178,6 +178,8 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 		{
 			InputComponent->BindKey(EKeys::E, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnInteract);
+			InputComponent->BindKey(EKeys::C, IE_Pressed, this,
+			                        &ADirtbagClimbWall::OnClean);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnHoldPressed);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Released, this,
@@ -210,6 +212,31 @@ void ADirtbagClimbWall::OnInteract()
 	{
 		StartAttempt();
 	}
+}
+
+void ADirtbagClimbWall::OnClean()
+{
+	// Cleaning is a day action, not a session one: it costs hours and
+	// energy whether or not you then pull on. Indoors it is nonsense, and
+	// saying so is better than a key that silently does nothing.
+	if (!Game || Phase != EPhase::Idle)
+	{
+		return;
+	}
+	if (Game->bIndoors)
+	{
+		Toast(TEXT("Someone else cleans the holds here."), FColor::Silver);
+		return;
+	}
+	if (Game->CleanLine(BoardIndex, CleanHoursPerPress) <= 0.0)
+	{
+		Toast(TEXT("It is as clean as it is going to get."), FColor::Silver);
+		return;
+	}
+	Toast(FString::Printf(TEXT("%.0f minutes on the brush.  %s"),
+	                      CleanHoursPerPress * 60.f,
+	                      *Game->CleanlinessText(BoardIndex)),
+	      FColor::Silver, 4.f);
 }
 
 void ADirtbagClimbWall::StartAttempt()
@@ -509,6 +536,13 @@ void ADirtbagClimbWall::FinishAttempt()
 		Toast(FString::Printf(TEXT("%s  %s  —  %s"), *RouteName, *GradeText,
 		                      *StyleText(Current.Style)),
 		      FColor::Green, 5.f);
+
+		// If nobody had done it, the naming is now yours. The wall only
+		// raises the flag; what the prompt looks like is a widget's job.
+		if (Game && Game->CanNameLine(BoardIndex))
+		{
+			Game->OfferNaming(BoardIndex);
+		}
 	}
 	else
 	{
