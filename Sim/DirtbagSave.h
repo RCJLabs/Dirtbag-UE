@@ -27,7 +27,11 @@ namespace dirtbag {
 //   it turned out to be. v2 careers only ever touched lines that were
 //   already in a book, so they migrate to clean, unnamed, nobody's, and
 //   unconfirmed: an exact answer rather than a guess.
-constexpr int kSaveVersion = 3;
+// Version 4: who you know at the Lot — rapport, and which lines they got to
+//   first. Nobody's strength is stored, because it is derived from the seed
+//   and the date. A v3 career knew nobody, which is exactly what an absent
+//   list means, so this migration writes a count of zero and nothing else.
+constexpr int kSaveVersion = 4;
 
 struct SaveGame {
   int version = kSaveVersion;

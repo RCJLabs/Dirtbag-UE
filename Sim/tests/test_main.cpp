@@ -12,6 +12,7 @@
 #include "../DirtbagCrag.h"
 #include "../DirtbagDay.h"
 #include "../DirtbagFirstAscent.h"
+#include "../DirtbagPartner.h"
 #include "../DirtbagRng.h"
 #include "../DirtbagSave.h"
 #include "../DirtbagSession.h"
@@ -863,6 +864,341 @@ static void TestLoadsVersion2Save() {
   CHECK(!m.firstAscent);            // and it was never yours
   CHECK(m.givenName.empty());
   CHECK(m.confirmedGrade == -1);    // nothing to confirm
+}
+
+// --- The Lot -------------------------------------------------------------------
+
+static void TestSaveCarriesWhoYouKnow() {
+  SaveGame save;
+  save.seed = "crag-1";
+  PartnerBond margo;
+  margo.name = "Margo";
+  margo.rapport = 0.42;
+  PartnerBond dev;
+  dev.name = "Dev";
+  dev.rapport = 0.9;
+  dev.firstAscents = {"the arete left of Diesel",
+                      "the low traverse into Chalk Ghost"};
+  save.player.bonds = {margo, dev};
+
+  SaveGame loaded;
+  CHECK(DeserializeSave(SerializeSave(save), loaded) == LoadResult::Ok);
+  CHECK(loaded.player.bonds.size() == 2);
+  CHECK(loaded.player.bonds[0].name == "Margo");
+  CHECK(std::fabs(loaded.player.bonds[0].rapport - 0.42) < 1e-12);
+  CHECK(loaded.player.bonds[0].firstAscents.empty());
+  CHECK(loaded.player.bonds[1].name == "Dev");
+  CHECK(loaded.player.bonds[1].firstAscents.size() == 2);
+  CHECK(loaded.player.bonds[1].firstAscents[1] ==
+        "the low traverse into Chalk Ghost");
+
+  // Knowing nobody round-trips as knowing nobody.
+  SaveGame alone;
+  alone.seed = "crag-1";
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(alone), back) == LoadResult::Ok);
+  CHECK(back.player.bonds.empty());
+
+  // And the derived half really is derived: strength is never written down,
+  // so it cannot drift between a save and a load.
+  CHECK(SerializeSave(save).find("skills.power=") != std::string::npos);
+  CHECK(SerializeSave(save).find("bond.0.rapport=") != std::string::npos);
+  CHECK(SerializeSave(save).find("bond.0.power") == std::string::npos);
+  CHECK(SerializeSave(save).find("bond.0.skill") == std::string::npos);
+}
+
+static void TestLoadsVersion3Save() {
+  // A v3 career, from before the Lot existed. It knew nobody, which is
+  // exactly what an empty bond list means — nothing to guess at.
+  const std::string v3 =
+      "version=3\n"
+      "seed=crag-1\n"
+      "day=22\n"
+      "cash=180\n"
+      "skills.power=54\n"
+      "skills.fingers=57\n"
+      "skills.technique=51\n"
+      "skills.endurance=53\n"
+      "skills.head=49\n"
+      "morphology=1\n"
+      "skin=7\n"
+      "psyche=0.72\n"
+      "projects=1\n"
+      "project.0.name=Diesel\n"
+      "project.0.grade=5\n"
+      "project.0.attempts=8\n"
+      "project.0.best=4\n"
+      "project.0.beta=0.4\n"
+      "project.0.sent=0\n"
+      "project.0.clean=1\n"
+      "project.0.given=\n"
+      "project.0.fa=0\n"
+      "project.0.confirmed=-1\n"
+      "project.0.style=4\n";
+
+  SaveGame loaded;
+  CHECK(DeserializeSave(v3, loaded) == LoadResult::Ok);
+  CHECK(loaded.version == kSaveVersion);
+  CHECK(loaded.player.day == 22);
+  CHECK(loaded.player.projects.size() == 1);
+  CHECK(loaded.player.projects[0].routeName == "Diesel");
+  CHECK(loaded.player.bonds.empty());     // knew nobody, still knows nobody
+}
+
+static void TestTheLotIsPeopleNotADistribution() {
+  Rng world = Rng::FromSeed("crag-1");
+  std::vector<Partner> lot = LotRegulars(world, 1);
+  CHECK(lot.size() >= 5);   // three partners and two neighbours
+
+  int climbers = 0, neighbours = 0;
+  for (const Partner& p : lot) {
+    CHECK(!p.name.empty());
+    CHECK(!p.tag.empty());        // everybody is somebody
+    CHECK(p.rapport == 0.0);      // and a stranger on day one
+    CHECK(p.firstAscents.empty());
+    if (p.climbs) climbers++; else neighbours++;
+  }
+  CHECK(climbers >= 3);
+  CHECK(neighbours >= 2);
+
+  // The same world gives the same people; a different world does not give
+  // different people, because the cast is authored — it gives them
+  // different bodies.
+  std::vector<Partner> again = LotRegulars(world, 1);
+  std::vector<Partner> elsewhere = LotRegulars(Rng::FromSeed("crag-2"), 1);
+  bool bodiesDiffer = false;
+  for (size_t i = 0; i < lot.size(); i++) {
+    CHECK(again[i].name == lot[i].name);
+    CHECK(again[i].climber.skills.power == lot[i].climber.skills.power);
+    CHECK(elsewhere[i].name == lot[i].name);
+    if (elsewhere[i].climbs &&
+        elsewhere[i].climber.skills.power != lot[i].climber.skills.power)
+      bodiesDiffer = true;
+  }
+  CHECK(bodiesDiffer);
+}
+
+static void TestPartnersHaveCareersOfTheirOwn() {
+  Rng world = Rng::FromSeed("crag-1");
+  std::vector<Partner> day1 = LotRegulars(world, 1);
+  std::vector<Partner> later = LotRegulars(world, 400);
+
+  bool someoneImproved = false;
+  for (size_t i = 0; i < day1.size(); i++) {
+    if (!day1[i].climbs) {
+      continue;
+    }
+    const double before = SkillToGrade(day1[i].climber.skills.power);
+    const double after = SkillToGrade(later[i].climber.skills.power);
+    CHECK(after >= before);          // nobody goes backwards
+    if (after > before + 0.2) someoneImproved = true;
+  }
+  CHECK(someoneImproved);            // they climb whether you do or not
+
+  // Ambition decides pace: over a year the keen one gains more than the one
+  // who has been here twenty seasons.
+  auto Named = [](const std::vector<Partner>& v, const std::string& n) {
+    for (const Partner& p : v) if (p.name == n) return p;
+    return Partner{};
+  };
+  const double devGain = Named(later, "Dev").climber.skills.power -
+                         Named(day1, "Dev").climber.skills.power;
+  const double margoGain = Named(later, "Margo").climber.skills.power -
+                           Named(day1, "Margo").climber.skills.power;
+  CHECK(devGain > margoGain);
+
+  // And it stays glacial. A Lot where everyone outruns the player is a
+  // different and worse game: a year is well under two grades even for the
+  // keenest.
+  CHECK(SkillToGrade(Named(later, "Dev").climber.skills.power) -
+            SkillToGrade(Named(day1, "Dev").climber.skills.power) < 2.0);
+}
+
+static void TestRapportGrowsAndFades() {
+  PartnerDials d;
+  Partner p;
+  p.name = "Margo";
+  p.climbs = true;
+
+  for (int i = 0; i < 5; i++) SpendDayWith(p, true, d);
+  const double warm = p.rapport;
+  CHECK(warm > 0.0);
+
+  for (int i = 0; i < 5; i++) SpendDayWith(p, false, d);
+  CHECK(p.rapport < warm);       // people remember you, not forever
+  CHECK(p.rapport > 0.0);        // and five days away is not amnesia
+
+  // It saturates rather than running away.
+  for (int i = 0; i < 500; i++) SpendDayWith(p, true, d);
+  CHECK(p.rapport == 1.0);
+  for (int i = 0; i < 5000; i++) SpendDayWith(p, false, d);
+  CHECK(p.rapport == 0.0);
+}
+
+static void TestBetaIsWorthAskingForAndOnlyOnce() {
+  Rng world = Rng::FromSeed("crag-1");
+  Crag crag = RoadsideCrag(world);
+  std::vector<Partner> lot = LotRegulars(world, 200);
+
+  // Margo knows the moderates cold.
+  Partner margo;
+  for (const Partner& p : lot) if (p.name == "Margo") margo = p;
+  CHECK(margo.climbs);
+
+  const CragLine* known = nullptr;
+  for (const CragLine& l : crag.lines)
+    if (!l.isProject && KnowsLine(margo, l)) { known = &l; break; }
+  CHECK(known != nullptr);
+
+  ProjectMemory cold;
+  cold.routeName = known->route.name;
+  margo.rapport = 0.0;
+  const double fromStranger = ShareBeta(margo, *known, cold);
+  CHECK(fromStranger > 0.0);
+
+  ProjectMemory warmLedger;
+  warmLedger.routeName = known->route.name;
+  margo.rapport = 1.0;
+  const double fromFriend = ShareBeta(margo, *known, warmLedger);
+  CHECK(fromFriend > fromStranger);   // rapport is worth something
+  CHECK(warmLedger.beta < 1.0);       // and never everything
+
+  // Asking twice gives diminishing returns and never goes backwards.
+  const double before = warmLedger.beta;
+  ShareBeta(margo, *known, warmLedger);
+  CHECK(warmLedger.beta >= before);
+  CHECK(warmLedger.beta <= 1.0);
+
+  // Nobody has beta on a line nobody has climbed.
+  const CragLine* project = OpenProjects(crag)[0];
+  ProjectMemory virgin;
+  virgin.routeName = project->route.name;
+  CHECK(ShareBeta(margo, *project, virgin) == 0.0);
+  CHECK(virgin.beta == 0.0);
+
+  // Ray does not climb and has no moves to give, however well you know him.
+  Partner ray;
+  for (const Partner& p : lot) if (p.name == "Ray") ray = p;
+  ray.rapport = 1.0;
+  ProjectMemory fromRay;
+  CHECK(ShareBeta(ray, *known, fromRay) == 0.0);
+}
+
+static void TestCompanyIsWorthSomethingAndNeverAGrade() {
+  PartnerDials d;
+  SessionDials sd;
+  Partner p;
+  p.name = "Trish";
+  p.climbs = true;
+  p.rapport = 0.0;
+  CHECK(PsycheFrom(p, d) == 0.0);
+
+  p.rapport = 1.0;
+  const double lift = PsycheFrom(p, d);
+  CHECK(lift > 0.0);
+  // Psyche is ability in the resolver, so this has to stay small: a good
+  // belayer is worth something and never worth a grade.
+  CHECK(lift * sd.psycheWeight < 1.0);
+
+  // A neighbour at the fire is worth less than a partner on the pads, and
+  // still worth more than nothing.
+  Partner ray;
+  ray.climbs = false;
+  ray.rapport = 1.0;
+  CHECK(PsycheFrom(ray, d) > 0.0);
+  CHECK(PsycheFrom(ray, d) < lift);
+}
+
+static void TestSomebodyCanTakeYourProject() {
+  Rng world = Rng::FromSeed("crag-1");
+  Crag crag = RoadsideCrag(world);
+  PartnerDials d;
+
+  // Dev, years in, strong enough for the moderate open lines.
+  std::vector<Partner> lot = LotRegulars(world, 900);
+  Partner dev;
+  for (const Partner& p : lot) if (p.name == "Dev") dev = p;
+
+  std::vector<std::string> taken;
+  int tookOn = -1;
+  int days = 0;
+  for (; days < 4000 && tookOn < 0; days++) {
+    tookOn = PartnerTakesFirstAscent(world, dev, crag, taken, days, d);
+  }
+  CHECK(tookOn >= 0);                        // it does happen
+  CHECK(days > 20);                          // and not on the first afternoon
+  CHECK(crag.lines[tookOn].isProject);       // only ever an unclimbed line
+
+  // Once it is somebody's, nobody takes it again.
+  taken.push_back(crag.lines[tookOn].route.name);
+  for (int day = 0; day < 4000; day++)
+    CHECK(PartnerTakesFirstAscent(world, dev, crag, taken, day, d) != tookOn);
+
+  // Nobody takes a line they cannot climb: the blank wall outlasts them.
+  const CragLine* blank = nullptr;
+  for (const CragLine& l : crag.lines)
+    if (l.isProject && l.route.trueGrade >= 10) blank = &l;
+  if (blank) {
+    std::vector<Partner> earlyLot = LotRegulars(world, 1);
+    Partner young;
+    for (const Partner& p : earlyLot) if (p.name == "Trish") young = p;
+    for (int day = 0; day < 3000; day++) {
+      const int t = PartnerTakesFirstAscent(world, young, crag, {}, day, d);
+      if (t >= 0) CHECK(crag.lines[t].route.trueGrade < blank->route.trueGrade);
+    }
+  }
+
+  // The neighbours never take anything; Ray stopped climbing years ago.
+  Partner ray;
+  for (const Partner& p : lot) if (p.name == "Ray") ray = p;
+  for (int day = 0; day < 2000; day++)
+    CHECK(PartnerTakesFirstAscent(world, ray, crag, {}, day, d) == -1);
+}
+
+static void TestTheLotDoesNotDisturbThePlayersRng() {
+  // Partners getting on with their lives runs on its own named stream. If
+  // it ever shared one with attempts, who else was at the crag would change
+  // how your burns resolved, and a save would stop being replayable.
+  Rng world = Rng::FromSeed("crag-1");
+  Crag crag = RoadsideCrag(world);
+  Climber c;
+  c.skills.power = c.skills.fingers = c.skills.technique =
+      c.skills.endurance = c.skills.head = 55.0;
+
+  auto PlayADay = [&](bool withTheLot) {
+    Rng session = Rng::FromSeed("rng-isolation");
+    SessionState st = StartSession(c);
+    ProjectMemory m;
+    m.routeName = crag.lines[5].route.name;
+    if (withTheLot) {
+      std::vector<Partner> lot = LotRegulars(world, 40);
+      for (const Partner& p : lot)
+        PartnerTakesFirstAscent(world, p, crag, {}, 40);
+    }
+    std::string trace;
+    for (int i = 0; i < 6; i++) {
+      const AttemptResult r =
+          AttemptInSession(session, st, m, c, crag.lines[5].route, Conditions{});
+      trace += std::to_string(r.highpoint) + ":" +
+               std::to_string(static_cast<int>(r.peakPump * 1000)) + " ";
+    }
+    return trace;
+  };
+  CHECK(PlayADay(false) == PlayADay(true));
+}
+
+static void TestTheFireHasSomethingToSay() {
+  Rng world = Rng::FromSeed("crag-1");
+  Crag crag = RoadsideCrag(world);
+  std::vector<Partner> lot = LotRegulars(world, 30);
+  for (const Partner& p : lot) {
+    const std::string talk = LotTalk(p, crag, 30);
+    CHECK(!talk.empty());
+    CHECK(talk.find(p.name) != std::string::npos);
+    // The same week gets the same answer; people are on a thing for a while.
+    CHECK(LotTalk(p, crag, 30) == talk);
+    CHECK(LotTalk(p, crag, 31) == talk);
+  }
 }
 
 // --- RNG ---------------------------------------------------------------------
@@ -1915,6 +2251,16 @@ int main() {
   TestTheWholeArc();
   TestSaveCarriesFirstAscents();
   TestLoadsVersion2Save();
+  TestSaveCarriesWhoYouKnow();
+  TestLoadsVersion3Save();
+  TestTheLotIsPeopleNotADistribution();
+  TestPartnersHaveCareersOfTheirOwn();
+  TestRapportGrowsAndFades();
+  TestBetaIsWorthAskingForAndOnlyOnce();
+  TestCompanyIsWorthSomethingAndNeverAGrade();
+  TestSomebodyCanTakeYourProject();
+  TestTheLotDoesNotDisturbThePlayersRng();
+  TestTheFireHasSomethingToSay();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);
