@@ -171,6 +171,15 @@ public:
 private:
 	void EnsureBoard();
 
+	// The forecast changes once a day; the HUD asks for it every frame.
+	// Cheap either way (~23us), but there is no reason to re-hash the seed
+	// and re-integrate a day of solar loading sixty times a second.
+	mutable int32 CachedWeatherDay = -1;
+	mutable FDirtbagWeather CachedWeather;
+	mutable int32 CachedWindowDay = -1;
+	mutable EDirtbagAspect CachedWindowAspect = EDirtbagAspect::North;
+	mutable FDirtbagPrimeWindow CachedWindow;
+
 	UPROPERTY()
 	TArray<FDirtbagRoute> Board;
 };
