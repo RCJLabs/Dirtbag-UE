@@ -344,16 +344,35 @@ static void TestCragHasProjectsAndTheyAreOpen() {
     CHECK(p->firstAscentBy.empty());   // nobody has done it
     CHECK(p->stars == 0);              // and nobody can vouch for it
     CHECK(!p->description.empty());    // but everyone knows where it is
-    // Projects sit at the crag's frontier — not necessarily above every
-    // line that has gone (a moderate arete can stay unclimbed because
-    // nobody fancied the landing), but never down among the moderates.
-    CHECK(p->route.grade >= hardest - 2);
   }
-  // And the hardest thing here is something nobody has done.
-  int hardestProject = 0;
-  for (const CragLine* p : projects)
+  // The hardest thing at the crag is something nobody has done — the
+  // frontier has to be open, or there is nothing to grow into.
+  int hardestProject = 0, easiestProject = 99;
+  for (const CragLine* p : projects) {
     hardestProject = std::max(hardestProject, p->route.grade);
+    easiestProject = std::min(easiestProject, p->route.grade);
+  }
   CHECK(hardestProject > hardest);
+
+  // And at least one is within reach of somebody just starting. A crag whose
+  // only open lines are V7 and up puts a first ascent — the point of the
+  // whole phase — behind a season of training, which is not what "name your
+  // own first ascent" is supposed to mean. Unclimbed is not a synonym for
+  // hard: plenty of lines are open because the landing is bad or the rock is
+  // dull, and those are the way in.
+  Climber starting;
+  starting.skills.power = starting.skills.fingers = starting.skills.technique =
+      starting.skills.endurance = starting.skills.head = 50.0;
+  CHECK(easiestProject <= static_cast<int>(SkillToGrade(50.0)));
+
+  bool reachable = false;
+  for (const CragLine* p : projects) {
+    const RouteRead read = ReadRoute(starting, p->route);
+    if (read == RouteRead::Warmup || read == RouteRead::Comfortable ||
+        read == RouteRead::AtYourLimit)
+      reachable = true;
+  }
+  CHECK(reachable);
   // Everything in the book proper has been climbed by somebody.
   for (const CragLine& l : crag.lines)
     if (!l.isProject) CHECK(!l.firstAscentBy.empty());
@@ -702,12 +721,22 @@ static void TestTheWholeArc() {
   // clean -> work -> send -> name, played through as a career would.
   Rng world = Rng::FromSeed("crag-1");
   Crag crag = RoadsideCrag(world);
-  CragLine project = *OpenProjects(crag)[0];
 
   PlayerState player;
   player.climber.skills.power = player.climber.skills.fingers =
       player.climber.skills.technique = player.climber.skills.endurance =
           player.climber.skills.head = 72.0;   // strong enough, eventually
+
+  // Deliberately the hardest open line rather than the first: dirt costs
+  // about four grades, so a strong climber can bully a filthy moderate up
+  // and the "you must clean it first" half of the arc would prove nothing.
+  // At your limit it is the difference between impossible and merely hard.
+  const CragLine* hardest = nullptr;
+  for (const CragLine* p : OpenProjects(crag))
+    if (!hardest || p->route.grade > hardest->route.grade)
+      if (p->route.grade <= 8) hardest = p;   // within reach eventually
+  CHECK(hardest != nullptr);
+  CragLine project = *hardest;
   DayState day = WakeUp(player);
   ProjectMemory m = NewProjectLedger(project);
 

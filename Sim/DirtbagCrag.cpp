@@ -67,6 +67,14 @@ constexpr int kRoadsideCount =
 
 // The open lines. No name, no confirmed grade — the book prints a guess and
 // says where to find it. These are what the phase is for.
+//
+// Not all of them are hard. A crag's unclimbed lines are the ones nobody
+// got round to, and the reason is as often a bad landing or an ugly piece of
+// rock as it is difficulty — which matters here beyond flavour: a starting
+// climber has to be able to reach a first ascent of their own, and three
+// V7-and-up projects put the whole point of the phase behind a season of
+// training. The moderates are the way in; the hard ones are what you come
+// back for.
 struct ProjectEntry {
   const char* description;
   int guess;         // the book's guess; a project's grade is an opinion
@@ -74,6 +82,12 @@ struct ProjectEntry {
 };
 
 const ProjectEntry kProjects[] = {
+    // Nobody's bothered. The landing is a boulder field and the line is
+    // plain, so it has sat there unclimbed next to a car park for years.
+    {"the slab right of the pull-off",        3, RouteType::Technical},
+    // Loose-looking, and everyone assumes somebody has done it.
+    {"the short wall behind the cattle grid", 5, RouteType::Crimp},
+    // And then the ones that are unclimbed for the obvious reason.
     {"the arete left of Diesel",              7, RouteType::Power},
     {"the low traverse into Chalk Ghost",     8, RouteType::Endurance},
     {"the blank wall behind the parking",     9, RouteType::Crimp},
