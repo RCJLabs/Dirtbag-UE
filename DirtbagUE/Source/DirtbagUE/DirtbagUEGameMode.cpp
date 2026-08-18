@@ -11,7 +11,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogDirtbagSim, Log, All);
 
 ADirtbagUEGameMode::ADirtbagUEGameMode()
 {
+	// AInfo (via AGameModeBase) disables ticking two ways; the ambient HUD
+	// needs both flags flipped or it silently never draws.
 	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
 void ADirtbagUEGameMode::BeginPlay()
