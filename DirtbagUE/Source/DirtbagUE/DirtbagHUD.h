@@ -23,6 +23,6 @@ private:
 	void DrawBar(const FString& Label, double Frac, float X, float Y, float W,
 	             float H, FLinearColor Fill);
 
-	void DrawNeeds(class UDirtbagGameInstance* Game, float W, float H);
+	void DrawNeeds(class UDirtbagGameInstance* Game, float H);
 	void DrawSession(class UDirtbagGameInstance* Game, float W, float H);
 };

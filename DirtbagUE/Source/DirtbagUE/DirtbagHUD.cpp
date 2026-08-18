@@ -34,7 +34,7 @@ void ADirtbagHUD::DrawBar(const FString& Label, double Frac, float X, float Y,
 	}
 }
 
-void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float W, float H)
+void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 {
 	const float X = 28.f;
 	float Y = 28.f;
@@ -119,7 +119,7 @@ void ADirtbagHUD::DrawHUD()
 	const float W = static_cast<float>(Canvas->SizeX);
 	const float H = static_cast<float>(Canvas->SizeY);
 
-	DrawNeeds(Game, W, H);
+	DrawNeeds(Game, H);
 	if (Game->SessionReadout.bActive)
 	{
 		DrawSession(Game, W, H);
