@@ -157,6 +157,11 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.climber = ToSim(In.Climber);
 	Out.cash = In.Cash;
 	Out.day = In.Day;
+	Out.bonds.reserve(In.Bonds.Num());
+	for (const FDirtbagPartnerBond& B : In.Bonds)
+	{
+		Out.bonds.push_back(ToSim(B));
+	}
 	Out.projects.reserve(In.Projects.Num());
 	for (const FDirtbagProjectMemory& M : In.Projects)
 	{
@@ -189,6 +194,11 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Climber.Psyche = In.climber.psyche;
 	Out.Cash = In.cash;
 	Out.Day = In.day;
+	Out.Bonds.Reserve(static_cast<int32>(In.bonds.size()));
+	for (const dirtbag::PartnerBond& B : In.bonds)
+	{
+		Out.Bonds.Add(FromSim(B));
+	}
 	Out.Projects.Reserve(In.projects.size());
 	for (const dirtbag::ProjectMemory& M : In.projects)
 	{
@@ -283,6 +293,62 @@ FDirtbagCrag FromSim(const dirtbag::Crag& In)
 	for (const dirtbag::CragLine& Line : In.lines)
 	{
 		Out.Lines.Add(FromSim(Line));
+	}
+	return Out;
+}
+
+FDirtbagClimber FromSim(const dirtbag::Climber& In)
+{
+	FDirtbagClimber Out;
+	Out.Power = In.skills.power;
+	Out.Fingers = In.skills.fingers;
+	Out.Technique = In.skills.technique;
+	Out.Endurance = In.skills.endurance;
+	Out.Head = In.skills.head;
+	Out.Morphology = static_cast<EDirtbagMorphology>(In.morphology);
+	Out.Skin = In.skin;
+	Out.Psyche = In.psyche;
+	return Out;
+}
+
+FDirtbagPartnerBond FromSim(const dirtbag::PartnerBond& In)
+{
+	FDirtbagPartnerBond Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Rapport = In.rapport;
+	Out.FirstAscents.Reserve(static_cast<int32>(In.firstAscents.size()));
+	for (const std::string& Key : In.firstAscents)
+	{
+		Out.FirstAscents.Add(UTF8_TO_TCHAR(Key.c_str()));
+	}
+	return Out;
+}
+
+dirtbag::PartnerBond ToSim(const FDirtbagPartnerBond& In)
+{
+	dirtbag::PartnerBond Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.rapport = In.Rapport;
+	Out.firstAscents.reserve(static_cast<size_t>(In.FirstAscents.Num()));
+	for (const FString& Key : In.FirstAscents)
+	{
+		Out.firstAscents.push_back(TCHAR_TO_UTF8(*Key));
+	}
+	return Out;
+}
+
+FDirtbagPartner FromSim(const dirtbag::Partner& In)
+{
+	FDirtbagPartner Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Tag = UTF8_TO_TCHAR(In.tag.c_str());
+	Out.Climber = FromSim(In.climber);
+	Out.bClimbs = In.climbs;
+	Out.Rapport = In.rapport;
+	Out.FirstAscents.Reserve(static_cast<int32>(In.firstAscents.size()));
+	for (const std::string& Key : In.firstAscents)
+	{
+		Out.FirstAscents.Add(UTF8_TO_TCHAR(Key.c_str()));
 	}
 	return Out;
 }

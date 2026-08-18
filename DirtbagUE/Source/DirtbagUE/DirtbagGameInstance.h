@@ -282,6 +282,35 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	void DismissNaming();
 
+	// --- The Lot ---------------------------------------------------------
+
+	/** The Lot's people as they are today: strength derived from seed and
+	 *  date, rapport and claims from the career. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Lot")
+	TArray<FDirtbagPartner> GetLot();
+
+	/** An hour at the fire. Time passes, rapport grows with everyone there,
+	 *  and you hear what people are working — which is the answer to
+	 *  waiting for a window being lonely. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Lot")
+	FString SitAtTheFire(double Hours);
+
+	/** What the fire has to say right now, without spending anything. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Lot")
+	TArray<FString> LotTalk();
+
+	/** Ask whoever knows this line best for beta. Returns how much you
+	 *  learned, 0 if nobody there can help. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Lot")
+	double AskForBeta(int32 BoardIndex, FString& OutWho);
+
+	/** News from overnight: "Dev got the arete left of Diesel." Stays up for
+	 *  the day and is replaced at the next lights-out, because losing a line
+	 *  is not a thing to glance at once and lose. Empty when nothing
+	 *  happened, which is most nights. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	FString LotNews;
+
 	/** Every first ascent in this career, hardest first. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	TArray<FDirtbagProjectMemory> GetFirstAscents() const;
@@ -313,6 +342,19 @@ private:
 	/** The ledger for a line, created filthy the first time a virgin line is
 	 *  touched. Returns null only when there is nothing at that index. */
 	FDirtbagProjectMemory* LedgerFor(int32 BoardIndex);
+
+	/** Today's Lot, with the career's bonds folded in. */
+	std::vector<dirtbag::Partner> LotToday();
+
+	/** Write rapport and claims back into the career. */
+	void StoreBonds(const std::vector<dirtbag::Partner>& Lot);
+
+	/** Overnight: the Lot climbs too, and rapport moves. */
+	void AdvanceTheLot();
+
+	/** True once the player has pulled on anything today — what rapport is
+	 *  actually earned by. */
+	bool bClimbedToday = false;
 
 	// The forecast changes once a day; the HUD asks for it every frame.
 	// Cheap either way (~23us), but there is no reason to re-hash the seed

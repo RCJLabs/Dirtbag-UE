@@ -48,6 +48,10 @@ void UDirtbagGameInstance::EnsureAtGym()
 
 void UDirtbagGameInstance::Sleep()
 {
+	// The Lot's day resolves before yours ends, so waking to "Dev got the
+	// arete" is news about yesterday rather than a thing that happened while
+	// you were asleep in the same field as him.
+	AdvanceTheLot();
 	UDirtbagSimLibrary::SleepToNextDay(Player, Day);
 	SaveNow();
 }
@@ -174,6 +178,7 @@ FDirtbagAttemptResult UDirtbagGameInstance::ReplayAttempt(
 	{
 		EnsureCrag();   // so a project's ledger exists, and is filthy
 	}
+	bClimbedToday = true;
 	return UDirtbagSimLibrary::DayAttempt(TodaysSessionSeed(), Player, Day,
 	                                      Route, CurrentFriction());
 }
@@ -208,6 +213,7 @@ dirtbag::LiveAttempt UDirtbagGameInstance::BeginLiveFor(
 	{
 		EnsureCrag();
 	}
+	bClimbedToday = true;
 	UDirtbagLiveAttempt* Attempt = UDirtbagSimLibrary::BeginDayLiveAttempt(
 	    TodaysSessionSeed(), Player, Day, Route, CurrentFriction());
 	return Attempt->Live;
@@ -441,6 +447,184 @@ bool UDirtbagGameInstance::CanNameLine(int32 BoardIndex)
 	SimLine.isProject = Line.bIsProject;
 	SimLine.firstAscentBy = TCHAR_TO_UTF8(*Line.FirstAscentBy);
 	return dirtbag::CanName(SimLine, DirtbagConvert::ToSim(*Ledger));
+}
+
+// --- The Lot -----------------------------------------------------------------
+
+std::vector<dirtbag::Partner> UDirtbagGameInstance::LotToday()
+{
+	const dirtbag::Rng World = dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed));
+	std::vector<dirtbag::Partner> Lot =
+	    dirtbag::LotRegulars(World, Player.Day);
+
+	std::vector<dirtbag::PartnerBond> Bonds;
+	Bonds.reserve(static_cast<size_t>(Player.Bonds.Num()));
+	for (const FDirtbagPartnerBond& B : Player.Bonds)
+	{
+		Bonds.push_back(DirtbagConvert::ToSim(B));
+	}
+	dirtbag::ApplyBonds(Lot, Bonds);
+	return Lot;
+}
+
+void UDirtbagGameInstance::StoreBonds(
+    const std::vector<dirtbag::Partner>& Lot)
+{
+	Player.Bonds.Reset();
+	for (const dirtbag::PartnerBond& B : dirtbag::BondsFrom(Lot))
+	{
+		Player.Bonds.Add(DirtbagConvert::FromSim(B));
+	}
+}
+
+TArray<FDirtbagPartner> UDirtbagGameInstance::GetLot()
+{
+	TArray<FDirtbagPartner> Out;
+	for (const dirtbag::Partner& P : LotToday())
+	{
+		Out.Add(DirtbagConvert::FromSim(P));
+	}
+	return Out;
+}
+
+TArray<FString> UDirtbagGameInstance::LotTalk()
+{
+	TArray<FString> Out;
+	EnsureCrag();
+	const dirtbag::Crag SimCrag = dirtbag::RoadsideCrag(
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)));
+	for (const dirtbag::Partner& P : LotToday())
+	{
+		Out.Add(FString(UTF8_TO_TCHAR(
+		    dirtbag::LotTalk(P, SimCrag, Player.Day).c_str())));
+	}
+	return Out;
+}
+
+FString UDirtbagGameInstance::SitAtTheFire(double Hours)
+{
+	// Sitting at the fire is resting with company: the same hours, the same
+	// hunger, and the people are what you get for spending them here rather
+	// than alone at the boulders.
+	Rest(Hours);
+
+	std::vector<dirtbag::Partner> Lot = LotToday();
+	for (dirtbag::Partner& P : Lot)
+	{
+		// Rapport is per day, so an hour is a fraction of one — you cannot
+		// befriend the whole Lot by sitting still for a week.
+		dirtbag::PartnerDials Dials;
+		P.rapport = FMath::Min(
+		    1.0, P.rapport + Dials.rapportPerDay * (Hours / 8.0));
+	}
+	StoreBonds(Lot);
+
+	// Which voice you hear is picked by the clock, not by engine randomness:
+	// sitting an hour longer should change the subject, and reloading the
+	// same afternoon should not.
+	const TArray<FString> Talk = LotTalk();
+	if (Talk.Num() == 0)
+	{
+		return FString();
+	}
+	const int32 Which =
+	    FMath::Abs(static_cast<int32>(Day.Hour * 2.0) + Player.Day) %
+	    Talk.Num();
+	return Talk[Which];
+}
+
+double UDirtbagGameInstance::AskForBeta(int32 BoardIndex, FString& OutWho)
+{
+	OutWho.Reset();
+	FDirtbagProjectMemory* Ledger = LedgerFor(BoardIndex);
+	if (!Ledger || bIndoors)
+	{
+		return 0.0;
+	}
+	const FDirtbagCragLine Line = GetCragLine(BoardIndex);
+	dirtbag::CragLine SimLine;
+	SimLine.route = DirtbagConvert::ToSim(Line.Route);
+	SimLine.isProject = Line.bIsProject;
+
+	std::vector<dirtbag::Partner> Lot = LotToday();
+
+	// Whoever can actually help most, which is not always whoever you know
+	// best — Trish is delighted to help and cannot.
+	double Best = 0.0;
+	dirtbag::ProjectMemory SimLedger = DirtbagConvert::ToSim(*Ledger);
+	for (const dirtbag::Partner& P : Lot)
+	{
+		dirtbag::ProjectMemory Trial = SimLedger;
+		const double Gained = dirtbag::ShareBeta(P, SimLine, Trial);
+		if (Gained > Best)
+		{
+			Best = Gained;
+			SimLedger = Trial;
+			OutWho = UTF8_TO_TCHAR(P.name.c_str());
+		}
+	}
+	if (Best > 0.0)
+	{
+		*Ledger = DirtbagConvert::FromSim(SimLedger);
+	}
+	return Best;
+}
+
+void UDirtbagGameInstance::AdvanceTheLot()
+{
+	const dirtbag::Rng World = dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed));
+	EnsureCrag();
+	const dirtbag::Crag SimCrag = dirtbag::RoadsideCrag(World);
+
+	// Everything anybody has already claimed, the player included: a line
+	// you have done is not still lying around for Dev to take.
+	std::vector<std::string> Taken;
+	for (const FDirtbagProjectMemory& M : Player.Projects)
+	{
+		if (M.bFirstAscent)
+		{
+			Taken.push_back(TCHAR_TO_UTF8(*M.RouteName));
+		}
+	}
+	std::vector<dirtbag::Partner> Lot = LotToday();
+	for (const dirtbag::Partner& P : Lot)
+	{
+		for (const std::string& Key : P.firstAscents)
+		{
+			Taken.push_back(Key);
+		}
+	}
+
+	LotNews.Reset();
+	for (dirtbag::Partner& P : Lot)
+	{
+		// Rapport is earned by turning up and climbing, not by existing.
+		dirtbag::SpendDayWith(P, bClimbedToday);
+
+		const int Line = dirtbag::PartnerTakesFirstAscent(World, P, SimCrag,
+		                                                  Taken, Player.Day);
+		if (Line < 0)
+		{
+			continue;
+		}
+		const dirtbag::CragLine& Got = SimCrag.lines[Line];
+		P.firstAscents.push_back(Got.route.name);
+		Taken.push_back(Got.route.name);
+
+		// Told plainly and without sympathy, which is how it happens.
+		// Appended rather than assigned: two people getting lucky on the
+		// same night is rare, and silently dropping one of them would be
+		// worse than the crowded line it avoids.
+		if (!LotNews.IsEmpty())
+		{
+			LotNews += TEXT("   ");
+		}
+		LotNews += FString::Printf(TEXT("%s got %s."),
+		                           UTF8_TO_TCHAR(P.name.c_str()),
+		                           UTF8_TO_TCHAR(Got.description.c_str()));
+	}
+	StoreBonds(Lot);
+	bClimbedToday = false;
 }
 
 void UDirtbagGameInstance::OfferNaming(int32 BoardIndex)

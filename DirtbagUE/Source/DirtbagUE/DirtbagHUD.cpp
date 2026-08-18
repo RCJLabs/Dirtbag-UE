@@ -76,6 +76,16 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	DrawText(Game->ConditionsLine(), ConditionsInk, X, Y,
 	         GEngine->GetSmallFont(), 1.f);
 
+	// What the Lot did while you were not looking. Gold, like the naming
+	// prompt, because losing a line and getting one are the same size of
+	// event from opposite ends.
+	if (!Game->LotNews.IsEmpty())
+	{
+		Y += 22.f;
+		DrawText(Game->LotNews, FLinearColor(0.85f, 0.55f, 0.35f, 1.f), X, Y,
+		         GEngine->GetMediumFont(), 1.f);
+	}
+
 	// A first ascent waiting to be named. Drawn here as well as in the
 	// widget so that the moment is never invisible — if the naming widget is
 	// missing or not wired yet, the game still says plainly that something

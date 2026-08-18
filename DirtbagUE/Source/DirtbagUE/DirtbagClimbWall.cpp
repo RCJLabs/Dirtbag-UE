@@ -202,6 +202,8 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 			                        &ADirtbagClimbWall::OnInteract);
 			InputComponent->BindKey(EKeys::C, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnClean);
+			InputComponent->BindKey(EKeys::B, IE_Pressed, this,
+			                        &ADirtbagClimbWall::OnAskBeta);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnHoldPressed);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Released, this,
@@ -261,6 +263,32 @@ void ADirtbagClimbWall::OnClean()
 	                      CleanHoursPerPress * 60.f,
 	                      *Game->CleanlinessText(BoardIndex)),
 	      FColor::Silver, 4.f, kToastClean);
+}
+
+void ADirtbagClimbWall::OnAskBeta()
+{
+	if (!Game || Phase != EPhase::Idle)
+	{
+		return;
+	}
+	if (Venue != EDirtbagVenue::Crag)
+	{
+		Toast(TEXT("The setter's beta is on the tag."), FColor::Silver, 4.f,
+		      kToastClean);
+		return;
+	}
+	FString Who;
+	const double Learned = Game->AskForBeta(BoardIndex, Who);
+	if (Learned <= 0.0)
+	{
+		// Which is the honest answer on an unclimbed line: nobody has beta
+		// on something nobody has done.
+		Toast(TEXT("Nobody here has done it."), FColor::Silver, 4.f,
+		      kToastClean);
+		return;
+	}
+	Toast(FString::Printf(TEXT("%s walks you through it."), *Who),
+	      FColor::Cyan, 5.f, kToastClean);
 }
 
 void ADirtbagClimbWall::StartAttempt()

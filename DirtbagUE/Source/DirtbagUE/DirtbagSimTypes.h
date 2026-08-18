@@ -11,6 +11,7 @@
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
 #include "DirtbagDay.h"
+#include "DirtbagPartner.h"
 #include "DirtbagFirstAscent.h"
 #include "DirtbagSave.h"
 #include "DirtbagSession.h"
@@ -255,6 +256,11 @@ struct FDirtbagPlayerState
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	TArray<FDirtbagProjectMemory> Projects;
+
+	/** Who you know at the Lot. Rapport and claims only — nobody's strength
+	 *  is stored, because it is derived from the seed and the date. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	TArray<FDirtbagPartnerBond> Bonds;
 };
 
 /** One day's body-clock. Never saved — saves happen at day boundaries. */
@@ -420,6 +426,52 @@ struct FDirtbagCrag
 	double ApproachHours = 0.5;
 };
 
+/** What a career remembers about somebody at the Lot. Their strength is
+ *  derived from seed and date and is deliberately not here. */
+USTRUCT(BlueprintType)
+struct FDirtbagPartnerBond
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	double Rapport = 0.0;
+
+	/** Route keys they got to first. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	TArray<FString> FirstAscents;
+};
+
+/** Somebody at the Lot, as they are today. */
+USTRUCT(BlueprintType)
+struct FDirtbagPartner
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	FString Name;
+
+	/** One line of who they are, in their own register. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	FString Tag;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	FDirtbagClimber Climber;
+
+	/** False for the neighbours. Ray put up half the crag and has not pulled
+	 *  on in years. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	bool bClimbs = true;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	double Rapport = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	TArray<FString> FirstAscents;
+};
+
 UENUM(BlueprintType)
 enum class EDirtbagLoadResult : uint8
 {
@@ -449,6 +501,11 @@ namespace DirtbagConvert
 	FDirtbagCareerSummary FromSim(const dirtbag::CareerSummary& In);
 	FDirtbagWeather FromSim(const dirtbag::Weather& In);
 	FDirtbagPrimeWindow FromSim(const dirtbag::PrimeWindow& In);
+
+	FDirtbagClimber FromSim(const dirtbag::Climber& In);
+	FDirtbagPartnerBond FromSim(const dirtbag::PartnerBond& In);
+	dirtbag::PartnerBond ToSim(const FDirtbagPartnerBond& In);
+	FDirtbagPartner FromSim(const dirtbag::Partner& In);
 
 	FDirtbagCragLine FromSim(const dirtbag::CragLine& In);
 	FDirtbagCrag FromSim(const dirtbag::Crag& In);

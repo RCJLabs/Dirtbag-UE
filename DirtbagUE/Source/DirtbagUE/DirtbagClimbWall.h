@@ -216,6 +216,7 @@ private:
 
 	void OnInteract();
 	void OnClean();
+	void OnAskBeta();
 	void OnHoldPressed();
 	void OnHoldReleased();
 	void StartAttempt();

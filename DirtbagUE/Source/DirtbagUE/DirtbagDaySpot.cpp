@@ -65,6 +65,22 @@ FString ADirtbagDaySpot::PromptText() const
 	case EDirtbagSpotKind::Travel:
 		return FString::Printf(TEXT("Drive to %s?  (E)  -  %.0f minutes"),
 		                       *TravelName, TravelHours * 60.0);
+	case EDirtbagSpotKind::Fire:
+	{
+		// The fire's prompt names who is here, because that is what makes
+		// it different from sitting on a rock on your own.
+		FString Who;
+		for (const FDirtbagPartner& P : Game->GetLot())
+		{
+			if (!Who.IsEmpty())
+			{
+				Who += TEXT(", ");
+			}
+			Who += P.Name;
+		}
+		return FString::Printf(TEXT("Sit at the fire?  (E)  -  %s.  %s"),
+		                       *Who, *Game->WaitAdvice());
+	}
 	case EDirtbagSpotKind::Rest:
 	{
 		// The prompt carries the forecast, because that is the entire
@@ -157,6 +173,20 @@ void ADirtbagDaySpot::OnInteract()
 	case EDirtbagSpotKind::Travel:
 	{
 		BeginDrive();
+		break;
+	}
+	case EDirtbagSpotKind::Fire:
+	{
+		const double Until = Game->HoursUntilWindow();
+		const double Hours =
+		    (bWaitForWindow && Until > 0.0) ? Until : RestHours;
+		const FString Heard = Game->SitAtTheFire(Hours);
+		Say(Heard.IsEmpty()
+		        ? FString::Printf(TEXT("Sat at the fire for %.1f hours."),
+		                          Hours)
+		        : FString::Printf(TEXT("%.1f hours at the fire.  %s"), Hours,
+		                          *Heard),
+		    FColor::Yellow, 6.f);
 		break;
 	}
 	case EDirtbagSpotKind::Rest:

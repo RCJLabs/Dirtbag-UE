@@ -26,10 +26,14 @@ enum class EDirtbagSpotKind : uint8
 	Sleep,
 	/** The drive: half an hour of the day, and you are somewhere else. */
 	Travel,
-	/** Sitting it out — the log by the pads, the tailgate, the fire. Passes
-	 *  time, and outdoors will wait exactly until the rock comes good, which
-	 *  is the verb the whole conditions system was missing. */
-	Rest
+	/** Sitting it out — the log by the pads, the tailgate. Passes time, and
+	 *  outdoors will wait exactly until the rock comes good, which is the
+	 *  verb the whole conditions system was missing. */
+	Rest,
+	/** The fire at the Lot. Rest, with people: the hours pass the same way
+	 *  and you get the company for them — rapport, and what everyone is
+	 *  working this week. */
+	Fire
 };
 
 UCLASS()
