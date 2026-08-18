@@ -51,6 +51,10 @@ std::string ProjKey(int i, const char* field) {
   return "project." + IntToStr(i) + "." + field;
 }
 
+std::string BondKey(int i, const char* field) {
+  return "bond." + IntToStr(i) + "." + field;
+}
+
 }  // namespace
 
 namespace {
@@ -83,11 +87,17 @@ void MigrateV2ToV3(SaveFields& fields) {
   }
 }
 
+// v3 → v4: careers gained the people they know. A v3 career knew nobody,
+// which is precisely what an empty list means — no guessing required.
+void MigrateV3ToV4(SaveFields& fields) {
+  fields["bonds"] = "0";
+}
+
 }  // namespace
 
 const std::vector<Migration>& DefaultMigrations() {
-  static const std::vector<Migration> kMigrations = {&MigrateV1ToV2,
-                                                     &MigrateV2ToV3};
+  static const std::vector<Migration> kMigrations = {
+      &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4};
   return kMigrations;
 }
 
@@ -134,6 +144,20 @@ std::string SerializeSave(const SaveGame& save) {
     out << ProjKey(n, "confirmed") << "=" << IntToStr(m.confirmedGrade) << "\n";
     out << ProjKey(n, "style") << "=" << IntToStr(static_cast<int>(m.firstSendStyle))
         << "\n";
+  }
+
+  out << "bonds=" << static_cast<int>(save.player.bonds.size()) << "\n";
+  for (size_t i = 0; i < save.player.bonds.size(); i++) {
+    const PartnerBond& b = save.player.bonds[i];
+    const int n = static_cast<int>(i);
+    out << BondKey(n, "name") << "=" << b.name << "\n";
+    out << BondKey(n, "rapport") << "=" << NumToStr(b.rapport) << "\n";
+    out << BondKey(n, "fas") << "="
+        << static_cast<int>(b.firstAscents.size()) << "\n";
+    for (size_t f = 0; f < b.firstAscents.size(); f++) {
+      out << BondKey(n, ("fa." + IntToStr(static_cast<int>(f))).c_str())
+          << "=" << b.firstAscents[f] << "\n";
+    }
   }
   return out.str();
 }
@@ -204,6 +228,29 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     // unnamed line is the normal case, not a corrupt one.
     ParseString(fields, ProjKey(i, "given"), m.givenName);
     save.player.projects.push_back(m);
+  }
+
+  int bondCount = 0;
+  if (!ParseInt(fields, "bonds", bondCount) || bondCount < 0) {
+    return LoadResult::BadFormat;
+  }
+  for (int i = 0; i < bondCount; i++) {
+    PartnerBond b;
+    int faCount = 0;
+    if (!ParseString(fields, BondKey(i, "name"), b.name) ||
+        !ParseDouble(fields, BondKey(i, "rapport"), b.rapport) ||
+        !ParseInt(fields, BondKey(i, "fas"), faCount) || faCount < 0) {
+      return LoadResult::BadFormat;
+    }
+    for (int f = 0; f < faCount; f++) {
+      std::string key;
+      if (!ParseString(fields,
+                       BondKey(i, ("fa." + IntToStr(f)).c_str()), key)) {
+        return LoadResult::BadFormat;
+      }
+      b.firstAscents.push_back(key);
+    }
+    save.player.bonds.push_back(b);
   }
 
   out = save;

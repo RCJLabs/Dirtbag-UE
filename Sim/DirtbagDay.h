@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "DirtbagCore.h"
+#include "DirtbagPartner.h"
 #include "DirtbagRng.h"
 #include "DirtbagSessionLoop.h"
 
@@ -93,6 +94,10 @@ struct PlayerState {
   double cash = 420.0;  // the war chest you left home with
   int day = 1;
   std::vector<ProjectMemory> projects;
+
+  // Who you know at the Lot, and what they got to first. Strength is
+  // derived from the seed and the date, so only this much is career state.
+  std::vector<PartnerBond> bonds;
 };
 
 // One day's body-clock. Created at wake, consumed by sleep, never saved —
