@@ -1,10 +1,14 @@
 #include "DirtbagDaySpot.h"
 
+#include "Camera/PlayerCameraManager.h"
 #include "Components/BoxComponent.h"
 #include "Components/InputComponent.h"
 #include "Engine/Engine.h"
+#include "Engine/World.h"
+#include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "TimerManager.h"
 
 #include "DirtbagGameInstance.h"
 
@@ -58,6 +62,9 @@ FString ADirtbagDaySpot::PromptText() const
 	case EDirtbagSpotKind::Sleep:
 		return FString::Printf(TEXT("Call it a day?  (E)  -  day %d, $%.0f"),
 		                       Game->Player.Day, Game->Player.Cash);
+	case EDirtbagSpotKind::Travel:
+		return FString::Printf(TEXT("Drive to %s?  (E)  -  %.0f minutes"),
+		                       *TravelName, TravelHours * 60.0);
 	}
 	return FString();
 }
@@ -134,6 +141,11 @@ void ADirtbagDaySpot::OnInteract()
 		    FColor::Green);
 		break;
 	}
+	case EDirtbagSpotKind::Travel:
+	{
+		BeginDrive();
+		break;
+	}
 	case EDirtbagSpotKind::Sleep:
 	{
 		Game->Sleep();
@@ -145,4 +157,60 @@ void ADirtbagDaySpot::OnInteract()
 		break;
 	}
 	}
+}
+
+void ADirtbagDaySpot::BeginDrive()
+{
+	if (!TravelTarget)
+	{
+		Say(TEXT("This drive has no Travel Target set."), FColor::Red);
+		return;
+	}
+
+	// Fade out, let the clock run, arrive. The drive is time and a change of
+	// place; the van earns its opinions about both in Phase 3.
+	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
+	{
+		if (PC->PlayerCameraManager)
+		{
+			PC->PlayerCameraManager->StartCameraFade(0.f, 1.f, FadeSeconds,
+			                                         FLinearColor::Black, false,
+			                                         true);
+		}
+	}
+	GetWorldTimerManager().SetTimer(DriveTimer, this,
+	                                &ADirtbagDaySpot::ArriveFromDrive,
+	                                FMath::Max(0.05f, FadeSeconds), false);
+}
+
+void ADirtbagDaySpot::ArriveFromDrive()
+{
+	if (!Game || !TravelTarget)
+	{
+		return;
+	}
+
+	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+	if (APawn* Pawn = PC ? PC->GetPawn() : nullptr)
+	{
+		const FVector Where = TravelTarget->GetActorLocation();
+		Pawn->TeleportTo(Where, Pawn->GetActorRotation());
+		if (PC)
+		{
+			// Face the way the destination faces, so arrivals are composed.
+			PC->SetControlRotation(TravelTarget->GetActorRotation());
+		}
+	}
+
+	Game->PassHours(TravelHours);
+
+	if (PC && PC->PlayerCameraManager)
+	{
+		PC->PlayerCameraManager->StartCameraFade(1.f, 0.f, FadeSeconds,
+		                                         FLinearColor::Black, false,
+		                                         false);
+	}
+	Say(FString::Printf(TEXT("Drove to %s. %.0f minutes gone."), *TravelName,
+	                    TravelHours * 60.0),
+	    FColor::Silver);
 }

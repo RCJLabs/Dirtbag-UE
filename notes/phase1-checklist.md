@@ -164,3 +164,41 @@ New since the checklist above. Rebuild first (delete `Binaries`, reopen).
 hunger climbs → take a shift when cash gets thin → sleep, and the career
 line at the bottom of the screen grows a nemesis. That is the Phase 1
 day-loop gate, minus the van.
+
+---
+
+## 9. The van and the drive
+
+The day's ritual: wake in the van, drive to the gym, climb, drive back,
+sleep. All of it is placement — the drive is a `Dirtbag Day Spot` with
+**Kind = Travel**, and the sim already models the only thing a drive really
+costs at this stage, which is time.
+
+**Build the van area** somewhere well away from the gym — a cube on its side
+is a van at blockout quality. Then, at the van:
+
+1. A `Dirtbag Day Spot`, **Kind = Sleep**. This is now literally the van, so
+   you wake where you slept and the ritual closes properly.
+2. A second one, **Kind = Travel**:
+   - **Travel Name** = `the gym`
+   - **Travel Target** = *(pick the gym's travel spot from the level)*
+   - **Travel Hours** = `0.5`
+3. Move the **PlayerStart** to the van so day one begins at home.
+
+**At the gym**, a third `Dirtbag Day Spot`, **Kind = Travel**:
+   - **Travel Name** = `the van`
+   - **Travel Target** = *(the van's travel spot)*
+
+Each travel spot points at the other, so you arrive standing next to the
+drive-back spot — which is convenient rather than a bug. Press **E**, the
+screen fades, half an hour goes by, and you're there. Watch the clock on the
+HUD move.
+
+**Travel Target is an actor picker**: click the dropdown and choose from the
+level, or use the eyedropper and click the target actor in the viewport. If
+you forget it, the spot tells you so instead of silently doing nothing.
+
+**What this completes:** wake in the van → drive → climb until skin says
+stop → eat → shift → drive home → sleep, with the day's clock and the save
+carrying it all. That is the Phase 1 day loop, whole. What remains for the
+milestone is playing seven of them in a row and telling me what annoyed you.
