@@ -1,5 +1,6 @@
 #include "DirtbagCrag.h"
 
+#include <algorithm>
 #include <string>
 
 namespace dirtbag {
@@ -104,13 +105,23 @@ Crag RoadsideCrag(const Rng& worldRng) {
     crag.lines.push_back(line);
   }
 
+  Rng projectRng = worldRng.Derive("crag-projects");
   for (int i = 0; i < kProjectCount; i++) {
     const ProjectEntry& e = kProjects[i];
     CragLine line;
+    // The book's guess is a guess. Nobody has done the line, so nobody
+    // actually knows what it is — and finding out is the payoff for doing
+    // it. A guess is usually close and occasionally embarrassing in either
+    // direction: the line you talked up as V9 goes at V8 and the locals are
+    // kind about it, or it turns out to be the hardest thing here.
+    const double roll = projectRng.NextDouble();
+    const int drift = roll < 0.25 ? -1 : (roll < 0.6 ? 0 : (roll < 0.9 ? 1 : 2));
+    const int trueGrade = std::max(0, e.guess + drift);
+
     // A project's moves are as real as anything else's — the rock does not
     // care that nobody has linked them. The name is the description until
     // somebody earns the right to change it.
-    line.route = BuildRoute(worldRng, e.description, e.guess, e.guess, e.type,
+    line.route = BuildRoute(worldRng, e.description, e.guess, trueGrade, e.type,
                             Discipline::Boulder);
     line.stars = 0;  // unclimbed lines have no stars; nobody can vouch yet
     line.isProject = true;

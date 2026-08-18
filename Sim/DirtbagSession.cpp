@@ -58,6 +58,10 @@ double MoveEffective(const AttemptInput& input, const Move& move, double exec,
 
   // Conditions, beta, morphology, skin, nerve.
   effective += (input.conditions.friction - 0.5) * dials.frictionWeight * 0.1;
+
+  // Dirt reads as ability you do not have: no chalk sticks, the feet are
+  // gravel, and the holds are somewhere under the moss.
+  effective -= dials.dirtGradePenalty * (1.0 - input.cleanliness);
   effective += input.beta * 0.5;
   effective += MorphologyAdjust(c, move, dials);
   // Body and head state: both default to neutral (warm, ordinary-day

@@ -69,6 +69,10 @@ dirtbag::ProjectMemory ToSim(const FDirtbagProjectMemory& In)
 	Out.beta = In.Beta;
 	Out.sent = In.bSent;
 	Out.firstSendStyle = static_cast<dirtbag::Style>(In.FirstSendStyle);
+	Out.cleanliness = In.Cleanliness;
+	Out.givenName = TCHAR_TO_UTF8(*In.GivenName);
+	Out.firstAscent = In.bFirstAscent;
+	Out.confirmedGrade = In.ConfirmedGrade;
 	return Out;
 }
 
@@ -140,6 +144,10 @@ FDirtbagProjectMemory FromSim(const dirtbag::ProjectMemory& In)
 	Out.Beta = In.beta;
 	Out.bSent = In.sent;
 	Out.FirstSendStyle = static_cast<EDirtbagStyle>(In.firstSendStyle);
+	Out.Cleanliness = In.cleanliness;
+	Out.GivenName = UTF8_TO_TCHAR(In.givenName.c_str());
+	Out.bFirstAscent = In.firstAscent;
+	Out.ConfirmedGrade = In.confirmedGrade;
 	return Out;
 }
 

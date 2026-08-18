@@ -169,6 +169,42 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	FDirtbagAttemptResult ReplayAttempt(const FDirtbagRoute& Route);
 
+	// --- First ascents ---------------------------------------------------
+	// clean -> work -> send -> name. No locks: a virgin line is simply
+	// filthy, and filthy rock climbs about four grades harder than it will
+	// once you have spent an afternoon on it with a brush.
+
+	/** An hour on the brush at the line this wall points at. Costs the day's
+	 *  time and energy, so cleaning competes with climbing. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
+	double CleanLine(int32 BoardIndex, double Hours);
+
+	/** Whether it is worth pulling on yet. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
+	bool IsWorkable(int32 BoardIndex);
+
+	/** "filthy; you can find the holds but not use them" */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
+	FString CleanlinessText(int32 BoardIndex);
+
+	/** True when you have done a line nobody had done, and the naming is
+	 *  therefore yours. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
+	bool CanNameLine(int32 BoardIndex);
+
+	/** Name it. Records the claim and confirms what it really went at —
+	 *  which nobody, including the guidebook, knew until now. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
+	bool NameFirstAscent(int32 BoardIndex, const FString& Name);
+
+	/** "Roadside Rites  V8  FA you (the book said V7)" — empty if unnamed. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
+	FString FirstAscentLine(int32 BoardIndex);
+
+	/** Every first ascent in this career, hardest first. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
+	TArray<FDirtbagProjectMemory> GetFirstAscents() const;
+
 	/** What the ledgers add up to, and the one-line version of it. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	FDirtbagCareerSummary GetCareer() const;
@@ -192,6 +228,10 @@ public:
 private:
 	void EnsureBoard();
 	void EnsureCrag();
+
+	/** The ledger for a line, created filthy the first time a virgin line is
+	 *  touched. Returns null only when there is nothing at that index. */
+	FDirtbagProjectMemory* LedgerFor(int32 BoardIndex);
 
 	// The forecast changes once a day; the HUD asks for it every frame.
 	// Cheap either way (~23us), but there is no reason to re-hash the seed

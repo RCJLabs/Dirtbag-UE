@@ -311,6 +311,12 @@ void UDirtbagSimLibrary::SleepToNextDay(FDirtbagPlayerState& Player,
 	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
 	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
 	dirtbag::SleepToNextDay(SimPlayer, SimDay);
+	// A night's upkeep, not just a night's recovery: rock you cleaned gives
+	// a little back to the weather. It lives here rather than inside
+	// SleepToNextDay because the first-ascent layer sits above the day loop
+	// and must not be inverted — but every night must run it, so the single
+	// node that means "a night" is where it goes.
+	dirtbag::WeatherProjects(SimPlayer);
 	Player = DirtbagConvert::FromSim(SimPlayer);
 	Day = DirtbagConvert::FromSim(SimDay);
 }

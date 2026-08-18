@@ -11,6 +11,7 @@
 #include "../DirtbagCore.h"
 #include "../DirtbagCrag.h"
 #include "../DirtbagDay.h"
+#include "../DirtbagFirstAscent.h"
 #include "../DirtbagRng.h"
 #include "../DirtbagSave.h"
 #include "../DirtbagSession.h"
@@ -371,10 +372,29 @@ static void TestSandbagsAreSpecific() {
   }
   CHECK(sandbagged >= 2);
   CHECK(sandbagged * 4 < graded);   // a minority, not the house style
-  // And the same seed sandbags the same lines, every time.
-  Crag again = RoadsideCrag(Rng::FromSeed("crag-9"));
+  // A crag's sandbags are part of the book, so they are the same in every
+  // world: Second Breakfast is stiff everywhere, the way a real one is.
+  Crag elsewhere = RoadsideCrag(Rng::FromSeed("crag-9"));
+  for (size_t i = 0; i < crag.lines.size(); i++) {
+    if (crag.lines[i].isProject) continue;
+    CHECK(elsewhere.lines[i].route.trueGrade ==
+          crag.lines[i].route.trueGrade);
+  }
+
+  // Projects are the exception, and deliberately so: nobody has done them,
+  // so nobody knows what they are, and the answer differs per world. If
+  // these ever agreed across seeds the guess would not be a guess.
+  bool projectGradeVaries = false;
   for (size_t i = 0; i < crag.lines.size(); i++)
-    CHECK(again.lines[i].route.trueGrade == crag.lines[i].route.trueGrade);
+    if (crag.lines[i].isProject &&
+        elsewhere.lines[i].route.trueGrade != crag.lines[i].route.trueGrade)
+      projectGradeVaries = true;
+  CHECK(projectGradeVaries);
+
+  // And within one world it is fixed, or the rock would change under you.
+  Crag same = RoadsideCrag(Rng::FromSeed("crag-1"));
+  for (size_t i = 0; i < crag.lines.size(); i++)
+    CHECK(same.lines[i].route.trueGrade == crag.lines[i].route.trueGrade);
 }
 
 static void TestCragGivesAClimberADay() {
@@ -448,6 +468,340 @@ static void TestGuidebookReadsRight() {
   }
   CHECK(LinesUpTo(crag, 18).size() + OpenProjects(crag).size() ==
         crag.lines.size());
+}
+
+// --- First ascents -------------------------------------------------------------
+
+static void TestVirginLinesStartFilthy() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  for (const CragLine& l : crag.lines) {
+    ProjectMemory m = NewProjectLedger(l);
+    CHECK(m.routeName == l.route.name);   // the key is the identity
+    if (l.isProject) {
+      CHECK(m.cleanliness < 0.2);
+      CHECK(!IsWorkable(m));
+    } else {
+      CHECK(m.cleanliness == 1.0);        // the book's routes get climbed
+      CHECK(IsWorkable(m));
+    }
+  }
+}
+
+static void TestADefaultLedgerIsClean() {
+  // The reason project ledgers must be seeded when a crag loads rather than
+  // on first touch: every attempt path creates a missing ledger through
+  // MemoryFor, and that ledger is clean. If projects were not seeded ahead
+  // of it, walking up to a virgin line and pulling on it would climb rock
+  // somebody had apparently already brushed, and the dirt would silently
+  // never apply. Encoded here so the seeding is not "simplified" away.
+  ProjectMemory fresh;
+  CHECK(fresh.cleanliness == 1.0);
+  CHECK(IsWorkable(fresh));
+
+  PlayerState player;
+  Rng world = Rng::FromSeed("crag-1");
+  Route line = BuildRoute(world, "Untouched", 7, 7, RouteType::Crimp,
+                          Discipline::Boulder);
+  ProjectMemory& made = MemoryFor(player, line);
+  CHECK(made.cleanliness == 1.0);
+
+  // Whereas the ledger the crag hands out for a project is filthy.
+  Crag crag = RoadsideCrag(world);
+  CHECK(NewProjectLedger(*OpenProjects(crag)[0]).cleanliness < 0.2);
+}
+
+static void TestDirtIsWhatStandsInTheWay() {
+  // A filthy line should be out of reach for a climber who could do it
+  // clean. If dirt were merely an inconvenience, cleaning would be an
+  // optimisation instead of the first move.
+  Rng world = Rng::FromSeed("crag-1");
+  Climber c;
+  c.skills.power = c.skills.fingers = c.skills.technique =
+      c.skills.endurance = c.skills.head = 60.0;
+  Route line = BuildRoute(world, "Test Project", 5, 5, RouteType::Crimp,
+                          Discipline::Boulder);
+
+  auto Rate = [&](double cleanliness) {
+    int sends = 0;
+    const int trials = 600;
+    for (int i = 0; i < trials; i++) {
+      Rng rng = Rng::FromSeed("dirt-" + std::to_string(i));
+      AttemptInput in;
+      in.climber = c;
+      in.route = line;
+      in.cleanliness = cleanliness;
+      if (ResolveAttempt(rng, in).sent) sends++;
+    }
+    return 100.0 * sends / trials;
+  };
+  const double clean = Rate(1.0);
+  const double filthy = Rate(0.05);
+  CHECK(clean > 50.0);      // well within this climber, once it is clean
+  CHECK(filthy < 5.0);      // and essentially gone when it is not
+  CHECK(Rate(0.6) > filthy);   // and cleaning it partway genuinely helps
+  CHECK(Rate(0.6) < clean);
+}
+
+static void TestCleaningCostsTheDay() {
+  PlayerState player;
+  DayState day = WakeUp(player);
+  const double hour0 = day.hour;
+  const double energy0 = day.energy;
+
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  const CragLine* project = OpenProjects(crag)[0];
+  ProjectMemory m = NewProjectLedger(*project);
+
+  const double gained = CleanLine(player, day, m, 2.0);
+  CHECK(gained > 0.0);
+  CHECK(day.hour > hour0);          // an afternoon you did not climb in
+  CHECK(day.energy < energy0);      // and it is work
+  CHECK(m.cleanliness > 0.05);
+
+  // Enough hours and it comes clean, and never past clean.
+  for (int i = 0; i < 10; i++) CleanLine(player, day, m, 1.0);
+  CHECK(m.cleanliness == 1.0);
+  CHECK(IsWorkable(m));
+  // Zero hours does nothing at all, rather than something small.
+  const double before = day.hour;
+  CHECK(CleanLine(player, day, m, 0.0) == 0.0);
+  CHECK(day.hour == before);
+}
+
+static void TestNamingIsEarnedAndExact() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  CragLine project = *OpenProjects(crag)[0];
+  ProjectMemory m = NewProjectLedger(project);
+
+  // Not yours until you have done it.
+  CHECK(!CanName(project, m));
+  CHECK(!NameFirstAscent(m, project, "Too Soon"));
+  CHECK(m.givenName.empty());
+  CHECK(!m.firstAscent);
+
+  m.sent = true;
+  CHECK(CanName(project, m));
+  CHECK(!NameFirstAscent(m, project, ""));   // and a name is required
+  CHECK(m.givenName.empty());
+
+  const std::string key = m.routeName;
+  CHECK(NameFirstAscent(m, project, "Roadside Rites"));
+  CHECK(m.givenName == "Roadside Rites");
+  CHECK(m.firstAscent);
+  CHECK(m.routeName == key);                 // the ledger key never moves
+  // The payoff: the grade stops being an opinion.
+  CHECK(m.confirmedGrade == project.route.trueGrade);
+  CHECK(m.confirmedGrade >= 0);
+
+  // Once named, it is named. Nobody renames it, including you.
+  CHECK(!CanName(project, m));
+  CHECK(!NameFirstAscent(m, project, "Second Thoughts"));
+  CHECK(m.givenName == "Roadside Rites");
+
+  // A line already in the book was never yours to name.
+  CragLine known = crag.lines[0];
+  ProjectMemory km = NewProjectLedger(known);
+  km.sent = true;
+  CHECK(!CanName(known, km));
+  CHECK(!NameFirstAscent(km, known, "Mine Now"));
+}
+
+static void TestTheBookRecordsWhatItReallyWent() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  bool sawCorrection = false;
+  for (const CragLine* p : OpenProjects(crag)) {
+    ProjectMemory m = NewProjectLedger(*p);
+    m.sent = true;
+    CHECK(NameFirstAscent(m, *p, "Line " + std::to_string(p->route.grade)));
+    const std::string text = FirstAscentLine(m, "you");
+    CHECK(text.find(m.givenName) != std::string::npos);
+    CHECK(text.find("FA you") != std::string::npos);
+    CHECK(text.find(BoulderGradeName(m.confirmedGrade)) != std::string::npos);
+    // When the book guessed wrong, the book says so from now on.
+    if (m.confirmedGrade != m.grade) {
+      sawCorrection = true;
+      CHECK(text.find("the book said") != std::string::npos);
+    }
+  }
+  CHECK(sawCorrection);   // a guess that is never wrong is not a guess
+  // A line with no ascent has no line in the book.
+  ProjectMemory empty;
+  CHECK(FirstAscentLine(empty, "you").empty());
+}
+
+static void TestRockGoesBackToTheWeather() {
+  PlayerState player;
+  ProjectMemory dirty;
+  dirty.routeName = "the arete";
+  dirty.cleanliness = 0.8;
+  ProjectMemory known;
+  known.routeName = "Diesel";
+  known.cleanliness = 1.0;
+  player.projects = {dirty, known};
+
+  for (int night = 0; night < 5; night++) WeatherProjects(player);
+  CHECK(player.projects[0].cleanliness < 0.8);   // your project needs re-brushing
+  CHECK(player.projects[1].cleanliness == 1.0);  // a popular route does not
+  // It never rots away entirely.
+  for (int night = 0; night < 500; night++) WeatherProjects(player);
+  CHECK(player.projects[0].cleanliness >= 0.0);
+}
+
+static void TestFirstAscentsAreACareer() {
+  PlayerState player;
+  ProjectMemory a;
+  a.routeName = "line a"; a.firstAscent = true; a.confirmedGrade = 7;
+  a.givenName = "Alpha";
+  ProjectMemory b;
+  b.routeName = "line b"; b.firstAscent = true; b.confirmedGrade = 9;
+  b.givenName = "Beta";
+  ProjectMemory c;
+  c.routeName = "Diesel"; c.sent = true;    // sent, but somebody else's line
+  player.projects = {a, c, b};
+
+  std::vector<const ProjectMemory*> fas = FirstAscents(player);
+  CHECK(fas.size() == 2);
+  CHECK(fas[0]->confirmedGrade == 9);   // hardest first
+  CHECK(fas[1]->confirmedGrade == 7);
+  for (const ProjectMemory* m : fas) CHECK(m->firstAscent);
+}
+
+static void TestTheWholeArc() {
+  // clean -> work -> send -> name, played through as a career would.
+  Rng world = Rng::FromSeed("crag-1");
+  Crag crag = RoadsideCrag(world);
+  CragLine project = *OpenProjects(crag)[0];
+
+  PlayerState player;
+  player.climber.skills.power = player.climber.skills.fingers =
+      player.climber.skills.technique = player.climber.skills.endurance =
+          player.climber.skills.head = 72.0;   // strong enough, eventually
+  DayState day = WakeUp(player);
+  ProjectMemory m = NewProjectLedger(project);
+
+  // Day one: it is unclimbable, and throwing yourself at it proves it.
+  CHECK(!IsWorkable(m));
+  {
+    Rng session = Rng::FromSeed("arc-dirty");
+    SessionState st = StartSession(player.climber);
+    int sends = 0;
+    for (int i = 0; i < 8; i++)
+      if (AttemptInSession(session, st, m, player.climber, project.route,
+                           Conditions{}).sent) sends++;
+    CHECK(sends == 0);        // filthy rock does not go
+  }
+
+  // So you clean it instead.
+  m.beta = 0.0;
+  while (!IsWorkable(m)) CleanLine(player, day, m, 1.0);
+  CHECK(IsWorkable(m));
+
+  // Then you work it, across sessions, until it goes.
+  bool sent = false;
+  for (int dayN = 0; dayN < 25 && !sent; dayN++) {
+    Rng session = Rng::FromSeed("arc-" + std::to_string(dayN));
+    SessionState st = StartSession(player.climber);
+    for (int burn = 0; burn < 8 && st.skinLeft > 0.5 && !sent; burn++) {
+      Conditions prime;
+      prime.friction = 0.85;
+      sent = AttemptInSession(session, st, m, player.climber, project.route,
+                              prime).sent;
+    }
+    WeatherProjects(player);
+  }
+  CHECK(sent);
+  CHECK(m.attempts > 1);      // it was not a gift
+  CHECK(m.beta > 0.0);        // you learned it on the way
+
+  // And then it is yours to name, and to find out what it was.
+  CHECK(CanName(project, m));
+  CHECK(NameFirstAscent(m, project, "Roadside Rites"));
+  CHECK(m.confirmedGrade == project.route.trueGrade);
+  CHECK(!FirstAscentLine(m, "you").empty());
+}
+
+static void TestSaveCarriesFirstAscents() {
+  PlayerState player;
+  ProjectMemory m;
+  m.routeName = "the arete left of Diesel";
+  m.grade = 7;
+  m.attempts = 23;
+  m.beta = 0.8;
+  m.sent = true;
+  m.cleanliness = 0.74;
+  m.givenName = "Roadside Rites";
+  m.firstAscent = true;
+  m.confirmedGrade = 8;
+  player.projects = {m};
+
+  SaveGame save;
+  save.seed = "crag-1";
+  save.player = player;
+  const std::string text = SerializeSave(save);
+
+  SaveGame loaded;
+  CHECK(DeserializeSave(text, loaded) == LoadResult::Ok);
+  CHECK(loaded.player.projects.size() == 1);
+  const ProjectMemory& r = loaded.player.projects[0];
+  CHECK(r.routeName == m.routeName);
+  CHECK(r.givenName == "Roadside Rites");
+  CHECK(r.firstAscent);
+  CHECK(r.confirmedGrade == 8);
+  CHECK(std::fabs(r.cleanliness - 0.74) < 1e-12);
+
+  // An unnamed project round-trips too — an empty given name is the normal
+  // case, not a corrupt one.
+  player.projects[0].givenName = "";
+  player.projects[0].firstAscent = false;
+  player.projects[0].confirmedGrade = -1;
+  save.player = player;
+  SaveGame again;
+  CHECK(DeserializeSave(SerializeSave(save), again) == LoadResult::Ok);
+  CHECK(again.player.projects[0].givenName.empty());
+  CHECK(!again.player.projects[0].firstAscent);
+  CHECK(again.player.projects[0].confirmedGrade == -1);
+}
+
+static void TestLoadsVersion2Save() {
+  // A hand-written v2 career, from before first ascents existed. It must
+  // still load, and it must not claim things that were never true: every
+  // line a v2 save touched was already in a book, so nothing is a first
+  // ascent and nothing needs its grade confirming.
+  const std::string v2 =
+      "version=2\n"
+      "seed=crag-1\n"
+      "day=14\n"
+      "cash=317.5\n"
+      "skills.power=52\n"
+      "skills.fingers=55\n"
+      "skills.technique=48\n"
+      "skills.endurance=51\n"
+      "skills.head=44\n"
+      "morphology=1\n"
+      "skin=6.5\n"
+      "psyche=0.7\n"
+      "projects=1\n"
+      "project.0.name=Diesel\n"
+      "project.0.grade=5\n"
+      "project.0.attempts=31\n"
+      "project.0.best=6\n"
+      "project.0.beta=0.75\n"
+      "project.0.sent=1\n"
+      "project.0.style=2\n";
+
+  SaveGame loaded;
+  CHECK(DeserializeSave(v2, loaded) == LoadResult::Ok);
+  CHECK(loaded.version == kSaveVersion);
+  CHECK(loaded.player.day == 14);
+  CHECK(loaded.player.projects.size() == 1);
+  const ProjectMemory& m = loaded.player.projects[0];
+  CHECK(m.routeName == "Diesel");
+  CHECK(m.attempts == 31);
+  CHECK(m.sent);
+  CHECK(m.cleanliness == 1.0);      // it was in the book; it was clean
+  CHECK(!m.firstAscent);            // and it was never yours
+  CHECK(m.givenName.empty());
+  CHECK(m.confirmedGrade == -1);    // nothing to confirm
 }
 
 // --- RNG ---------------------------------------------------------------------
@@ -1488,6 +1842,17 @@ int main() {
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();
   TestGuidebookReadsRight();
+  TestVirginLinesStartFilthy();
+  TestADefaultLedgerIsClean();
+  TestDirtIsWhatStandsInTheWay();
+  TestCleaningCostsTheDay();
+  TestNamingIsEarnedAndExact();
+  TestTheBookRecordsWhatItReallyWent();
+  TestRockGoesBackToTheWeather();
+  TestFirstAscentsAreACareer();
+  TestTheWholeArc();
+  TestSaveCarriesFirstAscents();
+  TestLoadsVersion2Save();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);

@@ -54,6 +54,28 @@ struct ProjectMemory {
   double beta = 0.0;         // 0..1 move knowledge; feeds AttemptInput::beta
   bool sent = false;
   Style firstSendStyle = Style::Fell;  // how it first went down, forever
+
+  // --- First ascents ---------------------------------------------------
+  // An unclimbed line is dirty, and dirt is the first thing standing between
+  // you and it. 1.0 is clean rock; a virgin line starts filthy and every
+  // hour on the brush buys some back. This lives in the ledger rather than
+  // on the crag because it is the one fact about a line that the player
+  // changes and the save file therefore has to carry.
+  double cleanliness = 1.0;
+
+  // The name you gave it, once it went and the naming was yours to do.
+  // Never replaces routeName: routeName is this ledger's key, and moving it
+  // would orphan every burn already recorded here.
+  std::string givenName;
+
+  // True when this player did the line first. The claim the career is built
+  // on, so it is recorded rather than inferred.
+  bool firstAscent = false;
+
+  // What it actually turned out to be, once somebody had done it. -1 until
+  // then, because before the first ascent every grade at a project is an
+  // opinion.
+  int confirmedGrade = -1;
 };
 
 // A day's climbing body-state, from the session's first pull-on to its last.

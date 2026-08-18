@@ -114,3 +114,40 @@ recon), so *which* crag is a decision too.
   bigger change; it belongs with the crag-choice loop, not before it.
 - **Rain.** Cloud blunts the sun; nothing yet stops you climbing outright or
   seeps a route for two days.
+
+---
+
+# The first ascent, measured
+
+Same discipline. Roadside Crag's three open lines, seed `crag-1`:
+
+| the line | the book says | it really is |
+|---|---|---|
+| the arete left of Diesel | V7 | V7 |
+| the low traverse into Chalk Ghost | V8 | V7 |
+| the blank wall behind the parking | V9 | **V10** |
+
+One guess exact, one overrated, one that turns out to be the hardest thing
+at the crag. A guess that is never wrong is not a guess.
+
+**Cleaning** costs ~1.75 hours to reach workable and ~3.3 to get properly
+clean — comparable to a whole session, paid before any chance of success.
+It composes with the window rather than competing with it: brush through
+the greasy middle of the day, climb when the rock comes into condition.
+
+**How long an ascent takes**, playing real weather and real windows:
+
+| climber | line | days | burns |
+|---|---|---|---|
+| V6 | the arete (V7) | 3 | 14 |
+| V6 | the traverse (V7) | 138 | 699 |
+| V6 | the blank wall (V10) | never | — |
+| V8 | the arete (V7) | 2 | 2 |
+| V9 | the blank wall (V10) | never | — |
+
+Two things worth noting. The two V7s are wildly different projects — 14
+burns against 699 — because the traverse is a long endurance line and the
+arete is short and powerful; nominal grade says much less than shape, which
+is right. And **the blank wall is nobody's yet**: at V10 it refuses even a
+V9 climber, so the crag keeps one line that has to be grown into. That is
+the long game the phase is supposed to open, not a tuning failure.

@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 mkdir -p ../build
 g++ -std=c++17 -O2 -Wall -Wextra -Werror \
     DirtbagRng.cpp DirtbagCore.cpp DirtbagSession.cpp DirtbagSessionLoop.cpp \
-    DirtbagDay.cpp DirtbagSave.cpp DirtbagConditions.cpp DirtbagCrag.cpp \
+    DirtbagDay.cpp DirtbagSave.cpp DirtbagConditions.cpp DirtbagCrag.cpp DirtbagFirstAscent.cpp \
     tests/test_main.cpp \
     -o ../build/sim_tests
 

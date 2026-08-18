@@ -22,7 +22,12 @@ namespace dirtbag {
 // Version 2: project ledgers record the route's guidebook grade, so a
 //   career can answer "what do you climb?" without the route still
 //   existing. v1 ledgers migrate to grade -1 (unknown) rather than a guess.
-constexpr int kSaveVersion = 2;
+// Version 3: ledgers carry the first-ascent record — how clean the line is,
+//   the name you gave it, whether the first ascent was yours, and the grade
+//   it turned out to be. v2 careers only ever touched lines that were
+//   already in a book, so they migrate to clean, unnamed, nobody's, and
+//   unconfirmed: an exact answer rather than a guess.
+constexpr int kSaveVersion = 3;
 
 struct SaveGame {
   int version = kSaveVersion;

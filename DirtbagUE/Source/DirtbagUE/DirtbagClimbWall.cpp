@@ -150,7 +150,10 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 		const FDirtbagCragLine Line = Game->GetCragLine(BoardIndex);
 		if (Line.bIsProject)
 		{
-			Book = TEXT("   unclimbed");
+			// On a project the dirt is the obstacle, not the grade, so the
+			// prompt leads with it.
+			Book = FString::Printf(TEXT("   unclimbed — %s"),
+			                       *Game->CleanlinessText(BoardIndex));
 		}
 		else if (Line.Stars > 0)
 		{

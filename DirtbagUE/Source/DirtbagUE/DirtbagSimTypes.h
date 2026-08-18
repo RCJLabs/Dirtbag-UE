@@ -11,6 +11,7 @@
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
 #include "DirtbagDay.h"
+#include "DirtbagFirstAscent.h"
 #include "DirtbagSave.h"
 #include "DirtbagSession.h"
 #include "DirtbagSessionLoop.h"
@@ -220,6 +221,21 @@ struct FDirtbagProjectMemory
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	EDirtbagStyle FirstSendStyle = EDirtbagStyle::Fell;
+
+	/** 1 clean rock .. 0 never been touched. Only projects start dirty. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|FirstAscent")
+	double Cleanliness = 1.0;
+
+	/** The name you gave it. Never a key — RouteName is the key, forever. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|FirstAscent")
+	FString GivenName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|FirstAscent")
+	bool bFirstAscent = false;
+
+	/** What it turned out to be. -1 until somebody had done it. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|FirstAscent")
+	int32 ConfirmedGrade = -1;
 };
 
 /** Career state — everything that outlives a day; what the save carries. */

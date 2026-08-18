@@ -67,10 +67,27 @@ void MigrateV1ToV2(SaveFields& fields) {
   }
 }
 
+// v2 → v3: ledgers gained the first-ascent record. Every line a v2 career
+// touched was one that already existed in a book, so all of them are clean,
+// none of them is a first ascent, and no grade needs confirming — the
+// honest defaults, and the reason this migration can be exact rather than a
+// guess.
+void MigrateV2ToV3(SaveFields& fields) {
+  int count = 0;
+  if (!ParseInt(fields, "projects", count)) return;
+  for (int i = 0; i < count; i++) {
+    fields[ProjKey(i, "clean")] = "1";
+    fields[ProjKey(i, "given")] = "";
+    fields[ProjKey(i, "fa")] = "0";
+    fields[ProjKey(i, "confirmed")] = "-1";
+  }
+}
+
 }  // namespace
 
 const std::vector<Migration>& DefaultMigrations() {
-  static const std::vector<Migration> kMigrations = {&MigrateV1ToV2};
+  static const std::vector<Migration> kMigrations = {&MigrateV1ToV2,
+                                                     &MigrateV2ToV3};
   return kMigrations;
 }
 
@@ -111,6 +128,10 @@ std::string SerializeSave(const SaveGame& save) {
     out << ProjKey(n, "best") << "=" << IntToStr(m.bestHighpoint) << "\n";
     out << ProjKey(n, "beta") << "=" << NumToStr(m.beta) << "\n";
     out << ProjKey(n, "sent") << "=" << (m.sent ? "1" : "0") << "\n";
+    out << ProjKey(n, "clean") << "=" << NumToStr(m.cleanliness) << "\n";
+    out << ProjKey(n, "given") << "=" << m.givenName << "\n";
+    out << ProjKey(n, "fa") << "=" << (m.firstAscent ? "1" : "0") << "\n";
+    out << ProjKey(n, "confirmed") << "=" << IntToStr(m.confirmedGrade) << "\n";
     out << ProjKey(n, "style") << "=" << IntToStr(static_cast<int>(m.firstSendStyle))
         << "\n";
   }
@@ -163,18 +184,25 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   save.player.projects.clear();
   for (int i = 0; i < projectCount; i++) {
     ProjectMemory m;
-    int sent = 0, style = 0;
+    int sent = 0, style = 0, firstAscent = 0;
     if (!ParseString(fields, ProjKey(i, "name"), m.routeName) ||
         !ParseInt(fields, ProjKey(i, "grade"), m.grade) ||
         !ParseInt(fields, ProjKey(i, "attempts"), m.attempts) ||
         !ParseInt(fields, ProjKey(i, "best"), m.bestHighpoint) ||
         !ParseDouble(fields, ProjKey(i, "beta"), m.beta) ||
         !ParseInt(fields, ProjKey(i, "sent"), sent) ||
+        !ParseDouble(fields, ProjKey(i, "clean"), m.cleanliness) ||
+        !ParseInt(fields, ProjKey(i, "fa"), firstAscent) ||
+        !ParseInt(fields, ProjKey(i, "confirmed"), m.confirmedGrade) ||
         !ParseInt(fields, ProjKey(i, "style"), style)) {
       return LoadResult::BadFormat;
     }
     m.sent = sent != 0;
     m.firstSendStyle = static_cast<Style>(style);
+    m.firstAscent = firstAscent != 0;
+    // A given name is allowed to be absent and allowed to be empty: an
+    // unnamed line is the normal case, not a corrupt one.
+    ParseString(fields, ProjKey(i, "given"), m.givenName);
     save.player.projects.push_back(m);
   }
 

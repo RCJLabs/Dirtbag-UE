@@ -35,6 +35,7 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
   in.beta = memory.beta;
   in.attemptNumber = memory.attempts + 1;
   in.warmth = session.warmth;
+  in.cleanliness = memory.cleanliness;   // how much of it you have uncovered
   in.execution = execution;
   in.botExecution = botExecution;
   return in;

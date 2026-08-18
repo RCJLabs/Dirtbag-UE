@@ -57,6 +57,13 @@ struct SessionDials {
   // Conditions: full swing (0→1 friction) worth about half a letter grade.
   double frictionWeight = 6.0;
 
+  // Dirt, on a line nobody has cleaned. Deliberately brutal next to
+  // friction: filthy rock is not "worse conditions", it is a different and
+  // mostly impossible route, and the brush is the only answer. At 4 grades,
+  // a virgin line sits far enough out of reach that cleaning is the first
+  // move rather than an optimisation.
+  double dirtGradePenalty = 4.0;
+
   // Warmup: grades of ability missing when stone cold. The session loop
   // meters warmth (about two warmup boulders buy it all back); a bare
   // AttemptInput is fully warm by default so single-attempt callers and the
@@ -115,6 +122,7 @@ struct AttemptInput {
   double beta = 0.0;        // 0 = no knowledge, 1 = fully rehearsed
   int attemptNumber = 1;    // across the project's history, for style
   double warmth = 1.0;      // 0 cold .. 1 warm; the session loop starts cold
+  double cleanliness = 1.0; // 1 clean rock .. 0 never been touched
   // Per-move minigame quality, 0..1. Missing entries fall back to botExecution.
   std::vector<double> execution;
   double botExecution = 0.72;
