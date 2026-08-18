@@ -7,6 +7,7 @@ static_assert(static_cast<int>(EDirtbagRouteType::Crack) == static_cast<int>(dir
 static_assert(static_cast<int>(EDirtbagDiscipline::Sport) == static_cast<int>(dirtbag::Discipline::Sport), "Discipline enums out of sync");
 static_assert(static_cast<int>(EDirtbagStyle::Fell) == static_cast<int>(dirtbag::Style::Fell), "Style enums out of sync");
 static_assert(static_cast<int>(EDirtbagMorphology::Powerful) == static_cast<int>(dirtbag::Morphology::Powerful), "Morphology enums out of sync");
+static_assert(static_cast<int>(EDirtbagRouteRead::NotThisYear) == static_cast<int>(dirtbag::RouteRead::NotThisYear), "RouteRead enums out of sync");
 
 namespace DirtbagConvert
 {
@@ -195,6 +196,21 @@ FDirtbagDayState FromSim(const dirtbag::DayState& In)
 	Out.Hunger = In.hunger;
 	Out.bAtGym = In.atGym;
 	Out.Session = FromSim(In.session);
+	return Out;
+}
+
+FDirtbagCareerSummary FromSim(const dirtbag::CareerSummary& In)
+{
+	FDirtbagCareerSummary Out;
+	Out.AbilityGrade = In.abilityGrade;
+	Out.HardestSendGrade = In.hardestSendGrade;
+	Out.HardestSendName = UTF8_TO_TCHAR(In.hardestSendName.c_str());
+	Out.HardestSendStyle = static_cast<EDirtbagStyle>(In.hardestSendStyle);
+	Out.TotalSends = In.totalSends;
+	Out.TotalAttempts = In.totalAttempts;
+	Out.OpenProjects = In.openProjects;
+	Out.Nemesis = UTF8_TO_TCHAR(In.nemesis.c_str());
+	Out.NemesisAttempts = In.nemesisAttempts;
 	return Out;
 }
 

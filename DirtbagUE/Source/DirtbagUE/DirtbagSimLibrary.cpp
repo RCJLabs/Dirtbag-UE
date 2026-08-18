@@ -315,6 +315,40 @@ void UDirtbagSimLibrary::SleepToNextDay(FDirtbagPlayerState& Player,
 	Day = DirtbagConvert::FromSim(SimDay);
 }
 
+EDirtbagRouteRead UDirtbagSimLibrary::ReadRoute(const FDirtbagClimber& Climber,
+                                                const FDirtbagRoute& Route)
+{
+	return static_cast<EDirtbagRouteRead>(dirtbag::ReadRoute(
+	    DirtbagConvert::ToSim(Climber), DirtbagConvert::ToSim(Route)));
+}
+
+FString UDirtbagSimLibrary::ReadRouteText(EDirtbagRouteRead Read)
+{
+	return FString(dirtbag::ReadRouteText(static_cast<dirtbag::RouteRead>(Read)));
+}
+
+FDirtbagCareerSummary UDirtbagSimLibrary::SummarizeCareer(
+    const FDirtbagPlayerState& Player)
+{
+	return DirtbagConvert::FromSim(
+	    dirtbag::SummarizeCareer(DirtbagConvert::ToSim(Player)));
+}
+
+FString UDirtbagSimLibrary::CareerLine(const FDirtbagCareerSummary& Career)
+{
+	dirtbag::CareerSummary Sim;
+	Sim.abilityGrade = Career.AbilityGrade;
+	Sim.hardestSendGrade = Career.HardestSendGrade;
+	Sim.hardestSendName = TCHAR_TO_UTF8(*Career.HardestSendName);
+	Sim.hardestSendStyle = static_cast<dirtbag::Style>(Career.HardestSendStyle);
+	Sim.totalSends = Career.TotalSends;
+	Sim.totalAttempts = Career.TotalAttempts;
+	Sim.openProjects = Career.OpenProjects;
+	Sim.nemesis = TCHAR_TO_UTF8(*Career.Nemesis);
+	Sim.nemesisAttempts = Career.NemesisAttempts;
+	return UTF8_TO_TCHAR(dirtbag::CareerLine(Sim).c_str());
+}
+
 FString UDirtbagSimLibrary::SaveToText(const FString& Seed,
                                        const FDirtbagPlayerState& Player)
 {

@@ -2,13 +2,16 @@
 
 #include "DirtbagUEGameMode.h"
 
+#include "Engine/Engine.h"
+
+#include "DirtbagGameInstance.h"
 #include "DirtbagRng.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDirtbagSim, Log, All);
 
 ADirtbagUEGameMode::ADirtbagUEGameMode()
 {
-	// stub
+	PrimaryActorTick.bCanEverTick = true;
 }
 
 void ADirtbagUEGameMode::BeginPlay()
@@ -23,4 +26,31 @@ void ADirtbagUEGameMode::BeginPlay()
 	{
 		UE_LOG(LogDirtbagSim, Display, TEXT("golden[%d] = %.17g"), i, Rng.NextDouble());
 	}
+}
+
+void ADirtbagUEGameMode::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	UDirtbagGameInstance* Game = Cast<UDirtbagGameInstance>(GetGameInstance());
+	if (!Game || !GEngine)
+	{
+		return;
+	}
+
+	const int32 Hour =
+	    FMath::Clamp(FMath::FloorToInt(static_cast<float>(Game->Day.Hour)), 0, 23);
+	const int32 Minute = FMath::Clamp(
+	    FMath::FloorToInt(static_cast<float>((Game->Day.Hour - Hour) * 60.0)), 0,
+	    59);
+
+	// Keyed rows replace themselves in place rather than scrolling.
+	GEngine->AddOnScreenDebugMessage(
+	    1, 0.5f, FColor::White,
+	    FString::Printf(
+	        TEXT("DAY %d   %02d:%02d   $%.0f   energy %.0f   hunger %.0f   skin %.1f"),
+	        Game->Player.Day, Hour, Minute, Game->Player.Cash, Game->Day.Energy,
+	        Game->Day.Hunger, Game->Player.Climber.Skin));
+	GEngine->AddOnScreenDebugMessage(2, 0.5f, FColor::Silver,
+	                                 Game->GetCareerLine());
 }

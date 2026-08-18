@@ -45,6 +45,17 @@ enum class EDirtbagMorphology : uint8
 	Compact, Average, Lanky, Powerful
 };
 
+/** The ground-up read of a line, judged against its guidebook grade. */
+UENUM(BlueprintType)
+enum class EDirtbagRouteRead : uint8
+{
+	Warmup,
+	Comfortable,
+	AtYourLimit,
+	Project,
+	NotThisYear
+};
+
 USTRUCT(BlueprintType)
 struct FDirtbagMove
 {
@@ -250,6 +261,42 @@ struct FDirtbagDayState
 	FDirtbagSessionState Session;
 };
 
+/** What the project ledgers add up to. Derived, never stored. */
+USTRUCT(BlueprintType)
+struct FDirtbagCareerSummary
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	double AbilityGrade = 0.0;
+
+	/** Guidebook grade of your hardest send; -1 when nothing has gone down. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	int32 HardestSendGrade = -1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	FString HardestSendName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	EDirtbagStyle HardestSendStyle = EDirtbagStyle::Fell;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	int32 TotalSends = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	int32 TotalAttempts = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	int32 OpenProjects = 0;
+
+	/** The unsent line you have fed the most burns. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	FString Nemesis;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	int32 NemesisAttempts = 0;
+};
+
 UENUM(BlueprintType)
 enum class EDirtbagLoadResult : uint8
 {
@@ -276,4 +323,5 @@ namespace DirtbagConvert
 	FDirtbagProjectMemory FromSim(const dirtbag::ProjectMemory& In);
 	FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In);
 	FDirtbagDayState FromSim(const dirtbag::DayState& In);
+	FDirtbagCareerSummary FromSim(const dirtbag::CareerSummary& In);
 }

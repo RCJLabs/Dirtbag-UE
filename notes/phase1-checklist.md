@@ -139,3 +139,28 @@ go: a **Read Route** node so a wall's prompt says *"Pink Crimps V2 — this
 should go"* instead of a bare name, a career readout node (*"You climb V5.
 Campus Special has taken 14 burns and counting."*), and eat/work interact
 spots so the day's other verbs have somewhere to happen.
+
+---
+
+## 8. After the next pull — eat, work, and the ambient HUD
+
+New since the checklist above. Rebuild first (delete `Binaries`, reopen).
+
+1. **The HUD is automatic.** No placement: the game mode now draws
+   `DAY 3 · 09:42 · $412 · energy 78 · hunger 21 · skin 6.4` plus your
+   career line, always, not just mid-session.
+2. **Place two more spots.** Place Actors → `Dirtbag Day Spot` → drop one
+   near the wall and set **Kind = Meal** (the cooler), another anywhere and
+   set **Kind = Shift** (the front desk). Same walk-up-and-E as sleeping.
+   Keep every spot's trigger clear of the walls' triggers.
+3. **Your existing sleep spot keeps working** — it is now a Day Spot with
+   Kind pinned to Sleep. If it misbehaves after the rebuild, delete it and
+   place a fresh `Dirtbag Day Spot` with Kind = Sleep; 30 seconds.
+4. **Wall prompts now read the line**: *"Pink Crimps V2 — this should go"*
+   / *"The Blue One V7 — not this year."* Judged against the guidebook
+   grade, so a sandbagged line will lie to you exactly as it should.
+
+**Now a full day is playable:** wake → read the board → climb → eat when
+hunger climbs → take a shift when cash gets thin → sleep, and the career
+line at the bottom of the screen grows a nemesis. That is the Phase 1
+day-loop gate, minus the van.

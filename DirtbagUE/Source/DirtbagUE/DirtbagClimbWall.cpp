@@ -150,9 +150,16 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 		return;
 	}
 	bPlayerNear = true;
-	Toast(FString::Printf(TEXT("%s  %s  —  press E to climb"), *RouteName,
-	                      *UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder)),
-	      FColor::Cyan);
+
+	// Read the line from the ground before touching it — the sim's judgement
+	// against the guidebook grade, so a sandbag still looks reasonable here.
+	const FDirtbagClimber& Who = Game ? Game->Player.Climber : ClimberStats;
+	const EDirtbagRouteRead Read = UDirtbagSimLibrary::ReadRoute(Who, Route);
+	Toast(FString::Printf(
+	          TEXT("%s  %s — %s   (E to climb)"), *RouteName,
+	          *UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder),
+	          *UDirtbagSimLibrary::ReadRouteText(Read)),
+	      FColor::Cyan, 5.f);
 
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
 	{
@@ -480,14 +487,6 @@ void ADirtbagClimbWall::FinishLiveAttempt()
 
 void ADirtbagClimbWall::UpdateHud()
 {
-	if (Game)
-	{
-		HudRow(100,
-		       FString::Printf(TEXT("DAY %d   $%.0f   ENERGY %.0f"),
-		                       Game->Player.Day, Game->Player.Cash,
-		                       Game->Day.Energy),
-		       FColor::Silver);
-	}
 	const double Pump = bLiveSession ? Live.pump : 0.0;
 	HudRow(101,
 	       FString::Printf(TEXT("PUMP  [%s] %.0f"), *Bar(Pump / 100.0), Pump),

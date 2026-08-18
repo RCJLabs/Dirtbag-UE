@@ -73,6 +73,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	FDirtbagAttemptResult ReplayAttempt(const FDirtbagRoute& Route);
 
+	/** What the ledgers add up to, and the one-line version of it. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	FDirtbagCareerSummary GetCareer() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	FString GetCareerLine() const;
+
 	/** Lifetime attempts on a route, for "Attempt N" staging. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	int32 AttemptsOn(const FDirtbagRoute& Route) const;

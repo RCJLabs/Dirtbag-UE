@@ -169,6 +169,23 @@ public:
 	static void SleepToNextDay(UPARAM(ref) FDirtbagPlayerState& Player,
 	                           UPARAM(ref) FDirtbagDayState& Day);
 
+	/** Reading the line from the ground: judged against the guidebook grade,
+	 *  so a sandbag looks reasonable right until you are on it. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static EDirtbagRouteRead ReadRoute(const FDirtbagClimber& Climber,
+	                                   const FDirtbagRoute& Route);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FString ReadRouteText(EDirtbagRouteRead Read);
+
+	/** What the project ledgers add up to — ability, hardest send, nemesis. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FDirtbagCareerSummary SummarizeCareer(const FDirtbagPlayerState& Player);
+
+	/** The career in one dry line, for a stats card. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FString CareerLine(const FDirtbagCareerSummary& Career);
+
 	// --- Save / load ----------------------------------------------------
 	// Serialization itself lives in Sim/DirtbagSave (versioned, migrated,
 	// harness-tested); these nodes only move the bytes.

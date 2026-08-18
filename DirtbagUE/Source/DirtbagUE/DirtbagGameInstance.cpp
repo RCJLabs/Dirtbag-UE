@@ -89,6 +89,16 @@ FDirtbagAttemptResult UDirtbagGameInstance::ReplayAttempt(
 	                                      Route);
 }
 
+FDirtbagCareerSummary UDirtbagGameInstance::GetCareer() const
+{
+	return UDirtbagSimLibrary::SummarizeCareer(Player);
+}
+
+FString UDirtbagGameInstance::GetCareerLine() const
+{
+	return UDirtbagSimLibrary::CareerLine(GetCareer());
+}
+
 int32 UDirtbagGameInstance::AttemptsOn(const FDirtbagRoute& Route) const
 {
 	for (const FDirtbagProjectMemory& M : Player.Projects)
