@@ -247,6 +247,38 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
 	static double LastLightHour(int32 Day);
 
+	// --- The town --------------------------------------------------------
+	// Six venues, authored. The opening hours are the mechanic: the diner
+	// shuts at nine so a long day means eating from a warmer, and the gear
+	// shop keeps banker's hours so a resole competes with the window.
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Town")
+	static FDirtbagTown Town();
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Town")
+	static bool VenueIsOpen(const FDirtbagVenue& Venue, double Hour);
+
+	/** Every venue offering this service, in book order. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Town")
+	static TArray<FDirtbagVenue> VenuesFor(EDirtbagService Service);
+
+	/** The best open venue for a service right now, cheapest first among
+	 *  those that are open. bFound is false when the town is shut. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Town")
+	static FDirtbagVenue OpenVenueFor(EDirtbagService Service, double Hour,
+	                                  bool& bFound);
+
+	/** "The Ridgeline Diner - open until 21:00" / "closed until 07:00" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Town")
+	static FString VenueText(const FDirtbagVenue& Venue, double Hour);
+
+	// --- Work ------------------------------------------------------------
+
+	/** What is on the board today. Deterministic per world and day, three
+	 *  different things, pay wobbling either side of the listed rate. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
+	static TArray<FDirtbagOddJob> OddJobBoard(const FString& Seed, int32 Day);
+
 	/** "sticky - this is the day" / "greasy". */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
 	static FString ConditionsText(double Friction);

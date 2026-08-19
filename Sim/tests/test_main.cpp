@@ -3431,6 +3431,38 @@ static void TestSaveRejectsGarbageAndFuture() {
 
 // --- The body ----------------------------------------------------------------
 
+static void TestANightIsWhereEverythingCountsDown() {
+  // Three per-day ticks have now been written and left uncalled: KitDay
+  // (one $75 bought 365 days of membership), the body roll, and FactionDay
+  // — which meant a closed crag would have stayed closed for the rest of
+  // the save, because nothing in the engine ever counted the days off.
+  // Sleeping is where a day ends; everything that runs out runs out here.
+  DayDials dd;
+  const Rng world = Rng::FromSeed("nights");
+
+  PlayerState player;
+  double cash = 200.0;
+  CHECK(RenewMembership(player.kit, cash));
+  player.standing.closedDays = 5;
+  player.climber.load = 40.0;
+
+  const int membershipWas = player.kit.membershipDaysLeft;
+  DayState day = WakeUp(player, dd);
+  SleepToNextDay(player, day, world, dd);
+
+  CHECK(player.kit.membershipDaysLeft == membershipWas - 1);
+  CHECK(player.standing.closedDays == 4);
+  CHECK(player.climber.load < 40.0);
+
+  // And the closure actually ends, which is the thing that was broken.
+  for (int i = 0; i < 10; i++) {
+    DayState d2 = WakeUp(player, dd);
+    SleepToNextDay(player, d2, world, dd);
+  }
+  CHECK(player.standing.closedDays == 0);
+  CHECK(CragIsOpen(player.standing));
+}
+
 static void TestLoadRisesWithHardnessNotMileage() {
   BodyDials d;
   // A day of mileage on jugs and a day of trying hard are the same number
@@ -4167,6 +4199,7 @@ int main() {
   TestSevenDayLoop();
   TestSaveRoundTrip();
   TestSaveRejectsGarbageAndFuture();
+  TestANightIsWhereEverythingCountsDown();
   TestLoadRisesWithHardnessNotMileage();
   TestLoadIsASlowerClockThanSkin();
   TestNobodyGetsHurtOutOfTheBlue();

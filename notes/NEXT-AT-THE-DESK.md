@@ -11,21 +11,24 @@ Detail lives in the per-feature notes; this is the running order.
 
 1. **Close Unreal and Visual Studio completely.**
 2. **GitHub Desktop → Fetch origin → Pull.** Top commit should be
-   *"The odd-jobs board, the salaried job, and a trap that is not one yet"*.
+   *"Training load and injury: the second body budget"*.
 3. **Delete** `C:\Dev\DirtbagUE\Dirtbag-UE\DirtbagUE\Binaries`.
 4. Double-click `DirtbagUE.uproject` → **Yes** to rebuild. 2–5 minutes.
 
 **If it fails:** `Saved\Logs\DirtbagUE.log`, scroll to the bottom, send me
 the lines around the first `error`. Everything checkable without Unreal is
-green — sim harness at 27,033 checks, unity build clean, definitions,
-bridges, field names and declaration order all pass — so a failure is
-something the checks cannot see, and the log is the fastest way to it.
+green — sim harness at **29,899 checks**, unity build clean, and four
+checkers (definitions, bridges, field names + declaration order, and mirror
+coverage) all at zero problems — so a failure is something the checks
+cannot see, and the log is the fastest way to it.
 
 5. Press Play and confirm the golden vector still logs
    `golden[0] = 0.59432327281683683` (Output Log, filter `golden`).
 
-> **Your save will load.** It is on an older version and migrates forward —
-> v1 through v6 are all tested. Shoes and van arrive new, you owe nothing.
+> **Your save will load.** It is on an older version and migrates forward.
+> We are on **SAVE_VERSION 11** and **v1 through v10 all have tests**.
+> Shoes, van, kit and body arrive new: one crash pad, no board, no gym
+> membership, not injured, and you owe nothing.
 
 ---
 
@@ -121,21 +124,30 @@ In priority order. Short notes are fine — "annoying", "didn't notice",
 3. **Is a breakdown drama or noise?** Two or three in year one, climbing to
    about nine a year as the van ages. If it reads as noise the fix is fewer
    and more expensive — that is a dial, not a rebuild.
-4. **Does money press on you?** A year should end tight. If you never think
-   about it, the whole Phase 3 gate is still open.
+4. **Does money press on you?** I already know the measured answer is *no*
+   — a control player with no bills at all climbs the same season as one
+   paying rent (`notes/phase3-economy.md`). What I want from you is whether
+   it *feels* that way in the seat, because if it does not, the number and
+   the feeling disagree and the feeling wins.
 5. **Anything you wanted to do and couldn't.**
 
 ---
 
 ## Known and deliberate — do not report these as bugs
 
-- **Seasons do not exist.** One temperature centre covers the year, so
-  windows sit in the same part of the day forever. This is why the salaried
-  job is not yet a trap (`notes/phase3-jobs.md`), and seasons are the next
-  thing I would build.
-- **No town.** The gear shop is a spot in a field.
-- **The salaried job is not reachable in-game yet** — it is built and
-  tested in the sim, with no verb wired to it, precisely because the
-  measurement says it does not cost anything yet.
+- **Seasons and daylight are live now.** The year swings 20°F either side
+  of 48, and the light swings with it: 16.5 hours midsummer, 7.9 midwinter,
+  dark at 16:26 in December. Summer windows are at dawn, winter windows are
+  at midday, and that is deliberate.
+- **No town.** The gear shop is a spot in a field. Six venues with opening
+  hours exist and are tested in the sim; wiring them to the game is the
+  next thing I am building.
+- **The salaried job, the odd-jobs board, factions and the kit are not
+  reachable in-game yet** — all built and tested in the sim, none with a
+  verb wired to it. Standing, closures, pads, the hangboard and the gym
+  membership therefore cannot happen to you while you play.
+- **Nobody gets injured yet in-game either.** Training load accrues and
+  will show in the HUD, but the thing that actually redlines you is the
+  hangboard, and you cannot buy one yet.
 - **The naming widget is the only UMG in the project.** Everything else is
   the canvas HUD on purpose, at blockout quality.

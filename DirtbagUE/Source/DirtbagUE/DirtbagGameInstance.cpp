@@ -496,6 +496,71 @@ FString UDirtbagGameInstance::ShoeLine() const
 	    dirtbag::ShoeText(DirtbagConvert::ToSim(Player.Shoes)).c_str()));
 }
 
+// --- Where you stand ---------------------------------------------------------
+
+FString UDirtbagGameInstance::StandingLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::StandingText(DirtbagConvert::ToSim(Player.Standing)).c_str());
+}
+
+double UDirtbagGameInstance::StandingWith(EDirtbagFaction Faction) const
+{
+	return dirtbag::StandingWith(DirtbagConvert::ToSim(Player.Standing),
+	                             static_cast<dirtbag::Faction>(Faction));
+}
+
+bool UDirtbagGameInstance::CragIsOpen() const
+{
+	return dirtbag::CragIsOpen(DirtbagConvert::ToSim(Player.Standing));
+}
+
+// --- Work --------------------------------------------------------------------
+
+TArray<FDirtbagOddJob> UDirtbagGameInstance::TodaysJobBoard() const
+{
+	return UDirtbagSimLibrary::OddJobBoard(Seed, Player.Day);
+}
+
+bool UDirtbagGameInstance::TakeOddJob(const FDirtbagOddJob& Job)
+{
+	dirtbag::OddJob SimJob;
+	SimJob.name = TCHAR_TO_UTF8(*Job.Name);
+	SimJob.hours = Job.Hours;
+	SimJob.pay = Job.Pay;
+	SimJob.energy = Job.Energy;
+	SimJob.needsVan = Job.bNeedsVan;
+
+	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
+	if (!dirtbag::WorkOddJob(SimPlayer, SimDay, SimJob)) return false;
+	Player = DirtbagConvert::FromSim(SimPlayer);
+	Day = DirtbagConvert::FromSim(SimDay);
+	// A shift is a shift: the dog did not come to it either.
+	bWorkedToday = true;
+	return true;
+}
+
+void UDirtbagGameInstance::TakeSalariedJob()
+{
+	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
+	dirtbag::TakeSalariedJob(SimPlayer);
+	Player = DirtbagConvert::FromSim(SimPlayer);
+}
+
+void UDirtbagGameInstance::QuitSalariedJob()
+{
+	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
+	dirtbag::QuitSalariedJob(SimPlayer);
+	Player = DirtbagConvert::FromSim(SimPlayer);
+}
+
+bool UDirtbagGameInstance::SalariedToday() const
+{
+	return dirtbag::SalariedToday(DirtbagConvert::ToSim(Player).job,
+	                              Player.Day);
+}
+
 // --- The body ----------------------------------------------------------------
 
 FString UDirtbagGameInstance::InjuryLine() const

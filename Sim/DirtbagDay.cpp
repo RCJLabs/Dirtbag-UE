@@ -307,6 +307,14 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // which is a very good gym.
   KitDay(player.kit);
 
+  // And so does a closure. This lives here rather than being a call the day
+  // loop remembers to make, because it was exactly that and the engine
+  // never made it: standing would never have drifted back toward neutral
+  // and a shut crag would have stayed shut for the rest of the save. Third
+  // per-day tick to be written and left uncalled — anything that counts
+  // down now counts down here, where a night is.
+  FactionDay(player.standing, worldRng, player.day);
+
   player.day += 1;
   // Bills land on their morning, every billsEveryDays-th day after day 1.
   if (dials.billsEveryDays > 0 && player.day > 1 &&

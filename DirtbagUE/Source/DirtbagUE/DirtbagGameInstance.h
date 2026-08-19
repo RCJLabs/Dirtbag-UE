@@ -303,6 +303,47 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
 	bool BuyNewShoes();
 
+	// --- Where you stand -------------------------------------------------
+
+	/** "the crag is closed. The signs went up on the gate." — or empty when
+	 *  nobody has an opinion about you yet. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Standing")
+	FString StandingLine() const;
+
+	/** -1 they will not have you .. +1 you are one of theirs. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Standing")
+	double StandingWith(EDirtbagFaction Faction) const;
+
+	/** False when the signs are up. Push the stewards far enough and access
+	 *  gets pulled — for nine days, which is a season and not a sentence. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Standing")
+	bool CragIsOpen() const;
+
+	// --- Work ------------------------------------------------------------
+
+	/** Today's board: three gigs, deterministic per world and day. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
+	TArray<FDirtbagOddJob> TodaysJobBoard() const;
+
+	/** Take a gig. Costs the hours and the energy, pays into debt first,
+	 *  and says something about you — the best-paying gig on the board is
+	 *  shooting guidebook photos, and it costs you the old guard and the
+	 *  stewards both. False if the van is dead and the gig needed it. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
+	bool TakeOddJob(const FDirtbagOddJob& Job);
+
+	/** Nine to five, five days a week. The hours are the point, not the
+	 *  money — and in midwinter the light is gone before you clock off. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
+	void TakeSalariedJob();
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
+	void QuitSalariedJob();
+
+	/** Does the salary own today? */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Work")
+	bool SalariedToday() const;
+
 	// --- The body --------------------------------------------------------
 
 	/** "a pulley in the ring finger — 3 weeks, if you are sensible", or

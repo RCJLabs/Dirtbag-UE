@@ -445,6 +445,63 @@ double UDirtbagSimLibrary::LastLightHour(int32 Day)
 	return dirtbag::LastLightHour(Day);
 }
 
+// --- The town ----------------------------------------------------------------
+
+FDirtbagTown UDirtbagSimLibrary::Town()
+{
+	return DirtbagConvert::FromSim(dirtbag::DirtbagTown());
+}
+
+bool UDirtbagSimLibrary::VenueIsOpen(const FDirtbagVenue& Venue, double Hour)
+{
+	// Asked of the sim rather than reimplemented here. Two copies of "is it
+	// open" would drift, and the drift would show up as a door the HUD says
+	// is open and the day loop says is not.
+	return dirtbag::IsOpen(DirtbagConvert::ToSim(Venue), Hour);
+}
+
+TArray<FDirtbagVenue> UDirtbagSimLibrary::VenuesFor(EDirtbagService Service)
+{
+	const dirtbag::Town SimTown = dirtbag::DirtbagTown();
+	TArray<FDirtbagVenue> Out;
+	for (const dirtbag::Venue* V : dirtbag::VenuesFor(
+	         SimTown, static_cast<dirtbag::Service>(Service)))
+	{
+		Out.Add(DirtbagConvert::FromSim(*V));
+	}
+	return Out;
+}
+
+FDirtbagVenue UDirtbagSimLibrary::OpenVenueFor(EDirtbagService Service,
+                                               double Hour, bool& bFound)
+{
+	const dirtbag::Town SimTown = dirtbag::DirtbagTown();
+	const dirtbag::Venue* V = dirtbag::OpenVenueFor(
+	    SimTown, static_cast<dirtbag::Service>(Service), Hour);
+	bFound = V != nullptr;
+	// Empty is a real answer — the town shuts, and "nowhere is open" is the
+	// thing a late finish is supposed to cost you.
+	return V ? DirtbagConvert::FromSim(*V) : FDirtbagVenue();
+}
+
+FString UDirtbagSimLibrary::VenueText(const FDirtbagVenue& Venue, double Hour)
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::VenueText(DirtbagConvert::ToSim(Venue), Hour).c_str());
+}
+
+TArray<FDirtbagOddJob> UDirtbagSimLibrary::OddJobBoard(const FString& Seed,
+                                                       int32 Day)
+{
+	TArray<FDirtbagOddJob> Out;
+	for (const dirtbag::OddJob& J : dirtbag::OddJobBoard(
+	         dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Day))
+	{
+		Out.Add(DirtbagConvert::FromSim(J));
+	}
+	return Out;
+}
+
 FString UDirtbagSimLibrary::ConditionsText(double Friction)
 {
 	return FString(UTF8_TO_TCHAR(dirtbag::ConditionsText(Friction)));

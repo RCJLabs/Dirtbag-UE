@@ -11,6 +11,9 @@ static_assert(static_cast<int>(EDirtbagRouteRead::NotThisYear) == static_cast<in
 static_assert(static_cast<int>(EDirtbagAspect::West) == static_cast<int>(dirtbag::Aspect::West), "Aspect enums out of sync");
 static_assert(static_cast<int>(EDirtbagSessionAdvice::Wrecked) == static_cast<int>(dirtbag::SessionAdvice::Wrecked), "SessionAdvice enums out of sync");
 static_assert(static_cast<int>(EDirtbagVanPart::Clutch) == static_cast<int>(dirtbag::VanPart::Clutch), "VanPart enums out of sync");
+static_assert(static_cast<int>(EDirtbagService::Work) == static_cast<int>(dirtbag::Service::Work), "Service enums out of sync");
+static_assert(static_cast<int>(EDirtbagFaction::Stewardship) == static_cast<int>(dirtbag::Faction::Stewardship), "Faction enums out of sync");
+static_assert(static_cast<int>(EDirtbagInjuryKind::Shoulder) == static_cast<int>(dirtbag::InjuryKind::Shoulder), "InjuryKind enums out of sync");
 
 namespace DirtbagConvert
 {
@@ -269,6 +272,46 @@ FDirtbagWeather FromSim(const dirtbag::Weather& In)
 	Out.Humidity = In.humidity;
 	Out.Cloud = In.cloud;
 	Out.Wind = In.wind;
+	return Out;
+}
+
+FDirtbagVenue FromSim(const dirtbag::Venue& In)
+{
+	FDirtbagVenue Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Service = static_cast<EDirtbagService>(In.service);
+	Out.OpensAt = In.opensAt;
+	Out.ClosesAt = In.closesAt;
+	Out.PriceFactor = In.priceFactor;
+	Out.QualityFactor = In.qualityFactor;
+	Out.TravelHours = In.travelHours;
+	Out.Flavour = UTF8_TO_TCHAR(In.flavour.c_str());
+	return Out;
+}
+
+dirtbag::Venue ToSim(const FDirtbagVenue& In)
+{
+	dirtbag::Venue Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.service = static_cast<dirtbag::Service>(In.Service);
+	Out.opensAt = In.OpensAt;
+	Out.closesAt = In.ClosesAt;
+	Out.priceFactor = In.PriceFactor;
+	Out.qualityFactor = In.QualityFactor;
+	Out.travelHours = In.TravelHours;
+	Out.flavour = TCHAR_TO_UTF8(*In.Flavour);
+	return Out;
+}
+
+FDirtbagTown FromSim(const dirtbag::Town& In)
+{
+	FDirtbagTown Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Venues.Reserve(static_cast<int32>(In.venues.size()));
+	for (const dirtbag::Venue& V : In.venues)
+	{
+		Out.Venues.Add(FromSim(V));
+	}
 	return Out;
 }
 

@@ -15,6 +15,7 @@
 #include "DirtbagJobs.h"
 #include "DirtbagBody.h"
 #include "DirtbagKit.h"
+#include "DirtbagTown.h"
 #include "DirtbagDog.h"
 #include "DirtbagGear.h"
 #include "DirtbagVan.h"
@@ -416,6 +417,67 @@ struct FDirtbagPartner
 	TArray<FString> FirstAscents;
 };
 
+/** What a place is for. One primary service each — a venue that does
+ *  everything is a menu, not a place. */
+UENUM(BlueprintType)
+enum class EDirtbagService : uint8
+{
+	Meal,        // the diner, the gas station
+	Gear,        // resoles and rubber
+	VanRepair,   // the garage, when you would rather not bodge it
+	Gym,         // plastic, and the only climbing that ignores the weather
+	Work,        // somewhere that hires by the shift
+};
+
+/** One place in town. The opening hours are the mechanic: the diner shuts
+ *  at nine so a long day means eating from a warmer, and the gear shop
+ *  keeps banker's hours so a resole competes with the window. */
+USTRUCT(BlueprintType)
+struct FDirtbagVenue
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	EDirtbagService Service = EDirtbagService::Meal;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	double OpensAt = 8.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	double ClosesAt = 18.0;
+
+	/** Against the baseline the day loop already uses. The gas station is
+	 *  cheap and grim; the diner is dear and actually feeds you. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	double PriceFactor = 1.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	double QualityFactor = 1.0;
+
+	/** Hours from the Lot. Town is a drive, and a drive is van wear. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	double TravelHours = 0.4;
+
+	/** A line of who they are, in the game's register. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	FString Flavour;
+};
+
+USTRUCT(BlueprintType)
+struct FDirtbagTown
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	TArray<FDirtbagVenue> Venues;
+};
+
 /** What you own that buys you climbing. */
 USTRUCT(BlueprintType)
 struct FDirtbagKit
@@ -783,6 +845,9 @@ namespace DirtbagConvert
 	FDirtbagCragLine FromSim(const dirtbag::CragLine& In);
 	FDirtbagCrag FromSim(const dirtbag::Crag& In);
 
+	FDirtbagVenue FromSim(const dirtbag::Venue& In);
+	dirtbag::Venue ToSim(const FDirtbagVenue& In);
+	FDirtbagTown FromSim(const dirtbag::Town& In);
 	FDirtbagInjury FromSim(const dirtbag::Injury& In);
 	dirtbag::Injury ToSim(const FDirtbagInjury& In);
 	FDirtbagKit FromSim(const dirtbag::Kit& In);
