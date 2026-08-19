@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Build and run the season probe. Not part of run-tests.sh: it explores
+# rather than asserts, and its job is to find the things a test does not
+# know to ask about yet.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+mkdir -p ../build
+g++ -std=c++17 -O2 -Wall -Wextra -Werror -I. \
+    DirtbagRng.cpp DirtbagCore.cpp DirtbagSession.cpp DirtbagSessionLoop.cpp \
+    DirtbagDay.cpp DirtbagSave.cpp DirtbagConditions.cpp DirtbagCrag.cpp \
+    DirtbagFirstAscent.cpp DirtbagPartner.cpp DirtbagDog.cpp \
+    tools/season.cpp -o ../build/season
+../build/season "$@"

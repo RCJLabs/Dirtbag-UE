@@ -1204,6 +1204,71 @@ static void TestTheFireHasSomethingToSay() {
 
 // --- The dog -------------------------------------------------------------------
 
+static void TestFlailingIsNotTraining() {
+  // Found by playing a season headless: training read only the grade on the
+  // tag, so falling off move one of something impossible trained exactly as
+  // well as nearly doing it, and a year of hopeless flailing was the fastest
+  // way to get strong. What you climbed has to count.
+  Rng world = Rng::FromSeed("crag-1");
+  DayDials d;
+
+  Route line = BuildRoute(world, "The Test Piece", 8, 8, RouteType::Crimp,
+                          Discipline::Boulder);
+  CHECK(line.moves.size() >= 4);
+
+  auto TrainOn = [&](int highpoint) {
+    PlayerState player;
+    player.climber.skills.power = player.climber.skills.fingers =
+        player.climber.skills.technique = player.climber.skills.endurance =
+            player.climber.skills.head = 50.0;
+    DayState day = WakeUp(player, d);
+
+    AttemptResult r;
+    r.highpoint = highpoint;
+    r.sent = highpoint >= static_cast<int>(line.moves.size());
+    for (int i = 0; i < highpoint + 1; i++) {
+      MoveResult m;
+      m.index = i;
+      r.timeline.push_back(m);
+    }
+    const double before = player.climber.skills.fingers;
+    ApplyAttemptToDay(player, day, line, r, d);
+    return player.climber.skills.fingers - before;
+  };
+
+  const double offTheGround = TrainOn(0);
+  const double halfway = TrainOn(static_cast<int>(line.moves.size() / 2));
+  const double nearlyThere = TrainOn(static_cast<int>(line.moves.size() - 1));
+
+  // Getting further up teaches more, every step of the way.
+  CHECK(offTheGround > 0.0);        // pulling on is not nothing
+  CHECK(halfway > offTheGround);
+  CHECK(nearlyThere > halfway);
+  // And flailing is worth a fraction of working it, not the same.
+  CHECK(offTheGround < halfway * 0.6);
+
+  // The line still has to be hard: a warmup teaches nothing much however
+  // cleanly you climb it. That was already true and must stay true.
+  Route jug = BuildRoute(world, "The Warmup", 1, 1, RouteType::Endurance,
+                         Discipline::Boulder);
+  PlayerState player;
+  player.climber.skills.power = player.climber.skills.fingers =
+      player.climber.skills.technique = player.climber.skills.endurance =
+          player.climber.skills.head = 50.0;
+  DayState day = WakeUp(player, d);
+  AttemptResult sent;
+  sent.sent = true;
+  sent.highpoint = static_cast<int>(jug.moves.size());
+  for (size_t i = 0; i < jug.moves.size(); i++) {
+    MoveResult m;
+    m.index = static_cast<int>(i);
+    sent.timeline.push_back(m);
+  }
+  const double beforeJug = player.climber.skills.fingers;
+  ApplyAttemptToDay(player, day, jug, sent, d);
+  CHECK(player.climber.skills.fingers - beforeJug < nearlyThere);
+}
+
 static void TestAStrayBecomesYoursByBeingFed() {
   DogDials d;
   Dog dog;
@@ -2429,6 +2494,7 @@ int main() {
   TestTheWholeArc();
   TestSaveCarriesFirstAscents();
   TestLoadsVersion2Save();
+  TestFlailingIsNotTraining();
   TestAStrayBecomesYoursByBeingFed();
   TestTheDogGetsHungryAndSaysSo();
   TestBondNeedsYouAround();

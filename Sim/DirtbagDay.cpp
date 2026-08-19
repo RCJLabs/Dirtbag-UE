@@ -132,7 +132,17 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
   const auto headroom = [&](double skill) {
     return std::max(0.15, 1.0 - skill / dials.trainingCeiling);
   };
-  const double amount = dials.trainingRate * challenge;
+  // How far you actually got, which is what separates working a line from
+  // flailing at one.
+  const double reached =
+      route.moves.empty()
+          ? 0.0
+          : static_cast<double>(result.highpoint) /
+                static_cast<double>(route.moves.size());
+  const double engagement =
+      dials.engagementFloor + (1.0 - dials.engagementFloor) * Clamp01(reached);
+
+  const double amount = dials.trainingRate * challenge * engagement;
 
   Gain(player.climber.skills.power,
        amount * w.power * 3.0 * headroom(s.power));

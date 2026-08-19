@@ -1,0 +1,341 @@
+// Play a season headless.
+//
+// Phase 2's remaining gate is "a full season plays start to finish", and the
+// honest way to test that without a person is to actually play it: a policy
+// that wakes up, reads the forecast, decides between the crag, a shift and
+// the fire, spends skin, feeds the dog, sleeps, and does it again. Every
+// call below is the same function the game calls.
+//
+// This is a probe, not a test. It answers "does a year hold together, and
+// what does it feel like from the numbers" — the things a harness assertion
+// cannot ask.
+//
+// Build: Sim/tools/build-season.sh
+
+#include <cstdio>
+#include <string>
+#include <vector>
+#include <algorithm>
+
+#include "DirtbagConditions.h"
+#include "DirtbagCore.h"
+#include "DirtbagCrag.h"
+#include "DirtbagDay.h"
+#include "DirtbagDog.h"
+#include "DirtbagFirstAscent.h"
+#include "DirtbagPartner.h"
+#include "DirtbagSave.h"
+#include "DirtbagSession.h"
+#include "DirtbagSessionLoop.h"
+
+using namespace dirtbag;
+
+namespace {
+
+struct LineTally { std::string name; int burns = 0, sends = 0, best = 0; int moves = 0; };
+
+struct Tally {
+  int daysClimbed = 0, daysWorked = 0, daysRested = 0, daysWashedOut = 0;
+  int burns = 0, sends = 0, firstAscents = 0;
+  int mealsEaten = 0, dogMeals = 0, brokeDays = 0, starvedNights = 0;
+  double cashLow = 1e9, cashHigh = -1e9;
+  int linesLostToTheLot = 0;
+  std::vector<LineTally> perLine;
+  double warmthSum = 0.0, skinSum = 0.0, oddsSum = 0.0;
+  int oddsN = 0;
+};
+
+// Which line to point at today: the hardest thing that still reads as
+// climbable, preferring an open project — a player chases the thing that
+// could be theirs.
+const CragLine* PickLine(const Crag& crag, const Climber& c,
+                         const PlayerState& player) {
+  const CragLine* best = nullptr;
+  for (const CragLine& l : crag.lines) {
+    const RouteRead read = ReadRoute(c, l.route);
+    if (read == RouteRead::NotThisYear) continue;
+
+    // Walk away from a line that is going nowhere. Real players do this;
+    // the first run of this probe did not, and spent 519 burns getting one
+    // move up a line that turned out to be two grades harder than the book
+    // claimed. Warmth is earned by climbing moves, so a line you cannot
+    // start is one you can never warm up on — the trap feeds itself.
+    bool hopeless = false;
+    for (const ProjectMemory& m : player.projects)
+      if (m.routeName == l.route.name && m.attempts > 40 &&
+          m.bestHighpoint * 3 < static_cast<int>(l.route.moves.size()))
+        hopeless = true;   // a `continue` here would skip the ledger, not
+    if (hopeless) continue;  // the line — which is not the same thing at all
+
+    // Sent is sent. (The first run of this probe excluded projects from
+    // that check, so after its one first ascent the player spent the rest
+    // of the year re-sending the same line — twenty sends against a single
+    // ledger, which is what gave the game away.)
+    bool done = false;
+    for (const ProjectMemory& m : player.projects)
+      if (m.routeName == l.route.name && m.sent) done = true;
+    if (done) continue;
+
+    // Nobody spends a year on a line they cannot start. Prefer something at
+    // the limit over something out of reach, and an open project over a
+    // line that is already somebody's.
+    const RouteRead r = ReadRoute(c, l.route);
+    const int worth = (r == RouteRead::AtYourLimit   ? 3
+                       : r == RouteRead::Project     ? 2
+                       : r == RouteRead::Comfortable ? 1
+                                                     : 0) +
+                      (l.isProject ? 2 : 0);
+    if (!best) { best = &l; continue; }
+    const RouteRead br = ReadRoute(c, best->route);
+    const int bestWorth = (br == RouteRead::AtYourLimit   ? 3
+                           : br == RouteRead::Project     ? 2
+                           : br == RouteRead::Comfortable ? 1
+                                                          : 0) +
+                          (best->isProject ? 2 : 0);
+    if (worth > bestWorth ||
+        (worth == bestWorth && l.route.trueGrade > best->route.trueGrade))
+      best = &l;
+  }
+  return best;
+}
+
+ProjectMemory& LedgerFor(PlayerState& player, const CragLine& line) {
+  for (ProjectMemory& m : player.projects)
+    if (m.routeName == line.route.name) return m;
+  player.projects.push_back(NewProjectLedger(line));
+  return player.projects.back();
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  const int DAYS = argc > 1 ? std::atoi(argv[1]) : 365;
+  const std::string seed = argc > 2 ? argv[2] : "crag-1";
+  // Skin you insist on having before pulling on. 0 is the grinder who
+  // climbs every day there is a window; higher is somebody who rests.
+  const double restUntilSkin = argc > 3 ? std::atof(argv[3]) : 0.0;
+  const bool quiet = argc > 4;
+
+  const Rng world = Rng::FromSeed(seed);
+  const Crag crag = RoadsideCrag(world);
+  ConditionsDials cd;
+  DayDials dd;
+  FirstAscentDials fd;
+  DogDials dog;
+
+  PlayerState player;
+  player.climber.skills.power = player.climber.skills.fingers =
+      player.climber.skills.technique = player.climber.skills.endurance =
+          player.climber.skills.head = 50.0;
+
+  Tally t;
+  std::vector<std::string> lotTaken;
+  int lastGradeReport = 0;
+
+  if (!quiet) {
+    printf("=== a season at %s (%d days, seed %s, rest until skin %.1f) ===\n\n",
+           crag.name.c_str(), DAYS, seed.c_str(), restUntilSkin);
+    printf("%5s %6s %7s %6s %6s %5s %5s  %s\n", "day", "cash", "grade",
+           "skin", "psyche", "sends", "FAs", "what happened");
+  }
+
+  for (int day = 1; day <= DAYS; day++) {
+    DayState today = WakeUp(player, dd);
+    const Weather w = GenerateWeather(world, player.day, cd);
+    const PrimeWindow win = FindPrimeWindow(w, crag.aspect, cd);
+
+    std::string note;
+
+    // Eat when hungry — checked through the day rather than at dawn, when
+    // nobody is. (The first run of this probe never ate once, because it
+    // asked at wake-up: a probe bug, but it also proved hunger was never
+    // biting hard enough to notice, which was worth knowing.)
+    // Feed the dog every other day or so.
+    if (player.dog.fed < 0.6) {
+      if (FeedDog(player.dog, player.cash, dog)) t.dogMeals++;
+    }
+
+    // Rent comes first: below a float, take a shift. A morning one, since
+    // the van is always safe then.
+    const bool needMoney = player.cash < 120.0;
+    if (needMoney) {
+      WorkShift(player, today, dd);
+      t.daysWorked++;
+      note = "shift";
+    }
+
+    const bool tooThin = player.climber.skin < restUntilSkin;
+    if (tooThin && win.exists) {
+      Rest(today, 4.0, dd);
+      t.daysRested++;
+      note = note.empty() ? "resting skin" : note + " + resting skin";
+    }
+
+    if (!win.exists || tooThin) {
+      if (!win.exists) {
+        if (!needMoney && !tooThin) {
+          Rest(today, 4.0, dd);
+          t.daysRested++;
+          note = "washed out";
+        }
+        t.daysWashedOut++;
+      }
+    } else {
+      // Wait for the window, then spend skin in it.
+      if (today.hour < win.startHour) Rest(today, win.startHour - today.hour, dd);
+
+      StartGymSession(player, today, dd);
+      const Climber body = ClimberForSession(player, today, dd);
+      const CragLine* line = PickLine(crag, body, player);
+      if (line) {
+        ProjectMemory& mem = LedgerFor(player, *line);
+
+        // Clean it if it needs it — the cost that comes before any chance.
+        while (!IsWorkable(mem, fd) && today.hour < win.endHour)
+          CleanLine(player, today, mem, 0.5, fd, dd);
+
+        const Conditions cond = ConditionsAt(w, crag.aspect, win.peakHour, cd);
+        Rng session = Rng::FromSeed(seed + "#day" + std::to_string(player.day));
+        int burnsToday = 0;
+        while (today.session.skinLeft > 0.5 &&
+               burnsToday < static_cast<int>(win.hours() / 0.25) + 4) {
+          // The two halves the engine's DayAttempt node wraps: resolve the
+          // burn against the session, then let the day pay for it.
+          const AttemptResult r =
+              AttemptInSession(session, today.session, mem, body, line->route,
+                               cond);
+          ApplyAttemptToDay(player, today, line->route, r, dd);
+          t.burns++;
+          burnsToday++;
+
+          LineTally* lt = nullptr;
+          for (LineTally& x : t.perLine)
+            if (x.name == line->route.name) lt = &x;
+          if (!lt) {
+            t.perLine.push_back(
+                {line->route.name, 0, 0, 0,
+                 static_cast<int>(line->route.moves.size())});
+            lt = &t.perLine.back();
+          }
+          lt->burns++;
+          lt->best = std::max(lt->best, r.highpoint);
+          if (r.sent) lt->sends++;
+          t.warmthSum += today.session.warmth;
+          t.skinSum += today.session.skinLeft;
+          if (!r.timeline.empty()) {
+            t.oddsSum += r.timeline[0].odds;
+            t.oddsN++;
+          }
+          if (r.sent) {
+            t.sends++;
+            if (CanName(*line, mem)) {
+              NameFirstAscent(mem, *line, "Line " + std::to_string(player.day));
+              t.firstAscents++;
+              note += (note.empty() ? "" : " + ");
+              note += "FIRST ASCENT of " + line->description;
+            }
+            break;
+          }
+        }
+        if (burnsToday > 0) { t.daysClimbed++; if (note.empty()) note = "climbed"; }
+      }
+    }
+
+    // The Lot lives its life.
+    std::vector<Partner> lot = LotRegulars(world, player.day);
+    ApplyBonds(lot, player.bonds);
+    for (Partner& p : lot) {
+      SpendDayWith(p, t.daysClimbed > 0);
+      std::vector<std::string> taken = lotTaken;
+      for (const ProjectMemory& m : player.projects)
+        if (m.firstAscent) taken.push_back(m.routeName);
+      const int got = PartnerTakesFirstAscent(world, p, crag, taken, player.day);
+      if (got >= 0) {
+        lotTaken.push_back(crag.lines[got].route.name);
+        p.firstAscents.push_back(crag.lines[got].route.name);
+        t.linesLostToTheLot++;
+        note += (note.empty() ? "" : " + ");
+        note += p.name + " got " + crag.lines[got].description;
+      }
+    }
+    player.bonds = BondsFrom(lot);
+
+    // Evening: eat if the day has made you hungry and you can afford it.
+    if (today.hunger > 45.0) {
+      if (EatMeal(player, today, dd)) t.mealsEaten++;
+      else t.brokeDays++;
+    }
+
+    DogDay(player.dog, !needMoney, dog);
+    WeatherProjects(player, fd);
+    if (today.hunger > dd.starvingHunger) t.starvedNights++;
+
+    t.cashLow = std::min(t.cashLow, player.cash);
+    t.cashHigh = std::max(t.cashHigh, player.cash);
+
+    const int grade = static_cast<int>(SkillToGrade(player.climber.skills.power));
+    const bool interesting =
+        note.find("FIRST ASCENT") != std::string::npos ||
+        note.find("got") != std::string::npos || grade != lastGradeReport ||
+        day % 60 == 0 || day == 1;
+    if (interesting && !quiet) {
+      printf("%5d %6.0f %6.1f %6.1f %6.2f %5d %5d  %s\n", day, player.cash,
+             SkillToGrade(player.climber.skills.power),
+             player.climber.skin, player.climber.psyche, t.sends,
+             t.firstAscents, note.c_str());
+      lastGradeReport = grade;
+    }
+    SleepToNextDay(player, today, dd);
+  }
+
+  if (quiet) {
+    printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,
+           t.daysClimbed, t.burns, t.sends, t.firstAscents,
+           SkillToGrade(player.climber.skills.power), player.cash);
+    return 0;
+  }
+
+  printf("\n=== after %d days ===\n", DAYS);
+  printf("  climbed %d days, worked %d, rested %d; %d days never came good\n",
+         t.daysClimbed, t.daysWorked, t.daysRested, t.daysWashedOut);
+  printf("  %d burns, %d sends, %d first ascents\n", t.burns, t.sends,
+         t.firstAscents);
+  printf("  grade V%.1f -> V%.1f\n", 5.0,
+         SkillToGrade(player.climber.skills.power));
+  printf("  cash %.0f (low %.0f, high %.0f), broke on %d days, %d hungry "
+         "nights\n", player.cash, t.cashLow, t.cashHigh, t.brokeDays,
+         t.starvedNights);
+  printf("  %d meals, %d tins of dog food; dog %s (bond %.2f)\n", t.mealsEaten,
+         t.dogMeals, player.dog.adopted ? "adopted" : "still a stray",
+         player.dog.bond);
+  printf("  the Lot took %d lines; %zu open lines remain\n",
+         t.linesLostToTheLot, OpenProjects(crag).size() - t.linesLostToTheLot -
+                                  t.firstAscents);
+
+  printf("\n  average at the moment of pulling on: warmth %.2f, skin left "
+         "%.1f, first-move odds %.0f%%\n",
+         t.burns ? t.warmthSum / t.burns : 0.0,
+         t.burns ? t.skinSum / t.burns : 0.0,
+         t.oddsN ? 100.0 * t.oddsSum / t.oddsN : 0.0);
+  printf("  where the burns went:\n");
+  std::sort(t.perLine.begin(), t.perLine.end(),
+            [](const LineTally& a, const LineTally& b) {
+              return a.burns > b.burns;
+            });
+  for (size_t i = 0; i < t.perLine.size() && i < 8; i++) {
+    const LineTally& x = t.perLine[i];
+    printf("    %-40s %4d burns, %d sends, best %d of %d moves\n",
+           x.name.c_str(), x.burns, x.sends, x.best, x.moves);
+  }
+
+  // A season has to survive a save, which is the other half of the gate.
+  SaveGame save;
+  save.seed = seed;
+  save.player = player;
+  SaveGame back;
+  const LoadResult r = DeserializeSave(SerializeSave(save), back);
+  printf("  save round-trip: %s (%zu ledgers, %zu bonds)\n",
+         r == LoadResult::Ok ? "ok" : "FAILED", back.player.projects.size(),
+         back.player.bonds.size());
+  return 0;
+}

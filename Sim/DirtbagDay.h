@@ -69,6 +69,19 @@ struct DayDials {
   // skills so volume supports a career instead of replacing it.
   double enduranceMileageRate = 0.06;
 
+  // How much of the line you actually climbed, as a multiplier on what it
+  // taught you. Without this, training reads only the grade on the tag and
+  // a season of falling off the first move of something impossible trains
+  // exactly as well as a season of nearly doing it — measured, a policy
+  // that always picked the hardest line went V5 to V8.7 in a year without
+  // sending anything at all. You get strong by doing hard moves, not by
+  // touching the start holds of a line that is not yours yet.
+  //
+  // The floor is what pulling on teaches regardless: real, small, and far
+  // below what linking most of a line is worth, so the best thing to train
+  // on stays the thing you can nearly do.
+  double engagementFloor = 0.2;
+
   // Running on empty shows up as nerve before it shows up as strength, and
   // it arrives gradually: above freshEnergy you're fine, below it the fade
   // ramps in, reaching fatiguePsyche at zero. A cliff-edge threshold was
