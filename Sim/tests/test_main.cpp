@@ -3621,6 +3621,155 @@ static void TestAPitchGoesOnRedpoint() {
         AverageHighpoint(c, boulder, 300) / boulder.moves.size());
 }
 
+static void TestTheCaveIsRopeRockAndRoadsideIsNot() {
+  Rng world = Rng::FromSeed("cave-1");
+  const Crag cave = ShadedCave(world);
+  const Crag roadside = RoadsideCrag(world);
+
+  CHECK(!cave.lines.empty());
+  for (const CragLine& l : cave.lines) {
+    CHECK(l.route.discipline == Discipline::Sport);
+    CHECK(!BoltsFor(l.route).empty());
+    CHECK(NeedsABelayer(l.route));
+  }
+  // And Roadside is still every bit the boulder field it was. Adding a
+  // second crag must not have quietly reached into the first.
+  for (const CragLine& l : roadside.lines) {
+    CHECK(l.route.discipline == Discipline::Boulder);
+    CHECK(!NeedsABelayer(l.route));
+  }
+
+  // North-facing is the whole point: the season model puts Roadside's
+  // summer window at dawn and nowhere else, and north-facing rock never
+  // takes a direct hit. In July this is the only rock worth the walk.
+  CHECK(cave.aspect == Aspect::North);
+  CHECK(roadside.aspect != Aspect::North);
+  CHECK(cave.approachHours > roadside.approachHours);
+
+  ConditionsDials cd;
+  Rng weatherWorld = Rng::FromSeed("cave-1");
+  const int midsummer = cd.warmestDay;
+  const Weather w = GenerateWeather(weatherWorld, midsummer, cd);
+  const PrimeWindow caveWindow = FindPrimeWindow(w, cave.aspect, cd);
+  const PrimeWindow roadWindow = FindPrimeWindow(w, roadside.aspect, cd);
+  // On a midsummer day the shaded crag is at least as good, and usually
+  // the only thing on.
+  CHECK(caveWindow.peakFriction >= roadWindow.peakFriction);
+}
+
+static void TestTheCaveIsAStableWorldAndItsOwnOne() {
+  // Same seed, same rock, forever — and a different seed is a different
+  // cave. Both matter: the first is the save contract, the second is
+  // whether worldgen is doing anything at all.
+  Rng a = Rng::FromSeed("cave-1");
+  Rng b = Rng::FromSeed("cave-1");
+  const Crag one = ShadedCave(a);
+  const Crag two = ShadedCave(b);
+  CHECK(one.lines.size() == two.lines.size());
+  for (size_t i = 0; i < one.lines.size(); i++) {
+    CHECK(one.lines[i].route.name == two.lines[i].route.name);
+    CHECK(one.lines[i].route.trueGrade == two.lines[i].route.trueGrade);
+    CHECK(one.lines[i].route.moves.size() == two.lines[i].route.moves.size());
+  }
+
+  Rng other = Rng::FromSeed("cave-2");
+  const Crag elsewhere = ShadedCave(other);
+  bool differs = false;
+  for (size_t i = 0; i < one.lines.size() && !differs; i++) {
+    differs = one.lines[i].route.moves.size() !=
+                  elsewhere.lines[i].route.moves.size() ||
+              one.lines[i].route.trueGrade !=
+                  elsewhere.lines[i].route.trueGrade;
+  }
+  CHECK(differs);
+
+  // The cave draws on its own stream, so adding it cannot have moved a
+  // single hold at Roadside — every save that already exists depends on
+  // that being true.
+  Rng r1 = Rng::FromSeed("cave-1");
+  const Crag roadside = RoadsideCrag(r1);
+  CHECK(roadside.lines[0].route.name == "Roadside Attraction");
+  CHECK(roadside.lines.size() == 30);
+
+  // Pitches are longer than boulders, which is the thing the whole sport
+  // system is about.
+  double caveMoves = 0.0, roadMoves = 0.0;
+  for (const CragLine& l : one.lines) caveMoves += l.route.moves.size();
+  for (const CragLine& l : roadside.lines) roadMoves += l.route.moves.size();
+  CHECK(caveMoves / one.lines.size() > 2.0 * roadMoves / roadside.lines.size());
+}
+
+static void TestNoPartnerNoPitch() {
+  SportDials d;
+  // A boulder is something you can always do alone at dawn. A pitch is
+  // something you have to have arranged — this is the first thing in the
+  // game that genuinely needs the Lot to exist.
+  std::vector<Partner> empty;
+  CHECK(BestBelayer(empty, d) == nullptr);
+  CHECK(BelayText(nullptr, d) == "nobody is going up there with you today");
+
+  Partner neighbour;
+  neighbour.name = "Bo";
+  neighbour.climbs = false;      // the neighbours are not all climbers
+  neighbour.rapport = 1.0;
+  CHECK(!WillBelay(neighbour, d));
+  CHECK(BurnsTheyWillHold(neighbour, d) == 0);
+  std::vector<Partner> justBo = {neighbour};
+  CHECK(BestBelayer(justBo, d) == nullptr);
+}
+
+static void TestRapportBuysBurnsAndNothingElseDoes() {
+  SportDials d;
+  // Somebody you have never spoken to will hold your rope for a lap.
+  // Somebody you have spent a season with stands there all afternoon while
+  // you work the same three moves. That is the first thing rapport buys
+  // that you cannot get any other way.
+  Partner stranger;
+  stranger.name = "Ray";
+  stranger.rapport = 0.0;
+  Partner friend_;
+  friend_.name = "Margo";
+  friend_.rapport = 1.0;
+
+  CHECK(WillBelay(stranger, d));
+  CHECK(BurnsTheyWillHold(stranger, d) == d.burnsFromAStranger);
+  CHECK(BurnsTheyWillHold(friend_, d) == d.burnsAtFullRapport);
+  CHECK(BurnsTheyWillHold(friend_, d) > BurnsTheyWillHold(stranger, d) * 2);
+
+  // And it is monotonic — there is never a rapport where you are better off
+  // knowing somebody less well.
+  int last = -1;
+  for (double r = 0.0; r <= 1.0001; r += 0.05) {
+    Partner p;
+    p.rapport = r;
+    const int burns = BurnsTheyWillHold(p, d);
+    CHECK(burns >= last);
+    last = burns;
+  }
+
+  // The best belayer at the Lot is the one who knows you best.
+  std::vector<Partner> lot = {stranger, friend_};
+  CHECK(BestBelayer(lot, d) != nullptr);
+  CHECK(BestBelayer(lot, d)->name == "Margo");
+  CHECK(!BelayText(BestBelayer(lot, d), d).empty());
+}
+
+static void TestTheLotCanActuallyBelayTheCave() {
+  // The end-to-end version, against the real Lot rather than hand-made
+  // people: on a given day at a given world there is somebody who will tie
+  // in, and the cave is climbable because of it. A crag nobody at the Lot
+  // will belay is content that cannot be reached.
+  Rng world = Rng::FromSeed("cave-1");
+  const Crag cave = ShadedCave(world);
+  int daysWithABelayer = 0;
+  for (int day = 1; day <= 60; day++) {
+    const std::vector<Partner> lot = LotRegulars(world, day);
+    if (BestBelayer(lot) != nullptr) daysWithABelayer++;
+  }
+  CHECK(daysWithABelayer == 60);   // the regulars are regulars
+  CHECK(!cave.lines.empty());
+}
+
 // --- Age ---------------------------------------------------------------------
 
 static void TestAgeIsDerivedNotStored() {
@@ -4521,6 +4670,11 @@ int main() {
   TestSevenDayLoop();
   TestSaveRoundTrip();
   TestSaveRejectsGarbageAndFuture();
+  TestTheCaveIsRopeRockAndRoadsideIsNot();
+  TestTheCaveIsAStableWorldAndItsOwnOne();
+  TestNoPartnerNoPitch();
+  TestRapportBuysBurnsAndNothingElseDoes();
+  TestTheLotCanActuallyBelayTheCave();
   TestOnlyPitchesHaveBolts();
   TestThePadStopsAtTheFirstBolt();
   TestTheRunoutIsTheRopeHeadGame();

@@ -275,6 +275,16 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sport")
 	static FString RunoutText(double Runout);
 
+	/** Does this line need somebody on the other end? Boulders never do. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sport")
+	static bool NeedsABelayer(const FDirtbagRoute& Route);
+
+	/** The valley's rope crag: a steep north-facing cave forty minutes up
+	 *  the hill. North-facing is the point — Roadside bakes all morning, so
+	 *  in high summer this is the only rock worth walking to. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static FDirtbagCrag ShadedCave(const FString& Seed);
+
 	// --- The town --------------------------------------------------------
 	// Six venues, authored. The opening hours are the mechanic: the diner
 	// shuts at nine so a long day means eating from a warmer, and the gear

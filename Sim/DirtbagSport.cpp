@@ -66,6 +66,47 @@ double ClipCost(const Route& route, int moveIndex, const SportDials& dials) {
   return dials.clipPumpCost * bad;
 }
 
+bool NeedsABelayer(const Route& route) {
+  return route.discipline == Discipline::Sport;
+}
+
+bool WillBelay(const Partner& partner, const SportDials& dials) {
+  // The neighbours are not all climbers, and somebody who does not climb is
+  // not going to catch a whipper for you.
+  if (!partner.climbs) return false;
+  return partner.rapport >= dials.minRapportToBelay;
+}
+
+int BurnsTheyWillHold(const Partner& partner, const SportDials& dials) {
+  if (!WillBelay(partner, dials)) return 0;
+  const double t = Clamp01(partner.rapport);
+  return static_cast<int>(dials.burnsFromAStranger +
+                          (dials.burnsAtFullRapport -
+                           dials.burnsFromAStranger) * t);
+}
+
+const Partner* BestBelayer(const std::vector<Partner>& lot,
+                           const SportDials& dials) {
+  const Partner* best = nullptr;
+  for (const Partner& p : lot) {
+    if (!WillBelay(p, dials)) continue;
+    if (!best || p.rapport > best->rapport) best = &p;
+  }
+  return best;
+}
+
+std::string BelayText(const Partner* belayer, const SportDials& dials) {
+  if (!belayer) return "nobody is going up there with you today";
+  const int burns = BurnsTheyWillHold(*belayer, dials);
+  if (burns >= dials.burnsAtFullRapport - 2) {
+    return belayer->name + " will hold your rope all afternoon";
+  }
+  if (burns <= dials.burnsFromAStranger + 1) {
+    return belayer->name + " will give you a couple of laps";
+  }
+  return belayer->name + " is good for a few burns";
+}
+
 std::string RunoutText(double runout) {
   if (runout <= 0.0) return "clipped";
   if (runout < 0.34) return "just above the bolt";

@@ -95,6 +95,52 @@ const ProjectEntry kProjects[] = {
 constexpr int kProjectCount =
     static_cast<int>(sizeof(kProjects) / sizeof(kProjects[0]));
 
+// The rope crag. Grades read on the YDS ladder through SportGradeName —
+// index 5 is 5.11a, 7 is 5.12a, 9 is 5.13a — and the spread is shaped the
+// way a real sport cave is rather than the way a boulder field is: far
+// fewer easy lines (nobody bolts 5.7 in a cave), a deep middle where the
+// crag's reputation lives, and two or three testpieces that most visitors
+// only ever hang on.
+const BookEntry kCave[] = {
+    // The warmup wall at the left end, out of the steep.
+    {"Cave Dweller",          2, 2, RouteType::Endurance,  1},   // 5.9
+    {"Left-Hand Route",       3, 3, RouteType::Technical,  1},   // 5.10a
+    {"Morning Sickness",      4, 4, RouteType::Endurance,  2},   // 5.10c
+    {"The Warm-Up Lap",       4, 4, RouteType::Crimp,      1},
+
+    // The main cave. Steep, pumpy, and the reason anybody walks up here.
+    {"Belay Slave",           5, 5, RouteType::Endurance,  2},   // 5.11a
+    {"Kneebar Rest",          5, 5, RouteType::Technical,  3},   // the classic
+    {"Forty Minutes Up",      6, 6, RouteType::Endurance,  2},
+    {"Second Clip",           6, 7, RouteType::Power,      1},   // stiff, and known for it
+    {"The Pump Clock",        7, 7, RouteType::Endurance,  3},   // 5.12a
+    {"Slack!",                7, 7, RouteType::Crimp,      2},
+    {"Take, Take, TAKE",      6, 6, RouteType::Power,      1},
+    {"Redpoint Crux",         8, 8, RouteType::Endurance,  3},   // 5.12c
+    {"North Face Special",    8, 8, RouteType::Technical,  2},
+    {"Shade All Day",         7, 7, RouteType::Technical,  2},
+
+    // The back of the cave, where the holds stop being holds.
+    {"The Tufa",              9, 9, RouteType::Endurance,  3},   // 5.13a
+    {"Dogging It",            9, 10, RouteType::Crimp,     2},   // sandbagged, famously
+    {"One Hang",             10, 10, RouteType::Endurance, 3},   // 5.13c
+    {"Project For Life",     11, 11, RouteType::Power,     2},   // 5.14a
+};
+constexpr int kCaveCount =
+    static_cast<int>(sizeof(kCave) / sizeof(kCave[0]));
+
+// Three lines bolted and never climbed. A sport project is a different
+// animal from a boulder one: somebody has already been up it on a rope and
+// put the bolts in, so the grade guess is better informed and the line is
+// not filthy — what is unknown is whether it goes at all.
+const ProjectEntry kCaveProjects[] = {
+    {"the bolted line through the roof",      10, RouteType::Power},
+    {"the right-hand finish to The Tufa",      9, RouteType::Endurance},
+    {"the blank panel past the third bolt",   12, RouteType::Crimp},
+};
+constexpr int kCaveProjectCount =
+    static_cast<int>(sizeof(kCaveProjects) / sizeof(kCaveProjects[0]));
+
 }  // namespace
 
 Crag RoadsideCrag(const Rng& worldRng) {
@@ -138,6 +184,60 @@ Crag RoadsideCrag(const Rng& worldRng) {
     line.route = BuildRoute(worldRng, e.description, e.guess, trueGrade, e.type,
                             Discipline::Boulder);
     line.stars = 0;  // unclimbed lines have no stars; nobody can vouch yet
+    line.isProject = true;
+    line.description = e.description;
+    crag.lines.push_back(line);
+  }
+  return crag;
+}
+
+Crag ShadedCave(const Rng& worldRng) {
+  Crag crag;
+  crag.name = "the Shaded Cave";
+  // North-facing, and that is the whole point of the place. SunOnRock
+  // returns zero for north aspects, so in high summer — when the season
+  // model puts Roadside's window at dawn and nowhere else — this is the
+  // only rock in the valley worth walking to. It costs forty minutes each
+  // way and it costs a belayer.
+  crag.aspect = Aspect::North;
+  crag.approachHours = 0.7;
+
+  // Its own stream. Roadside's rock is not actually at risk from call
+  // order — BuildRoute salts by route name, so a line's shape depends on
+  // its name and nothing else, which is what makes routes stable without a
+  // stored move list. What this buys is narrower and still worth having: if
+  // a cave line and a Roadside line ever share a name they stay different
+  // pieces of rock, and the projects below draw from a stream that really
+  // is stateful.
+  const Rng caveRng = worldRng.Derive("shaded-cave");
+
+  crag.lines.reserve(kCaveCount + kCaveProjectCount);
+  for (int i = 0; i < kCaveCount; i++) {
+    const BookEntry& e = kCave[i];
+    CragLine line;
+    line.route = BuildRoute(caveRng, e.name, e.grade, e.trueGrade, e.type,
+                            Discipline::Sport);
+    line.stars = e.stars;
+    line.isProject = false;
+    line.firstAscentBy = "unknown";
+    crag.lines.push_back(line);
+  }
+
+  Rng projectRng = caveRng.Derive("cave-projects");
+  for (int i = 0; i < kCaveProjectCount; i++) {
+    const ProjectEntry& e = kCaveProjects[i];
+    CragLine line;
+    // A bolted project's guess is better informed than a boulder's —
+    // somebody has already hung on it putting the bolts in — so the drift
+    // is tighter. What is unknown is whether it goes at all, not roughly
+    // how hard it is.
+    const double roll = projectRng.NextDouble();
+    const int drift = roll < 0.35 ? 0 : (roll < 0.8 ? 1 : 2);
+    const int trueGrade = std::max(0, e.guess + drift);
+
+    line.route = BuildRoute(caveRng, e.description, e.guess, trueGrade, e.type,
+                            Discipline::Sport);
+    line.stars = 0;
     line.isProject = true;
     line.description = e.description;
     crag.lines.push_back(line);

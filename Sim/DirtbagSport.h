@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "DirtbagCore.h"
+#include "DirtbagPartner.h"
 
 namespace dirtbag {
 
@@ -66,6 +67,18 @@ struct SportDials {
   // How far above the last clip counts as "as bad as it gets". Beyond two
   // bolt-spacings you are not more frightened, you are just further up.
   double runoutSaturationMoves = 6.0;
+
+  // --- The belayer ------------------------------------------------------
+  // What somebody will do for you, by how well they know you. A stranger
+  // will hold your rope for a couple of laps because that is what people do
+  // at a crag; standing under somebody all afternoon while they work the
+  // same three moves is a favour, and favours are what rapport is.
+  int burnsFromAStranger = 3;
+  int burnsAtFullRapport = 12;
+
+  // Below this nobody is unwilling, they are simply not there — the Lot's
+  // non-climbers are neighbours, not belayers.
+  double minRapportToBelay = 0.0;
 };
 
 // Which move each bolt is at, for this route. Derived rather than stored:
@@ -100,6 +113,41 @@ double ClipCost(const Route& route, int moveIndex,
 // following a climber up a pitch.
 bool OnTheRope(const Route& route, int moveIndex,
                const SportDials& dials = SportDials{});
+
+// --- The belayer -------------------------------------------------------------
+//
+// No partner, no pitch. This is the first thing in the game that genuinely
+// requires the Lot to exist, and it is what makes a rope route a different
+// *decision* rather than a longer boulder: a boulder is something you can
+// always do alone at dawn, and a pitch is something you have to have
+// arranged.
+//
+// Who will belay you is not a courtesy. Somebody you have never spoken to
+// will hold your rope for a lap; somebody you have spent a season with will
+// stand there all afternoon while you work the same three moves. That
+// difference is rapport, and this is the first place rapport buys something
+// you cannot get any other way.
+
+// Will this person tie in with you today? Non-climbers never will, and
+// nobody belays a stranger's redpoint burns all afternoon.
+bool WillBelay(const Partner& partner, const SportDials& dials = SportDials{});
+
+// How many burns they are good for. A stranger gives you a couple; somebody
+// who knows you gives you the day.
+int BurnsTheyWillHold(const Partner& partner,
+                      const SportDials& dials = SportDials{});
+
+// The best belayer among the people at the Lot today, or null if you are
+// climbing alone — in which case the rope stays in the van.
+const Partner* BestBelayer(const std::vector<Partner>& lot,
+                           const SportDials& dials = SportDials{});
+
+// Does this route need somebody? Boulders never do.
+bool NeedsABelayer(const Route& route);
+
+// "Margo will hold your rope all afternoon" / "nobody is going up there
+// with you today"
+std::string BelayText(const Partner* belayer, const SportDials& dials = SportDials{});
 
 // "bolt 4, and the next one is a long way up"
 std::string RunoutText(double runout);

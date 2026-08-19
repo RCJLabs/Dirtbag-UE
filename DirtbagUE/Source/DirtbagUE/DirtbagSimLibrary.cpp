@@ -481,6 +481,19 @@ FString UDirtbagSimLibrary::RunoutText(double Runout)
 	return UTF8_TO_TCHAR(dirtbag::RunoutText(Runout).c_str());
 }
 
+bool UDirtbagSimLibrary::NeedsABelayer(const FDirtbagRoute& Route)
+{
+	return dirtbag::NeedsABelayer(DirtbagConvert::ToSim(Route));
+}
+
+FDirtbagCrag UDirtbagSimLibrary::ShadedCave(const FString& Seed)
+{
+	// FromSeed, exactly as RoadsideCrag does — the two crags have to be
+	// generated from the same world or they are not in the same valley.
+	return DirtbagConvert::FromSim(
+	    dirtbag::ShadedCave(dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed))));
+}
+
 // --- The town ----------------------------------------------------------------
 
 FDirtbagTown UDirtbagSimLibrary::Town()

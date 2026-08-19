@@ -72,6 +72,14 @@ struct Crag {
 // means it bakes at breakfast and comes into the shade mid-afternoon.
 Crag RoadsideCrag(const Rng& worldRng);
 
+// The valley's rope crag: a steep north-facing cave forty minutes up the
+// hill. North-facing is the whole point of it — Roadside is east-facing and
+// bakes all morning, so in high summer, when the season model puts the
+// window at dawn and nowhere else, this is the only rock worth walking to.
+// It costs the approach and it costs a belayer, and in July it is the only
+// climbing there is.
+Crag ShadedCave(const Rng& worldRng);
+
 // Lines at or under this grade, in book order — what a guidebook page shows.
 std::vector<const CragLine*> LinesUpTo(const Crag& crag, int grade);
 
