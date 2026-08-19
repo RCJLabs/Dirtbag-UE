@@ -61,6 +61,7 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
   in.attemptNumber = memory.attempts + 1;
   in.warmth = session.warmth;
   in.cleanliness = memory.cleanliness;   // how much of it you have uncovered
+  in.shoeWear = session.shoeWear;        // what is left of the rubber
   in.execution = execution;
   in.botExecution = botExecution;
   return in;

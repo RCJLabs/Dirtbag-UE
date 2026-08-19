@@ -93,6 +93,7 @@ struct SessionState {
   double warmth = 0.0;    // 0 cold .. 1 warmed up
   double psyche = 0.7;    // starts at the climber's; swings with the session
   int attemptsMade = 0;   // across all routes this session
+  double shoeWear = 0.0;  // the pair you pulled on with today
 };
 
 SessionState StartSession(const Climber& climber);

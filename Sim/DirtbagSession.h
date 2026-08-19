@@ -103,6 +103,12 @@ struct SessionDials {
   // option rather than a free one.
   double skinBiteOnGoodHolds = 0.35;
 
+  // Dead rubber, priced like thin skin and for the same reason: it should
+  // shape what you get on rather than decide it. Mirrors GearDials so the
+  // resolver and the shop agree; the numbers live there.
+  double deadShoeGradePenalty = 1.1;
+  double shoeBiteOnGoodHolds = 0.3;
+
   double fallSkinCost = 1.0;
   double sendSkinCost = 0.35;
 
@@ -141,6 +147,7 @@ struct AttemptInput {
   int attemptNumber = 1;    // across the project's history, for style
   double warmth = 1.0;      // 0 cold .. 1 warm; the session loop starts cold
   double cleanliness = 1.0; // 1 clean rock .. 0 never been touched
+  double shoeWear = 0.0;    // 0 new rubber .. 1 dead; see DirtbagGear.h
   // Per-move minigame quality, 0..1. Missing entries fall back to botExecution.
   std::vector<double> execution;
   double botExecution = 0.72;

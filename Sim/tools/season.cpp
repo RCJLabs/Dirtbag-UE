@@ -23,6 +23,7 @@
 #include "DirtbagDay.h"
 #include "DirtbagDog.h"
 #include "DirtbagFirstAscent.h"
+#include "DirtbagGear.h"
 #include "DirtbagPartner.h"
 #include "DirtbagSave.h"
 #include "DirtbagSession.h"
@@ -41,6 +42,10 @@ struct Tally {
   double cashLow = 1e9, cashHigh = -1e9;
   int linesLostToTheLot = 0;
   std::vector<LineTally> perLine;
+  double earned = 0.0, spentFood = 0.0, spentDog = 0.0, spentBills = 0.0;
+  double spentShoes = 0.0;
+  int resoles = 0, newPairs = 0, deadRubberDays = 0;
+  int movesClimbed = 0;
   double warmthSum = 0.0, skinSum = 0.0, oddsSum = 0.0;
   int oddsN = 0;
 };
@@ -152,14 +157,20 @@ int main(int argc, char** argv) {
     // biting hard enough to notice, which was worth knowing.)
     // Feed the dog every other day or so.
     if (player.dog.fed < 0.6) {
-      if (FeedDog(player.dog, player.cash, dog)) t.dogMeals++;
+      const double before = player.cash;
+      if (FeedDog(player.dog, player.cash, dog)) {
+        t.dogMeals++;
+        t.spentDog += before - player.cash;
+      }
     }
 
     // Rent comes first: below a float, take a shift. A morning one, since
     // the van is always safe then.
     const bool needMoney = player.cash < 120.0;
     if (needMoney) {
+      const double before = player.cash;
       WorkShift(player, today, dd);
+      t.earned += player.cash - before;
       t.daysWorked++;
       note = "shift";
     }
@@ -220,6 +231,7 @@ int main(int argc, char** argv) {
           lt->burns++;
           lt->best = std::max(lt->best, r.highpoint);
           if (r.sent) lt->sends++;
+          t.movesClimbed += static_cast<int>(r.timeline.size());
           t.warmthSum += today.session.warmth;
           t.skinSum += today.session.skinLeft;
           if (!r.timeline.empty()) {
@@ -241,6 +253,22 @@ int main(int argc, char** argv) {
       }
     }
 
+    // Rubber: resole while the uppers hold, replace when they do not.
+    GearDials gd;
+    if (player.shoes.wear > gd.noticeablyWorn) {
+      const double before = player.cash;
+      if (CanResole(player.shoes, gd)) {
+        if (Resole(player.shoes, player.cash, gd)) {
+          t.resoles++;
+          t.spentShoes += before - player.cash;
+        }
+      } else if (BuyNewShoes(player.shoes, player.cash, gd)) {
+        t.newPairs++;
+        t.spentShoes += before - player.cash;
+      }
+    }
+    if (player.shoes.wear > 0.8) t.deadRubberDays++;
+
     // The Lot lives its life.
     std::vector<Partner> lot = LotRegulars(world, player.day);
     ApplyBonds(lot, player.bonds);
@@ -261,9 +289,14 @@ int main(int argc, char** argv) {
     player.bonds = BondsFrom(lot);
 
     // Evening: eat if the day has made you hungry and you can afford it.
-    if (today.hunger > 45.0) {
-      if (EatMeal(player, today, dd)) t.mealsEaten++;
-      else t.brokeDays++;
+    if (today.hunger > 28.0) {
+      const double before = player.cash;
+      if (EatMeal(player, today, dd)) {
+        t.mealsEaten++;
+        t.spentFood += before - player.cash;
+      } else {
+        t.brokeDays++;
+      }
     }
 
     DogDay(player.dog, !needMoney, dog);
@@ -311,6 +344,18 @@ int main(int argc, char** argv) {
   printf("  the Lot took %d lines; %zu open lines remain\n",
          t.linesLostToTheLot, OpenProjects(crag).size() - t.linesLostToTheLot -
                                   t.firstAscents);
+
+  const double bills = static_cast<double>(DAYS / dd.billsEveryDays) *
+                       dd.billsAmount;
+  printf("\n  the money, over %d days:\n", DAYS);
+  printf("    earned  $%7.0f from %d shifts\n", t.earned, t.daysWorked);
+  printf("    bills   $%7.0f\n", bills);
+  printf("    food    $%7.0f (%d meals)\n", t.spentFood, t.mealsEaten);
+  printf("    dog     $%7.0f (%d tins)\n", t.spentDog, t.dogMeals);
+  printf("    shoes   $%7.0f (%d resoles, %d new pairs; %d days on dead "
+         "rubber)\n", t.spentShoes, t.resoles, t.newPairs, t.deadRubberDays);
+  printf("    -> %.0f%% of days worked to stay level; %d moves climbed\n",
+         100.0 * t.daysWorked / DAYS, t.movesClimbed);
 
   printf("\n  average at the moment of pulling on: warmth %.2f, skin left "
          "%.1f, first-move odds %.0f%%\n",

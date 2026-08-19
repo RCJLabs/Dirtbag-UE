@@ -87,6 +87,9 @@ Climber ClimberForSession(const PlayerState& player, const DayState& day,
 
 void StartGymSession(PlayerState& player, DayState& day, const DayDials& dials) {
   day.session = StartSession(ClimberForSession(player, day, dials));
+  // Whatever is on your feet comes with you. Shoes live on the career
+  // rather than the body, so the session has to be handed them.
+  day.session.shoeWear = player.shoes.wear;
   day.atGym = true;
 }
 
@@ -112,6 +115,10 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
       0.0, day.energy - dials.attemptEnergy - dials.attemptEnergyPerGrade * over);
 
   if (result.timeline.empty()) return;
+
+  // Rubber goes by the move, and faster the harder you pull.
+  WearShoes(player.shoes, static_cast<int>(result.timeline.size()),
+            route.trueGrade);
 
   // Training creep: challenge relative to what the route asks of you.
   // Two grades below you trains nothing; at your level trains most of the

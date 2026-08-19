@@ -73,6 +73,15 @@ double MoveEffective(const AttemptInput& input, const Move& move, double exec,
       Clamp01(1.0 - c.skin / std::max(0.001, dials.freshSkin));
   effective -= dials.skinGradePenalty * worn * worn *
                (skinHold ? 1.0 : dials.skinBiteOnGoodHolds);
+
+  // Rubber. Edging holds punish dead shoes hardest, which is why a worn
+  // pair pushes you onto slopers and jugs long before it stops you.
+  const bool edging = move.hold == HoldType::Crimp ||
+                      move.hold == HoldType::Pocket ||
+                      move.hold == HoldType::Pinch;
+  const double rubberGone = Clamp01(input.shoeWear);
+  effective -= dials.deadShoeGradePenalty * rubberGone * rubberGone *
+               (edging ? 1.0 : dials.shoeBiteOnGoodHolds);
   if (move.crux) {
     // The crux is where the head shows up — commitment, not strength.
     effective += (c.skills.head - 50.0) / 100.0;

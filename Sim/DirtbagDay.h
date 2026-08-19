@@ -11,6 +11,7 @@
 
 #include "DirtbagCore.h"
 #include "DirtbagDog.h"
+#include "DirtbagGear.h"
 #include "DirtbagPartner.h"
 #include "DirtbagRng.h"
 #include "DirtbagSessionLoop.h"
@@ -115,6 +116,9 @@ struct PlayerState {
 
   // The stray, and then the dog.
   Dog dog;
+
+  // What is on your feet, and how much of it is left.
+  Shoes shoes;
 };
 
 // One day's body-clock. Created at wake, consumed by sleep, never saved —

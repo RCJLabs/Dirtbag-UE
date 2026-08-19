@@ -12,6 +12,7 @@
 #include "../DirtbagCrag.h"
 #include "../DirtbagDay.h"
 #include "../DirtbagDog.h"
+#include "../DirtbagGear.h"
 #include "../DirtbagFirstAscent.h"
 #include "../DirtbagPartner.h"
 #include "../DirtbagRng.h"
@@ -1569,6 +1570,149 @@ static void TestLoadsVersion4Save() {
   CHECK(loaded.player.dog.fed > 0.0);      // and it is hungry, as strays are
 }
 
+// --- Gear ----------------------------------------------------------------------
+
+static void TestShoesWearByWhatYouClimb() {
+  GearDials g;
+  Shoes s;
+  CHECK(s.wear == 0.0);
+
+  // Rubber goes by the move, not by the day.
+  WearShoes(s, 0, 5, g);
+  CHECK(s.wear == 0.0);
+  WearShoes(s, 50, 5, g);
+  CHECK(s.wear > 0.0);
+
+  // And faster the harder you pull: the same mileage on a V9 eats more
+  // than on a V3, because it is toe pressure that kills shoes.
+  Shoes easy, hard;
+  WearShoes(easy, 200, 3, g);
+  WearShoes(hard, 200, 9, g);
+  CHECK(hard.wear > easy.wear);
+
+  // A pair dies somewhere near its stated life and never past dead.
+  Shoes worn;
+  WearShoes(worn, static_cast<int>(g.shoeLifeMoves), 5, g);
+  CHECK(worn.wear >= 0.9);
+  WearShoes(worn, 100000, 9, g);
+  CHECK(worn.wear == 1.0);
+}
+
+static void TestDeadRubberCostsGrades() {
+  GearDials g;
+  Shoes fresh;
+  Shoes dead;
+  dead.wear = 1.0;
+
+  CHECK(ShoePenalty(fresh, true, g) == 0.0);
+  CHECK(ShoePenalty(dead, true, g) > 0.0);
+  // Edging suffers most; slopers and jugs care less, which is what pushes a
+  // worn pair onto different holds before it stops you climbing.
+  CHECK(ShoePenalty(dead, true, g) > ShoePenalty(dead, false, g));
+  CHECK(ShoePenalty(dead, false, g) > 0.0);
+
+  // Squared, like skin: half-worn is much better than half as bad.
+  Shoes half;
+  half.wear = 0.5;
+  CHECK(ShoePenalty(half, true, g) < ShoePenalty(dead, true, g) * 0.5);
+
+  // And it reaches the wall, not just the shop.
+  Rng world = Rng::FromSeed("crag-1");
+  Climber c;
+  c.skills.power = c.skills.fingers = c.skills.technique =
+      c.skills.endurance = c.skills.head = 55.0;
+  Route edgy = BuildRoute(world, "Edges", 5, 5, RouteType::Crimp,
+                          Discipline::Boulder);
+  auto Rate = [&](double wear) {
+    int sends = 0;
+    const int trials = 1200;
+    for (int i = 0; i < trials; i++) {
+      Rng rng = Rng::FromSeed("shoe-" + std::to_string(i));
+      AttemptInput in;
+      in.climber = c;
+      in.route = edgy;
+      in.warmth = 1.0;
+      in.shoeWear = wear;
+      if (ResolveAttempt(rng, in).sent) sends++;
+    }
+    return 100.0 * sends / trials;
+  };
+  CHECK(Rate(0.0) > Rate(1.0));
+  CHECK(Rate(0.0) > Rate(1.0) * 1.3);   // a real handicap, not a rounding one
+}
+
+static void TestResoleOrReplace() {
+  GearDials g;
+  Shoes s;
+  s.wear = 0.9;
+  double cash = 500.0;
+
+  // A resole is most of the performance for a third of the price.
+  CHECK(CanResole(s, g));
+  CHECK(Resole(s, cash, g));
+  CHECK(s.wear < 0.9);
+  CHECK(s.wear > 0.0);            // and never quite new again
+  CHECK(cash == 500.0 - g.resoleCost);
+
+  // But the uppers only take so many.
+  s.wear = 0.9;
+  CHECK(Resole(s, cash, g));
+  CHECK(!CanResole(s, g));
+  CHECK(!Resole(s, cash, g));
+
+  // The warning only appears once this pair is worn again — a freshly
+  // resoled shoe with no resoles left says nothing, because there is
+  // nothing to decide yet.
+  CHECK(ShoeText(s, g).find("uppers") == std::string::npos);
+  s.wear = 0.7;
+  CHECK(ShoeText(s, g).find("uppers") != std::string::npos);
+
+  // At which point it is a new pair or nothing.
+  const double before = cash;
+  CHECK(BuyNewShoes(s, cash, g));
+  CHECK(s.wear == 0.0);
+  CHECK(s.resoles == 0);
+  CHECK(s.pairsOwned == 2);
+  CHECK(cash == before - g.newShoeCost);
+
+  // Broke is broke, for both.
+  double empty = 10.0;
+  Shoes poor;
+  poor.wear = 0.95;
+  CHECK(!Resole(poor, empty, g));
+  CHECK(!BuyNewShoes(poor, empty, g));
+  CHECK(poor.wear == 0.95);       // and nothing happened
+  CHECK(empty == 10.0);
+
+  // Resoling is the cheaper path per pair, which is why anyone does it.
+  CHECK(g.resoleCost * g.resolesPerPair < g.newShoeCost);
+}
+
+static void TestShoesReachTheSession() {
+  // Shoes live on the career and the session has to be handed them, or the
+  // whole mechanic is a number in a shop that never touches a wall.
+  PlayerState player;
+  player.shoes.wear = 0.8;
+  DayState day = WakeUp(player);
+  StartGymSession(player, day);
+  CHECK(std::fabs(day.session.shoeWear - 0.8) < 1e-12);
+
+  // And climbing wears them: the day loop knows how many moves you did.
+  Rng world = Rng::FromSeed("crag-1");
+  Route r = BuildRoute(world, "Mileage", 4, 4, RouteType::Endurance,
+                       Discipline::Boulder);
+  player.shoes.wear = 0.0;
+  AttemptResult result;
+  result.highpoint = static_cast<int>(r.moves.size());
+  for (size_t i = 0; i < r.moves.size(); i++) {
+    MoveResult m;
+    m.index = static_cast<int>(i);
+    result.timeline.push_back(m);
+  }
+  ApplyAttemptToDay(player, day, r, result);
+  CHECK(player.shoes.wear > 0.0);
+}
+
 // --- RNG ---------------------------------------------------------------------
 
 static void TestRngDeterminism() {
@@ -2619,6 +2763,10 @@ int main() {
   TestTheWholeArc();
   TestSaveCarriesFirstAscents();
   TestLoadsVersion2Save();
+  TestShoesWearByWhatYouClimb();
+  TestDeadRubberCostsGrades();
+  TestResoleOrReplace();
+  TestShoesReachTheSession();
   TestTheSessionTellsYouWhereYouAre();
   TestFreshSkinIsWorthSomething();
   TestFlailingIsNotTraining();
