@@ -11,6 +11,7 @@
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
 #include "DirtbagDay.h"
+#include "DirtbagDog.h"
 #include "DirtbagPartner.h"
 #include "DirtbagFirstAscent.h"
 #include "DirtbagSave.h"
@@ -240,6 +241,26 @@ struct FDirtbagProjectMemory
 };
 
 /** Career state — everything that outlives a day; what the save carries. */
+/** The stray, and then the dog. */
+USTRUCT(BlueprintType)
+struct FDirtbagDog
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dog")
+	FString Name = TEXT("the dog");
+
+	/** A stray until you have fed it enough. There is no ceremony. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dog")
+	bool bAdopted = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dog")
+	double Bond = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dog")
+	double Fed = 0.4;
+};
+
 /** What a career remembers about somebody at the Lot. Their strength is
  *  derived from seed and date and is deliberately not here. */
 USTRUCT(BlueprintType)
@@ -307,6 +328,9 @@ struct FDirtbagPlayerState
 	 *  is stored, because it is derived from the seed and the date. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
 	TArray<FDirtbagPartnerBond> Bonds;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dog")
+	FDirtbagDog Dog;
 };
 
 /** One day's body-clock. Never saved — saves happen at day boundaries. */
@@ -503,6 +527,8 @@ namespace DirtbagConvert
 	FDirtbagPrimeWindow FromSim(const dirtbag::PrimeWindow& In);
 
 	FDirtbagClimber FromSim(const dirtbag::Climber& In);
+	FDirtbagDog FromSim(const dirtbag::Dog& In);
+	dirtbag::Dog ToSim(const FDirtbagDog& In);
 	FDirtbagPartnerBond FromSim(const dirtbag::PartnerBond& In);
 	dirtbag::PartnerBond ToSim(const FDirtbagPartnerBond& In);
 	FDirtbagPartner FromSim(const dirtbag::Partner& In);

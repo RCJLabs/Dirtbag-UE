@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "DirtbagCore.h"
+#include "DirtbagDog.h"
 #include "DirtbagPartner.h"
 #include "DirtbagRng.h"
 #include "DirtbagSessionLoop.h"
@@ -98,6 +99,9 @@ struct PlayerState {
   // Who you know at the Lot, and what they got to first. Strength is
   // derived from the seed and the date, so only this much is career state.
   std::vector<PartnerBond> bonds;
+
+  // The stray, and then the dog.
+  Dog dog;
 };
 
 // One day's body-clock. Created at wake, consumed by sleep, never saved —

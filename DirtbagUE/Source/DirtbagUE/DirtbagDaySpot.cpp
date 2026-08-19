@@ -65,6 +65,9 @@ FString ADirtbagDaySpot::PromptText() const
 	case EDirtbagSpotKind::Travel:
 		return FString::Printf(TEXT("Drive to %s?  (E)  -  %.0f minutes"),
 		                       *TravelName, TravelHours * 60.0);
+	case EDirtbagSpotKind::Dog:
+		return FString::Printf(TEXT("Feed it?  (E)  -  %s.  $%.0f"),
+		                       *Game->DogLine(), Game->Player.Cash);
 	case EDirtbagSpotKind::Fire:
 	{
 		// The fire's prompt names who is here, because that is what makes
@@ -173,6 +176,28 @@ void ADirtbagDaySpot::OnInteract()
 	case EDirtbagSpotKind::Travel:
 	{
 		BeginDrive();
+		break;
+	}
+	case EDirtbagSpotKind::Dog:
+	{
+		const bool bWasStray = !Game->Player.Dog.bAdopted;
+		if (!Game->FeedTheDog())
+		{
+			Say(TEXT("Not enough for that, and it knows."), FColor::Orange);
+			break;
+		}
+		if (bWasStray && Game->Player.Dog.bAdopted)
+		{
+			// No ceremony anywhere else, so none here either. It just
+			// stops being a stray and starts being yours.
+			Say(TEXT("It follows you back to the van and lies down."),
+			    FColor::Yellow, 7.f);
+		}
+		else
+		{
+			Say(FString::Printf(TEXT("Fed it.  %s"), *Game->DogLine()),
+			    FColor::Green);
+		}
 		break;
 	}
 	case EDirtbagSpotKind::Fire:

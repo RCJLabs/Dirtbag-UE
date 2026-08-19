@@ -30,7 +30,22 @@ bool UDirtbagGameInstance::EatMeal()
 
 void UDirtbagGameInstance::WorkShift()
 {
+	// A dog does not come to the belay desk, so a shift is the one thing
+	// that leaves it behind for four hours. On a cool day that costs
+	// nothing; on a warm one the van is an oven and you knew it.
+	const double Guilt =
+	    dirtbag::VanGuilt(DirtbagConvert::ToSim(Player.Dog), VanTempF());
+
 	UDirtbagSimLibrary::WorkShift(Player, Day);
+	bWorkedToday = true;
+
+	if (Guilt > 0.0)
+	{
+		Player.Climber.Psyche = FMath::Max(0.05, Player.Climber.Psyche - Guilt);
+		DogWorry = FString::Printf(
+		    TEXT("You could hear it from the desk. The van hit %.0fF."),
+		    VanTempF());
+	}
 }
 
 void UDirtbagGameInstance::PassHours(double Hours)
@@ -52,6 +67,15 @@ void UDirtbagGameInstance::Sleep()
 	// arete" is news about yesterday rather than a thing that happened while
 	// you were asleep in the same field as him.
 	AdvanceTheLot();
+
+	// The dog's day too: hungrier by one, and closer to you unless you
+	// spent the day at a desk it could not come to.
+	dirtbag::Dog SimDog = DirtbagConvert::ToSim(Player.Dog);
+	dirtbag::DogDay(SimDog, !bWorkedToday);
+	Player.Dog = DirtbagConvert::FromSim(SimDog);
+	bWorkedToday = false;
+	DogWorry.Reset();
+
 	UDirtbagSimLibrary::SleepToNextDay(Player, Day);
 	SaveNow();
 }
@@ -447,6 +471,58 @@ bool UDirtbagGameInstance::CanNameLine(int32 BoardIndex)
 	SimLine.isProject = Line.bIsProject;
 	SimLine.firstAscentBy = TCHAR_TO_UTF8(*Line.FirstAscentBy);
 	return dirtbag::CanName(SimLine, DirtbagConvert::ToSim(*Ledger));
+}
+
+// --- The dog -----------------------------------------------------------------
+
+double UDirtbagGameInstance::VanTempF()
+{
+	if (bIndoors)
+	{
+		return 70.0;   // a gym car park is not the story
+	}
+	const dirtbag::Weather W = DirtbagConvert::ToSim(TodaysWeather());
+	return dirtbag::TemperatureAt(W, Day.Hour) + VanGreenhouseF;
+}
+
+bool UDirtbagGameInstance::VanIsSafeForTheDog()
+{
+	return dirtbag::VanIsSafe(VanTempF());
+}
+
+bool UDirtbagGameInstance::FeedTheDog()
+{
+	dirtbag::Dog SimDog = DirtbagConvert::ToSim(Player.Dog);
+	double Cash = Player.Cash;
+	const bool bWasStray = !SimDog.adopted;
+
+	if (!dirtbag::FeedDog(SimDog, Cash))
+	{
+		return false;
+	}
+	Player.Dog = DirtbagConvert::FromSim(SimDog);
+	Player.Cash = Cash;
+
+	// The one moment worth writing down as it happens, same as a first
+	// ascent: you fed a stray until it was yours.
+	if (bWasStray && SimDog.adopted)
+	{
+		SaveNow();
+	}
+	return true;
+}
+
+FString UDirtbagGameInstance::DogLine()
+{
+	const dirtbag::Dog SimDog = DirtbagConvert::ToSim(Player.Dog);
+	FString Line = UTF8_TO_TCHAR(dirtbag::DogText(SimDog).c_str());
+
+	// The forecast, for the one who cannot read it.
+	if (Player.Dog.bAdopted && !bIndoors && !VanIsSafeForTheDog())
+	{
+		Line += FString::Printf(TEXT("  —  the van is at %.0fF"), VanTempF());
+	}
+	return Line;
 }
 
 // --- The Lot -----------------------------------------------------------------

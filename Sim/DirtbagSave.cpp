@@ -93,11 +93,20 @@ void MigrateV3ToV4(SaveFields& fields) {
   fields["bonds"] = "0";
 }
 
+// v4 → v5: the dog. A v4 career never met it, so it migrates to exactly the
+// stray a new career finds at the Lot: nobody's, unbonded, and hungry.
+void MigrateV4ToV5(SaveFields& fields) {
+  fields["dog.name"] = "the dog";
+  fields["dog.adopted"] = "0";
+  fields["dog.bond"] = "0";
+  fields["dog.fed"] = "0.4";
+}
+
 }  // namespace
 
 const std::vector<Migration>& DefaultMigrations() {
   static const std::vector<Migration> kMigrations = {
-      &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4};
+      &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5};
   return kMigrations;
 }
 
@@ -146,6 +155,10 @@ std::string SerializeSave(const SaveGame& save) {
         << "\n";
   }
 
+  out << "dog.name=" << save.player.dog.name << "\n";
+  out << "dog.adopted=" << (save.player.dog.adopted ? "1" : "0") << "\n";
+  out << "dog.bond=" << NumToStr(save.player.dog.bond) << "\n";
+  out << "dog.fed=" << NumToStr(save.player.dog.fed) << "\n";
   out << "bonds=" << static_cast<int>(save.player.bonds.size()) << "\n";
   for (size_t i = 0; i < save.player.bonds.size(); i++) {
     const PartnerBond& b = save.player.bonds[i];
@@ -229,6 +242,15 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     ParseString(fields, ProjKey(i, "given"), m.givenName);
     save.player.projects.push_back(m);
   }
+
+  int adopted = 0;
+  if (!ParseString(fields, "dog.name", save.player.dog.name) ||
+      !ParseInt(fields, "dog.adopted", adopted) ||
+      !ParseDouble(fields, "dog.bond", save.player.dog.bond) ||
+      !ParseDouble(fields, "dog.fed", save.player.dog.fed)) {
+    return LoadResult::BadFormat;
+  }
+  save.player.dog.adopted = adopted != 0;
 
   int bondCount = 0;
   if (!ParseInt(fields, "bonds", bondCount) || bondCount < 0) {

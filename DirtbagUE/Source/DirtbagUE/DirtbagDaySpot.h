@@ -33,7 +33,9 @@ enum class EDirtbagSpotKind : uint8
 	/** The fire at the Lot. Rest, with people: the hours pass the same way
 	 *  and you get the company for them — rapport, and what everyone is
 	 *  working this week. */
-	Fire
+	Fire,
+	/** The bowl by the van. Feed the stray until it is not a stray. */
+	Dog
 };
 
 UCLASS()

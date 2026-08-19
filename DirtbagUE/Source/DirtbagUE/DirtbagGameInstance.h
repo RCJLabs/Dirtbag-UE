@@ -282,6 +282,36 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	void DismissNaming();
 
+	// --- The dog ---------------------------------------------------------
+
+	/** Feed it. Costs cash; enough meals and the stray is yours, with no
+	 *  ceremony because the life does not provide one. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Dog")
+	bool FeedTheDog();
+
+	/** "the dog is asleep under the van" / "there is a stray at the Lot" */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Dog")
+	FString DogLine();
+
+	/** What a parked van is running at right now. Vans are ovens; the
+	 *  conditions system already knows the air temperature, so this is that
+	 *  plus what a metal box in the sun adds to it. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Dog")
+	double VanTempF();
+
+	/** True when the van is somewhere a dog can be left today. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Dog")
+	bool VanIsSafeForTheDog();
+
+	/** How hot a parked van runs above the air around it. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Dog")
+	double VanGreenhouseF = 18.0;
+
+	/** Set when you left it somewhere you should not have. Cleared at
+	 *  lights out, like everything else you get to stop thinking about. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dog")
+	FString DogWorry;
+
 	// --- The Lot ---------------------------------------------------------
 
 	/** The Lot's people as they are today: strength derived from seed and
@@ -355,6 +385,10 @@ private:
 	/** True once the player has pulled on anything today — what rapport is
 	 *  actually earned by. */
 	bool bClimbedToday = false;
+
+	/** True once a shift has been worked today: the dog was on its own for
+	 *  four hours, which is what its bond is priced on. */
+	bool bWorkedToday = false;
 
 	// The forecast changes once a day; the HUD asks for it every frame.
 	// Cheap either way (~23us), but there is no reason to re-hash the seed

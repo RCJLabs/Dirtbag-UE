@@ -157,6 +157,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.climber = ToSim(In.Climber);
 	Out.cash = In.Cash;
 	Out.day = In.Day;
+	Out.dog = ToSim(In.Dog);
 	Out.bonds.reserve(In.Bonds.Num());
 	for (const FDirtbagPartnerBond& B : In.Bonds)
 	{
@@ -194,6 +195,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Climber.Psyche = In.climber.psyche;
 	Out.Cash = In.cash;
 	Out.Day = In.day;
+	Out.Dog = FromSim(In.dog);
 	Out.Bonds.Reserve(static_cast<int32>(In.bonds.size()));
 	for (const dirtbag::PartnerBond& B : In.bonds)
 	{
@@ -308,6 +310,26 @@ FDirtbagClimber FromSim(const dirtbag::Climber& In)
 	Out.Morphology = static_cast<EDirtbagMorphology>(In.morphology);
 	Out.Skin = In.skin;
 	Out.Psyche = In.psyche;
+	return Out;
+}
+
+FDirtbagDog FromSim(const dirtbag::Dog& In)
+{
+	FDirtbagDog Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.bAdopted = In.adopted;
+	Out.Bond = In.bond;
+	Out.Fed = In.fed;
+	return Out;
+}
+
+dirtbag::Dog ToSim(const FDirtbagDog& In)
+{
+	dirtbag::Dog Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.adopted = In.bAdopted;
+	Out.bond = In.Bond;
+	Out.fed = In.Fed;
 	return Out;
 }
 
