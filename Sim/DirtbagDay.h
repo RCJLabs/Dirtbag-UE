@@ -109,6 +109,15 @@ struct PlayerState {
   Climber climber;
   double cash = 420.0;  // the war chest you left home with
   int day = 1;
+
+  // What you could not pay. Bills land whether or not the money is there;
+  // cash floors at nothing and the shortfall goes here, because a bill you
+  // cannot pay does not evaporate — it waits, and it is the first thing any
+  // wage goes to. Owing money is not a lock on anything: you can still
+  // climb, eat, and drive. You simply cannot get ahead until it is cleared,
+  // which is the whole of what being behind feels like.
+  double owed = 0.0;
+
   std::vector<ProjectMemory> projects;
 
   // Who you know at the Lot, and what they got to first. Strength is
@@ -134,6 +143,14 @@ struct DayState {
   bool atGym = false;
   SessionState session;  // meaningful once StartGymSession has run
 };
+
+// Take money, and remember what could not be taken. Cash never goes
+// negative; the shortfall becomes debt.
+void Charge(PlayerState& player, double amount);
+
+// Give money, debt first. Nothing reaches your pocket until you are level,
+// which is what a wage feels like when you are behind.
+void Pay(PlayerState& player, double amount);
 
 DayState WakeUp(const PlayerState& player, const DayDials& dials = DayDials{});
 

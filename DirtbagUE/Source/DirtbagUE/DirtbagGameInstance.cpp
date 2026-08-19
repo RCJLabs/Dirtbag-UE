@@ -75,6 +75,7 @@ void UDirtbagGameInstance::Sleep()
 	Player.Dog = DirtbagConvert::FromSim(SimDog);
 	bWorkedToday = false;
 	DogWorry.Reset();
+	VanNews.Reset();
 
 	UDirtbagSimLibrary::SleepToNextDay(Player, Day);
 	SaveNow();
@@ -485,6 +486,120 @@ FString UDirtbagGameInstance::SessionAdviceText() const
 	return FString(UTF8_TO_TCHAR(dirtbag::SessionAdviceText(
 	    dirtbag::ReadSession(DirtbagConvert::ToSim(Day.Session),
 	                         DirtbagConvert::ToSim(Player.Climber)))));
+}
+
+// --- Gear and the van --------------------------------------------------------
+
+FString UDirtbagGameInstance::ShoeLine() const
+{
+	return FString(UTF8_TO_TCHAR(
+	    dirtbag::ShoeText(DirtbagConvert::ToSim(Player.Shoes)).c_str()));
+}
+
+bool UDirtbagGameInstance::ResoleShoes()
+{
+	dirtbag::Shoes S = DirtbagConvert::ToSim(Player.Shoes);
+	double Cash = Player.Cash;
+	if (!dirtbag::Resole(S, Cash)) return false;
+	Player.Shoes = DirtbagConvert::FromSim(S);
+	Player.Cash = Cash;
+	return true;
+}
+
+bool UDirtbagGameInstance::BuyNewShoes()
+{
+	dirtbag::Shoes S = DirtbagConvert::ToSim(Player.Shoes);
+	double Cash = Player.Cash;
+	if (!dirtbag::BuyNewShoes(S, Cash)) return false;
+	Player.Shoes = DirtbagConvert::FromSim(S);
+	Player.Cash = Cash;
+	return true;
+}
+
+FString UDirtbagGameInstance::VanLine() const
+{
+	return FString(UTF8_TO_TCHAR(
+	    dirtbag::VanText(DirtbagConvert::ToSim(Player.Van)).c_str()));
+}
+
+bool UDirtbagGameInstance::VanRuns() const
+{
+	return dirtbag::VanRuns(DirtbagConvert::ToSim(Player.Van));
+}
+
+int32 UDirtbagGameInstance::WorstVanPart() const
+{
+	return dirtbag::WorstVanPart(DirtbagConvert::ToSim(Player.Van));
+}
+
+bool UDirtbagGameInstance::BodgeVan()
+{
+	const int32 Part = WorstVanPart();
+	if (Part < 0) return false;
+	dirtbag::Van V = DirtbagConvert::ToSim(Player.Van);
+	double Hours = 0.0;
+	dirtbag::BodgeVan(V, static_cast<dirtbag::VanPart>(Part), Hours);
+	Player.Van = DirtbagConvert::FromSim(V);
+	PassHours(Hours);
+	return true;
+}
+
+bool UDirtbagGameInstance::PatchVan()
+{
+	const int32 Part = WorstVanPart();
+	if (Part < 0) return false;
+	dirtbag::Van V = DirtbagConvert::ToSim(Player.Van);
+	double Cash = Player.Cash, Hours = 0.0;
+	if (!dirtbag::PatchVan(V, static_cast<dirtbag::VanPart>(Part), Cash, Hours))
+	{
+		return false;
+	}
+	Player.Van = DirtbagConvert::FromSim(V);
+	Player.Cash = Cash;
+	PassHours(Hours);
+	return true;
+}
+
+bool UDirtbagGameInstance::ReplaceVanPart()
+{
+	const int32 Part = WorstVanPart();
+	if (Part < 0) return false;
+	dirtbag::Van V = DirtbagConvert::ToSim(Player.Van);
+	double Cash = Player.Cash, Hours = 0.0;
+	if (!dirtbag::ReplaceVanPart(V, static_cast<dirtbag::VanPart>(Part), Cash,
+	                             Hours))
+	{
+		return false;
+	}
+	Player.Van = DirtbagConvert::FromSim(V);
+	Player.Cash = Cash;
+	PassHours(Hours);
+	return true;
+}
+
+int32 UDirtbagGameInstance::DriveVan(double Hours)
+{
+	dirtbag::Van V = DirtbagConvert::ToSim(Player.Van);
+	const dirtbag::Rng World = dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed));
+
+	// The radiator reads the air, not the rock: it is the engine that
+	// overheats, and it does it on the drive rather than at the crag.
+	const double AirF =
+	    bIndoors ? 70.0
+	             : dirtbag::TemperatureAt(
+	                   DirtbagConvert::ToSim(TodaysWeather()), Day.Hour);
+
+	const int Broke = dirtbag::DriveVan(V, World, Player.Day, Hours, AirF);
+	Player.Van = DirtbagConvert::FromSim(V);
+
+	if (Broke >= 0)
+	{
+		VanNews = FString::Printf(
+		    TEXT("The %s went."),
+		    UTF8_TO_TCHAR(dirtbag::VanPartName(
+		        static_cast<dirtbag::VanPart>(Broke))));
+	}
+	return Broke;
 }
 
 // --- The dog -----------------------------------------------------------------

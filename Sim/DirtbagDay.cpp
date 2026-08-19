@@ -31,6 +31,20 @@ void Gain(double& skill, double amount) {
 
 }  // namespace
 
+void Charge(PlayerState& player, double amount) {
+  if (amount <= 0.0) return;
+  const double paid = std::min(player.cash, amount);
+  player.cash -= paid;
+  player.owed += amount - paid;
+}
+
+void Pay(PlayerState& player, double amount) {
+  if (amount <= 0.0) return;
+  const double toDebt = std::min(player.owed, amount);
+  player.owed -= toDebt;
+  player.cash += amount - toDebt;
+}
+
 DayState WakeUp(const PlayerState& player, const DayDials& dials) {
   (void)player;
   DayState day;
@@ -61,7 +75,8 @@ bool EatMeal(PlayerState& player, DayState& day, const DayDials& dials) {
 }
 
 void WorkShift(PlayerState& player, DayState& day, const DayDials& dials) {
-  player.cash += dials.shiftWage;
+  // Debt first: a wage does not reach your pocket until you are level.
+  Pay(player, dials.shiftWage);
   day.energy = std::max(0.0, day.energy - dials.shiftEnergy);
   PassHours(day, dials.shiftHours, dials);
 }
@@ -181,7 +196,7 @@ void SleepToNextDay(PlayerState& player, DayState& day, const DayDials& dials) {
   // Bills land on their morning, every billsEveryDays-th day after day 1.
   if (dials.billsEveryDays > 0 && player.day > 1 &&
       (player.day - 1) % dials.billsEveryDays == 0) {
-    player.cash -= dials.billsAmount;
+    Charge(player, dials.billsAmount);
   }
 
   // A hungry night is a bad night: recovery scales down toward the floor.

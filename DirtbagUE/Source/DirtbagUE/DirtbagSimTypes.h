@@ -12,6 +12,8 @@
 #include "DirtbagCrag.h"
 #include "DirtbagDay.h"
 #include "DirtbagDog.h"
+#include "DirtbagGear.h"
+#include "DirtbagVan.h"
 #include "DirtbagPartner.h"
 #include "DirtbagFirstAscent.h"
 #include "DirtbagSave.h"
@@ -241,6 +243,64 @@ struct FDirtbagProjectMemory
 };
 
 /** Career state — everything that outlives a day; what the save carries. */
+UENUM(BlueprintType)
+enum class EDirtbagVanPart : uint8
+{
+	Tyres,
+	Brakes,
+	Belt,
+	Battery,
+	Radiator,
+	Clutch
+};
+
+/** What is on your feet, and how much of it is left. */
+USTRUCT(BlueprintType)
+struct FDirtbagShoes
+{
+	GENERATED_BODY()
+
+	/** 0 new rubber .. 1 dead. Wears by the move, faster the harder you pull. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gear")
+	double Wear = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gear")
+	int32 Resoles = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gear")
+	int32 PairsOwned = 1;
+};
+
+USTRUCT(BlueprintType)
+struct FDirtbagVanPart
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
+	double Wear = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
+	int32 Patches = 0;
+
+	/** Stops the van until something is done about it. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
+	bool bFailed = false;
+};
+
+/** Shelter, transport, and the reason seasons end early. */
+USTRUCT(BlueprintType)
+struct FDirtbagVan
+{
+	GENERATED_BODY()
+
+	/** Six parts, in EDirtbagVanPart order. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
+	TArray<FDirtbagVanPart> Parts;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
+	double HoursDriven = 0.0;
+};
+
 /** The stray, and then the dog. */
 USTRUCT(BlueprintType)
 struct FDirtbagDog
@@ -331,6 +391,17 @@ struct FDirtbagPlayerState
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dog")
 	FDirtbagDog Dog;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gear")
+	FDirtbagShoes Shoes;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
+	FDirtbagVan Van;
+
+	/** What you could not pay. Cash floors at zero; the shortfall waits
+	 *  here and is the first thing any wage goes to. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	double Owed = 0.0;
 };
 
 /** One day's body-clock. Never saved — saves happen at day boundaries. */
@@ -539,6 +610,10 @@ namespace DirtbagConvert
 	FDirtbagClimber FromSim(const dirtbag::Climber& In);
 	FDirtbagDog FromSim(const dirtbag::Dog& In);
 	dirtbag::Dog ToSim(const FDirtbagDog& In);
+	FDirtbagShoes FromSim(const dirtbag::Shoes& In);
+	dirtbag::Shoes ToSim(const FDirtbagShoes& In);
+	FDirtbagVan FromSim(const dirtbag::Van& In);
+	dirtbag::Van ToSim(const FDirtbagVan& In);
 	FDirtbagPartnerBond FromSim(const dirtbag::PartnerBond& In);
 	dirtbag::PartnerBond ToSim(const FDirtbagPartnerBond& In);
 	FDirtbagPartner FromSim(const dirtbag::Partner& In);

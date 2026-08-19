@@ -35,7 +35,12 @@ enum class EDirtbagSpotKind : uint8
 	 *  working this week. */
 	Fire,
 	/** The bowl by the van. Feed the stray until it is not a stray. */
-	Dog
+	Dog,
+	/** Under the van with a spanner, or at the shop with a wallet. Fixes
+	 *  the worst thing wrong with it the best way you can afford. */
+	Van,
+	/** The gear shop: resole while the uppers hold, replace when not. */
+	GearShop
 };
 
 UCLASS()

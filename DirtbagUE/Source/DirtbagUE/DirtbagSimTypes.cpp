@@ -10,6 +10,7 @@ static_assert(static_cast<int>(EDirtbagMorphology::Powerful) == static_cast<int>
 static_assert(static_cast<int>(EDirtbagRouteRead::NotThisYear) == static_cast<int>(dirtbag::RouteRead::NotThisYear), "RouteRead enums out of sync");
 static_assert(static_cast<int>(EDirtbagAspect::West) == static_cast<int>(dirtbag::Aspect::West), "Aspect enums out of sync");
 static_assert(static_cast<int>(EDirtbagSessionAdvice::Wrecked) == static_cast<int>(dirtbag::SessionAdvice::Wrecked), "SessionAdvice enums out of sync");
+static_assert(static_cast<int>(EDirtbagVanPart::Clutch) == static_cast<int>(dirtbag::VanPart::Clutch), "VanPart enums out of sync");
 
 namespace DirtbagConvert
 {
@@ -159,6 +160,9 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.cash = In.Cash;
 	Out.day = In.Day;
 	Out.dog = ToSim(In.Dog);
+	Out.shoes = ToSim(In.Shoes);
+	Out.van = ToSim(In.Van);
+	Out.owed = In.Owed;
 	Out.bonds.reserve(In.Bonds.Num());
 	for (const FDirtbagPartnerBond& B : In.Bonds)
 	{
@@ -197,6 +201,9 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Cash = In.cash;
 	Out.Day = In.day;
 	Out.Dog = FromSim(In.dog);
+	Out.Shoes = FromSim(In.shoes);
+	Out.Van = FromSim(In.van);
+	Out.Owed = In.owed;
 	Out.Bonds.Reserve(static_cast<int32>(In.bonds.size()));
 	for (const dirtbag::PartnerBond& B : In.bonds)
 	{
@@ -331,6 +338,56 @@ dirtbag::Dog ToSim(const FDirtbagDog& In)
 	Out.adopted = In.bAdopted;
 	Out.bond = In.Bond;
 	Out.fed = In.Fed;
+	return Out;
+}
+
+FDirtbagShoes FromSim(const dirtbag::Shoes& In)
+{
+	FDirtbagShoes Out;
+	Out.Wear = In.wear;
+	Out.Resoles = In.resoles;
+	Out.PairsOwned = In.pairsOwned;
+	return Out;
+}
+
+dirtbag::Shoes ToSim(const FDirtbagShoes& In)
+{
+	dirtbag::Shoes Out;
+	Out.wear = In.Wear;
+	Out.resoles = In.Resoles;
+	Out.pairsOwned = In.PairsOwned;
+	return Out;
+}
+
+FDirtbagVan FromSim(const dirtbag::Van& In)
+{
+	FDirtbagVan Out;
+	Out.HoursDriven = In.hoursDriven;
+	Out.Parts.Reserve(dirtbag::kVanPartCount);
+	for (int i = 0; i < dirtbag::kVanPartCount; i++)
+	{
+		FDirtbagVanPart P;
+		P.Wear = In.parts[i].wear;
+		P.Patches = In.parts[i].patches;
+		P.bFailed = In.parts[i].failed;
+		Out.Parts.Add(P);
+	}
+	return Out;
+}
+
+dirtbag::Van ToSim(const FDirtbagVan& In)
+{
+	dirtbag::Van Out;
+	Out.hoursDriven = In.HoursDriven;
+	// A mirror arriving with the wrong number of parts would silently drop
+	// or invent damage, so only copy what is actually there.
+	const int32 n = FMath::Min(In.Parts.Num(), dirtbag::kVanPartCount);
+	for (int32 i = 0; i < n; i++)
+	{
+		Out.parts[i].wear = In.Parts[i].Wear;
+		Out.parts[i].patches = In.Parts[i].Patches;
+		Out.parts[i].failed = In.Parts[i].bFailed;
+	}
 	return Out;
 }
 

@@ -110,6 +110,10 @@ void MigrateV5ToV6(SaveFields& fields) {
   }
 }
 
+// v6 → v7: what you owe. A v6 career could not owe anything, because there
+// was nowhere to owe it — the number was simply missing from cash.
+void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
+
 // v4 → v5: the dog. A v4 career never met it, so it migrates to exactly the
 // stray a new career finds at the Lot: nobody's, unbonded, and hungry.
 void MigrateV4ToV5(SaveFields& fields) {
@@ -124,7 +128,7 @@ void MigrateV4ToV5(SaveFields& fields) {
 const std::vector<Migration>& DefaultMigrations() {
   static const std::vector<Migration> kMigrations = {
       &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5,
-      &MigrateV5ToV6};
+      &MigrateV5ToV6, &MigrateV6ToV7};
   return kMigrations;
 }
 
@@ -173,6 +177,7 @@ std::string SerializeSave(const SaveGame& save) {
         << "\n";
   }
 
+  out << "owed=" << NumToStr(save.player.owed) << "\n";
   out << "shoes.wear=" << NumToStr(save.player.shoes.wear) << "\n";
   out << "shoes.resoles=" << IntToStr(save.player.shoes.resoles) << "\n";
   out << "shoes.pairs=" << IntToStr(save.player.shoes.pairsOwned) << "\n";
@@ -272,7 +277,8 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     save.player.projects.push_back(m);
   }
 
-  if (!ParseDouble(fields, "shoes.wear", save.player.shoes.wear) ||
+  if (!ParseDouble(fields, "owed", save.player.owed) ||
+      !ParseDouble(fields, "shoes.wear", save.player.shoes.wear) ||
       !ParseInt(fields, "shoes.resoles", save.player.shoes.resoles) ||
       !ParseInt(fields, "shoes.pairs", save.player.shoes.pairsOwned) ||
       !ParseDouble(fields, "van.hours", save.player.van.hoursDriven)) {

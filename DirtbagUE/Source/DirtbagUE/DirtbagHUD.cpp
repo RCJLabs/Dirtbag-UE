@@ -76,6 +76,30 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	DrawText(Game->ConditionsLine(), ConditionsInk, X, Y,
 	         GEngine->GetSmallFont(), 1.f);
 
+	// Debt, and the van. Both are the kind of thing that should be in your
+	// eyeline on the morning you are deciding what the day is for.
+	if (Game->Player.Owed > 0.0 || !Game->VanRuns() ||
+	    !Game->VanLine().IsEmpty())
+	{
+		Y += 20.f;
+		FString Line;
+		if (Game->Player.Owed > 0.0)
+		{
+			Line = FString::Printf(TEXT("owe $%.0f"), Game->Player.Owed);
+		}
+		const FString Van = Game->VanNews.IsEmpty() ? Game->VanLine()
+		                                            : Game->VanNews;
+		if (!Van.IsEmpty())
+		{
+			Line += Line.IsEmpty() ? Van : FString::Printf(TEXT("   %s"), *Van);
+		}
+		DrawText(Line,
+		         (!Game->VanRuns() || Game->Player.Owed > 0.0)
+		             ? FLinearColor(0.85f, 0.45f, 0.35f, 1.f)
+		             : kDim,
+		         X, Y, GEngine->GetSmallFont(), 1.f);
+	}
+
 	// The dog sits with the conditions line, because on a warm day they are
 	// the same sentence.
 	if (Game->Player.Dog.bAdopted || Game->Player.Dog.Bond > 0.0)

@@ -68,6 +68,18 @@ FString ADirtbagDaySpot::PromptText() const
 	case EDirtbagSpotKind::Dog:
 		return FString::Printf(TEXT("Feed it?  (E)  -  %s.  $%.0f"),
 		                       *Game->DogLine(), Game->Player.Cash);
+	case EDirtbagSpotKind::Van:
+	{
+		const FString What = Game->VanLine();
+		return What.IsEmpty()
+		           ? FString::Printf(TEXT("Look at the van?  (E)  -  nothing "
+		                                  "wrong with it"))
+		           : FString::Printf(TEXT("Sort the van?  (E)  -  %s.  $%.0f"),
+		                             *What, Game->Player.Cash);
+	}
+	case EDirtbagSpotKind::GearShop:
+		return FString::Printf(TEXT("Shoes?  (E)  -  %s.  $%.0f"),
+		                       *Game->ShoeLine(), Game->Player.Cash);
 	case EDirtbagSpotKind::Fire:
 	{
 		// The fire's prompt names who is here, because that is what makes
@@ -178,6 +190,61 @@ void ADirtbagDaySpot::OnInteract()
 		BeginDrive();
 		break;
 	}
+	case EDirtbagSpotKind::Van:
+	{
+		if (Game->WorstVanPart() < 0)
+		{
+			Say(TEXT("Nothing wrong with it worth the afternoon."),
+			    FColor::Silver);
+			break;
+		}
+		// Best repair you can actually afford, which is the decision when
+		// you are broke and the honest default when you are not.
+		if (Game->ReplaceVanPart())
+		{
+			Say(FString::Printf(TEXT("Done properly.  $%.0f left."),
+			                    Game->Player.Cash),
+			    FColor::Green, 6.f);
+		}
+		else if (Game->PatchVan())
+		{
+			Say(FString::Printf(TEXT("Patched. It will hold a while.  $%.0f "
+			                         "left."), Game->Player.Cash),
+			    FColor::Yellow, 6.f);
+		}
+		else
+		{
+			Game->BodgeVan();
+			Say(TEXT("Four hours under it with a spanner. It will do."),
+			    FColor::Orange, 6.f);
+		}
+		break;
+	}
+	case EDirtbagSpotKind::GearShop:
+	{
+		if (Game->Player.Shoes.Wear < 0.3)
+		{
+			Say(TEXT("Your shoes are fine. Keep your money."), FColor::Silver);
+			break;
+		}
+		if (Game->ResoleShoes())
+		{
+			Say(FString::Printf(TEXT("Resoled.  $%.0f left."),
+			                    Game->Player.Cash),
+			    FColor::Green, 6.f);
+		}
+		else if (Game->BuyNewShoes())
+		{
+			Say(FString::Printf(TEXT("New rubber.  $%.0f left."),
+			                    Game->Player.Cash),
+			    FColor::Green, 6.f);
+		}
+		else
+		{
+			Say(TEXT("Not this week."), FColor::Orange);
+		}
+		break;
+	}
 	case EDirtbagSpotKind::Dog:
 	{
 		const bool bWasStray = !Game->Player.Dog.bAdopted;
@@ -254,6 +321,17 @@ void ADirtbagDaySpot::BeginDrive()
 		return;
 	}
 
+	// A broken van does not go anywhere, and this is the one place in the
+	// game that says no. It is not a lock: bodging is free and always
+	// works, so the way out is four hours rather than money.
+	if (Game && !Game->VanRuns())
+	{
+		Say(FString::Printf(TEXT("%s  (E at the van to sort it)"),
+		                    *Game->VanLine()),
+		    FColor::Red, 6.f);
+		return;
+	}
+
 	// Fade out, let the clock run, arrive. The drive is time and a change of
 	// place; the van earns its opinions about both in Phase 3.
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
@@ -289,8 +367,17 @@ void ADirtbagDaySpot::ArriveFromDrive()
 		}
 	}
 
+	// The drive itself: hours on the clock, hours on the van, and the
+	// chance that the thing you have been ignoring picks this morning.
+	const int32 Broke = Game->DriveVan(TravelHours);
 	Game->PassHours(TravelHours);
 	Game->SetVenue(ArriveAt);
+
+	if (Broke >= 0)
+	{
+		Say(FString::Printf(TEXT("%s  %s"), *Game->VanNews, *Game->VanLine()),
+		    FColor::Red, 8.f);
+	}
 
 	if (PC && PC->PlayerCameraManager)
 	{

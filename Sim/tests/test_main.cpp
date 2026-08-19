@@ -1716,6 +1716,54 @@ static void TestShoesReachTheSession() {
 
 // --- The van -------------------------------------------------------------------
 
+static void TestBillsYouCannotPayWait() {
+  // Bills used to deduct unconditionally, so cash sat at -16 with no debt
+  // mechanic behind it — a hole with nothing in it. Money now floors at
+  // zero and the shortfall waits.
+  DayDials d;
+  PlayerState player;
+  player.cash = 30.0;
+  player.owed = 0.0;
+
+  Charge(player, 100.0);
+  CHECK(player.cash == 0.0);      // never negative
+  CHECK(std::fabs(player.owed - 70.0) < 1e-12);
+
+  // A wage goes to what you owe before it goes to you.
+  Pay(player, 50.0);
+  CHECK(player.cash == 0.0);
+  CHECK(std::fabs(player.owed - 20.0) < 1e-12);
+
+  // And once you are level the rest is yours.
+  Pay(player, 50.0);
+  CHECK(player.owed == 0.0);
+  CHECK(std::fabs(player.cash - 30.0) < 1e-12);
+
+  // Charging nothing does nothing.
+  const double cash = player.cash;
+  Charge(player, 0.0);
+  Pay(player, 0.0);
+  CHECK(player.cash == cash);
+  CHECK(player.owed == 0.0);
+
+  // Bills landing on a broke career leave debt rather than negative cash,
+  // and a shift digs you out rather than paying you.
+  PlayerState broke;
+  broke.cash = 5.0;
+  DayState day = WakeUp(broke, d);
+  for (int i = 0; i < d.billsEveryDays; i++) {
+    SleepToNextDay(broke, day, d);
+    day = WakeUp(broke, d);
+  }
+  CHECK(broke.cash >= 0.0);
+  CHECK(broke.owed > 0.0);
+
+  const double owedBefore = broke.owed;
+  WorkShift(broke, day, d);
+  CHECK(broke.owed < owedBefore);
+  CHECK(broke.cash >= 0.0);
+}
+
 static void TestLoadsVersion5Save() {
   // A v5 career, from before anything you owned could wear out. Shoes and
   // van both arrive new — generous rather than exact, because the honest
@@ -1754,11 +1802,13 @@ static void TestLoadsVersion5Save() {
     CHECK(!loaded.player.van.parts[i].failed);
   }
   CHECK(VanRuns(loaded.player.van));
+  CHECK(loaded.player.owed == 0.0);   // could not have owed anything
 }
 
 static void TestWhatYouOwnSurvivesASave() {
   SaveGame save;
   save.seed = "crag-1";
+  save.player.owed = 137.5;
   save.player.shoes.wear = 0.62;
   save.player.shoes.resoles = 1;
   save.player.shoes.pairsOwned = 3;
@@ -1769,6 +1819,7 @@ static void TestWhatYouOwnSurvivesASave() {
 
   SaveGame back;
   CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(std::fabs(back.player.owed - 137.5) < 1e-12);
   CHECK(std::fabs(back.player.shoes.wear - 0.62) < 1e-12);
   CHECK(back.player.shoes.resoles == 1);
   CHECK(back.player.shoes.pairsOwned == 3);
@@ -2985,6 +3036,7 @@ int main() {
   TestTheWholeArc();
   TestSaveCarriesFirstAscents();
   TestLoadsVersion2Save();
+  TestBillsYouCannotPayWait();
   TestLoadsVersion5Save();
   TestWhatYouOwnSurvivesASave();
   TestDrivingWearsTheVan();

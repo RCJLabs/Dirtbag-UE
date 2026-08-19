@@ -38,7 +38,10 @@ namespace dirtbag {
 //   fresh rubber and a van with nothing wrong with it. That is generous
 //   rather than exact, and deliberately so — the alternative is inventing
 //   damage a player never earned.
-constexpr int kSaveVersion = 6;
+// Version 7: what you owe. Bills used to deduct unconditionally and leave
+//   cash negative with nothing behind it; the shortfall is now debt. A v6
+//   career owed nothing, which is exact rather than generous.
+constexpr int kSaveVersion = 7;
 
 struct SaveGame {
   int version = kSaveVersion;

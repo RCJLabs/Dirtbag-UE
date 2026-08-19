@@ -291,6 +291,52 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	FString SessionAdviceText() const;
 
+	// --- Gear and the van ------------------------------------------------
+
+	/** "the rubber is going; worth a resole" */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
+	FString ShoeLine() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
+	bool ResoleShoes();
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
+	bool BuyNewShoes();
+
+	/** "the belt is on borrowed time" — empty when there is nothing to say. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
+	FString VanLine() const;
+
+	/** Is the van going anywhere? */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
+	bool VanRuns() const;
+
+	/** The part that needs attention, or -1 when nothing does. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
+	int32 WorstVanPart() const;
+
+	/** Free, four hours, and it will not hold. Always available — being
+	 *  broke must never end a save. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
+	bool BodgeVan();
+
+	/** Cash, twice per part, and it holds a while. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
+	bool PatchVan();
+
+	/** More cash, and actually fixed. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
+	bool ReplaceVanPart();
+
+	/** Drive somewhere: wears the van and may break it. Returns the part
+	 *  that went, or -1. Called by the travel spot. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
+	int32 DriveVan(double Hours);
+
+	/** Set when something let go on a drive. Cleared at lights out. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
+	FString VanNews;
+
 	// --- The dog ---------------------------------------------------------
 
 	/** Feed it. Costs cash; enough meals and the stray is yours, with no
