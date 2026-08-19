@@ -11,6 +11,7 @@
 #include "../DirtbagCore.h"
 #include "../DirtbagCrag.h"
 #include "../DirtbagDay.h"
+#include "../DirtbagDog.h"
 #include "../DirtbagFirstAscent.h"
 #include "../DirtbagPartner.h"
 #include "../DirtbagRng.h"
@@ -1201,6 +1202,183 @@ static void TestTheFireHasSomethingToSay() {
   }
 }
 
+// --- The dog -------------------------------------------------------------------
+
+static void TestAStrayBecomesYoursByBeingFed() {
+  DogDials d;
+  Dog dog;
+  double cash = 100.0;
+
+  CHECK(!dog.adopted);
+  CHECK(dog.bond == 0.0);
+  CHECK(DogPsyche(dog, d) == 0.0);   // a stray is not company yet
+
+  // No ceremony: you feed it enough times and it stops being a stray.
+  int meals = 0;
+  while (!dog.adopted && meals < 20) {
+    CHECK(FeedDog(dog, cash, d));
+    meals++;
+  }
+  CHECK(dog.adopted);
+  CHECK(meals >= 2);                 // and not on the first tin
+  CHECK(meals <= 6);                 // nor after a month of it
+  CHECK(cash < 100.0);               // it costs, every time
+  CHECK(DogPsyche(dog, d) > 0.0);
+
+  // Broke is broke.
+  double empty = 0.0;
+  Dog other;
+  CHECK(!FeedDog(other, empty, d));
+  CHECK(other.fed == Dog{}.fed);     // and nothing happened
+}
+
+static void TestTheDogGetsHungryAndSaysSo() {
+  DogDials d;
+  Dog dog;
+  dog.adopted = true;
+  dog.bond = 0.9;
+  dog.fed = 1.0;
+  CHECK(DogPsyche(dog, d) > 0.0);
+
+  for (int day = 0; day < 3; day++) DogDay(dog, true, d);
+  CHECK(dog.fed < 1.0);
+
+  // Once it is actually hungry, having it around stops being a comfort.
+  dog.fed = 0.1;
+  CHECK(DogPsyche(dog, d) < 0.0);
+  CHECK(DogText(dog, d).find("not eaten") != std::string::npos);
+
+  // Feeding fixes it, and never overfills.
+  double cash = 50.0;
+  for (int i = 0; i < 10; i++) FeedDog(dog, cash, d);
+  CHECK(dog.fed == 1.0);
+  CHECK(dog.bond == 1.0);
+  CHECK(DogPsyche(dog, d) > 0.0);
+}
+
+static void TestBondNeedsYouAround() {
+  DogDials d;
+  Dog dog;
+  dog.adopted = true;
+  dog.fed = 1.0;
+  for (int i = 0; i < 10; i++) DogDay(dog, true, d);
+  const double close = dog.bond;
+  CHECK(close > 0.0);
+
+  for (int i = 0; i < 10; i++) DogDay(dog, false, d);
+  CHECK(dog.bond < close);
+  CHECK(dog.bond >= 0.0);
+
+  // Company is worth something and never worth a grade — the same rule the
+  // Lot's people are held to, since it lands in the same place.
+  SessionDials sd;
+  Dog devoted;
+  devoted.adopted = true;
+  devoted.fed = 1.0;
+  devoted.bond = 1.0;
+  CHECK(DogPsyche(devoted, d) * sd.psycheWeight < 1.0);
+}
+
+static void TestTheDogClimbsWithYou() {
+  // The dog is not a line of text: it lands in the body you climb in, the
+  // same place fatigue does.
+  PlayerState player;
+  DayState day = WakeUp(player);
+  const double alone = ClimberForSession(player, day).psyche;
+
+  player.dog.adopted = true;
+  player.dog.fed = 1.0;
+  player.dog.bond = 1.0;
+  const double together = ClimberForSession(player, day).psyche;
+  CHECK(together > alone);
+
+  // And a hungry one is worse than no dog at all, which is the honest
+  // version of having taken something on.
+  player.dog.fed = 0.05;
+  const double guilty = ClimberForSession(player, day).psyche;
+  CHECK(guilty < alone);
+
+  // Psyche stays a 0..1 quantity whatever the dog is doing.
+  for (double bond : {0.0, 0.5, 1.0}) {
+    for (double fed : {0.0, 0.5, 1.0}) {
+      player.dog.bond = bond;
+      player.dog.fed = fed;
+      const double p = ClimberForSession(player, day).psyche;
+      CHECK(p >= 0.0 && p <= 1.0);
+    }
+  }
+}
+
+static void TestTheVanGetsHot() {
+  DogDials d;
+  Dog dog;
+  dog.adopted = true;
+  dog.fed = 1.0;
+
+  CHECK(VanIsSafe(60.0, d));
+  CHECK(VanGuilt(dog, 60.0, d) == 0.0);      // a cool day costs nothing
+
+  CHECK(!VanIsSafe(d.warmVanF + 5.0, d));
+  const double warm = VanGuilt(dog, d.warmVanF + 5.0, d);
+  const double hot = VanGuilt(dog, d.warmVanF + 25.0, d);
+  CHECK(warm > 0.0);
+  CHECK(hot > warm);                          // and it rises with the heat
+
+  // There is no lock anywhere in this: a stray is not your problem, and
+  // you can always leave. It just costs.
+  Dog stray;
+  CHECK(VanGuilt(stray, 110.0, d) == 0.0);
+}
+
+static void TestTheDogSurvivesASave() {
+  SaveGame save;
+  save.seed = "crag-1";
+  save.player.dog.name = "Biscuit";
+  save.player.dog.adopted = true;
+  save.player.dog.bond = 0.73;
+  save.player.dog.fed = 0.41;
+
+  SaveGame loaded;
+  CHECK(DeserializeSave(SerializeSave(save), loaded) == LoadResult::Ok);
+  CHECK(loaded.player.dog.name == "Biscuit");
+  CHECK(loaded.player.dog.adopted);
+  CHECK(std::fabs(loaded.player.dog.bond - 0.73) < 1e-12);
+  CHECK(std::fabs(loaded.player.dog.fed - 0.41) < 1e-12);
+}
+
+static void TestLoadsVersion4Save() {
+  // A v4 career, from before the dog. It never met one, so it migrates to
+  // exactly the stray a new career finds at the Lot.
+  const std::string v4 =
+      "version=4\n"
+      "seed=crag-1\n"
+      "day=31\n"
+      "cash=95\n"
+      "skills.power=56\n"
+      "skills.fingers=58\n"
+      "skills.technique=53\n"
+      "skills.endurance=55\n"
+      "skills.head=51\n"
+      "morphology=1\n"
+      "skin=8\n"
+      "psyche=0.7\n"
+      "projects=0\n"
+      "bonds=1\n"
+      "bond.0.name=Margo\n"
+      "bond.0.rapport=0.3\n"
+      "bond.0.fas=0\n";
+
+  SaveGame loaded;
+  CHECK(DeserializeSave(v4, loaded) == LoadResult::Ok);
+  CHECK(loaded.version == kSaveVersion);
+  CHECK(loaded.player.day == 31);
+  CHECK(loaded.player.bonds.size() == 1);
+  CHECK(loaded.player.bonds[0].name == "Margo");
+  CHECK(!loaded.player.dog.adopted);       // never met it
+  CHECK(loaded.player.dog.bond == 0.0);
+  CHECK(loaded.player.dog.fed > 0.0);      // and it is hungry, as strays are
+}
+
 // --- RNG ---------------------------------------------------------------------
 
 static void TestRngDeterminism() {
@@ -2251,6 +2429,13 @@ int main() {
   TestTheWholeArc();
   TestSaveCarriesFirstAscents();
   TestLoadsVersion2Save();
+  TestAStrayBecomesYoursByBeingFed();
+  TestTheDogGetsHungryAndSaysSo();
+  TestBondNeedsYouAround();
+  TestTheDogClimbsWithYou();
+  TestTheVanGetsHot();
+  TestTheDogSurvivesASave();
+  TestLoadsVersion4Save();
   TestSaveCarriesWhoYouKnow();
   TestLoadsVersion3Save();
   TestTheLotIsPeopleNotADistribution();

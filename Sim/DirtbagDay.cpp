@@ -75,6 +75,13 @@ Climber ClimberForSession(const PlayerState& player, const DayState& day,
   const double fatigue =
       Clamp01((dials.freshEnergy - day.energy) / std::max(1.0, dials.freshEnergy));
   c.psyche = std::max(0.05, c.psyche - dials.fatiguePsyche * fatigue);
+
+  // The dog, which cuts both ways: a settled one at the base of the boulder
+  // is worth a little, and knowing it has not eaten is worth rather more in
+  // the other direction. Applied here because this is where the body you
+  // actually climb in gets assembled.
+  c.psyche = Clamp01(c.psyche + DogPsyche(player.dog));
+  c.psyche = std::max(0.05, c.psyche);
   return c;
 }
 

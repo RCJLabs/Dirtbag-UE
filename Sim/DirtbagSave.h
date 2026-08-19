@@ -31,7 +31,9 @@ namespace dirtbag {
 //   first. Nobody's strength is stored, because it is derived from the seed
 //   and the date. A v3 career knew nobody, which is exactly what an absent
 //   list means, so this migration writes a count of zero and nothing else.
-constexpr int kSaveVersion = 4;
+// Version 5: the dog. A v4 career had not met it, so it migrates to the
+//   stray it starts as — unadopted, unbonded, and hungry.
+constexpr int kSaveVersion = 5;
 
 struct SaveGame {
   int version = kSaveVersion;

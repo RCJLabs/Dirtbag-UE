@@ -76,6 +76,18 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	DrawText(Game->ConditionsLine(), ConditionsInk, X, Y,
 	         GEngine->GetSmallFont(), 1.f);
 
+	// The dog sits with the conditions line, because on a warm day they are
+	// the same sentence.
+	if (Game->Player.Dog.bAdopted || Game->Player.Dog.Bond > 0.0)
+	{
+		Y += 20.f;
+		const bool bWorried = !Game->DogWorry.IsEmpty() ||
+		                      Game->Player.Dog.Fed < 0.35;
+		DrawText(Game->DogWorry.IsEmpty() ? Game->DogLine() : Game->DogWorry,
+		         bWorried ? FLinearColor(0.85f, 0.45f, 0.35f, 1.f) : kDim, X,
+		         Y, GEngine->GetSmallFont(), 1.f);
+	}
+
 	// What the Lot did while you were not looking. Gold, like the naming
 	// prompt, because losing a line and getting one are the same size of
 	// event from opposite ends.
