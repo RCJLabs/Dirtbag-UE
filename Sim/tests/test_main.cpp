@@ -15,6 +15,7 @@
 #include "../DirtbagGear.h"
 #include "../DirtbagFactions.h"
 #include "../DirtbagJobs.h"
+#include "../DirtbagAge.h"
 #include "../DirtbagBody.h"
 #include "../DirtbagKit.h"
 #include "../DirtbagTown.h"
@@ -3431,6 +3432,138 @@ static void TestSaveRejectsGarbageAndFuture() {
 
 // --- The body ----------------------------------------------------------------
 
+// --- Age ---------------------------------------------------------------------
+
+static void TestAgeIsDerivedNotStored() {
+  // Age is computed from the day counter, which is why adding it needed no
+  // save version at all — and why a save can never disagree with a birthday.
+  AgeDials d;
+  CHECK(AgeOn(1, d) == d.startAge);
+  CHECK(AgeOn(1 + d.daysPerYear, d) == d.startAge + 1.0);
+  CHECK(AgeOn(1 + 10 * d.daysPerYear, d) == d.startAge + 10.0);
+  CHECK(AgeOn(2, d) > AgeOn(1, d));
+}
+
+static void TestNothingIsTakenBeforeThePeak() {
+  // A twenty-four-year-old is not losing anything. A system that quietly
+  // taxed them from day one would be a bug nobody could see.
+  AgeDials d;
+  Climber young;
+  young.skills = {80, 80, 80, 80, 80};
+  const Skills before = young.skills;
+  for (int day = 1; day < static_cast<int>((d.powerPeak - d.startAge) *
+                                           d.daysPerYear); day++) {
+    AgeDay(young, day, d);
+  }
+  CHECK(young.skills.power == before.power);
+  CHECK(young.skills.fingers == before.fingers);
+  CHECK(young.skills.endurance == before.endurance);
+}
+
+static void TestPowerGoesFirstAndTechniqueNeverGoes() {
+  // The asymmetry is the whole reason to have this system: it changes what
+  // kind of climber you are, not just how good. The best climber at the
+  // crag is often the one nobody would pick in an arm wrestle.
+  AgeDials d;
+  Climber old;
+  old.skills = {100, 100, 100, 100, 100};
+  for (int day = 1; day <= 30 * d.daysPerYear; day++) AgeDay(old, day, d);
+
+  CHECK(old.skills.technique == 100.0);   // never declines, at any age
+  CHECK(old.skills.head == 100.0);
+  CHECK(old.skills.power < old.skills.fingers);      // power goes first
+  CHECK(old.skills.fingers < old.skills.endurance);  // and endurance last
+  CHECK(old.skills.power > 0.0);                     // but nobody unlearns
+}
+
+static void TestTheCeilingIsWhatTrainingCannotArgueWith() {
+  AgeDials d;
+  // Without a falling ceiling, a climber who keeps turning up never
+  // declines at all: measured, they pinned at 100 power from 28 to 52,
+  // because training gains at the ceiling (~8 points a year) outrun decay
+  // (1.6) five to one. Nobody climbs at 52 the way they did at 28.
+  CHECK(MaxSkillFor(d.powerPeak - 1.0, d.powerPeak, d.ceilingLostPerYear, d) ==
+        100.0);
+  CHECK(MaxSkillFor(d.powerPeak + 10.0, d.powerPeak, d.ceilingLostPerYear, d) <
+        100.0);
+  CHECK(MaxSkillFor(200.0, d.powerPeak, d.ceilingLostPerYear, d) ==
+        d.ceilingFloor);
+
+  // It holds a trained climber down...
+  Climber trained;
+  trained.skills = {100, 100, 100, 100, 100};
+  for (int day = 1; day <= 25 * d.daysPerYear; day++) {
+    trained.skills.power = 100.0;   // trains it straight back every day
+    AgeDay(trained, day, d);
+  }
+  CHECK(trained.skills.power < 100.0);
+  CHECK(trained.skills.power ==
+        MaxSkillFor(AgeOn(25 * d.daysPerYear, d), d.powerPeak,
+                    d.ceilingLostPerYear, d));
+
+  // ...and leaves alone anybody it was never limiting. Somebody at 60 power
+  // in their forties was not being held back by their age.
+  Climber ordinary;
+  ordinary.skills = {60, 60, 60, 60, 60};
+  const double was = ordinary.skills.power;
+  AgeDay(ordinary, 20 * d.daysPerYear, d);
+  CHECK(ordinary.skills.power < was);          // decay still applies
+  CHECK(ordinary.skills.power > 59.0);         // but the ceiling does not
+}
+
+static void TestAgeShrinksTheTrainingBudgetNotTheClimber() {
+  // The real mechanic. An older climber is not a smaller climber — they are
+  // one who cannot train as much, because load clears more slowly and the
+  // line they get hurt at has come down to meet them.
+  AgeDials ad;
+  BodyDials bd;
+  CHECK(RecoveryFactorFor(25.0, ad) == 1.0);
+  CHECK(RecoveryFactorFor(ad.recoveryHoldsUntil, ad) == 1.0);
+  CHECK(RecoveryFactorFor(45.0, ad) < RecoveryFactorFor(35.0, ad));
+  CHECK(RecoveryFactorFor(200.0, ad) == ad.recoveryFloor);   // and it floors
+
+  CHECK(InjuryThresholdFor(25.0, bd.injuryThreshold, ad) == bd.injuryThreshold);
+  CHECK(InjuryThresholdFor(50.0, bd.injuryThreshold, ad) < bd.injuryThreshold);
+  CHECK(InjuryThresholdFor(200.0, bd.injuryThreshold, ad) ==
+        ad.injuryThresholdFloor);
+
+  // The same session, twenty years apart: the older climber carries it
+  // longer, which is the entire difference.
+  Climber young, old;
+  young.load = old.load = 40.0;
+  BodyDay(young, false, 25.0, bd, ad);
+  BodyDay(old, false, 50.0, bd, ad);
+  CHECK(old.load > young.load);
+}
+
+static void TestACareerHasAnArc() {
+  // The shape, end to end: a climber who trains hard peaks and then comes
+  // down, and the technical line outlasts the power line the whole way.
+  AgeDials ad;
+  Rng world = Rng::FromStream("arc", Stream::Worldgen);
+  const Route power = BuildRoute(world, "Burl", 8, 6, RouteType::Power,
+                                 Discipline::Boulder);
+  const Route tech = BuildRoute(world, "Slab", 8, 6, RouteType::Technical,
+                                Discipline::Boulder);
+
+  Climber c;
+  c.skills = {100, 100, 100, 100, 100};
+  double peak = 0.0;
+  double atPeakAge = 0.0;
+  double last = 0.0;
+  for (int day = 1; day <= 30 * ad.daysPerYear; day++) {
+    AgeDay(c, day, ad);
+    const double now = AbilityOnRoute(c, power);
+    if (now > peak) { peak = now; atPeakAge = AgeOn(day, ad); }
+    last = now;
+    // Technique carries you: the slab is never harder than the burl.
+    CHECK(AbilityOnRoute(c, tech) >= now - 1e-9);
+  }
+  CHECK(atPeakAge < 30.0);        // the peak is early, and it is behind you
+  CHECK(last < peak - 2.0);       // and the arc really does come down
+  CHECK(last > 4.0);              // to a climber, not to nothing
+}
+
 static void TestANightIsWhereEverythingCountsDown() {
   // Three per-day ticks have now been written and left uncalled: KitDay
   // (one $75 bought 365 days of membership), the body roll, and FactionDay
@@ -3491,7 +3624,7 @@ static void TestLoadIsASlowerClockThanSkin() {
   c.load = 100.0;
   int nights = 0;
   while (c.load > 0.0 && nights < 200) {
-    BodyDay(c, false, bd);
+    BodyDay(c, false, 25.0, bd);
     nights++;
   }
   CHECK(nights > 20);          // a month-ish, not a week
@@ -3502,8 +3635,8 @@ static void TestLoadIsASlowerClockThanSkin() {
   // a decision rather than a day you lost.
   Climber lazy, resting;
   lazy.load = resting.load = 50.0;
-  BodyDay(lazy, false, bd);
-  BodyDay(resting, true, bd);
+  BodyDay(lazy, false, 25.0, bd);
+  BodyDay(resting, true, 25.0, bd);
   CHECK(resting.load < lazy.load);
 }
 
@@ -4199,6 +4332,12 @@ int main() {
   TestSevenDayLoop();
   TestSaveRoundTrip();
   TestSaveRejectsGarbageAndFuture();
+  TestAgeIsDerivedNotStored();
+  TestNothingIsTakenBeforeThePeak();
+  TestPowerGoesFirstAndTechniqueNeverGoes();
+  TestTheCeilingIsWhatTrainingCannotArgueWith();
+  TestAgeShrinksTheTrainingBudgetNotTheClimber();
+  TestACareerHasAnArc();
   TestANightIsWhereEverythingCountsDown();
   TestLoadRisesWithHardnessNotMileage();
   TestLoadIsASlowerClockThanSkin();

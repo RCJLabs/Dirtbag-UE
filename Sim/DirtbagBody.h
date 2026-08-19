@@ -25,6 +25,7 @@
 
 #include <string>
 
+#include "DirtbagAge.h"
 #include "DirtbagCore.h"
 #include "DirtbagRng.h"
 
@@ -134,14 +135,20 @@ void AddLoad(Climber& climber, double amount,
 // Overnight: load comes down, an injury counts down, and being hurt keeps
 // its own slow grip on psyche. `restedToday` is the honest kind of rest —
 // a day you did not pull on at all.
-void BodyDay(Climber& climber, bool restedToday,
-             const BodyDials& dials = BodyDials{});
+// `age` is passed rather than stored so a save can never disagree with the
+// birthday. Recovery slows past 30 and the injury threshold comes down with
+// it — which is the whole of what aging does mechanically, and it is a
+// shrinking training budget rather than a smaller climber.
+void BodyDay(Climber& climber, bool restedToday, double age,
+             const BodyDials& dials = BodyDials{},
+             const AgeDials& ageDials = AgeDials{});
 
 // Roll once for the day, on the body's own named stream so that getting
 // hurt can never shift worldgen or how an attempt resolved. Returns true if
 // today is the day. Only ever fires above the threshold.
 bool RollForInjury(Climber& climber, const Rng& worldRng, int day,
-                   const BodyDials& dials = BodyDials{});
+                   const BodyDials& dials = BodyDials{},
+                   const AgeDials& ageDials = AgeDials{});
 
 // Pulling on while hurt. Returns true if you made it worse, which is the
 // gamble — most of the time you get away with it, and that is what makes

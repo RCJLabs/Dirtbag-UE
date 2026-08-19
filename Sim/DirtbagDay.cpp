@@ -297,10 +297,14 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // Tendons recover on their own clock — a month where skin takes six
   // nights. A day you never pulled on is worth about twice one you did,
   // which is what finally makes a rest day a decision.
-  BodyDay(player.climber, !day.atGym);
+  BodyDay(player.climber, !day.atGym, AgeOn(player.day));
   // And the roll, on a day you actually pulled on. Never on a rest day:
   // tendons do not tear in a camp chair.
   if (day.atGym) RollForInjury(player.climber, worldRng, player.day);
+
+  // A day older. Nothing is subtracted before the relevant peak, so a
+  // twenty-four-year-old is not quietly being taxed from day one.
+  AgeDay(player.climber, player.day);
 
   // The month runs down like everything else that runs out. Without this
   // the probe reported 365 days of membership bought with a single $75,

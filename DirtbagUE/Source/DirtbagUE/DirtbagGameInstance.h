@@ -303,6 +303,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
 	bool BuyNewShoes();
 
+	// --- Age -------------------------------------------------------------
+	// Derived from the day counter, never stored — which is why adding it
+	// needed no save version, and why a save can never disagree with a
+	// birthday.
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
+	double Age() const;
+
+	/** "31 — still going up" / "44 — the good years, if you are careful" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
+	FString AgeLine() const;
+
 	// --- Where you stand -------------------------------------------------
 
 	/** "the crag is closed. The signs went up on the gate." — or empty when

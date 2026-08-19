@@ -496,6 +496,18 @@ FString UDirtbagGameInstance::ShoeLine() const
 	    dirtbag::ShoeText(DirtbagConvert::ToSim(Player.Shoes)).c_str()));
 }
 
+// --- Age ---------------------------------------------------------------------
+
+double UDirtbagGameInstance::Age() const
+{
+	return dirtbag::AgeOn(Player.Day);
+}
+
+FString UDirtbagGameInstance::AgeLine() const
+{
+	return UTF8_TO_TCHAR(dirtbag::AgeText(Age()).c_str());
+}
+
 // --- Where you stand ---------------------------------------------------------
 
 FString UDirtbagGameInstance::StandingLine() const

@@ -63,9 +63,11 @@ void AccrueLoad(Climber& climber, double challenge, HoldType hardestHold,
   AddLoad(climber, dials.loadPerAttempt * Clamp01(challenge) * where, dials);
 }
 
-void BodyDay(Climber& climber, bool restedToday, const BodyDials& dials) {
+void BodyDay(Climber& climber, bool restedToday, double age,
+             const BodyDials& dials, const AgeDials& ageDials) {
   const double back =
-      dials.recoveryPerNight + (restedToday ? dials.restDayBonus : 0.0);
+      (dials.recoveryPerNight + (restedToday ? dials.restDayBonus : 0.0)) *
+      RecoveryFactorFor(age, ageDials);
   climber.load = std::max(0.0, climber.load - back);
 
   if (climber.injury.active) {
@@ -79,10 +81,12 @@ void BodyDay(Climber& climber, bool restedToday, const BodyDials& dials) {
 }
 
 bool RollForInjury(Climber& climber, const Rng& worldRng, int day,
-                   const BodyDials& dials) {
+                   const BodyDials& dials, const AgeDials& ageDials) {
   // Already hurt is not hurt again; that is what ClimbOnIt is for.
   if (climber.injury.active) return false;
-  const double over = climber.load - dials.injuryThreshold;
+  const double threshold = InjuryThresholdFor(AgeOn(day, ageDials),
+                                              dials.injuryThreshold, ageDials);
+  const double over = climber.load - threshold;
   if (over <= 0.0) return false;   // below the line, never, no matter what
 
   // Its own stream. Getting hurt must not shift worldgen, the weather, or
