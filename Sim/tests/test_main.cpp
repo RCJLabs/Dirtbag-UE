@@ -15,6 +15,7 @@
 #include "../DirtbagGear.h"
 #include "../DirtbagFactions.h"
 #include "../DirtbagJobs.h"
+#include "../DirtbagKit.h"
 #include "../DirtbagTown.h"
 #include "../DirtbagVan.h"
 #include "../DirtbagFirstAscent.h"
@@ -3427,6 +3428,215 @@ static void TestSaveRejectsGarbageAndFuture() {
         LoadResult::BadFormat);
 }
 
+// --- The kit -----------------------------------------------------------------
+
+static void TestPadsPayOffWhereYouAreScared() {
+  // The pad's whole argument is that it matters where you are trying
+  // hardest. If it were a flat penalty it would just be a tax, and buying
+  // one would be arithmetic rather than a decision.
+  Rng world = Rng::FromStream("pads", Stream::Worldgen);
+  const Route line = BuildRoute(world, "Highball", 6, 6, RouteType::Technical,
+                                Discipline::Boulder);
+  const Climber c = MakeClimber(55, 55, 55, 55, 50);
+
+  AttemptInput padded = MakeInput(c, line);
+  AttemptInput bare = MakeInput(c, line);
+  bare.padding = 0.0;
+
+  // Down low, the ground is close enough that foam is not the point.
+  LiveAttempt lowPad = BeginAttempt(Rng::FromSeed("p"), padded);
+  LiveAttempt lowBare = BeginAttempt(Rng::FromSeed("p"), bare);
+  CHECK(std::fabs(PeekOdds(lowPad, 0.72) - PeekOdds(lowBare, 0.72)) < 1e-9);
+
+  // High on it, it is worth its price.
+  LiveAttempt highPad = BeginAttempt(Rng::FromSeed("p"), padded);
+  LiveAttempt highBare = BeginAttempt(Rng::FromSeed("p"), bare);
+  for (int i = 0; i < 5; i++) {
+    highPad.nextMove = i;
+    highBare.nextMove = i;
+  }
+  highPad.nextMove = 5;
+  highBare.nextMove = 5;
+  CHECK(PeekOdds(highPad, 0.72) > PeekOdds(highBare, 0.72));
+
+  // And a bold climber above gravel is still bolder than a timid one —
+  // head is what pays for the missing pad, so it has to still speak.
+  AttemptInput bold = MakeInput(MakeClimber(55, 55, 55, 55, 90), line);
+  AttemptInput timid = MakeInput(MakeClimber(55, 55, 55, 55, 20), line);
+  bold.padding = timid.padding = 0.0;
+  LiveAttempt b = BeginAttempt(Rng::FromSeed("p"), bold);
+  LiveAttempt t = BeginAttempt(Rng::FromSeed("p"), timid);
+  b.nextMove = t.nextMove = 5;
+  CHECK(PeekOdds(b, 0.72) > PeekOdds(t, 0.72));
+}
+
+static void TestPadsChangeNothingForCallersWhoNeverHeardOfThem() {
+  // padding defaults to 1.0 precisely so that adding it moved no vector.
+  // If this ever fails, every save in existence just changed grade.
+  AttemptInput fresh;
+  CHECK(fresh.padding == 1.0);
+  SessionState session;
+  CHECK(session.padding == 1.0);
+}
+
+static void TestTheKitIsBoughtOrItIsNot() {
+  KitDials d;
+  Kit kit;
+  double cash = 100.0;
+
+  // Nothing half-buys: a refused purchase leaves the money alone.
+  CHECK(!BuyPad(kit, cash, d));
+  CHECK(cash == 100.0);
+  CHECK(kit.pads == Kit{}.pads);
+
+  CHECK(BuyHangboard(kit, cash, d));
+  CHECK(cash == 15.0);
+  CHECK(kit.hangboard);
+  CHECK(!BuyHangboard(kit, cash, d));   // you only need the one
+  CHECK(cash == 15.0);
+
+  // You arrive with one pad, which is the whole of what a dirtbag owns.
+  CHECK(Kit{}.pads == 1);
+  const double one = PaddingFrom(Kit{}, d);
+  CHECK(one > 0.0 && one < 1.0);
+  CHECK(PaddingFrom(Kit{.pads = 0}, d) == 0.0);
+
+  // The second is the purchase, and it is the one that tops it out.
+  cash = 900.0;
+  CHECK(BuyPad(kit, cash, d));
+  CHECK(PaddingFrom(kit, d) == 1.0);
+  CHECK(BuyPad(kit, cash, d));
+  CHECK(PaddingFrom(kit, d) == 1.0);    // and no further, borrow the third
+}
+
+static void TestTheMembershipRunsOut() {
+  KitDials d;
+  Kit kit;
+  double cash = 200.0;
+
+  CHECK(!IsGymMember(kit));
+  CHECK(RenewMembership(kit, cash, d));
+  CHECK(IsGymMember(kit));
+
+  // Renewing early stacks rather than resets — losing days you already paid
+  // for would punish being organised.
+  const int left = kit.membershipDaysLeft;
+  CHECK(RenewMembership(kit, cash, d));
+  CHECK(kit.membershipDaysLeft == left + d.membershipDays);
+
+  // And it lapses on its own, one night at a time.
+  Kit lapsing;
+  double money = 100.0;
+  CHECK(RenewMembership(lapsing, money, d));
+  for (int i = 0; i < d.membershipDays; i++) {
+    CHECK(IsGymMember(lapsing));
+    KitDay(lapsing);
+  }
+  CHECK(!IsGymMember(lapsing));
+  KitDay(lapsing);                        // and stays lapsed without going
+  CHECK(lapsing.membershipDaysLeft == 0); // negative for the rest of time
+}
+
+static void TestTheGymIsTheOnlyClimbingThatIgnoresTheWeather() {
+  DayDials dd;
+  KitDials kd;
+  PlayerState player;
+  player.climber.skills = {50, 50, 50, 50, 50};
+
+  DayState shut = WakeUp(player, dd);
+  CHECK(!GoToTheGym(player, shut, kd, dd));   // the gym is the one place
+  CHECK(shut.hour == dd.wakeHour);            // that checks, and it costs
+  CHECK(!shut.atGym);                         // you nothing to be refused
+
+  double cash = 100.0;
+  CHECK(RenewMembership(player.kit, cash, kd));
+
+  DayState open = WakeUp(player, dd);
+  CHECK(GoToTheGym(player, open, kd, dd));
+  CHECK(open.atGym);
+  CHECK(open.hour > dd.wakeHour);             // the drive in is real
+  // Full mats, every time. That is what the $75 actually buys on a day the
+  // weather has already decided for you.
+  CHECK(open.session.padding == 1.0);
+  CHECK(player.kit.pads < KitDials{}.padsThatMatter);   // and not by owning it
+}
+
+static void TestTheHangboardIsTheBrokeAnswer() {
+  DayDials dd;
+  KitDials kd;
+  PlayerState player;
+  player.climber.skills = {50, 50, 50, 50, 50};
+
+  DayState day = WakeUp(player, dd);
+  CHECK(!HangboardSession(player, day, kd, dd));   // you do not own one
+
+  double cash = 100.0;
+  CHECK(BuyHangboard(player.kit, cash, kd));
+
+  const double before = player.climber.skills.fingers;
+  const double skinBefore = player.climber.skin;
+  CHECK(HangboardSession(player, day, kd, dd));
+  CHECK(player.climber.skills.fingers > before);
+  CHECK(player.climber.skin < skinBefore);
+  CHECK(day.hour > dd.wakeHour);
+
+  // Fingers only. A board that trained movement would make the weather
+  // irrelevant, which is the opposite of this game.
+  CHECK(player.climber.skills.power == 50.0);
+  CHECK(player.climber.skills.technique == 50.0);
+
+  // It is also strictly worse than climbing. A day on the board must not
+  // out-train a day on the wall, or nobody would ever leave the van.
+  PlayerState hanger;
+  hanger.climber.skills = {50, 50, 50, 50, 50};
+  hanger.kit.hangboard = true;
+  DayState hangDay = WakeUp(hanger, dd);
+  CHECK(HangboardSession(hanger, hangDay, kd, dd));
+  // One session a day, and the second ask gets nothing.
+  CHECK(!HangboardSession(hanger, hangDay, kd, dd));
+
+  PlayerState climber;
+  climber.climber.skills = {50, 50, 50, 50, 50};
+  DayState climbDay = WakeUp(climber, dd);
+  StartGymSession(climber, climbDay, dd);
+  Rng world = Rng::FromStream("board", Stream::Worldgen);
+  const Route hard = BuildRoute(world, "Plastic", 7, 6, RouteType::Crimp,
+                                Discipline::Boulder);
+  ProjectMemory mem;
+  mem.routeName = hard.name;
+  Rng session = Rng::FromSeed("board-session");
+  for (int i = 0; i < 4; i++) {
+    const AttemptResult r =
+        AttemptInSession(session, climbDay.session, mem,
+                         ClimberForSession(climber, climbDay, dd), hard,
+                         Conditions{});
+    ApplyAttemptToDay(climber, climbDay, hard, r, dd);
+  }
+  CHECK(climber.climber.skills.fingers > hanger.climber.skills.fingers);
+
+  // Never on skin that is already gone: hanging through it is how you take
+  // a week off, and the injury this game does not model yet.
+  PlayerState wrecked;
+  wrecked.kit.hangboard = true;
+  wrecked.climber.skin = kd.hangboardSkinCost;
+  DayState wreckedDay = WakeUp(wrecked, dd);
+  CHECK(!HangboardSession(wrecked, wreckedDay, kd, dd));
+}
+
+static void TestTheKitSurvivesASave() {
+  SaveGame save;
+  save.seed = "kitted";
+  save.player.kit.pads = 2;
+  save.player.kit.hangboard = true;
+  save.player.kit.membershipDaysLeft = 17;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.kit.pads == 2);
+  CHECK(back.player.kit.hangboard);
+  CHECK(back.player.kit.membershipDaysLeft == 17);
+}
+
 static void TestTheJobSurvivesASave() {
   // Standing was saved from v8 and the job was not, so a career loaded its
   // way out of employment. Nothing failed; you were simply not salaried any
@@ -3667,6 +3877,13 @@ int main() {
   TestSevenDayLoop();
   TestSaveRoundTrip();
   TestSaveRejectsGarbageAndFuture();
+  TestPadsPayOffWhereYouAreScared();
+  TestPadsChangeNothingForCallersWhoNeverHeardOfThem();
+  TestTheKitIsBoughtOrItIsNot();
+  TestTheMembershipRunsOut();
+  TestTheGymIsTheOnlyClimbingThatIgnoresTheWeather();
+  TestTheHangboardIsTheBrokeAnswer();
+  TestTheKitSurvivesASave();
   TestTheJobSurvivesASave();
   TestLoadsVersion8Save();
   TestLoadsVersion1Save();

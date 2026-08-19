@@ -496,6 +496,75 @@ FString UDirtbagGameInstance::ShoeLine() const
 	    dirtbag::ShoeText(DirtbagConvert::ToSim(Player.Shoes)).c_str()));
 }
 
+// --- The kit -----------------------------------------------------------------
+
+namespace
+{
+	// Every purchase is the same shape: hand the sim its own view of the kit
+	// and the cash, let it decide, and write both back only if it said yes.
+	template <typename Fn>
+	bool BuyWith(FDirtbagKit& Kit, double& Cash, Fn&& Buy)
+	{
+		dirtbag::Kit SimKit = DirtbagConvert::ToSim(Kit);
+		double Money = Cash;
+		if (!Buy(SimKit, Money)) return false;
+		Kit = DirtbagConvert::FromSim(SimKit);
+		Cash = Money;
+		return true;
+	}
+}
+
+bool UDirtbagGameInstance::BuyCrashPad()
+{
+	return BuyWith(Player.Kit, Player.Cash,
+	               [](dirtbag::Kit& K, double& M) { return dirtbag::BuyPad(K, M); });
+}
+
+bool UDirtbagGameInstance::BuyHangboard()
+{
+	return BuyWith(Player.Kit, Player.Cash, [](dirtbag::Kit& K, double& M) {
+		return dirtbag::BuyHangboard(K, M);
+	});
+}
+
+bool UDirtbagGameInstance::RenewGymMembership()
+{
+	return BuyWith(Player.Kit, Player.Cash, [](dirtbag::Kit& K, double& M) {
+		return dirtbag::RenewMembership(K, M);
+	});
+}
+
+bool UDirtbagGameInstance::IsGymMember() const
+{
+	return dirtbag::IsGymMember(DirtbagConvert::ToSim(Player.Kit));
+}
+
+FString UDirtbagGameInstance::KitLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::KitText(DirtbagConvert::ToSim(Player.Kit)).c_str());
+}
+
+bool UDirtbagGameInstance::GoToTheGym()
+{
+	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
+	if (!dirtbag::GoToTheGym(SimPlayer, SimDay)) return false;
+	Player = DirtbagConvert::FromSim(SimPlayer);
+	Day = DirtbagConvert::FromSim(SimDay);
+	return true;
+}
+
+bool UDirtbagGameInstance::HangboardSession()
+{
+	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
+	if (!dirtbag::HangboardSession(SimPlayer, SimDay)) return false;
+	Player = DirtbagConvert::FromSim(SimPlayer);
+	Day = DirtbagConvert::FromSim(SimDay);
+	return true;
+}
+
 bool UDirtbagGameInstance::ResoleShoes()
 {
 	dirtbag::Shoes S = DirtbagConvert::ToSim(Player.Shoes);

@@ -94,6 +94,12 @@ struct SessionState {
   double psyche = 0.7;    // starts at the climber's; swings with the session
   int attemptsMade = 0;   // across all routes this session
   double shoeWear = 0.0;  // the pair you pulled on with today
+  // How covered the landing is, 0 bare ground .. 1 as padded as it gets.
+  // Carried on the session rather than read from the kit each burn, because
+  // what matters is what you dragged in, not what you own back at the van.
+  // Defaults to fully padded so that every caller predating pads — the
+  // golden vectors included — resolves exactly as it always did.
+  double padding = 1.0;
 };
 
 SessionState StartSession(const Climber& climber);

@@ -49,7 +49,8 @@ struct Tally {
   double earned = 0.0, spentFood = 0.0, spentDog = 0.0, spentBills = 0.0;
   double spentShoes = 0.0;
   int resoles = 0, newPairs = 0, deadRubberDays = 0;
-  double spentVan = 0.0, spentFuel = 0.0;
+  double spentVan = 0.0, spentFuel = 0.0, spentKit = 0.0;
+  int gymDays = 0, boardDays = 0, memberDays = 0;
   int breakdowns = 0, strandedDays = 0, bodges = 0;
   int closedDays = 0, closures = 0;
   int photoGigs = 0, trailGigs = 0;
@@ -143,6 +144,11 @@ int main(int argc, char** argv) {
   // never works a day; the difference between their season and a real one
   // is, exactly, the price of being alive.
   const bool kept = argc > 5 && std::string(argv[5]) == "kept";
+  // "kitted" spends money on climbing rather than hoarding it: pads, a
+  // board, and the gym membership that turns a washed-out day into a day.
+  // This is the policy the whole kit exists to make possible, and the one
+  // that says whether money now buys anything.
+  const bool buysKit = argc > 5 && std::string(argv[5]) == "kitted";
 
   const Rng world = Rng::FromSeed(seed);
   const Crag crag = RoadsideCrag(world);
@@ -190,6 +196,34 @@ int main(int argc, char** argv) {
       if (FeedDog(player.dog, player.cash, dog)) {
         t.dogMeals++;
         t.spentDog += before - player.cash;
+      }
+    }
+
+    // Shopping, before the day gets spent. A dirtbag buys in this order:
+    // the cheap thing that works, then the landing, then the roof over
+    // winter — and never so deep that the bills go unpaid, because being
+    // behind is worse than being unequipped.
+    KitDials kd;
+    if (buysKit) {
+      const double float_ = 150.0;   // never spend the last of it
+      if (!player.kit.hangboard && player.cash > kd.hangboardCost + float_) {
+        if (BuyHangboard(player.kit, player.cash, kd)) t.spentKit += kd.hangboardCost;
+      }
+      // A winter membership, which is the only kind anyone actually buys.
+      // Renewing it whenever it lapsed bought 126 days and used 27, because
+      // most of the year the rock is right there — that was the probe
+      // shopping badly, not the gym being a bad deal, and reporting the
+      // second while the first was true is how you tune away a mechanic
+      // that was working.
+      const bool shortDays = DaylightHours(player.day, cd) < 10.0;
+      if (shortDays && !IsGymMember(player.kit) &&
+          player.cash > kd.membershipCost + float_) {
+        if (RenewMembership(player.kit, player.cash, kd))
+          t.spentKit += kd.membershipCost;
+      }
+      if (player.kit.pads < kd.padsThatMatter &&
+          player.cash > kd.padCost + float_) {
+        if (BuyPad(player.kit, player.cash, kd)) t.spentKit += kd.padCost;
       }
     }
 
@@ -293,9 +327,60 @@ int main(int argc, char** argv) {
     }
 
     const bool stranded = !VanRuns(player.van);
+    if (IsGymMember(player.kit)) t.memberDays++;
+
     if (!win.exists || tooThin || stranded || shut) {
+      // The day the rock said no. This is the pile the kit exists to reach:
+      // 157 washed out, 75 more resting skin, and until now every one of
+      // them was dead time no amount of money could touch.
+      bool salvaged = false;
+      if (!tooThin && GoToTheGym(player, today, kd, dd)) {
+        // Plastic ignores the weather, and the gym board is the one wall
+        // that is always in.
+        const std::vector<Route> board = GymBoard(world);
+        Rng session =
+            Rng::FromSeed(seed + "#gym" + std::to_string(player.day));
+        const Climber body = ClimberForSession(player, today, dd);
+        const Route* pick = nullptr;
+        for (const Route& r : board) {
+          const RouteRead read = ReadRoute(body, r);
+          if (read == RouteRead::NotThisYear) continue;
+          if (!pick || r.trueGrade > pick->trueGrade) pick = &r;
+        }
+        if (pick) {
+          ProjectMemory& mem = MemoryFor(player, *pick);
+          while (today.session.skinLeft > 0.5 && today.hour < 21.0) {
+            const AttemptResult r =
+                AttemptInSession(session, today.session, mem, body, *pick,
+                                 Conditions{});
+            ApplyAttemptToDay(player, today, *pick, r, dd);
+            t.burns++;
+            t.movesClimbed += static_cast<int>(r.timeline.size());
+          }
+          t.gymDays++;
+          salvaged = true;
+          note = note.empty() ? "plastic" : note + " + plastic";
+        }
+      }
+      // Only on skin the weather was going to waste anyway. This is the
+      // whole of what separates the board from a mistake, and the margin is
+      // not subtle: hanging whenever the day was dead gave 0 sends across
+      // five seasons, and hanging only on genuinely surplus skin gave 24
+      // against a non-owner's 12. Same item, same price, opposite sign.
+      //
+      // Which makes sense once measured — skin is conserved, so an hour on
+      // the board spends the crag's budget unless the crag was never going
+      // to get it. Resting to 3.0 and then boarding at 3.1 is paying for
+      // training with the session you were resting for.
+      if (!salvaged && player.climber.skin > 7.5 &&
+          HangboardSession(player, today, kd, dd)) {
+        t.boardDays++;
+        salvaged = true;
+        note = note.empty() ? "an hour on the board"
+                            : note + " + an hour on the board";
+      }
       if (!win.exists) {
-        if (!needMoney && !tooThin) {
+        if (!needMoney && !tooThin && !salvaged) {
           Rest(today, 4.0, dd);
           t.daysRested++;
           note = "washed out";
@@ -462,8 +547,11 @@ int main(int argc, char** argv) {
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f\t%d"
          "\t%d\t%.0f\t%d\t%d\t%d\n",
          seed.c_str(),
-         takeTheSalary ? "salary"
-                       : (mindReputation ? "careful" : (kept ? "kept" : "greedy")),
+         takeTheSalary    ? "salary"
+         : mindReputation ? "careful"
+         : kept           ? "kept"
+         : buysKit        ? "kitted"
+                          : "greedy",
          restUntilSkin, player.cash, t.cashLow, t.sends, t.firstAscents,
          t.daysClimbed, t.burns, SkillToGrade(player.climber.skills.power),
          player.standing.with[static_cast<int>(Faction::Stewardship)],
@@ -504,6 +592,10 @@ int main(int argc, char** argv) {
   printf("    shoes   $%7.0f (%d resoles, %d new pairs; %d days on dead "
          "rubber)\n", t.spentShoes, t.resoles, t.newPairs, t.deadRubberDays);
   printf("    fuel    $%7.0f\n", t.spentFuel);
+  printf("    kit     $%7.0f (%d pads, %s, %d days a member -> %d gym days, "
+         "%d on the board)\n", t.spentKit, player.kit.pads,
+         player.kit.hangboard ? "a board" : "no board", t.memberDays,
+         t.gymDays, t.boardDays);
   printf("    van     $%7.0f (%d breakdowns, %d days stranded, %d bodged, "
          "%.0f hours under it)\n", t.spentVan, t.breakdowns, t.strandedDays,
          t.bodges, t.vanHoursLost);

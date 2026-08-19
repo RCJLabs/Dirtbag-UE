@@ -109,6 +109,14 @@ struct SessionDials {
   double deadShoeGradePenalty = 1.1;
   double shoeBiteOnGoodHolds = 0.3;
 
+  // Climbing above bare ground, in grade units, at the top of a line. Under
+  // deadShoeGradePenalty (1.1) on purpose: being gripped is a real handicap
+  // and never the whole story. It scales with how far up you are, so the
+  // first moves are free - nobody has ever been scared on move one - and
+  // the last ones are not, which is exactly where a boulderer backs off.
+  double noPadGradePenalty = 0.9;
+  double padGroundedFraction = 0.35;
+
   double fallSkinCost = 1.0;
   double sendSkinCost = 0.35;
 
@@ -148,6 +156,10 @@ struct AttemptInput {
   double warmth = 1.0;      // 0 cold .. 1 warm; the session loop starts cold
   double cleanliness = 1.0; // 1 clean rock .. 0 never been touched
   double shoeWear = 0.0;    // 0 new rubber .. 1 dead; see DirtbagGear.h
+  // 0 bare ground .. 1 as padded as it gets; see DirtbagKit.h. Defaults to
+  // fully padded so that every caller who has not heard of pads - the
+  // golden vectors included - resolves exactly as it always did.
+  double padding = 1.0;
   // Per-move minigame quality, 0..1. Missing entries fall back to botExecution.
   std::vector<double> execution;
   double botExecution = 0.72;

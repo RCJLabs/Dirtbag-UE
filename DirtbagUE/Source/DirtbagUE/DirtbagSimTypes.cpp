@@ -58,6 +58,7 @@ dirtbag::SessionState ToSim(const FDirtbagSessionState& In)
 	Out.warmth = In.Warmth;
 	Out.psyche = In.Psyche;
 	Out.attemptsMade = In.AttemptsMade;
+	Out.padding = In.Padding;
 	return Out;
 }
 
@@ -136,6 +137,7 @@ FDirtbagSessionState FromSim(const dirtbag::SessionState& In)
 	Out.Warmth = In.warmth;
 	Out.Psyche = In.psyche;
 	Out.AttemptsMade = In.attemptsMade;
+	Out.Padding = In.padding;
 	return Out;
 }
 
@@ -168,6 +170,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.owed = In.Owed;
 	Out.job = ToSim(In.Job);
 	Out.standing = ToSim(In.Standing);
+	Out.kit = ToSim(In.Kit);
 	Out.bonds.reserve(In.Bonds.Num());
 	for (const FDirtbagPartnerBond& B : In.Bonds)
 	{
@@ -188,6 +191,7 @@ dirtbag::DayState ToSim(const FDirtbagDayState& In)
 	Out.energy = In.Energy;
 	Out.hunger = In.Hunger;
 	Out.atGym = In.bAtGym;
+	Out.hangboardDone = In.bHangboardDone;
 	Out.session = ToSim(In.Session);
 	return Out;
 }
@@ -211,6 +215,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Owed = In.owed;
 	Out.Job = FromSim(In.job);
 	Out.Standing = FromSim(In.standing);
+	Out.Kit = FromSim(In.kit);
 	Out.Bonds.Reserve(static_cast<int32>(In.bonds.size()));
 	for (const dirtbag::PartnerBond& B : In.bonds)
 	{
@@ -231,6 +236,7 @@ FDirtbagDayState FromSim(const dirtbag::DayState& In)
 	Out.Energy = In.energy;
 	Out.Hunger = In.hunger;
 	Out.bAtGym = In.atGym;
+	Out.bHangboardDone = In.hangboardDone;
 	Out.Session = FromSim(In.session);
 	return Out;
 }
@@ -259,6 +265,24 @@ FDirtbagWeather FromSim(const dirtbag::Weather& In)
 	Out.Humidity = In.humidity;
 	Out.Cloud = In.cloud;
 	Out.Wind = In.wind;
+	return Out;
+}
+
+FDirtbagKit FromSim(const dirtbag::Kit& In)
+{
+	FDirtbagKit Out;
+	Out.Pads = In.pads;
+	Out.bHangboard = In.hangboard;
+	Out.MembershipDaysLeft = In.membershipDaysLeft;
+	return Out;
+}
+
+dirtbag::Kit ToSim(const FDirtbagKit& In)
+{
+	dirtbag::Kit Out;
+	Out.pads = In.Pads;
+	Out.hangboard = In.bHangboard;
+	Out.membershipDaysLeft = In.MembershipDaysLeft;
 	return Out;
 }
 

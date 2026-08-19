@@ -14,6 +14,7 @@
 #include "DirtbagFactions.h"
 #include "DirtbagGear.h"
 #include "DirtbagJobs.h"
+#include "DirtbagKit.h"
 #include "DirtbagVan.h"
 #include "DirtbagPartner.h"
 #include "DirtbagRng.h"
@@ -132,6 +133,11 @@ struct PlayerState {
   // What is on your feet, and how much of it is left.
   Shoes shoes;
 
+  // What you own that buys you climbing: pads, a board, the gym. The
+  // answer to the measurement that said the year ended with $133 in the
+  // bank and nowhere for it to go.
+  Kit kit;
+
   // The van: shelter, transport, and the reason seasons end early.
   Van van;
 
@@ -149,6 +155,10 @@ struct DayState {
   double energy = 100.0;
   double hunger = 0.0;
   bool atGym = false;
+  // One session a day. The board is not a slot machine, and without this
+  // the only thing stopping you was skin — which bought eleven hangs and
+  // a day that trained more than the wall ever could.
+  bool hangboardDone = false;
   SessionState session;  // meaningful once StartGymSession has run
 };
 
@@ -201,6 +211,25 @@ Climber ClimberForSession(const PlayerState& player, const DayState& day,
 // Pull on: seeds the day's SessionState from the current climber.
 void StartGymSession(PlayerState& player, DayState& day,
                      const DayDials& dials = DayDials{});
+
+// A day on plastic. The only climbing that ignores the weather, and the
+// whole argument for $75 a month: a season has 157 days that never come
+// good and 75 more spent resting skin, and without a membership every one
+// of them is dead time no amount of money can touch.
+//
+// False if you are not a member — the gym is the one place in this game
+// that checks.
+bool GoToTheGym(PlayerState& player, DayState& day,
+                const KitDials& kit = KitDials{},
+                const DayDials& dials = DayDials{});
+
+// An hour on the board bolted above the van door. The broke answer to a
+// washed-out day: it trains fingers and nothing else, it costs skin, and it
+// teaches you nothing about movement. False if you do not own one, or if
+// there is not enough skin left to be worth hanging on.
+bool HangboardSession(PlayerState& player, DayState& day,
+                      const KitDials& kit = KitDials{},
+                      const DayDials& dials = DayDials{});
 
 // The project ledger for a route, created on first touch.
 ProjectMemory& MemoryFor(PlayerState& player, const Route& route);

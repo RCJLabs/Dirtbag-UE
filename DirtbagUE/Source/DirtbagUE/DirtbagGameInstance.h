@@ -303,6 +303,42 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
 	bool BuyNewShoes();
 
+	// --- The kit ---------------------------------------------------------
+	// Things worth money that buy you climbing. Each returns false if you
+	// cannot afford it, and changes nothing when it does.
+
+	/** A second pad. Measured across twelve seasons, both pads against one
+	 *  is +37% sends at identical skin spend — it does not give you more
+	 *  climbing, it makes the climbing you already had worth more. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
+	bool BuyCrashPad();
+
+	/** Plywood above the van door. Worth an hour on a day the weather has
+	 *  already taken, and a mistake on any other — it spends the skin the
+	 *  crag was waiting for. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
+	bool BuyHangboard();
+
+	/** A month of plastic. The only climbing that ignores the weather. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
+	bool RenewGymMembership();
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Kit")
+	bool IsGymMember() const;
+
+	/** "one pad, a board in the van, and the gym until the month runs out" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Kit")
+	FString KitLine() const;
+
+	/** A day on plastic. False if you are not a member — the gym is the one
+	 *  place in this game that checks. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
+	bool GoToTheGym();
+
+	/** An hour on the board. False without one, or on skin already gone. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
+	bool HangboardSession();
+
 	/** "the belt is on borrowed time" — empty when there is nothing to say. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
 	FString VanLine() const;

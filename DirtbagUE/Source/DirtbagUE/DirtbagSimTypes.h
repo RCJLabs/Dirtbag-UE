@@ -13,6 +13,7 @@
 #include "DirtbagDay.h"
 #include "DirtbagFactions.h"
 #include "DirtbagJobs.h"
+#include "DirtbagKit.h"
 #include "DirtbagDog.h"
 #include "DirtbagGear.h"
 #include "DirtbagVan.h"
@@ -199,6 +200,11 @@ struct FDirtbagSessionState
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	int32 AttemptsMade = 0;
+
+	/** 0 bare ground .. 1 as padded as it gets. Costs you nothing low down
+	 *  and climbs toward the top, which is where a boulderer backs off. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double Padding = 1.0;
 };
 
 USTRUCT(BlueprintType)
@@ -369,6 +375,26 @@ struct FDirtbagPartner
 	TArray<FString> FirstAscents;
 };
 
+/** What you own that buys you climbing. */
+USTRUCT(BlueprintType)
+struct FDirtbagKit
+{
+	GENERATED_BODY()
+
+	/** You arrive with one. The second is the purchase, and it is the one
+	 *  that covers the fall you did not expect — measured, both pads against
+	 *  one is +37% sends across twelve seasons at identical skin spend. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Kit")
+	int32 Pads = 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Kit")
+	bool bHangboard = false;
+
+	/** Days of gym membership left. Zero is not a member. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Kit")
+	int32 MembershipDaysLeft = 0;
+};
+
 /** Who has an opinion about you. Two opposed axes, four camps. */
 UENUM(BlueprintType)
 enum class EDirtbagFaction : uint8
@@ -476,6 +502,9 @@ struct FDirtbagPlayerState
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Standing")
 	FDirtbagStanding Standing;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Kit")
+	FDirtbagKit Kit;
 };
 
 /** One day's body-clock. Never saved — saves happen at day boundaries. */
@@ -495,6 +524,10 @@ struct FDirtbagDayState
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	bool bAtGym = false;
+
+	/** One board session a day. Without the cap, skin bought eleven. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	bool bHangboardDone = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	FDirtbagSessionState Session;
@@ -704,6 +737,8 @@ namespace DirtbagConvert
 	FDirtbagCragLine FromSim(const dirtbag::CragLine& In);
 	FDirtbagCrag FromSim(const dirtbag::Crag& In);
 
+	FDirtbagKit FromSim(const dirtbag::Kit& In);
+	dirtbag::Kit ToSim(const FDirtbagKit& In);
 	FDirtbagStanding FromSim(const dirtbag::Standing& In);
 	dirtbag::Standing ToSim(const FDirtbagStanding& In);
 	FDirtbagJob FromSim(const dirtbag::Job& In);

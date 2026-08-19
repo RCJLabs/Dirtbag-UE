@@ -47,8 +47,8 @@ double MorphologyAdjust(const Climber& climber, const Move& move,
 // Effective ability on a move, in grade units (skill 0..100 spans the
 // V0..V18 ladder, exactly as the 2D game's skill-vs-grade check does).
 // Shared by the live step and the odds preview so the UI never lies.
-double MoveEffective(const AttemptInput& input, const Move& move, double exec,
-                     double pump, const SessionDials& dials) {
+double MoveEffective(const AttemptInput& input, const Move& move, int index,
+                     double exec, double pump, const SessionDials& dials) {
   const Climber& c = input.climber;
   double effective = SkillToGrade(BlendedSkill(c.skills, move.hold), dials);
 
@@ -85,6 +85,22 @@ double MoveEffective(const AttemptInput& input, const Move& move, double exec,
   if (move.crux) {
     // The crux is where the head shows up — commitment, not strength.
     effective += (c.skills.head - 50.0) / 100.0;
+  }
+
+  // The landing. Bare ground costs nothing low down — nobody has ever been
+  // gripped on move one — and climbs toward the top, which is why a pad is
+  // worth its price exactly where a boulderer is trying hardest. Head is
+  // what pays it: a bold climber above gravel is still bolder than a
+  // timid one, they are just both worse off than they would be with foam.
+  const int moves = static_cast<int>(input.route.moves.size());
+  if (moves > 0) {
+    const double up = static_cast<double>(index + 1) / static_cast<double>(moves);
+    const double exposed =
+        Clamp01((up - dials.padGroundedFraction) /
+                std::max(0.001, 1.0 - dials.padGroundedFraction));
+    const double nerve = Clamp01(0.5 + (c.skills.head - 50.0) / 100.0);
+    effective -= dials.noPadGradePenalty * (1.0 - Clamp01(input.padding)) *
+                 exposed * (1.0 - 0.5 * nerve);
   }
 
   // Pump spends ability, in grade units — felt only where margins are thin.
@@ -150,7 +166,8 @@ double PeekOdds(const LiveAttempt& la, double execution) {
   const Move& move = la.input.route.moves[la.nextMove];
   const double exec = std::clamp(execution, 0.0, 1.0);
   const double margin =
-      MoveEffective(la.input, move, exec, la.pump, la.dials) - move.difficulty;
+      MoveEffective(la.input, move, la.nextMove, exec, la.pump, la.dials) -
+      move.difficulty;
   return Sigmoid(kOddsBias + margin * la.dials.oddsSlope);
 }
 
@@ -160,7 +177,7 @@ MoveResult StepMove(LiveAttempt& la, double execution) {
   const double exec = std::clamp(execution, 0.0, 1.0);
 
   const double effective =
-      MoveEffective(la.input, move, exec, la.pump, la.dials);
+      MoveEffective(la.input, move, la.nextMove, exec, la.pump, la.dials);
   const double margin = effective - move.difficulty;
   const double odds = Sigmoid(kOddsBias + margin * la.dials.oddsSlope);
 

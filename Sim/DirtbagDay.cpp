@@ -147,7 +147,40 @@ void StartGymSession(PlayerState& player, DayState& day, const DayDials& dials) 
   // Whatever is on your feet comes with you. Shoes live on the career
   // rather than the body, so the session has to be handed them.
   day.session.shoeWear = player.shoes.wear;
+  // What you dragged up the hill. GoToTheGym overrides this afterwards,
+  // because indoors the landing is somebody else's problem.
+  day.session.padding = PaddingFrom(player.kit, KitDials{});
   day.atGym = true;
+}
+
+bool GoToTheGym(PlayerState& player, DayState& day, const KitDials& kit,
+                const DayDials& dials) {
+  if (!IsGymMember(player.kit)) return false;
+  PassHours(day, kit.gymTravelHours, dials);
+  StartGymSession(player, day, dials);
+  // Full mats, every time. This is what you are actually paying for on the
+  // days the weather has already decided for you.
+  day.session.padding = 1.0;
+  return true;
+}
+
+bool HangboardSession(PlayerState& player, DayState& day, const KitDials& kit,
+                      const DayDials& dials) {
+  if (!player.kit.hangboard || day.hangboardDone) return false;
+  // Hanging on skin that is already gone is how you take a week off, and a
+  // policy that cannot see that would train straight through the injury the
+  // game does not model yet.
+  if (player.climber.skin <= kit.hangboardSkinCost) return false;
+
+  PassHours(day, kit.hangboardHours, dials);
+  day.hangboardDone = true;
+  day.energy = std::max(0.0, day.energy - kit.hangboardEnergy);
+  player.climber.skin -= kit.hangboardSkinCost;
+  Gain(player.climber.skills.fingers,
+       kit.hangboardFingerGain *
+           std::max(0.15, 1.0 - player.climber.skills.fingers /
+                                    dials.trainingCeiling));
+  return true;
 }
 
 ProjectMemory& MemoryFor(PlayerState& player, const Route& route) {
@@ -233,6 +266,11 @@ void SleepToNextDay(PlayerState& player, DayState& day, const DayDials& dials) {
       std::min(dials.maxSkin, player.climber.skin + dials.skinRegenPerNight);
   player.climber.psyche +=
       (dials.psycheBaseline - player.climber.psyche) * dials.psycheHomeRate;
+
+  // The month runs down like everything else that runs out. Without this
+  // the probe reported 365 days of membership bought with a single $75,
+  // which is a very good gym.
+  KitDay(player.kit);
 
   player.day += 1;
   // Bills land on their morning, every billsEveryDays-th day after day 1.

@@ -130,6 +130,15 @@ void MigrateV8ToV9(SaveFields& fields) {
   fields["job.weeks"] = "0";
 }
 
+// v9 → v10: the kit. A v9 career owned no pads, no board and no
+// membership, which is exactly what a new one owns — so it arrives with
+// nothing, and the first thing it can do about that is go to work.
+void MigrateV9ToV10(SaveFields& fields) {
+  fields["kit.pads"] = "1";   // it always had the one, it just never said so
+  fields["kit.hangboard"] = "0";
+  fields["kit.membership"] = "0";
+}
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -148,7 +157,8 @@ void MigrateV4ToV5(SaveFields& fields) {
 const std::vector<Migration>& DefaultMigrations() {
   static const std::vector<Migration> kMigrations = {
       &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5,
-      &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9};
+      &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9,
+      &MigrateV9ToV10};
   return kMigrations;
 }
 
@@ -202,6 +212,11 @@ std::string SerializeSave(const SaveGame& save) {
     out << "standing." << IntToStr(i) << "="
         << NumToStr(save.player.standing.with[i]) << "\n";
   }
+  out << "kit.pads=" << IntToStr(save.player.kit.pads) << "\n";
+  out << "kit.hangboard=" << IntToStr(save.player.kit.hangboard ? 1 : 0)
+      << "\n";
+  out << "kit.membership=" << IntToStr(save.player.kit.membershipDaysLeft)
+      << "\n";
   out << "job.salaried=" << IntToStr(save.player.job.salaried ? 1 : 0) << "\n";
   out << "job.days=" << IntToStr(save.player.job.daysWorked) << "\n";
   out << "job.weeks=" << IntToStr(save.player.job.weeksSalaried) << "\n";
@@ -315,6 +330,15 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   if (!ParseInt(fields, "standing.closed", save.player.standing.closedDays)) {
     return LoadResult::BadFormat;
   }
+  int hangboard = 0;
+  if (!ParseInt(fields, "kit.pads", save.player.kit.pads) ||
+      !ParseInt(fields, "kit.hangboard", hangboard) ||
+      !ParseInt(fields, "kit.membership",
+                save.player.kit.membershipDaysLeft)) {
+    return LoadResult::BadFormat;
+  }
+  save.player.kit.hangboard = hangboard != 0;
+
   int salaried = 0;
   if (!ParseInt(fields, "job.salaried", salaried) ||
       !ParseInt(fields, "job.days", save.player.job.daysWorked) ||
