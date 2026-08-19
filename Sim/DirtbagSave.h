@@ -33,7 +33,12 @@ namespace dirtbag {
 //   list means, so this migration writes a count of zero and nothing else.
 // Version 5: the dog. A v4 career had not met it, so it migrates to the
 //   stray it starts as — unadopted, unbonded, and hungry.
-constexpr int kSaveVersion = 5;
+// Version 6: what you own — shoes, and the van's six parts. A v5 career
+//   drove and climbed without either wearing out, so both migrate to new:
+//   fresh rubber and a van with nothing wrong with it. That is generous
+//   rather than exact, and deliberately so — the alternative is inventing
+//   damage a player never earned.
+constexpr int kSaveVersion = 6;
 
 struct SaveGame {
   int version = kSaveVersion;

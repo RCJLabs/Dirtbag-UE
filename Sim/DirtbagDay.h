@@ -12,6 +12,7 @@
 #include "DirtbagCore.h"
 #include "DirtbagDog.h"
 #include "DirtbagGear.h"
+#include "DirtbagVan.h"
 #include "DirtbagPartner.h"
 #include "DirtbagRng.h"
 #include "DirtbagSessionLoop.h"
@@ -119,6 +120,9 @@ struct PlayerState {
 
   // What is on your feet, and how much of it is left.
   Shoes shoes;
+
+  // The van: shelter, transport, and the reason seasons end early.
+  Van van;
 };
 
 // One day's body-clock. Created at wake, consumed by sleep, never saved —

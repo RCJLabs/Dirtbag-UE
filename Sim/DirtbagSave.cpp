@@ -93,6 +93,23 @@ void MigrateV3ToV4(SaveFields& fields) {
   fields["bonds"] = "0";
 }
 
+// v5 → v6: shoes and the van. A v5 career wore neither, so both arrive new.
+// Generous rather than exact on purpose: the honest alternative would be
+// inventing wear nobody earned, and a career that predates a mechanic has
+// not been dodging it.
+void MigrateV5ToV6(SaveFields& fields) {
+  fields["shoes.wear"] = "0";
+  fields["shoes.resoles"] = "0";
+  fields["shoes.pairs"] = "1";
+  fields["van.hours"] = "0";
+  for (int i = 0; i < 6; i++) {
+    const std::string k = "van." + IntToStr(i) + ".";
+    fields[k + "wear"] = "0";
+    fields[k + "patches"] = "0";
+    fields[k + "failed"] = "0";
+  }
+}
+
 // v4 → v5: the dog. A v4 career never met it, so it migrates to exactly the
 // stray a new career finds at the Lot: nobody's, unbonded, and hungry.
 void MigrateV4ToV5(SaveFields& fields) {
@@ -106,7 +123,8 @@ void MigrateV4ToV5(SaveFields& fields) {
 
 const std::vector<Migration>& DefaultMigrations() {
   static const std::vector<Migration> kMigrations = {
-      &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5};
+      &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5,
+      &MigrateV5ToV6};
   return kMigrations;
 }
 
@@ -155,6 +173,17 @@ std::string SerializeSave(const SaveGame& save) {
         << "\n";
   }
 
+  out << "shoes.wear=" << NumToStr(save.player.shoes.wear) << "\n";
+  out << "shoes.resoles=" << IntToStr(save.player.shoes.resoles) << "\n";
+  out << "shoes.pairs=" << IntToStr(save.player.shoes.pairsOwned) << "\n";
+  out << "van.hours=" << NumToStr(save.player.van.hoursDriven) << "\n";
+  for (int i = 0; i < kVanPartCount; i++) {
+    const std::string k = "van." + IntToStr(i) + ".";
+    out << k << "wear=" << NumToStr(save.player.van.parts[i].wear) << "\n";
+    out << k << "patches=" << IntToStr(save.player.van.parts[i].patches) << "\n";
+    out << k << "failed=" << (save.player.van.parts[i].failed ? "1" : "0")
+        << "\n";
+  }
   out << "dog.name=" << save.player.dog.name << "\n";
   out << "dog.adopted=" << (save.player.dog.adopted ? "1" : "0") << "\n";
   out << "dog.bond=" << NumToStr(save.player.dog.bond) << "\n";
@@ -241,6 +270,23 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     // unnamed line is the normal case, not a corrupt one.
     ParseString(fields, ProjKey(i, "given"), m.givenName);
     save.player.projects.push_back(m);
+  }
+
+  if (!ParseDouble(fields, "shoes.wear", save.player.shoes.wear) ||
+      !ParseInt(fields, "shoes.resoles", save.player.shoes.resoles) ||
+      !ParseInt(fields, "shoes.pairs", save.player.shoes.pairsOwned) ||
+      !ParseDouble(fields, "van.hours", save.player.van.hoursDriven)) {
+    return LoadResult::BadFormat;
+  }
+  for (int i = 0; i < kVanPartCount; i++) {
+    const std::string k = "van." + IntToStr(i) + ".";
+    int failed = 0;
+    if (!ParseDouble(fields, k + "wear", save.player.van.parts[i].wear) ||
+        !ParseInt(fields, k + "patches", save.player.van.parts[i].patches) ||
+        !ParseInt(fields, k + "failed", failed)) {
+      return LoadResult::BadFormat;
+    }
+    save.player.van.parts[i].failed = failed != 0;
   }
 
   int adopted = 0;

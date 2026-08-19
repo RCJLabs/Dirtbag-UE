@@ -24,6 +24,7 @@
 #include "DirtbagDog.h"
 #include "DirtbagFirstAscent.h"
 #include "DirtbagGear.h"
+#include "DirtbagVan.h"
 #include "DirtbagPartner.h"
 #include "DirtbagSave.h"
 #include "DirtbagSession.h"
@@ -45,6 +46,9 @@ struct Tally {
   double earned = 0.0, spentFood = 0.0, spentDog = 0.0, spentBills = 0.0;
   double spentShoes = 0.0;
   int resoles = 0, newPairs = 0, deadRubberDays = 0;
+  double spentVan = 0.0;
+  int breakdowns = 0, strandedDays = 0, bodges = 0;
+  double vanHoursLost = 0.0;
   int movesClimbed = 0;
   double warmthSum = 0.0, skinSum = 0.0, oddsSum = 0.0;
   int oddsN = 0;
@@ -175,6 +179,39 @@ int main(int argc, char** argv) {
       note = "shift";
     }
 
+    // Drive to the crag and back, if the van goes. Half an hour each way.
+    VanDials vd;
+    if (VanRuns(player.van) && win.exists) {
+      const int broke = DriveVan(player.van, world, player.day, 1.0,
+                                 TemperatureAt(w, 14.0, cd), vd);
+      if (broke >= 0) {
+        t.breakdowns++;
+        note = std::string("the ") +
+               VanPartName(static_cast<VanPart>(broke)) + " went";
+      }
+    }
+
+    // Stranded: fix it the best way you can afford. Replace properly if
+    // there is money, patch if not, and bodge if there is nothing at all —
+    // which always works, and always costs the morning.
+    if (!VanRuns(player.van)) {
+      t.strandedDays++;
+      const int bad = WorstVanPart(player.van, vd);
+      if (bad >= 0) {
+        const VanPart part = static_cast<VanPart>(bad);
+        double hours = 0.0;
+        const double before = player.cash;
+        if (!ReplaceVanPart(player.van, part, player.cash, hours, vd) &&
+            !PatchVan(player.van, part, player.cash, hours, vd)) {
+          BodgeVan(player.van, part, hours, vd);
+          t.bodges++;
+        }
+        t.spentVan += before - player.cash;
+        t.vanHoursLost += hours;
+        PassHours(today, hours, dd);
+      }
+    }
+
     const bool tooThin = player.climber.skin < restUntilSkin;
     if (tooThin && win.exists) {
       Rest(today, 4.0, dd);
@@ -182,7 +219,8 @@ int main(int argc, char** argv) {
       note = note.empty() ? "resting skin" : note + " + resting skin";
     }
 
-    if (!win.exists || tooThin) {
+    const bool stranded = !VanRuns(player.van);
+    if (!win.exists || tooThin || stranded) {
       if (!win.exists) {
         if (!needMoney && !tooThin) {
           Rest(today, 4.0, dd);
@@ -354,6 +392,9 @@ int main(int argc, char** argv) {
   printf("    dog     $%7.0f (%d tins)\n", t.spentDog, t.dogMeals);
   printf("    shoes   $%7.0f (%d resoles, %d new pairs; %d days on dead "
          "rubber)\n", t.spentShoes, t.resoles, t.newPairs, t.deadRubberDays);
+  printf("    van     $%7.0f (%d breakdowns, %d days stranded, %d bodged, "
+         "%.0f hours under it)\n", t.spentVan, t.breakdowns, t.strandedDays,
+         t.bodges, t.vanHoursLost);
   printf("    -> %.0f%% of days worked to stay level; %d moves climbed\n",
          100.0 * t.daysWorked / DAYS, t.movesClimbed);
 

@@ -13,6 +13,7 @@
 #include "../DirtbagDay.h"
 #include "../DirtbagDog.h"
 #include "../DirtbagGear.h"
+#include "../DirtbagVan.h"
 #include "../DirtbagFirstAscent.h"
 #include "../DirtbagPartner.h"
 #include "../DirtbagRng.h"
@@ -1713,6 +1714,227 @@ static void TestShoesReachTheSession() {
   CHECK(player.shoes.wear > 0.0);
 }
 
+// --- The van -------------------------------------------------------------------
+
+static void TestLoadsVersion5Save() {
+  // A v5 career, from before anything you owned could wear out. Shoes and
+  // van both arrive new — generous rather than exact, because the honest
+  // alternative is inventing damage nobody earned.
+  const std::string v5 =
+      "version=5\n"
+      "seed=crag-1\n"
+      "day=44\n"
+      "cash=210\n"
+      "skills.power=57\n"
+      "skills.fingers=59\n"
+      "skills.technique=54\n"
+      "skills.endurance=56\n"
+      "skills.head=52\n"
+      "morphology=1\n"
+      "skin=8\n"
+      "psyche=0.7\n"
+      "dog.name=Biscuit\n"
+      "dog.adopted=1\n"
+      "dog.bond=0.8\n"
+      "dog.fed=0.9\n"
+      "projects=0\n"
+      "bonds=0\n";
+
+  SaveGame loaded;
+  CHECK(DeserializeSave(v5, loaded) == LoadResult::Ok);
+  CHECK(loaded.version == kSaveVersion);
+  CHECK(loaded.player.day == 44);
+  CHECK(loaded.player.dog.name == "Biscuit");   // the old career survives
+  CHECK(loaded.player.dog.adopted);
+  CHECK(loaded.player.shoes.wear == 0.0);
+  CHECK(loaded.player.shoes.pairsOwned == 1);
+  CHECK(loaded.player.van.hoursDriven == 0.0);
+  for (int i = 0; i < kVanPartCount; i++) {
+    CHECK(loaded.player.van.parts[i].wear == 0.0);
+    CHECK(!loaded.player.van.parts[i].failed);
+  }
+  CHECK(VanRuns(loaded.player.van));
+}
+
+static void TestWhatYouOwnSurvivesASave() {
+  SaveGame save;
+  save.seed = "crag-1";
+  save.player.shoes.wear = 0.62;
+  save.player.shoes.resoles = 1;
+  save.player.shoes.pairsOwned = 3;
+  save.player.van.hoursDriven = 137.5;
+  save.player.van.parts[static_cast<int>(VanPart::Belt)].wear = 0.91;
+  save.player.van.parts[static_cast<int>(VanPart::Belt)].failed = true;
+  save.player.van.parts[static_cast<int>(VanPart::Tyres)].patches = 2;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(std::fabs(back.player.shoes.wear - 0.62) < 1e-12);
+  CHECK(back.player.shoes.resoles == 1);
+  CHECK(back.player.shoes.pairsOwned == 3);
+  CHECK(std::fabs(back.player.van.hoursDriven - 137.5) < 1e-12);
+  CHECK(back.player.van.parts[static_cast<int>(VanPart::Belt)].failed);
+  CHECK(back.player.van.parts[static_cast<int>(VanPart::Tyres)].patches == 2);
+  CHECK(!VanRuns(back.player.van));   // you load in exactly as stranded
+}
+
+static void TestDrivingWearsTheVan() {
+  VanDials d;
+  Rng world = Rng::FromSeed("crag-1");
+  Van van;
+  for (int i = 0; i < kVanPartCount; i++) CHECK(van.parts[i].wear == 0.0);
+  CHECK(VanRuns(van));
+
+  DriveVan(van, world, 1, 1.0, 60.0, d);
+  CHECK(van.hoursDriven == 1.0);
+  for (int i = 0; i < kVanPartCount; i++) CHECK(van.parts[i].wear > 0.0);
+
+  // Tyres go before the clutch does, which is the order a dirtbag learns.
+  CHECK(van.parts[static_cast<int>(VanPart::Tyres)].wear >
+        van.parts[static_cast<int>(VanPart::Clutch)].wear);
+
+  // Standing still costs nothing.
+  Van parked;
+  DriveVan(parked, world, 1, 0.0, 60.0, d);
+  CHECK(parked.hoursDriven == 0.0);
+  CHECK(parked.parts[0].wear == 0.0);
+
+  // Wear never runs past done.
+  Van hammered;
+  for (int day = 0; day < 400; day++)
+    DriveVan(hammered, world, day, 5.0, 60.0, d);
+  for (int i = 0; i < kVanPartCount; i++) CHECK(hammered.parts[i].wear <= 1.0);
+}
+
+static void TestHotDaysCookTheRadiator() {
+  VanDials d;
+  Rng world = Rng::FromSeed("crag-1");
+  Van cool, hot;
+  for (int day = 1; day <= 20; day++) {
+    DriveVan(cool, world, day, 1.0, 60.0, d);
+    DriveVan(hot, world, day, 1.0, d.radiatorWarmF + 15.0, d);
+  }
+  const int rad = static_cast<int>(VanPart::Radiator);
+  CHECK(hot.parts[rad].wear > cool.parts[rad].wear);
+
+  // And only the radiator: heat does not wear a clutch.
+  const int clutch = static_cast<int>(VanPart::Clutch);
+  CHECK(std::fabs(hot.parts[clutch].wear - cool.parts[clutch].wear) < 1e-9);
+}
+
+static void TestNothingFailsOutOfTheBlue() {
+  VanDials d;
+  Rng world = Rng::FromSeed("crag-1");
+
+  // A fresh van does not break, however much you drive it in one day.
+  Van fresh;
+  for (int day = 1; day <= 50; day++) {
+    fresh.parts[0].wear = 0.1;   // held well under the threshold
+    CHECK(DriveVan(fresh, world, day, 0.5, 60.0, d) < 0);
+  }
+
+  // Something well past its life does, eventually, and warns you first.
+  Van tired;
+  tired.parts[static_cast<int>(VanPart::Belt)].wear = 1.0;
+  CHECK(VanText(tired, d).find("belt") != std::string::npos);
+  int failedOn = -1;
+  for (int day = 1; day <= 300 && failedOn < 0; day++)
+    failedOn = DriveVan(tired, world, day, 0.5, 60.0, d);
+  CHECK(failedOn == static_cast<int>(VanPart::Belt));
+  CHECK(!VanRuns(tired));
+  CHECK(VanText(tired, d).find("has gone") != std::string::npos);
+
+  // The thing you have been ignoring is the thing that goes.
+  Van mixed;
+  mixed.parts[static_cast<int>(VanPart::Clutch)].wear = 1.0;
+  mixed.parts[static_cast<int>(VanPart::Tyres)].wear = 0.75;
+  int broke = -1;
+  for (int day = 1; day <= 300 && broke < 0; day++)
+    broke = DriveVan(mixed, world, day, 0.5, 60.0, d);
+  CHECK(broke == static_cast<int>(VanPart::Clutch));
+}
+
+static void TestBeingBrokeCannotEndTheSave() {
+  // The load-bearing promise: a stranded player with no money can always
+  // spend a morning under the van. Breakdowns take your season, never your
+  // save.
+  VanDials d;
+  Van van;
+  van.parts[static_cast<int>(VanPart::Clutch)].wear = 1.0;
+  van.parts[static_cast<int>(VanPart::Clutch)].failed = true;
+  CHECK(!VanRuns(van));
+
+  double broke = 0.0;
+  double hours = 0.0;
+  CHECK(!PatchVan(van, VanPart::Clutch, broke, hours, d));
+  CHECK(!ReplaceVanPart(van, VanPart::Clutch, broke, hours, d));
+  CHECK(hours == 0.0);            // and nothing happened
+
+  CHECK(BodgeVan(van, VanPart::Clutch, hours, d));
+  CHECK(VanRuns(van));            // it moves again
+  CHECK(hours >= d.bodgeHours);   // and it cost you the morning
+  CHECK(broke == 0.0);            // for nothing, because there was nothing
+
+  // A bodge is a bodge: it gives back least, so it goes again soonest.
+  Van bodged, patched;
+  bodged.parts[0].wear = patched.parts[0].wear = 1.0;
+  double h = 0.0, cash = 500.0;
+  BodgeVan(bodged, VanPart::Tyres, h, d);
+  PatchVan(patched, VanPart::Tyres, cash, h, d);
+  CHECK(bodged.parts[0].wear > patched.parts[0].wear);
+}
+
+static void TestPatchUntilYouCannot() {
+  VanDials d;
+  Van van;
+  double cash = 2000.0, hours = 0.0;
+  const int i = static_cast<int>(VanPart::Brakes);
+
+  for (int n = 0; n < d.patchesPerPart; n++) {
+    van.parts[i].wear = 0.95;
+    CHECK(PatchVan(van, VanPart::Brakes, cash, hours, d));
+  }
+  // After that it wants doing properly.
+  van.parts[i].wear = 0.95;
+  CHECK(!PatchVan(van, VanPart::Brakes, cash, hours, d));
+  CHECK(ReplaceVanPart(van, VanPart::Brakes, cash, hours, d));
+  CHECK(van.parts[i].wear == 0.0);
+  CHECK(van.parts[i].patches == 0);   // a new part patches like a new part
+
+  // Replacing costs more than patching, which is why anyone patches.
+  CHECK(d.replaceCost[i] > d.patchCost[i]);
+  // And every repair takes time as well as money.
+  CHECK(hours > 0.0);
+}
+
+static void TestTheVanRunsOnItsOwnRng() {
+  // The van rusting must never shift the rng an attempt resolves on, or a
+  // save stops being replayable.
+  Rng world = Rng::FromSeed("crag-1");
+  Climber c;
+  c.skills.power = c.skills.fingers = c.skills.technique =
+      c.skills.endurance = c.skills.head = 55.0;
+  Route r = BuildRoute(world, "Control", 5, 5, RouteType::Crimp,
+                       Discipline::Boulder);
+
+  auto Play = [&](bool withVan) {
+    Rng session = Rng::FromSeed("van-isolation");
+    SessionState st = StartSession(c);
+    ProjectMemory m;
+    m.routeName = r.name;
+    if (withVan) {
+      Van van;
+      for (int day = 1; day <= 30; day++) DriveVan(van, world, day, 1.0, 90.0);
+    }
+    std::string trace;
+    for (int i = 0; i < 6; i++)
+      trace += std::to_string(
+          AttemptInSession(session, st, m, c, r, Conditions{}).highpoint);
+    return trace;
+  };
+  CHECK(Play(false) == Play(true));
+}
+
 // --- RNG ---------------------------------------------------------------------
 
 static void TestRngDeterminism() {
@@ -2763,6 +2985,14 @@ int main() {
   TestTheWholeArc();
   TestSaveCarriesFirstAscents();
   TestLoadsVersion2Save();
+  TestLoadsVersion5Save();
+  TestWhatYouOwnSurvivesASave();
+  TestDrivingWearsTheVan();
+  TestHotDaysCookTheRadiator();
+  TestNothingFailsOutOfTheBlue();
+  TestBeingBrokeCannotEndTheSave();
+  TestPatchUntilYouCannot();
+  TestTheVanRunsOnItsOwnRng();
   TestShoesWearByWhatYouClimb();
   TestDeadRubberCostsGrades();
   TestResoleOrReplace();
