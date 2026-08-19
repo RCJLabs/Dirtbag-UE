@@ -36,6 +36,9 @@ Everything the phase needs is built, in the editor, and building green. All thre
 
 ## Phase 2 — First Crag & the Lot   ⚠️ BUILT, GATES UNVERIFIED
 
+> **→ `notes/NEXT-AT-THE-DESK.md` is the full ordered list for a session at
+> the desk.** Everything below is still true; that file sequences it.
+>
 > **OUTSTANDING — Evan, at the desk:** build the first-ascent naming widget
 > (`notes/phase2-naming-widget.md`, ~20 min of UMG). It is the only thing
 > standing between the code and the phase's headline gate, *"a new player
