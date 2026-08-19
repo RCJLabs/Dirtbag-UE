@@ -129,6 +129,9 @@ FDirtbagAttemptResult FromSim(const dirtbag::AttemptResult& In)
 FDirtbagSessionState FromSim(const dirtbag::SessionState& In)
 {
 	FDirtbagSessionState Out;
+	// mirror-skip: shoeWear -- the session takes a copy of the rubber when it
+	// starts, so Blueprint reads it from Player.Shoes.Wear, which is the one
+	// that is still true after the shoes are resoled mid-day.
 	Out.SkinLeft = In.skinLeft;
 	Out.Warmth = In.warmth;
 	Out.Psyche = In.psyche;
@@ -163,6 +166,8 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.shoes = ToSim(In.Shoes);
 	Out.van = ToSim(In.Van);
 	Out.owed = In.Owed;
+	Out.job = ToSim(In.Job);
+	Out.standing = ToSim(In.Standing);
 	Out.bonds.reserve(In.Bonds.Num());
 	for (const FDirtbagPartnerBond& B : In.Bonds)
 	{
@@ -204,6 +209,8 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Shoes = FromSim(In.shoes);
 	Out.Van = FromSim(In.van);
 	Out.Owed = In.owed;
+	Out.Job = FromSim(In.job);
+	Out.Standing = FromSim(In.standing);
 	Out.Bonds.Reserve(static_cast<int32>(In.bonds.size()));
 	for (const dirtbag::PartnerBond& B : In.bonds)
 	{
@@ -246,6 +253,7 @@ FDirtbagCareerSummary FromSim(const dirtbag::CareerSummary& In)
 FDirtbagWeather FromSim(const dirtbag::Weather& In)
 {
 	FDirtbagWeather Out;
+	Out.Day = In.day;
 	Out.HighTempF = In.highTempF;
 	Out.LowTempF = In.lowTempF;
 	Out.Humidity = In.humidity;
@@ -254,9 +262,64 @@ FDirtbagWeather FromSim(const dirtbag::Weather& In)
 	return Out;
 }
 
+FDirtbagStanding FromSim(const dirtbag::Standing& In)
+{
+	FDirtbagStanding Out;
+	Out.With.Reserve(dirtbag::kFactionCount);
+	for (int32 i = 0; i < dirtbag::kFactionCount; i++)
+	{
+		Out.With.Add(In.with[i]);
+	}
+	Out.ClosedDays = In.closedDays;
+	return Out;
+}
+
+dirtbag::Standing ToSim(const FDirtbagStanding& In)
+{
+	dirtbag::Standing Out;
+	// A short array is a save from before factions existed, not a bug. The
+	// missing camps have no opinion, which is what a default Standing says.
+	for (int32 i = 0; i < In.With.Num() && i < dirtbag::kFactionCount; i++)
+	{
+		Out.with[i] = In.With[i];
+	}
+	Out.closedDays = In.ClosedDays;
+	return Out;
+}
+
+FDirtbagJob FromSim(const dirtbag::Job& In)
+{
+	FDirtbagJob Out;
+	Out.bSalaried = In.salaried;
+	Out.DaysWorked = In.daysWorked;
+	Out.WeeksSalaried = In.weeksSalaried;
+	return Out;
+}
+
+dirtbag::Job ToSim(const FDirtbagJob& In)
+{
+	dirtbag::Job Out;
+	Out.salaried = In.bSalaried;
+	Out.daysWorked = In.DaysWorked;
+	Out.weeksSalaried = In.WeeksSalaried;
+	return Out;
+}
+
+FDirtbagOddJob FromSim(const dirtbag::OddJob& In)
+{
+	FDirtbagOddJob Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Hours = In.hours;
+	Out.Pay = In.pay;
+	Out.Energy = In.energy;
+	Out.bNeedsVan = In.needsVan;
+	return Out;
+}
+
 dirtbag::Weather ToSim(const FDirtbagWeather& In)
 {
 	dirtbag::Weather Out;
+	Out.day = In.Day;
 	Out.highTempF = In.HighTempF;
 	Out.lowTempF = In.LowTempF;
 	Out.humidity = In.Humidity;
@@ -289,6 +352,8 @@ FDirtbagCragLine FromSim(const dirtbag::CragLine& In)
 	Out.bIsProject = In.isProject;
 	Out.FirstAscentBy = UTF8_TO_TCHAR(In.firstAscentBy.c_str());
 	Out.Description = UTF8_TO_TCHAR(In.description.c_str());
+	// mirror-skip: displayName -- carried, but through DisplayName(), which
+	// falls back to the description for a line nobody has named yet.
 	Out.DisplayName = UTF8_TO_TCHAR(dirtbag::DisplayName(In).c_str());
 	return Out;
 }
@@ -420,6 +485,9 @@ dirtbag::PartnerBond ToSim(const FDirtbagPartnerBond& In)
 FDirtbagPartner FromSim(const dirtbag::Partner& In)
 {
 	FDirtbagPartner Out;
+	// mirror-skip: ambition -- how hard they will chase a line of their own.
+	// It decides what the Lot does behind your back and is deliberately not
+	// something you can read off a person's face.
 	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
 	Out.Tag = UTF8_TO_TCHAR(In.tag.c_str());
 	Out.Climber = FromSim(In.climber);

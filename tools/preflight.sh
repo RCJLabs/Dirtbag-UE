@@ -31,4 +31,8 @@ echo "== engine field names =="
 python3 tools/check-engine-fields.py
 
 echo
+echo "== mirror coverage =="
+python3 tools/check-mirror-coverage.py
+
+echo
 echo "ALL CHECKS PASSED"

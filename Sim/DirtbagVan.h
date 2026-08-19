@@ -73,11 +73,24 @@ struct VanDials {
   double patchRestores = 0.6;
   int patchesPerPart = 2;   // after that it wants replacing properly
 
-  // Once a part is past this it can fail on any drive; the chance climbs
+  // PLACEHOLDER-FUEL-DECL
+// Once a part is past this it can fail on any drive; the chance climbs
   // with how far past. Nothing fails out of the blue — the van tells you
   // first, which is what VanText is for.
   double failsAbove = 0.7;
   double failChancePerDrive = 0.16;
+
+  // Fuel. A van at eighteen to the gallon, an hour of driving, gas at the
+  // pump — this is close to the real arithmetic, and it is the only cost in
+  // the game that goes up the more you climb.
+  //
+  // Everything else the player spends money on is either fixed (bills) or a
+  // consequence of bad luck (a clutch). Measured without fuel, a season cost
+  // about $5,600 and paid for itself on fifteen percent of days worked: the
+  // player was never once broke across fifteen seasons, and so the money
+  // never pressured anything (notes/phase3-economy.md). Driving to the crag
+  // is what makes the crag cost something.
+  double fuelPerHour = 9.0;
 
   // A radiator on a warm day. This is the one weather-coupled failure, and
   // it is deliberate: hot afternoons are already when you are not climbing,
@@ -105,6 +118,9 @@ int DriveVan(Van& van, const Rng& worldRng, int day, double hours,
 
 // Is the van going anywhere?
 bool VanRuns(const Van& van);
+
+// What that drive costs at the pump.
+double FuelFor(double hours, const VanDials& dials = VanDials{});
 
 // The three ways out. Each returns false if it cannot be done — bodging can
 // always be done, which is the point of it.

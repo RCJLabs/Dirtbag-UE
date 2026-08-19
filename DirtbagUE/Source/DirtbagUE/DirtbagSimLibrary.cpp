@@ -429,6 +429,16 @@ FDirtbagPrimeWindow UDirtbagSimLibrary::PrimeWindowFor(
 	    DirtbagConvert::ToSim(Weather), DirtbagConvert::ToSim(Aspect)));
 }
 
+double UDirtbagSimLibrary::FirstLightHour(int32 Day)
+{
+	return dirtbag::FirstLightHour(Day);
+}
+
+double UDirtbagSimLibrary::LastLightHour(int32 Day)
+{
+	return dirtbag::LastLightHour(Day);
+}
+
 FString UDirtbagSimLibrary::ConditionsText(double Friction)
 {
 	return FString(UTF8_TO_TCHAR(dirtbag::ConditionsText(Friction)));

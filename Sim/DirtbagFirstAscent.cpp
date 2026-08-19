@@ -24,9 +24,12 @@ double CleanLine(PlayerState& player, DayState& day, ProjectMemory& memory,
   memory.cleanliness =
       std::min(1.0, memory.cleanliness + hours / dials.hoursToClean);
 
-  // Somebody notices. Scrubbing opens terrain and takes a wire brush to a
-  // hillside, and the scene has an opinion about both.
-  ScrubbedALine(player.standing);
+  // Somebody notices — but only the first time. Taking a wire brush to
+  // virgin rock is development; going over an established line again before
+  // you pull on is maintenance, and nobody has an opinion about that.
+  if (before <= dials.virginCleanliness + 0.01) {
+    ScrubbedALine(player.standing);
+  }
 
   // The day pays for it exactly as it pays for anything else — this is an
   // afternoon you are not climbing in, which is the whole cost.

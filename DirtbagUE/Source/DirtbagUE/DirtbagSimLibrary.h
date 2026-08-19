@@ -235,6 +235,15 @@ public:
 	static FDirtbagPrimeWindow PrimeWindowFor(const FDirtbagWeather& Weather,
 	                                          EDirtbagAspect Aspect);
 
+	/** When the light arrives and when it goes, on this day of the year.
+	 *  16.5 hours midsummer, 7.9 midwinter — in December the light is gone
+	 *  at 16:26, which is before a nine-to-five lets you out. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static double FirstLightHour(int32 Day);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static double LastLightHour(int32 Day);
+
 	/** "sticky - this is the day" / "greasy". */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
 	static FString ConditionsText(double Friction);

@@ -86,6 +86,12 @@ void Shift(Standing& s, Faction f, double amount,
 // them.
 void DidFirstAscent(Standing& s, bool goodStyle,
                     const FactionDials& dials = FactionDials{});
+// Opening a line: the first scrub of virgin rock, which is development and
+// is what the stewards actually object to. Routine brushing of something
+// already in the book is maintenance and costs nothing — measured, charging
+// for every brush put a projecting player at -0.70 with the stewards having
+// never once taken the money work, which made closures weather rather than
+// consequence.
 void ScrubbedALine(Standing& s, const FactionDials& dials = FactionDials{});
 void TookTheGuidebookPhotos(Standing& s,
                             const FactionDials& dials = FactionDials{});

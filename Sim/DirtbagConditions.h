@@ -117,20 +117,48 @@ struct ConditionsDials {
   // and the projecting loop stops existing. See notes/phase2-window.md.
   double windowBand = 0.05;
 
-  // Daylight bounds for the window search; outside these you are climbing
-  // by headlamp, which the sim does not yet model.
-  double firstLight = 6.0;
-  double lastLight = 20.0;
+  // --- Daylight ---------------------------------------------------------
+  // Outside these hours you are climbing by headlamp, which the sim does
+  // not model. They move with the year, and that movement is the whole
+  // reason a job costs anything.
+  //
+  // Held fixed at 6-to-20 all year — as they were through the first Phase 3
+  // measurement — a nine-to-five still left three hours of evening light
+  // every single day, and a salaried season climbed as many burns as an
+  // unemployed one (521 against 518) for $19,900 more. The job was free.
+  // A winter Tuesday that ends before you get home is what makes it cost
+  // something, and it is also just true.
+  // Solar noon, not clock noon — the light is centred half an hour before
+  // the hour, and that half hour is the difference between a midwinter
+  // sunset you can drive to after work and one you cannot.
+  double middayHour = 12.5;
+  double daylightHoursMean = 12.2;   // hours of light at the equinoxes
+  double daylightSwingHours = 4.3;   // 16.5h midsummer, 7.9h midwinter
+  // The longest day leads the warmest day: the ground keeps loading heat for
+  // weeks after the sun has started coming back. Thirty days is the usual
+  // lag, and it is why the best rock temperatures of spring arrive with the
+  // evenings already long.
+  int solsticeLeadDays = 30;
 };
 
 // One day's weather. Generated once per day and then read all day.
 struct Weather {
+  // Which day this is. Carried on the weather rather than threaded through
+  // every signature, because everything that reads the weather also needs
+  // to know how much light the day has.
+  int day = 1;
   double highTempF = 60.0;
   double lowTempF = 40.0;
   double humidity = 0.5;  // 0..1
   double cloud = 0.3;     // 0..1; cloud cover blunts the sun penalty
   double wind = 0.2;      // 0..1
 };
+
+// Hours of daylight on this day, and where they start and end. Everything
+// that asks "is there light" asks these, not a fixed pair of numbers.
+double DaylightHours(int day, const ConditionsDials& dials = ConditionsDials{});
+double FirstLightHour(int day, const ConditionsDials& dials = ConditionsDials{});
+double LastLightHour(int day, const ConditionsDials& dials = ConditionsDials{});
 
 // The year's temperature centre on this day — what `baseTempF` used to be
 // for every day of the year.

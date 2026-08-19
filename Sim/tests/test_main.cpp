@@ -146,7 +146,8 @@ static void TestFrictionRespondsToWeather() {
   for (int day = 1; day <= 60; day++) {
     Weather w = GenerateWeather(world, day);
     for (Aspect a : {Aspect::North, Aspect::East, Aspect::South, Aspect::West})
-      for (double h = d.firstLight; h <= d.lastLight; h += 0.5) {
+      for (double h = FirstLightHour(day, d); h <= LastLightHour(day, d);
+           h += 0.5) {
         const double f = ConditionsAt(w, a, h).friction;
         CHECK(f >= 0.0 && f <= 1.0);
       }
@@ -171,8 +172,8 @@ static void TestWindowIsShortEnoughToBeADecision() {
       // The window contains its own peak, and sits inside daylight.
       CHECK(win.startHour <= win.peakHour + 1e-9);
       CHECK(win.endHour >= win.peakHour - 1e-9);
-      CHECK(win.startHour >= d.firstLight - 1e-9);
-      CHECK(win.endHour <= d.lastLight + 1e-9);
+      CHECK(win.startHour >= FirstLightHour(day, d) - 1e-9);
+      CHECK(win.endHour <= LastLightHour(day, d) + 1e-9);
       CHECK(win.peakFriction >= d.primeThreshold);
     }
     // Some days refuse you outright, and most days do not.
@@ -233,7 +234,8 @@ static void TestWindowChangesWhenYouBurn() {
         PrimeWindow win = FindPrimeWindow(w, Aspect::East, d);
         if (!win.exists) continue;
         days++;
-        const double reconHour = std::max(d.firstLight, win.startHour - 2.0);
+        const double reconHour =
+            std::max(FirstLightHour(day, d), win.startHour - 2.0);
         const Conditions poor = ConditionsAt(w, Aspect::East, reconHour, d);
         const Conditions prime = ConditionsAt(w, Aspect::East, win.peakHour, d);
         const int windowBurns = static_cast<int>(win.hours() / 0.25);
@@ -279,7 +281,8 @@ static void TestWindowChangesWhenYouBurn() {
     CHECK(win.exists);
     const Conditions poor =
         ConditionsAt(w, Aspect::East,
-                     std::max(d.firstLight, win.startHour - 2.0), d);
+                     std::max(FirstLightHour(goodDay, d), win.startHour - 2.0),
+                     d);
     Rng session = Rng::FromSeed("skin-budget");
     SessionState st = StartSession(c);
     ProjectMemory mem;
@@ -955,6 +958,31 @@ static void TestTheWindowMovesThroughTheYear() {
 
   // And summer offers far fewer days worth walking to the crag for.
   CHECK(summer.second < winter.second);
+}
+
+static void TestTheLightGoesInWinter() {
+  ConditionsDials d;
+  const int longest = d.warmestDay - d.solsticeLeadDays;
+  const int shortest = longest + d.daysPerYear / 2;
+
+  // A year of light, swinging around a fixed midday.
+  CHECK(DaylightHours(longest, d) > DaylightHours(shortest, d) + 6.0);
+  CHECK(DaylightHours(longest, d) < 18.5);   // nowhere near the arctic
+  CHECK(DaylightHours(shortest, d) > 6.0);   // and nowhere near it the other way
+  for (int day = 1; day <= d.daysPerYear; day++) {
+    CHECK(FirstLightHour(day, d) < LastLightHour(day, d));
+    CHECK(FirstLightHour(day, d) > 2.0 && LastLightHour(day, d) < 22.0);
+  }
+
+  // The point of all of it: on the shortest days the light is gone before a
+  // nine-to-five lets you out, and on the longest there is most of an
+  // evening left. Held at a fixed 6-to-20 (as it was through the first
+  // Phase 3 measurement) a salaried season climbed as many burns as an
+  // unemployed one, because there was always evening.
+  JobDials j;
+  const double clockOff = j.salaryStartHour + j.salaryHours;
+  CHECK(LastLightHour(shortest, d) < clockOff);
+  CHECK(LastLightHour(longest, d) > clockOff + 2.0);
 }
 
 static void TestAJobCostsYouTheWinter() {
@@ -3399,6 +3427,82 @@ static void TestSaveRejectsGarbageAndFuture() {
         LoadResult::BadFormat);
 }
 
+static void TestTheJobSurvivesASave() {
+  // Standing was saved from v8 and the job was not, so a career loaded its
+  // way out of employment. Nothing failed; you were simply not salaried any
+  // more, which is the kind of bug a player reports as "I think it forgot".
+  SaveGame save;
+  save.seed = "employed";
+  save.player.job.salaried = true;
+  save.player.job.daysWorked = 148;
+  save.player.job.weeksSalaried = 21;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.job.salaried);
+  CHECK(back.player.job.daysWorked == 148);
+  CHECK(back.player.job.weeksSalaried == 21);
+}
+
+static void TestLoadsVersion8Save() {
+  // A v8 career: it had a scene to stand with, and no way to hold a job.
+  const std::string v8 =
+      "version=8\n"
+      "seed=grim-fjord-123\n"
+      "day=40\n"
+      "cash=212.5\n"
+      "skills.power=48\n"
+      "skills.fingers=52\n"
+      "skills.technique=50\n"
+      "skills.endurance=47\n"
+      "skills.head=55\n"
+      "morphology=2\n"
+      "skin=5.5\n"
+      "psyche=0.65\n"
+      "projects=0\n"
+      "owed=35\n"
+      "standing.0=-0.4\n"
+      "standing.1=0.2\n"
+      "standing.2=0\n"
+      "standing.3=-0.1\n"
+      "standing.closed=3\n"
+      "shoes.wear=0.4\n"
+      "shoes.resoles=1\n"
+      "shoes.pairs=2\n"
+      "van.hours=180\n"
+      "van.0.wear=0.3\nvan.0.patches=0\nvan.0.failed=0\n"
+      "van.1.wear=0.1\nvan.1.patches=0\nvan.1.failed=0\n"
+      "van.2.wear=0.5\nvan.2.patches=1\nvan.2.failed=0\n"
+      "van.3.wear=0.2\nvan.3.patches=0\nvan.3.failed=0\n"
+      "van.4.wear=0.6\nvan.4.patches=0\nvan.4.failed=0\n"
+      "van.5.wear=0.1\nvan.5.patches=0\nvan.5.failed=0\n"
+      "dog.name=Wire\n"
+      "dog.adopted=1\n"
+      "dog.bond=0.8\n"
+      "dog.fed=0.5\n"
+      "bonds=0\n";
+
+  SaveGame loaded;
+  CHECK(DeserializeSave(v8, loaded) == LoadResult::Ok);
+  CHECK(loaded.version == kSaveVersion);
+  // Everything v8 did carry is still exactly what it was.
+  CHECK(loaded.player.day == 40);
+  CHECK(loaded.player.owed == 35.0);
+  CHECK(loaded.player.standing.with[0] == -0.4);
+  CHECK(loaded.player.standing.closedDays == 3);
+  CHECK(loaded.player.dog.name == "Wire");
+  CHECK(loaded.player.dog.adopted);
+  // And the field it never had arrives as what it truthfully was: a career
+  // that could not have held a job has not held one.
+  CHECK(!loaded.player.job.salaried);
+  CHECK(loaded.player.job.daysWorked == 0);
+
+  SaveGame again;
+  CHECK(DeserializeSave(SerializeSave(loaded), again) == LoadResult::Ok);
+  CHECK(again.player.standing.with[0] == -0.4);
+  CHECK(again.player.standing.closedDays == 3);
+}
+
 // The real thing: a save written by the v1 build, loaded by this one. Hand
 // written rather than generated, because the whole point is that it is a
 // file this code can no longer produce. If this ever fails, someone's
@@ -3563,6 +3667,8 @@ int main() {
   TestSevenDayLoop();
   TestSaveRoundTrip();
   TestSaveRejectsGarbageAndFuture();
+  TestTheJobSurvivesASave();
+  TestLoadsVersion8Save();
   TestLoadsVersion1Save();
   TestCareerSummary();
   TestLedgerRecordsGrade();
@@ -3596,6 +3702,7 @@ int main() {
   TestLoadsVersion2Save();
   TestTheYearHasSeasons();
   TestTheWindowMovesThroughTheYear();
+  TestTheLightGoesInWinter();
   TestAJobCostsYouTheWinter();
   TestTheSceneWatchesWhatYouActuallyDo();
   TestTheTownIsData();

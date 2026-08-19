@@ -45,6 +45,22 @@ const char* AspectName(Aspect a) {
   return "north-facing";
 }
 
+double DaylightHours(int day, const ConditionsDials& dials) {
+  const int period = std::max(1, dials.daysPerYear);
+  const int longest = dials.warmestDay - dials.solsticeLeadDays;
+  const double phase =
+      2.0 * kPi * static_cast<double>(day - longest) / period;
+  return dials.daylightHoursMean + dials.daylightSwingHours * std::cos(phase);
+}
+
+double FirstLightHour(int day, const ConditionsDials& dials) {
+  return dials.middayHour - 0.5 * DaylightHours(day, dials);
+}
+
+double LastLightHour(int day, const ConditionsDials& dials) {
+  return dials.middayHour + 0.5 * DaylightHours(day, dials);
+}
+
 double SeasonalCentreF(int day, const ConditionsDials& dials) {
   const int period = std::max(1, dials.daysPerYear);
   const double phase =
@@ -73,6 +89,7 @@ Weather GenerateWeather(const Rng& worldRng, int day,
   const double centre = SeasonalCentreF(day, dials);
   const double swing = (rng.NextDouble() * 2.0 - 1.0) * dials.tempSwingF;
   Weather w;
+  w.day = day;
   w.highTempF = centre + swing + dials.diurnalSwingF * 0.5;
   w.lowTempF = centre + swing - dials.diurnalSwingF * 0.5;
 
@@ -98,7 +115,9 @@ double TemperatureAt(const Weather& w, double hour,
 
 double SunOnRock(Aspect aspect, double hour, const Weather& w,
                  const ConditionsDials& dials) {
-  if (hour < dials.firstLight || hour > dials.lastLight) return 0.0;
+  if (hour < FirstLightHour(w.day, dials) ||
+      hour > LastLightHour(w.day, dials))
+    return 0.0;
   if (aspect == Aspect::North) return 0.0;  // the summer dirtbag's whole plan
 
   // A raised cosine centred on the aspect's peak: the sun swings onto the
@@ -120,7 +139,7 @@ double RockTempAt(const Weather& w, Aspect aspect, double hour,
   // still warm when the air has already cooled.
   const double dt = 0.25;
   double excess = 0.0;  // degrees above air temperature
-  for (double h = dials.firstLight; h < hour - 1e-9; h += dt) {
+  for (double h = FirstLightHour(w.day, dials); h < hour - 1e-9; h += dt) {
     const double sun = SunOnRock(aspect, h, w, dials);
     excess += (dials.solarGainF * sun - excess * dials.rockCoolRate) * dt;
     if (excess < 0.0) excess = 0.0;
@@ -156,7 +175,9 @@ PrimeWindow FindPrimeWindow(const Weather& w, Aspect aspect,
 
   // Find the peak first — it is reported even on a day with no window, so
   // the forecast can say "best it gets is 2pm, and it is not good enough".
-  for (double h = dials.firstLight; h <= dials.lastLight + 1e-9; h += step) {
+  const double dawn = FirstLightHour(w.day, dials);
+  const double dusk = LastLightHour(w.day, dials);
+  for (double h = dawn; h <= dusk + 1e-9; h += step) {
     const double f = ConditionsAt(w, aspect, h, dials).friction;
     if (f > best.peakFriction) {
       best.peakFriction = f;
@@ -173,12 +194,12 @@ PrimeWindow FindPrimeWindow(const Weather& w, Aspect aspect,
   // whole day) guarantees the span actually contains the best moment.
   const double bar = best.peakFriction - dials.windowBand;
   double start = best.peakHour;
-  while (start - step >= dials.firstLight &&
+  while (start - step >= dawn &&
          ConditionsAt(w, aspect, start - step, dials).friction >= bar) {
     start -= step;
   }
   double end = best.peakHour;
-  while (end + step <= dials.lastLight &&
+  while (end + step <= dusk &&
          ConditionsAt(w, aspect, end + step, dials).friction >= bar) {
     end += step;
   }

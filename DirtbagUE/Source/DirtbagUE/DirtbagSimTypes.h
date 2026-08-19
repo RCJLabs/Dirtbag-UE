@@ -11,6 +11,8 @@
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
 #include "DirtbagDay.h"
+#include "DirtbagFactions.h"
+#include "DirtbagJobs.h"
 #include "DirtbagDog.h"
 #include "DirtbagGear.h"
 #include "DirtbagVan.h"
@@ -367,6 +369,72 @@ struct FDirtbagPartner
 	TArray<FString> FirstAscents;
 };
 
+/** Who has an opinion about you. Two opposed axes, four camps. */
+UENUM(BlueprintType)
+enum class EDirtbagFaction : uint8
+{
+	OldGuard,
+	Scene,
+	Development,
+	Stewardship
+};
+
+/** Where you stand with each of them, -1..1, and whether the gate is shut. */
+USTRUCT(BlueprintType)
+struct FDirtbagStanding
+{
+	GENERATED_BODY()
+
+	/** Indexed by EDirtbagFaction. -1 they will not have you, +1 you are one
+	 *  of theirs. Gaining with one costs a little with its opposite. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Standing")
+	TArray<double> With;
+
+	/** Days left on an access closure. Above zero, the crag is shut. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Standing")
+	int32 ClosedDays = 0;
+};
+
+/** Employment, such as it is. */
+USTRUCT(BlueprintType)
+struct FDirtbagJob
+{
+	GENERATED_BODY()
+
+	/** Nine to five, five days a week. The hours are the point, not the pay. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	bool bSalaried = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	int32 DaysWorked = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	int32 WeeksSalaried = 0;
+};
+
+/** A gig on the board: hours, money, and whether the van has to go. */
+USTRUCT(BlueprintType)
+struct FDirtbagOddJob
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	double Hours = 4.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	double Pay = 60.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	double Energy = 25.0;
+
+	/** No van, no job. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	bool bNeedsVan = false;
+};
+
 USTRUCT(BlueprintType)
 struct FDirtbagPlayerState
 {
@@ -402,6 +470,12 @@ struct FDirtbagPlayerState
 	 *  here and is the first thing any wage goes to. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	double Owed = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	FDirtbagJob Job;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Standing")
+	FDirtbagStanding Standing;
 };
 
 /** One day's body-clock. Never saved — saves happen at day boundaries. */
@@ -479,6 +553,15 @@ USTRUCT(BlueprintType)
 struct FDirtbagWeather
 {
 	GENERATED_BODY()
+
+	/**
+	 * Which day this is. Carried on the weather because everything that reads
+	 * the weather also needs to know how much light the day has — daylight
+	 * swings from 16.5 hours midsummer to 7.9 midwinter, and a window search
+	 * that does not know the date searches a midwinter day all year.
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
+	int32 Day = 1;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Conditions")
 	double HighTempF = 60.0;
@@ -620,6 +703,12 @@ namespace DirtbagConvert
 
 	FDirtbagCragLine FromSim(const dirtbag::CragLine& In);
 	FDirtbagCrag FromSim(const dirtbag::Crag& In);
+
+	FDirtbagStanding FromSim(const dirtbag::Standing& In);
+	dirtbag::Standing ToSim(const FDirtbagStanding& In);
+	FDirtbagJob FromSim(const dirtbag::Job& In);
+	dirtbag::Job ToSim(const FDirtbagJob& In);
+	FDirtbagOddJob FromSim(const dirtbag::OddJob& In);
 
 	dirtbag::Weather ToSim(const FDirtbagWeather& In);
 	dirtbag::Aspect ToSim(EDirtbagAspect In);

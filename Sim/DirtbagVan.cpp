@@ -61,6 +61,10 @@ int DriveVan(Van& van, const Rng& worldRng, int day, double hours,
   return -1;
 }
 
+double FuelFor(double hours, const VanDials& dials) {
+  return hours > 0.0 ? hours * dials.fuelPerHour : 0.0;
+}
+
 bool VanRuns(const Van& van) {
   for (int i = 0; i < kVanPartCount; i++) {
     if (van.parts[i].failed) return false;

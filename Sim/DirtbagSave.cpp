@@ -119,6 +119,17 @@ void MigrateV7ToV8(SaveFields& fields) {
   fields["standing.closed"] = "0";
 }
 
+// v8 → v9: the job. Standing was saved from v8 and the job was not, so a
+// v8 career woke up unemployed every time it loaded — which is not a
+// migration problem, it is the bug this version exists to fix. A v8 save
+// arrives as what it actually was: whatever days it had worked are gone,
+// and it is not salaried, because it could not have been.
+void MigrateV8ToV9(SaveFields& fields) {
+  fields["job.salaried"] = "0";
+  fields["job.days"] = "0";
+  fields["job.weeks"] = "0";
+}
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -137,7 +148,7 @@ void MigrateV4ToV5(SaveFields& fields) {
 const std::vector<Migration>& DefaultMigrations() {
   static const std::vector<Migration> kMigrations = {
       &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5,
-      &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8};
+      &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9};
   return kMigrations;
 }
 
@@ -191,6 +202,9 @@ std::string SerializeSave(const SaveGame& save) {
     out << "standing." << IntToStr(i) << "="
         << NumToStr(save.player.standing.with[i]) << "\n";
   }
+  out << "job.salaried=" << IntToStr(save.player.job.salaried ? 1 : 0) << "\n";
+  out << "job.days=" << IntToStr(save.player.job.daysWorked) << "\n";
+  out << "job.weeks=" << IntToStr(save.player.job.weeksSalaried) << "\n";
   out << "standing.closed=" << IntToStr(save.player.standing.closedDays)
       << "\n";
   out << "shoes.wear=" << NumToStr(save.player.shoes.wear) << "\n";
@@ -301,6 +315,13 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   if (!ParseInt(fields, "standing.closed", save.player.standing.closedDays)) {
     return LoadResult::BadFormat;
   }
+  int salaried = 0;
+  if (!ParseInt(fields, "job.salaried", salaried) ||
+      !ParseInt(fields, "job.days", save.player.job.daysWorked) ||
+      !ParseInt(fields, "job.weeks", save.player.job.weeksSalaried)) {
+    return LoadResult::BadFormat;
+  }
+  save.player.job.salaried = salaried != 0;
   if (!ParseDouble(fields, "owed", save.player.owed) ||
       !ParseDouble(fields, "shoes.wear", save.player.shoes.wear) ||
       !ParseInt(fields, "shoes.resoles", save.player.shoes.resoles) ||

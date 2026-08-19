@@ -25,7 +25,9 @@
 #include "DirtbagFirstAscent.h"
 #include "DirtbagGear.h"
 #include "DirtbagVan.h"
+#include "DirtbagFactions.h"
 #include "DirtbagJobs.h"
+#include "DirtbagTown.h"
 #include "DirtbagPartner.h"
 #include "DirtbagSave.h"
 #include "DirtbagSession.h"
@@ -47,8 +49,10 @@ struct Tally {
   double earned = 0.0, spentFood = 0.0, spentDog = 0.0, spentBills = 0.0;
   double spentShoes = 0.0;
   int resoles = 0, newPairs = 0, deadRubberDays = 0;
-  double spentVan = 0.0;
+  double spentVan = 0.0, spentFuel = 0.0;
   int breakdowns = 0, strandedDays = 0, bodges = 0;
+  int closedDays = 0, closures = 0;
+  int photoGigs = 0, trailGigs = 0;
   double vanHoursLost = 0.0;
   int movesClimbed = 0;
   double warmthSum = 0.0, skinSum = 0.0, oddsSum = 0.0;
@@ -129,11 +133,25 @@ int main(int argc, char** argv) {
   // Arg 5 is "salary" to take the job on day one and never quit.
   const bool quiet = argc > 4 && std::string(argv[4]) == "q";
   const bool takeTheSalary = argc > 5 && std::string(argv[5]) == "salary";
+  // "careful" turns down work that would cost you the stewards. The
+  // question the faction system asks is whether you can afford to.
+  const bool mindReputation = argc > 5 && std::string(argv[5]) == "careful";
+  // "kept" is the control, and the only one that can answer the Phase 3
+  // gate. Every other policy works whenever the money runs low, so by
+  // construction none of them ever goes broke and none of them can tell you
+  // what the rent costs. A player with no bills, free food and free fuel
+  // never works a day; the difference between their season and a real one
+  // is, exactly, the price of being alive.
+  const bool kept = argc > 5 && std::string(argv[5]) == "kept";
 
   const Rng world = Rng::FromSeed(seed);
   const Crag crag = RoadsideCrag(world);
   ConditionsDials cd;
   DayDials dd;
+  if (kept) {
+    dd.billsAmount = 0.0;
+    dd.mealCost = 0.0;
+  }
   FirstAscentDials fd;
   DogDials dog;
 
@@ -186,12 +204,19 @@ int main(int argc, char** argv) {
     } else {
       // Otherwise: rent comes first. Below a float, take a gig off the
       // board — the best-paying one you can actually do.
-      needMoney = player.cash < 120.0 || player.owed > 0.0;
+      needMoney = !kept && (player.cash < 120.0 || player.owed > 0.0);
       if (needMoney) {
         const std::vector<OddJob> board = OddJobBoard(world, player.day, jd);
         const OddJob* best = nullptr;
         for (const OddJob& g : board) {
           if (g.needsVan && !VanRuns(player.van)) continue;
+          // A careful player turns down the gig that pays best, because
+          // they have seen what it does to the gate.
+          if (mindReputation &&
+              g.name.find("guidebook") != std::string::npos &&
+              StandingWith(player.standing, Faction::Stewardship) < -0.15) {
+            continue;
+          }
           if (!best || g.pay > best->pay) best = &g;
         }
         if (best) {
@@ -201,14 +226,29 @@ int main(int argc, char** argv) {
             t.earned += best->pay;
             t.daysWorked++;
             note = "gig";
+            if (best->name.find("guidebook") != std::string::npos)
+              t.photoGigs++;
+            if (best->name.find("trail work") != std::string::npos)
+              t.trailGigs++;
           }
         }
       }
     }
 
-    // Drive to the crag and back, if the van goes. Half an hour each way.
+    // Drive to the crag and back, if the van goes, and if there is any
+    // point. (The first version of this drove out on every day with a
+    // window, including days the gate was locked and days the player had
+    // already decided to rest — a hundred pointless hours a year, which
+    // stopped being free the moment fuel had a price.)
     VanDials vd;
-    if (VanRuns(player.van) && win.exists) {
+    if (kept) vd.fuelPerHour = 0.0;
+    const bool worthTheDrive =
+        win.exists && CragIsOpen(player.standing) &&
+        player.climber.skin >= restUntilSkin &&
+        LastLightHour(player.day, cd) > today.hour + 0.5;
+    if (VanRuns(player.van) && worthTheDrive) {
+      Charge(player, FuelFor(1.0, vd));
+      t.spentFuel += FuelFor(1.0, vd);
       const int broke = DriveVan(player.van, world, player.day, 1.0,
                                  TemperatureAt(w, 14.0, cd), vd);
       if (broke >= 0) {
@@ -246,8 +286,14 @@ int main(int argc, char** argv) {
       note = note.empty() ? "resting skin" : note + " + resting skin";
     }
 
+    const bool shut = !CragIsOpen(player.standing);
+    if (shut) {
+      t.closedDays++;
+      if (note.empty()) note = "crag closed";
+    }
+
     const bool stranded = !VanRuns(player.van);
-    if (!win.exists || tooThin || stranded) {
+    if (!win.exists || tooThin || stranded || shut) {
       if (!win.exists) {
         if (!needMoney && !tooThin) {
           Rest(today, 4.0, dd);
@@ -267,6 +313,11 @@ int main(int argc, char** argv) {
       const bool missedIt = today.hour > win.endHour;
       if (missedIt) t.missedWindows++;
 
+      // The light is the hard stop. Nothing else in the day was one: before
+      // this, a salaried player who got out at five still climbed a full
+      // window's worth of burns, in the dark, in December.
+      const double dusk = LastLightHour(player.day, cd);
+
       StartGymSession(player, today, dd);
       const Climber body = ClimberForSession(player, today, dd);
       const CragLine* line = PickLine(crag, body, player);
@@ -274,7 +325,8 @@ int main(int argc, char** argv) {
         ProjectMemory& mem = LedgerFor(player, *line);
 
         // Clean it if it needs it — the cost that comes before any chance.
-        while (!IsWorkable(mem, fd) && today.hour < win.endHour)
+        while (!IsWorkable(mem, fd) && today.hour < win.endHour &&
+               today.hour < dusk)
           CleanLine(player, today, mem, 0.5, fd, dd);
 
         // Conditions where the clock actually is, not where the window was.
@@ -283,7 +335,7 @@ int main(int argc, char** argv) {
         const Conditions cond = ConditionsAt(w, crag.aspect, climbAt, cd);
         Rng session = Rng::FromSeed(seed + "#day" + std::to_string(player.day));
         int burnsToday = 0;
-        while (today.session.skinLeft > 0.5 &&
+        while (today.session.skinLeft > 0.5 && today.hour < dusk &&
                burnsToday < static_cast<int>(win.hours() / 0.25) + 4) {
           // The two halves the engine's DayAttempt node wraps: resolve the
           // burn against the session, then let the day pay for it.
@@ -374,6 +426,14 @@ int main(int argc, char** argv) {
       }
     }
 
+    const bool wasOpen = CragIsOpen(player.standing);
+    FactionDay(player.standing, world, player.day);
+    if (wasOpen && !CragIsOpen(player.standing)) {
+      t.closures++;
+      note += (note.empty() ? "" : " + ");
+      note += "ACCESS PULLED";
+    }
+
     DogDay(player.dog, !needMoney, dog);
     WeatherProjects(player, fd);
     if (today.hunger > dd.starvingHunger) t.starvedNights++;
@@ -395,6 +455,20 @@ int main(int argc, char** argv) {
     }
     SleepToNextDay(player, today, dd);
   }
+
+  // One machine-readable line, always. Comparing two policies across
+  // several seeds means parsing this output, and parsing the prose form
+  // cost an afternoon to a sends count that wrapped onto the next line.
+  printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f\t%d"
+         "\t%d\t%.0f\t%d\t%d\t%d\n",
+         seed.c_str(),
+         takeTheSalary ? "salary"
+                       : (mindReputation ? "careful" : (kept ? "kept" : "greedy")),
+         restUntilSkin, player.cash, t.cashLow, t.sends, t.firstAscents,
+         t.daysClimbed, t.burns, SkillToGrade(player.climber.skills.power),
+         player.standing.with[static_cast<int>(Faction::Stewardship)],
+         t.closures, t.closedDays, 100.0 * t.daysWorked / DAYS, t.brokeDays,
+         t.starvedNights, t.missedWindows);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,
@@ -429,9 +503,22 @@ int main(int argc, char** argv) {
   printf("    dog     $%7.0f (%d tins)\n", t.spentDog, t.dogMeals);
   printf("    shoes   $%7.0f (%d resoles, %d new pairs; %d days on dead "
          "rubber)\n", t.spentShoes, t.resoles, t.newPairs, t.deadRubberDays);
+  printf("    fuel    $%7.0f\n", t.spentFuel);
   printf("    van     $%7.0f (%d breakdowns, %d days stranded, %d bodged, "
          "%.0f hours under it)\n", t.spentVan, t.breakdowns, t.strandedDays,
          t.bodges, t.vanHoursLost);
+  printf("\n  where you stand: %s\n",
+         StandingText(player.standing).empty()
+             ? "nobody has an opinion about you"
+             : StandingText(player.standing).c_str());
+  for (int i = 0; i < kFactionCount; i++) {
+    printf("    %-22s %+.2f\n", FactionName(static_cast<Faction>(i)),
+           player.standing.with[i]);
+  }
+  printf("    %d guidebook gigs, %d days of trail work -> %d closures, %d "
+         "days shut out\n", t.photoGigs, t.trailGigs, t.closures,
+         t.closedDays);
+
   printf("    -> %d windows arrived at after they had gone\n",
          t.missedWindows);
   printf("    -> %.0f%% of days worked to stay level; %d moves climbed\n",
