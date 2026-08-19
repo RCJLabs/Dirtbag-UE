@@ -84,6 +84,37 @@ def class_members(headers, structs):
     return out
 
 
+def check_declaration_order(headers):
+    """UHT resolves USTRUCT/UENUM references in declaration order.
+
+    A struct that names a type declared further down the same header fails
+    the build with "the code generation hash is zero", which reads like a
+    circular include and is not one. Plain C++ would not care, and neither
+    would anything else here, so it needs its own check.
+    """
+    problems = []
+    for header in headers:
+        text = strip_noise(io.open(header, encoding="utf-8").read())
+
+        # Where each Dirtbag type is declared in this header.
+        declared_at = {}
+        for m in re.finditer(r"\b(?:struct|enum\s+class)\s+([FE]Dirtbag\w*)",
+                             text):
+            declared_at.setdefault(m.group(1), m.start())
+
+        for m in re.finditer(r"\bstruct\s+(FDirtbag\w*)"
+                             r"(?:\s*:\s*[^{]+)?\s*\{", text):
+            name, at = m.group(1), m.start()
+            body = text[m.end():matching_brace(text, m.end() - 1)]
+            for f in re.finditer(r"\b([FE]Dirtbag\w*)\b", body):
+                used = f.group(1)
+                if used == name or used not in declared_at:
+                    continue
+                if declared_at[used] > at:
+                    problems.append((os.path.basename(header), name, used))
+    return problems
+
+
 def main():
     headers = sorted(glob.glob(os.path.join(SRC, "*.h")))
     structs = struct_fields(headers)
@@ -159,13 +190,21 @@ def main():
                     path += "." + field
                     cur = structs[cur][field]
 
+    order = check_declaration_order(headers)
+    for f, holder, used in order:
+        print("DECLARED TOO LATE: %s  %s uses %s, which is declared further "
+              "down the same header" % (f, holder, used))
+        print("               UHT resolves in order; move %s above %s."
+              % (used, holder))
+
     for f, line, base, stype, field, avail in problems:
         print("NO SUCH FIELD: %s (~line %d)  '%s' is %s, which has no '%s'"
               % (f, line, base, stype, field))
         print("               %s has: %s" % (stype, ", ".join(avail)))
-    print("checked %d field accesses against %d mirror structs; problems: %d"
-          % (checked, len(structs), len(problems)))
-    return 1 if problems else 0
+    print("checked %d field accesses and the declaration order of %d mirror "
+          "structs; problems: %d"
+          % (checked, len(structs), len(problems) + len(order)))
+    return 1 if (problems or order) else 0
 
 
 sys.exit(main())

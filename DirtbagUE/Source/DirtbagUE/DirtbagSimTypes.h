@@ -240,6 +240,52 @@ struct FDirtbagProjectMemory
 };
 
 /** Career state — everything that outlives a day; what the save carries. */
+/** What a career remembers about somebody at the Lot. Their strength is
+ *  derived from seed and date and is deliberately not here. */
+USTRUCT(BlueprintType)
+struct FDirtbagPartnerBond
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	double Rapport = 0.0;
+
+	/** Route keys they got to first. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	TArray<FString> FirstAscents;
+};
+
+/** Somebody at the Lot, as they are today. */
+USTRUCT(BlueprintType)
+struct FDirtbagPartner
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	FString Name;
+
+	/** One line of who they are, in their own register. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	FString Tag;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	FDirtbagClimber Climber;
+
+	/** False for the neighbours. Ray put up half the crag and has not pulled
+	 *  on in years. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	bool bClimbs = true;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	double Rapport = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	TArray<FString> FirstAscents;
+};
+
 USTRUCT(BlueprintType)
 struct FDirtbagPlayerState
 {
@@ -424,52 +470,6 @@ struct FDirtbagCrag
 	/** Hours from the van. The crag's real cost. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crag")
 	double ApproachHours = 0.5;
-};
-
-/** What a career remembers about somebody at the Lot. Their strength is
- *  derived from seed and date and is deliberately not here. */
-USTRUCT(BlueprintType)
-struct FDirtbagPartnerBond
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
-	FString Name;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
-	double Rapport = 0.0;
-
-	/** Route keys they got to first. */
-	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
-	TArray<FString> FirstAscents;
-};
-
-/** Somebody at the Lot, as they are today. */
-USTRUCT(BlueprintType)
-struct FDirtbagPartner
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
-	FString Name;
-
-	/** One line of who they are, in their own register. */
-	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
-	FString Tag;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
-	FDirtbagClimber Climber;
-
-	/** False for the neighbours. Ray put up half the crag and has not pulled
-	 *  on in years. */
-	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
-	bool bClimbs = true;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
-	double Rapport = 0.0;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
-	TArray<FString> FirstAscents;
 };
 
 UENUM(BlueprintType)
