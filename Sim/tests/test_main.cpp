@@ -754,14 +754,26 @@ static void TestTheWholeArc() {
     CHECK(sends == 0);        // filthy rock does not go
   }
 
-  // So you clean it instead.
+  // So you clean it instead — to workable, which is where a first session
+  // with a brush gets you.
   m.beta = 0.0;
   while (!IsWorkable(m)) CleanLine(player, day, m, 1.0);
   CHECK(IsWorkable(m));
+  CHECK(m.cleanliness < 1.0);   // workable is not clean
 
-  // Then you work it, across sessions, until it goes.
+  // Then you work it, across sessions, until it goes. Sixty days rather
+  // than twenty-five since skin became a real cost across its whole range:
+  // the late burns of a session are now meaningfully worse than the early
+  // ones, so a project at your limit takes more sessions. That is the
+  // change working, not the test being loosened.
   bool sent = false;
-  for (int dayN = 0; dayN < 25 && !sent; dayN++) {
+  for (int dayN = 0; dayN < 60 && !sent; dayN++) {
+    // Every visit starts with the brush, because that is what projecting
+    // is. Merely workable leaves most of a dirt penalty on the line — at
+    // 0.55 cleanliness that is still 1.8 grades, which on top of skin
+    // wearing through a session is why this used to stall out entirely.
+    CleanLine(player, day, m, 1.0);
+
     Rng session = Rng::FromSeed("arc-" + std::to_string(dayN));
     SessionState st = StartSession(player.climber);
     for (int burn = 0; burn < 8 && st.skinLeft > 0.5 && !sent; burn++) {
@@ -1203,6 +1215,119 @@ static void TestTheFireHasSomethingToSay() {
 }
 
 // --- The dog -------------------------------------------------------------------
+
+static void TestTheSessionTellsYouWhereYouAre() {
+  // The warmth trap, made visible: a line you cannot start is a line you
+  // can never warm up on, and nothing used to say so.
+  Climber c;
+  c.skills.power = c.skills.fingers = c.skills.technique =
+      c.skills.endurance = c.skills.head = 50.0;
+  SessionLoopDials loop;
+
+  // Pulling on cold, which is where every session starts.
+  SessionState fresh = StartSession(c);
+  CHECK(fresh.warmth < loop.coldBelowWarmth);
+  CHECK(ReadSession(fresh, c) == SessionAdvice::Cold);
+
+  // Warm and skinned: nothing to say.
+  SessionState ready = fresh;
+  ready.warmth = 1.0;
+  CHECK(ReadSession(ready, c) == SessionAdvice::Ready);
+
+  // Warm but running out of tips: the advice is different holds, not home.
+  SessionState thin = ready;
+  thin.skinLeft = 2.0;
+  CHECK(ReadSession(thin, c) == SessionAdvice::SkinThin);
+
+  // And when it is over, it says so rather than letting you grind.
+  SessionState done = ready;
+  done.skinLeft = 0.5;
+  CHECK(ReadSession(done, c) == SessionAdvice::Wrecked);
+
+  // Cold AND thin is the trap itself: it reads as over, not as "try again".
+  SessionState trapped = fresh;
+  trapped.skinLeft = 2.0;
+  CHECK(ReadSession(trapped, c) == SessionAdvice::Wrecked);
+
+  // Every state says something, and no two say the same thing.
+  const SessionAdvice all[] = {SessionAdvice::Ready, SessionAdvice::Cold,
+                               SessionAdvice::SkinThin,
+                               SessionAdvice::Wrecked};
+  for (SessionAdvice a : all) {
+    CHECK(std::string(SessionAdviceText(a)).size() > 0);
+    for (SessionAdvice b : all)
+      if (a != b)
+        CHECK(std::string(SessionAdviceText(a)) != SessionAdviceText(b));
+  }
+
+  // Warming up actually clears it, which is the whole point of saying it.
+  Rng world = Rng::FromSeed("crag-1");
+  Route jugs = BuildRoute(world, "The Warmup", 1, 1, RouteType::Endurance,
+                          Discipline::Boulder);
+  Rng session = Rng::FromSeed("warmup");
+  SessionState st = StartSession(c);
+  ProjectMemory m;
+  m.routeName = jugs.name;
+  int laps = 0;
+  while (ReadSession(st, c) == SessionAdvice::Cold && laps < 10) {
+    AttemptInSession(session, st, m, c, jugs, Conditions{});
+    laps++;
+  }
+  CHECK(ReadSession(st, c) != SessionAdvice::Cold);
+  CHECK(laps <= 4);   // two or three easy problems, as the dial intends
+}
+
+static void TestFreshSkinIsWorthSomething() {
+  // Skin used to bite only below 3, only on crimps, and cap at 0.45 grades
+  // — so skin 9 and skin 3 were identical to climb on and resting bought
+  // nothing at all. Measured over a season, a career played fresh and one
+  // played wrecked came out the same. It has to be worth something.
+  Rng world = Rng::FromSeed("crag-1");
+  Climber c;
+  c.skills.power = c.skills.fingers = c.skills.technique =
+      c.skills.endurance = c.skills.head = 50.0;
+
+  auto SendRateAt = [&](const Route& r, double skin) {
+    int sends = 0;
+    const int trials = 1500;
+    for (int i = 0; i < trials; i++) {
+      Rng rng = Rng::FromSeed("skin-" + std::to_string(i));
+      AttemptInput in;
+      in.climber = c;
+      in.climber.skin = skin;
+      in.route = r;
+      in.warmth = 1.0;
+      if (ResolveAttempt(rng, in).sent) sends++;
+    }
+    return 100.0 * sends / trials;
+  };
+
+  Route crimpy = BuildRoute(world, "Tips", 5, 5, RouteType::Crimp,
+                            Discipline::Boulder);
+  const double fresh = SendRateAt(crimpy, 9.0);
+  const double half = SendRateAt(crimpy, 4.5);
+  const double gone = SendRateAt(crimpy, 1.0);
+
+  CHECK(fresh > half);
+  CHECK(half > gone);
+  CHECK(fresh > gone * 2.0);   // a real difference, not a rounding one
+
+  // The top of the range stays nearly free: nobody can feel 9 against 8.
+  CHECK(fresh - SendRateAt(crimpy, 8.0) < 5.0);
+
+  // And shot skin steers you rather than stopping you — jugs stay a real
+  // option on a day your tips are gone, which is what those days are for.
+  Route juggy = BuildRoute(world, "Buckets", 5, 5, RouteType::Endurance,
+                           Discipline::Boulder);
+  // Compared against itself rather than against the crimpy line: the two
+  // routes differ in length as well as holds, so their absolute rates are
+  // not comparable and an earlier version of this check compared them
+  // anyway. What matters is that skin costs a jug day less.
+  const double juggyGone = SendRateAt(juggy, 1.0);
+  const double juggyFresh = SendRateAt(juggy, 9.0);
+  CHECK(juggyFresh > juggyGone);
+  CHECK(juggyFresh - juggyGone < fresh - gone);
+}
 
 static void TestFlailingIsNotTraining() {
   // Found by playing a season headless: training read only the grade on the
@@ -2494,6 +2619,8 @@ int main() {
   TestTheWholeArc();
   TestSaveCarriesFirstAscents();
   TestLoadsVersion2Save();
+  TestTheSessionTellsYouWhereYouAre();
+  TestFreshSkinIsWorthSomething();
   TestFlailingIsNotTraining();
   TestAStrayBecomesYoursByBeingFed();
   TestTheDogGetsHungryAndSaysSo();

@@ -19,6 +19,31 @@ Rng DeriveAttemptRng(const Rng& sessionRng, const ProjectMemory& memory,
                            std::to_string(memory.attempts + 1));
 }
 
+SessionAdvice ReadSession(const SessionState& session, const Climber& climber,
+                          const SessionDials& dials,
+                          const SessionLoopDials& loop) {
+  (void)climber;
+  (void)dials;
+  const bool cold = session.warmth < loop.coldBelowWarmth;
+  const bool thin = session.skinLeft < loop.thinSkin;
+
+  if (session.skinLeft < loop.spentSkin) return SessionAdvice::Wrecked;
+  if (cold && thin) return SessionAdvice::Wrecked;
+  if (cold) return SessionAdvice::Cold;
+  if (thin) return SessionAdvice::SkinThin;
+  return SessionAdvice::Ready;
+}
+
+const char* SessionAdviceText(SessionAdvice advice) {
+  switch (advice) {
+    case SessionAdvice::Ready:    return "warm, and there is skin on your fingers";
+    case SessionAdvice::Cold:     return "still cold — pull on something easy first";
+    case SessionAdvice::SkinThin: return "skin is going; better holds or better luck";
+    case SessionAdvice::Wrecked:  return "that is the day. Come back tomorrow";
+  }
+  return "";
+}
+
 AttemptInput BuildSessionAttemptInput(const SessionState& session,
                                       const ProjectMemory& memory,
                                       const Climber& climber,

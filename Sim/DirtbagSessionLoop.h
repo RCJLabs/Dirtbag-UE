@@ -41,6 +41,15 @@ struct SessionLoopDials {
   double psycheHighpointGain = 0.05;
   double psycheFailLoss = 0.05;
   double psycheFloor = 0.05;
+
+  // Below this you are cold enough that it is costing you real grades, and
+  // the fix is two easy problems rather than another go at the project.
+  double coldBelowWarmth = 0.45;
+
+  // Skin left at which the session is telling you something. The first is
+  // "pick something with better holds", the second is "that is the day".
+  double thinSkin = 3.0;
+  double spentSkin = 1.2;
 };
 
 // One route's history across attempts and sessions — the projecting ledger.
@@ -87,6 +96,30 @@ struct SessionState {
 };
 
 SessionState StartSession(const Climber& climber);
+
+// What the session would tell you if it could — the thing a player standing
+// at the bottom of a line cannot see and a climber standing there would
+// know instantly.
+//
+// This exists because of a measured trap: warmth is earned per move
+// climbed, so a line you cannot start is a line you can never warm up on,
+// and being cold makes it harder to start. A season probe spent 519 burns
+// getting one move up a line, averaging warmth 0.33, with nothing anywhere
+// saying "warm up first" or "this is not happening today"
+// (notes/phase2-season-probe.md).
+enum class SessionAdvice {
+  Ready,          // warm, skinned, get on it
+  Cold,           // warm up on something easy first
+  SkinThin,       // your tips are gone; jugs or go home
+  Wrecked,        // both, and the day is over
+};
+
+SessionAdvice ReadSession(const SessionState& session, const Climber& climber,
+                          const SessionDials& dials = SessionDials{},
+                          const SessionLoopDials& loop = SessionLoopDials{});
+
+// The advice in the game's voice.
+const char* SessionAdviceText(SessionAdvice advice);
 
 // The three pieces of a session burn, exposed separately so a live
 // (player-driven) attempt can use them around BeginAttempt/StepMove:

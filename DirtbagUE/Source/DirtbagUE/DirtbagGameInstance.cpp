@@ -473,6 +473,20 @@ bool UDirtbagGameInstance::CanNameLine(int32 BoardIndex)
 	return dirtbag::CanName(SimLine, DirtbagConvert::ToSim(*Ledger));
 }
 
+EDirtbagSessionAdvice UDirtbagGameInstance::ReadSession() const
+{
+	return static_cast<EDirtbagSessionAdvice>(
+	    dirtbag::ReadSession(DirtbagConvert::ToSim(Day.Session),
+	                         DirtbagConvert::ToSim(Player.Climber)));
+}
+
+FString UDirtbagGameInstance::SessionAdviceText() const
+{
+	return FString(UTF8_TO_TCHAR(dirtbag::SessionAdviceText(
+	    dirtbag::ReadSession(DirtbagConvert::ToSim(Day.Session),
+	                         DirtbagConvert::ToSim(Player.Climber)))));
+}
+
 // --- The dog -----------------------------------------------------------------
 
 double UDirtbagGameInstance::VanTempF()

@@ -83,8 +83,26 @@ struct SessionDials {
   double shakeDiminish = 0.5;
   double shakeHangCost = 4.0;
 
-  // Skin: thin skin bites on crimps; falls cost the 2D game's 1 point.
-  double thinSkinPenalty = 0.15;
+  // Skin, as a quality across its whole range rather than a cliff.
+  //
+  // This used to bite only below 3 and only on crimps, capping at 0.45
+  // grades — which made skin 9 and skin 3 identical to climb on, and meant
+  // resting was worth nothing at all: a season played fresh and a season
+  // played wrecked came out the same, measured, because skin is conserved
+  // and spreading it changed no outcome (notes/phase2-season-probe.md).
+  //
+  // Squared so the top of the range is nearly free and the bottom bites
+  // hard, which is how skin actually goes: 9 to 7 is nothing, 3 to 1 is the
+  // difference between climbing and not. Sized against the other ability
+  // terms — under coldStartPenalty (1.5) and well under pumpGradePenalty
+  // (3.0), because skin should shape a session rather than decide it.
+  double skinGradePenalty = 1.4;   // grades lost on crimps at zero skin
+  double freshSkin = 9.0;          // where the penalty reaches zero
+  // Good holds still hurt on shot skin, just less. Sloper and jug days are
+  // what you climb when your tips are gone, and that should be a real
+  // option rather than a free one.
+  double skinBiteOnGoodHolds = 0.35;
+
   double fallSkinCost = 1.0;
   double sendSkinCost = 0.35;
 

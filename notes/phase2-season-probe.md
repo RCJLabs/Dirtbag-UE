@@ -29,7 +29,7 @@ Fixed by scaling the targeted skills by how far up you actually got, with a
 floor (`engagementFloor`, 0.2) for what pulling on teaches regardless. The
 same year now runs V5.0 → V5.9, and `TestFlailingIsNotTraining` pins it.
 
-### 2. The warmth trap — real, unfixed
+### 2. The warmth trap — real, **addressed**
 
 Warmth is earned per move climbed, so **a line you cannot start is a line
 you can never warm up on**, and being cold makes it harder still. The
@@ -37,11 +37,17 @@ probe's first policy averaged warmth 0.33 and 4% odds on the first move,
 across 519 burns on one line.
 
 This is arguably correct — it is why climbers warm up on easy problems — but
-nothing in the game says so, and a player can grind a season without the
-feedback that they are in a hole. The 2D game's answer is warming up on
-moderates first. Worth a nudge in the UI rather than a mechanical change.
+nothing in the game said so, and a player could grind a season without the
+feedback that they were in a hole.
 
-### 3. Rest days do not reliably help — real, unfixed
+Left as a mechanic and fixed as information: `ReadSession` names where the
+body is (*Ready / Cold / SkinThin / Wrecked*) and the wall says it when you
+walk up mid-session — *"still cold — pull on something easy first"*,
+*"skin is going; better holds or better luck"*, *"that is the day"*. A test
+pins that two or three easy problems actually clear it, so the advice is
+something a player can act on rather than a label.
+
+### 3. Rest days did not help — real, **fixed**
 
 Skin is a conserved resource: ~1.5 regrows a night, a burn costs ~1, so a
 year is about 550 burns however you spread them. Climbing every day gives
@@ -58,11 +64,30 @@ nearly went into this document as one. Across five seeds it evaporates:
 | 2 | 24 | 7 | 8 | 5 | 6 |
 | 4 | 24 | 7 | 8 | 5 | — |
 
-`crag-1` is an outlier, not a trend. The honest finding is that **freshness
-currently buys you almost nothing**, which is a design question worth
-answering deliberately: thin skin costs ability and warmth costs ability, so
-a concentrated session *should* be worth more per burn than a scattered one,
-and measurably is not.
+`crag-1` is an outlier, not a trend. The honest finding was that **freshness
+bought almost nothing**.
+
+The cause was in the resolver: skin bit only below 3, only on crimps, and
+capped at 0.45 grades — so skin 9 and skin 3 were *identical* to climb on.
+It is now a curve across the whole range, squared so the top is nearly free
+and the bottom bites hard, and holds matter (jugs are punished about a third
+as much as crimps, so a jug day on shot tips is a real option).
+
+A V5 climber on a V5, fully warm:
+
+| | skin 9 | 5 | 3 | 1.5 |
+|---|---|---|---|---|
+| crimps | 51% | 37% | 20% | 7% |
+| jugs | 78% | 73% | 66% | 58% |
+
+Re-measured across three seeds, resting now gives roughly **2.6× the
+sends**, and no seed does worse for it:
+
+| rest until skin | crag-1 | crag-2 | crag-3 | mean |
+|---|---|---|---|---|
+| 0 (climb daily) | 1 | 4 | 2 | 2.3 |
+| 3 | 7 | 4 | 7 | 6.0 |
+| 6 | 7 | 4 | 7 | 6.0 |
 
 ### 4. A year is about 6–8 sends
 

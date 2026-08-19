@@ -496,6 +496,16 @@ struct FDirtbagCrag
 	double ApproachHours = 0.5;
 };
 
+/** What the session would tell you if it could. */
+UENUM(BlueprintType)
+enum class EDirtbagSessionAdvice : uint8
+{
+	Ready,
+	Cold,
+	SkinThin,
+	Wrecked
+};
+
 UENUM(BlueprintType)
 enum class EDirtbagLoadResult : uint8
 {

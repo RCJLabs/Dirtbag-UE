@@ -193,6 +193,19 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 	          *Book, *UDirtbagSimLibrary::ReadRouteText(Read)),
 	      FColor::Cyan, 5.f, kToastPrompt);
 
+	// And where the body is, which is the half a player cannot see. Only
+	// once a session is under way — before that everyone is cold and
+	// saying so is noise.
+	if (Game && Game->Day.bAtGym &&
+	    Game->ReadSession() != EDirtbagSessionAdvice::Ready)
+	{
+		Toast(Game->SessionAdviceText(),
+		      Game->ReadSession() == EDirtbagSessionAdvice::Wrecked
+		          ? FColor::Orange
+		          : FColor::Silver,
+		      5.f, kToastResult);
+	}
+
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
 	{
 		EnableInput(PC);

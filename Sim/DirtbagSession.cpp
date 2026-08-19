@@ -69,9 +69,10 @@ double MoveEffective(const AttemptInput& input, const Move& move, double exec,
   effective -= dials.coldStartPenalty * (1.0 - std::clamp(input.warmth, 0.0, 1.0));
   effective += (c.psyche - 0.7) * dials.psycheWeight;
   const bool skinHold = move.hold == HoldType::Crimp || move.hold == HoldType::Pocket;
-  if (skinHold && c.skin < 3.0) {
-    effective -= dials.thinSkinPenalty * (3.0 - c.skin);
-  }
+  const double worn =
+      Clamp01(1.0 - c.skin / std::max(0.001, dials.freshSkin));
+  effective -= dials.skinGradePenalty * worn * worn *
+               (skinHold ? 1.0 : dials.skinBiteOnGoodHolds);
   if (move.crux) {
     // The crux is where the head shows up — commitment, not strength.
     effective += (c.skills.head - 50.0) / 100.0;

@@ -9,6 +9,7 @@ static_assert(static_cast<int>(EDirtbagStyle::Fell) == static_cast<int>(dirtbag:
 static_assert(static_cast<int>(EDirtbagMorphology::Powerful) == static_cast<int>(dirtbag::Morphology::Powerful), "Morphology enums out of sync");
 static_assert(static_cast<int>(EDirtbagRouteRead::NotThisYear) == static_cast<int>(dirtbag::RouteRead::NotThisYear), "RouteRead enums out of sync");
 static_assert(static_cast<int>(EDirtbagAspect::West) == static_cast<int>(dirtbag::Aspect::West), "Aspect enums out of sync");
+static_assert(static_cast<int>(EDirtbagSessionAdvice::Wrecked) == static_cast<int>(dirtbag::SessionAdvice::Wrecked), "SessionAdvice enums out of sync");
 
 namespace DirtbagConvert
 {

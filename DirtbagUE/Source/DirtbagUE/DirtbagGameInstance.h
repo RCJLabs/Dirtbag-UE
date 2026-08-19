@@ -282,6 +282,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	void DismissNaming();
 
+	/** Where this session stands: warm enough, skinned enough, or done.
+	 *  Meaningful once you have pulled on today. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	EDirtbagSessionAdvice ReadSession() const;
+
+	/** "still cold — pull on something easy first" */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	FString SessionAdviceText() const;
+
 	// --- The dog ---------------------------------------------------------
 
 	/** Feed it. Costs cash; enough meals and the stray is yours, with no
