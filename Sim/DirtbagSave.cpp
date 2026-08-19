@@ -110,6 +110,15 @@ void MigrateV5ToV6(SaveFields& fields) {
   }
 }
 
+// v7 → v8: the scene. A v7 career had none to stand with, so it arrives
+// where a new one does: nobody's friend, nobody's problem, crag open.
+void MigrateV7ToV8(SaveFields& fields) {
+  for (int i = 0; i < 4; i++) {
+    fields["standing." + IntToStr(i)] = "0";
+  }
+  fields["standing.closed"] = "0";
+}
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -128,7 +137,7 @@ void MigrateV4ToV5(SaveFields& fields) {
 const std::vector<Migration>& DefaultMigrations() {
   static const std::vector<Migration> kMigrations = {
       &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5,
-      &MigrateV5ToV6, &MigrateV6ToV7};
+      &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8};
   return kMigrations;
 }
 
@@ -178,6 +187,12 @@ std::string SerializeSave(const SaveGame& save) {
   }
 
   out << "owed=" << NumToStr(save.player.owed) << "\n";
+  for (int i = 0; i < kFactionCount; i++) {
+    out << "standing." << IntToStr(i) << "="
+        << NumToStr(save.player.standing.with[i]) << "\n";
+  }
+  out << "standing.closed=" << IntToStr(save.player.standing.closedDays)
+      << "\n";
   out << "shoes.wear=" << NumToStr(save.player.shoes.wear) << "\n";
   out << "shoes.resoles=" << IntToStr(save.player.shoes.resoles) << "\n";
   out << "shoes.pairs=" << IntToStr(save.player.shoes.pairsOwned) << "\n";
@@ -277,6 +292,15 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     save.player.projects.push_back(m);
   }
 
+  for (int i = 0; i < kFactionCount; i++) {
+    if (!ParseDouble(fields, "standing." + IntToStr(i),
+                     save.player.standing.with[i])) {
+      return LoadResult::BadFormat;
+    }
+  }
+  if (!ParseInt(fields, "standing.closed", save.player.standing.closedDays)) {
+    return LoadResult::BadFormat;
+  }
   if (!ParseDouble(fields, "owed", save.player.owed) ||
       !ParseDouble(fields, "shoes.wear", save.player.shoes.wear) ||
       !ParseInt(fields, "shoes.resoles", save.player.shoes.resoles) ||

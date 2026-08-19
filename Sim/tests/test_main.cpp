@@ -13,7 +13,9 @@
 #include "../DirtbagDay.h"
 #include "../DirtbagDog.h"
 #include "../DirtbagGear.h"
+#include "../DirtbagFactions.h"
 #include "../DirtbagJobs.h"
+#include "../DirtbagTown.h"
 #include "../DirtbagVan.h"
 #include "../DirtbagFirstAscent.h"
 #include "../DirtbagPartner.h"
@@ -1918,6 +1920,9 @@ static void TestWhatYouOwnSurvivesASave() {
   SaveGame save;
   save.seed = "crag-1";
   save.player.owed = 137.5;
+  save.player.standing.with[static_cast<int>(Faction::OldGuard)] = 0.62;
+  save.player.standing.with[static_cast<int>(Faction::Stewardship)] = -0.5;
+  save.player.standing.closedDays = 4;
   save.player.shoes.wear = 0.62;
   save.player.shoes.resoles = 1;
   save.player.shoes.pairsOwned = 3;
@@ -1929,6 +1934,12 @@ static void TestWhatYouOwnSurvivesASave() {
   SaveGame back;
   CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
   CHECK(std::fabs(back.player.owed - 137.5) < 1e-12);
+  CHECK(std::fabs(StandingWith(back.player.standing, Faction::OldGuard) -
+                  0.62) < 1e-12);
+  CHECK(std::fabs(StandingWith(back.player.standing, Faction::Stewardship) +
+                  0.5) < 1e-12);
+  CHECK(back.player.standing.closedDays == 4);
+  CHECK(!CragIsOpen(back.player.standing));   // you load in as shut out
   CHECK(std::fabs(back.player.shoes.wear - 0.62) < 1e-12);
   CHECK(back.player.shoes.resoles == 1);
   CHECK(back.player.shoes.pairsOwned == 3);
@@ -2093,6 +2104,304 @@ static void TestTheVanRunsOnItsOwnRng() {
     return trace;
   };
   CHECK(Play(false) == Play(true));
+}
+
+// --- The town ------------------------------------------------------------------
+
+static void TestTheSceneWatchesWhatYouActuallyDo() {
+  // Factions are only real if they attach to things the player was doing
+  // anyway. These are the three hooks.
+  Rng world = Rng::FromSeed("crag-1");
+  DayDials d;
+
+  // Brushing a project: the development crew approve, the stewards do not.
+  {
+    PlayerState player;
+    DayState day = WakeUp(player, d);
+    Crag crag = RoadsideCrag(world);
+    ProjectMemory m = NewProjectLedger(*OpenProjects(crag)[0]);
+    CleanLine(player, day, m, 2.0);
+    CHECK(StandingWith(player.standing, Faction::Development) > 0.0);
+    CHECK(StandingWith(player.standing, Faction::Stewardship) < 0.0);
+  }
+
+  // The guidebook gig pays best and costs most; trail work is the reverse.
+  {
+    PlayerState famous, worker;
+    DayState d1 = WakeUp(famous, d), d2 = WakeUp(worker, d);
+    OddJob photos;
+    photos.name = "shooting photos for the guidebook";
+    photos.pay = 130.0;
+    OddJob trail;
+    trail.name = "trail work for the park";
+    trail.pay = 80.0;
+
+    CHECK(WorkOddJob(famous, d1, photos, d));
+    CHECK(WorkOddJob(worker, d2, trail, d));
+    CHECK(StandingWith(famous.standing, Faction::Scene) > 0.0);
+    CHECK(StandingWith(famous.standing, Faction::Stewardship) < 0.0);
+    CHECK(StandingWith(worker.standing, Faction::Stewardship) > 0.0);
+    // The one that pays more is the one that costs you.
+    CHECK(photos.pay > trail.pay);
+  }
+
+  // A first ascent, and style is what the old guard read.
+  {
+    Crag crag = RoadsideCrag(world);
+    const CragLine& line = *OpenProjects(crag)[0];
+
+    PlayerState clean;
+    ProjectMemory cm = NewProjectLedger(line);
+    cm.sent = true;
+    cm.firstSendStyle = Style::Flash;
+    CHECK(NameFirstAscent(cm, line, "Good Style"));
+    CreditFirstAscent(clean, cm);
+
+    PlayerState sieged;
+    ProjectMemory sm = NewProjectLedger(line);
+    sm.sent = true;
+    sm.firstSendStyle = Style::Redpoint;
+    CHECK(NameFirstAscent(sm, line, "Eventually"));
+    CreditFirstAscent(sieged, sm);
+
+    // Both opened a line; only one of them impressed the old guard.
+    CHECK(StandingWith(clean.standing, Faction::Development) > 0.0);
+    CHECK(StandingWith(sieged.standing, Faction::Development) > 0.0);
+    CHECK(StandingWith(clean.standing, Faction::OldGuard) >
+          StandingWith(sieged.standing, Faction::OldGuard));
+
+    // And a ledger with no first ascent in it credits nothing.
+    PlayerState nobody;
+    ProjectMemory empty;
+    CreditFirstAscent(nobody, empty);
+    for (int i = 0; i < kFactionCount; i++)
+      CHECK(nobody.standing.with[i] == 0.0);
+  }
+}
+
+static void TestTheTownIsData() {
+  const Town t = DirtbagTown();
+  CHECK(!t.name.empty());
+  CHECK(t.venues.size() >= 5);
+
+  for (const Venue& v : t.venues) {
+    CHECK(!v.name.empty());
+    CHECK(!v.flavour.empty());          // everywhere is somewhere
+    CHECK(v.opensAt < v.closesAt);      // and nothing wraps midnight
+    CHECK(v.priceFactor > 0.0);
+    CHECK(v.travelHours > 0.0);         // town is always a drive
+  }
+
+  // Every service the day loop needs has somewhere to happen.
+  for (Service s : {Service::Meal, Service::Gear, Service::VanRepair,
+                    Service::Gym, Service::Work}) {
+    CHECK(!VenuesFor(t, s).empty());
+    CHECK(std::string(ServiceName(s)).size() > 0);
+  }
+
+  // Food has more than one answer, which is what makes eating a decision.
+  const std::vector<const Venue*> food = VenuesFor(t, Service::Meal);
+  CHECK(food.size() >= 2);
+  bool cheapAndGrim = false, dearAndGood = false;
+  for (const Venue* v : food) {
+    if (v->priceFactor < 1.0 && v->qualityFactor < 1.0) cheapAndGrim = true;
+    if (v->priceFactor > 1.0 && v->qualityFactor > 1.0) dearAndGood = true;
+  }
+  CHECK(cheapAndGrim);
+  CHECK(dearAndGood);
+}
+
+static void TestHoursAreTheMechanic() {
+  const Town t = DirtbagTown();
+
+  // A day that ran long is a day you eat badly: the diner shuts and the
+  // gas station does not.
+  const Venue* lateFood = OpenVenueFor(t, Service::Meal, 22.0);
+  CHECK(lateFood != nullptr);
+  CHECK(lateFood->priceFactor < 1.0);     // the warmer, then
+
+  // And in the middle of the day you have the choice.
+  CHECK(VenuesFor(t, Service::Meal).size() >= 2);
+  int openAtNoon = 0;
+  for (const Venue* v : VenuesFor(t, Service::Meal))
+    if (IsOpen(*v, 12.0)) openAtNoon++;
+  CHECK(openAtNoon >= 2);
+
+  // The gear shop keeps banker's hours, which is precisely why a resole
+  // competes with a window.
+  const std::vector<const Venue*> gear = VenuesFor(t, Service::Gear);
+  CHECK(!gear.empty());
+  CHECK(!IsOpen(*gear[0], 6.0));
+  CHECK(!IsOpen(*gear[0], 20.0));
+  CHECK(IsOpen(*gear[0], 12.0));
+
+  // At four in the morning the town is shut and says so rather than
+  // returning something.
+  for (Service s : {Service::Meal, Service::Gear, Service::VanRepair})
+    CHECK(OpenVenueFor(t, s, 4.0) == nullptr);
+
+  // The text says which it is, both ways round.
+  const Venue* diner = nullptr;
+  for (const Venue& v : t.venues)
+    if (v.name.find("Diner") != std::string::npos) diner = &v;
+  CHECK(diner != nullptr);
+  CHECK(VenueText(*diner, 12.0).find("open until") != std::string::npos);
+  CHECK(VenueText(*diner, 4.0).find("closed until") != std::string::npos);
+  CHECK(VenueText(*diner, 12.0).find(diner->name) != std::string::npos);
+}
+
+// --- Factions ------------------------------------------------------------------
+
+static void TestFactionsAreActuallyOpposed() {
+  FactionDials d;
+  Standing s;
+  for (int i = 0; i < kFactionCount; i++) CHECK(s.with[i] == 0.0);
+
+  // The two axes, and they run both ways.
+  CHECK(OppositeOf(Faction::OldGuard) == Faction::Scene);
+  CHECK(OppositeOf(Faction::Scene) == Faction::OldGuard);
+  CHECK(OppositeOf(Faction::Development) == Faction::Stewardship);
+  CHECK(OppositeOf(Faction::Stewardship) == Faction::Development);
+  for (int i = 0; i < kFactionCount; i++) {
+    const Faction f = static_cast<Faction>(i);
+    CHECK(OppositeOf(OppositeOf(f)) == f);
+    CHECK(OppositeOf(f) != f);
+  }
+
+  // Pleasing one costs its opposite. A faction system you can max out is a
+  // checklist rather than a choice.
+  Shift(s, Faction::Scene, 0.4, d);
+  CHECK(StandingWith(s, Faction::Scene) > 0.0);
+  CHECK(StandingWith(s, Faction::OldGuard) < 0.0);
+  // But it costs less than it gains, so a career can lean without being
+  // shoved into a corner.
+  CHECK(std::fabs(StandingWith(s, Faction::OldGuard)) <
+        StandingWith(s, Faction::Scene));
+  // And the other axis is untouched: they are opposed, not entangled.
+  CHECK(StandingWith(s, Faction::Development) == 0.0);
+  CHECK(StandingWith(s, Faction::Stewardship) == 0.0);
+
+  // Standing stays in its range however hard you push.
+  for (int i = 0; i < 200; i++) Shift(s, Faction::Scene, 0.5, d);
+  CHECK(StandingWith(s, Faction::Scene) <= 1.0);
+  CHECK(StandingWith(s, Faction::OldGuard) >= -1.0);
+}
+
+static void TestTheThingsYouDoHaveOpinions() {
+  FactionDials d;
+
+  // A first ascent in good style is the one act that pleases both ends of
+  // an axis — which is what "good style" is for.
+  Standing clean;
+  DidFirstAscent(clean, true, d);
+  CHECK(StandingWith(clean, Faction::Development) > 0.0);
+  CHECK(StandingWith(clean, Faction::OldGuard) > 0.0);
+
+  Standing scrappy;
+  DidFirstAscent(scrappy, false, d);
+  CHECK(StandingWith(scrappy, Faction::Development) > 0.0);
+  CHECK(StandingWith(scrappy, Faction::OldGuard) <
+        StandingWith(clean, Faction::OldGuard));
+
+  // Cleaning is both things at once, honestly.
+  Standing brushed;
+  ScrubbedALine(brushed, d);
+  CHECK(StandingWith(brushed, Faction::Development) > 0.0);
+  CHECK(StandingWith(brushed, Faction::Stewardship) < 0.0);
+
+  // The best-paying gig on the board costs you two factions, which is the
+  // whole reason it pays that well.
+  Standing famous;
+  TookTheGuidebookPhotos(famous, d);
+  CHECK(StandingWith(famous, Faction::Scene) > 0.0);
+  CHECK(StandingWith(famous, Faction::Stewardship) < 0.0);
+  CHECK(StandingWith(famous, Faction::OldGuard) < 0.0);
+
+  // And the worst-paying honest one buys it back.
+  Standing worker;
+  DidTrailWork(worker, d);
+  CHECK(StandingWith(worker, Faction::Stewardship) > 0.0);
+}
+
+static void TestAccessGetsPulled() {
+  FactionDials d;
+  Rng world = Rng::FromSeed("crag-1");
+
+  // A crag nobody objects to stays open forever.
+  Standing fine;
+  for (int day = 1; day <= 400; day++) FactionDay(fine, world, day, d);
+  CHECK(CragIsOpen(fine));
+  CHECK(fine.closedDays == 0);
+
+  // Push the stewards far enough and the signs go up.
+  Standing hated;
+  for (int i = 0; i < 20; i++) TookTheGuidebookPhotos(hated, d);
+  CHECK(StandingWith(hated, Faction::Stewardship) < d.closureBelow);
+
+  int closedOn = 0;
+  for (int day = 1; day <= 400 && closedOn == 0; day++) {
+    FactionDay(hated, world, day, d);
+    if (!CragIsOpen(hated)) closedOn = day;
+  }
+  CHECK(closedOn > 0);
+  CHECK(!CragIsOpen(hated));
+  CHECK(StandingText(hated).find("closed") != std::string::npos);
+
+  // And it reopens: a closure is a season, not a life sentence.
+  for (int i = 0; i < d.closureDays + 2; i++)
+    FactionDay(hated, world, 500 + i, d);
+  CHECK(CragIsOpen(hated));
+}
+
+static void TestTheSceneForgetsSlowly() {
+  FactionDials d;
+  Rng world = Rng::FromSeed("crag-1");
+  Standing s;
+  DidTrailWork(s, d);
+  const double earned = StandingWith(s, Faction::Stewardship);
+  CHECK(earned > 0.0);
+
+  // A week barely touches it.
+  for (int day = 1; day <= 7; day++) FactionDay(s, world, day, d);
+  CHECK(StandingWith(s, Faction::Stewardship) > earned * 0.9);
+
+  // A long time does, and toward nothing rather than toward disliking you.
+  for (int day = 8; day <= 900; day++) FactionDay(s, world, day, d);
+  CHECK(StandingWith(s, Faction::Stewardship) >= 0.0);
+  CHECK(StandingWith(s, Faction::Stewardship) < earned * 0.5);
+
+  // The same is true from below: bad standing fades up to nothing.
+  Standing bad;
+  for (int i = 0; i < 6; i++) TookTheGuidebookPhotos(bad, d);
+  const double disliked = StandingWith(bad, Faction::Stewardship);
+  CHECK(disliked < 0.0);
+  for (int day = 1; day <= 900; day++) FactionDay(bad, world, day, d);
+  CHECK(StandingWith(bad, Faction::Stewardship) > disliked);
+  CHECK(StandingWith(bad, Faction::Stewardship) <= 0.0);
+}
+
+static void TestTheLotSpeaksForSomebody() {
+  FactionDials d;
+  // Everyone at the Lot stands for something, so standing is felt in a
+  // conversation rather than read off a screen.
+  CHECK(FactionOf("Margo") == Faction::OldGuard);
+  CHECK(FactionOf("Dev") == Faction::Scene);
+  CHECK(FactionOf("Ray") == Faction::Stewardship);
+
+  Standing s;
+  CHECK(std::fabs(BetaMultiplierFor(s, "Margo", d) - 1.0) < 1e-12);
+
+  // Stand well with the old guard and Margo has more to say; chase the
+  // scene instead and she has less.
+  Standing trad;
+  for (int i = 0; i < 5; i++) DidFirstAscent(trad, true, d);
+  CHECK(BetaMultiplierFor(trad, "Margo", d) > 1.0);
+  CHECK(BetaMultiplierFor(trad, "Dev", d) < 1.0);
+
+  Standing famous;
+  for (int i = 0; i < 5; i++) TookTheGuidebookPhotos(famous, d);
+  CHECK(BetaMultiplierFor(famous, "Margo", d) < 1.0);
+  CHECK(BetaMultiplierFor(famous, "Dev", d) > 1.0);
 }
 
 // --- Work ----------------------------------------------------------------------
@@ -3288,6 +3597,14 @@ int main() {
   TestTheYearHasSeasons();
   TestTheWindowMovesThroughTheYear();
   TestAJobCostsYouTheWinter();
+  TestTheSceneWatchesWhatYouActuallyDo();
+  TestTheTownIsData();
+  TestHoursAreTheMechanic();
+  TestFactionsAreActuallyOpposed();
+  TestTheThingsYouDoHaveOpinions();
+  TestAccessGetsPulled();
+  TestTheSceneForgetsSlowly();
+  TestTheLotSpeaksForSomebody();
   TestTheBoardIsDifferentEveryDay();
   TestABrokenVanCostsYouTheWorkToo();
   TestOddJobsPayDebtFirst();

@@ -41,7 +41,10 @@ namespace dirtbag {
 // Version 7: what you owe. Bills used to deduct unconditionally and leave
 //   cash negative with nothing behind it; the shortfall is now debt. A v6
 //   career owed nothing, which is exact rather than generous.
-constexpr int kSaveVersion = 7;
+// Version 8: where you stand with the scene, and whether the crag is shut.
+//   A v7 career had no scene to stand with, so it migrates to neutral on
+//   all four and an open crag — which is where a new career starts anyway.
+constexpr int kSaveVersion = 8;
 
 struct SaveGame {
   int version = kSaveVersion;

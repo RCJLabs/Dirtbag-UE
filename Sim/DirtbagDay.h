@@ -11,6 +11,7 @@
 
 #include "DirtbagCore.h"
 #include "DirtbagDog.h"
+#include "DirtbagFactions.h"
 #include "DirtbagGear.h"
 #include "DirtbagJobs.h"
 #include "DirtbagVan.h"
@@ -136,6 +137,9 @@ struct PlayerState {
 
   // Work, and whether it owns you.
   Job job;
+
+  // Where you stand with the scene, and whether the crag is still open.
+  Standing standing;
 };
 
 // One day's body-clock. Created at wake, consumed by sleep, never saved —

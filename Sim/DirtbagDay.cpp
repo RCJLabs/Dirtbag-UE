@@ -53,6 +53,16 @@ bool WorkOddJob(PlayerState& player, DayState& day, const OddJob& job,
   day.energy = std::max(0.0, day.energy - job.energy);
   Pay(player, job.pay);
   player.job.daysWorked++;
+
+  // What the work says about you. The board was written with these in
+  // mind — the best-paying gig on it is the one that costs you the most.
+  if (job.name.find("guidebook") != std::string::npos) {
+    TookTheGuidebookPhotos(player.standing);
+  } else if (job.name.find("trail work") != std::string::npos) {
+    DidTrailWork(player.standing);
+  } else if (job.name.find("setting") != std::string::npos) {
+    SetAtTheGym(player.standing);
+  }
   return true;
 }
 

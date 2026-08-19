@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "DirtbagFactions.h"
+
 namespace dirtbag {
 
 ProjectMemory NewProjectLedger(const CragLine& line,
@@ -22,11 +24,14 @@ double CleanLine(PlayerState& player, DayState& day, ProjectMemory& memory,
   memory.cleanliness =
       std::min(1.0, memory.cleanliness + hours / dials.hoursToClean);
 
+  // Somebody notices. Scrubbing opens terrain and takes a wire brush to a
+  // hillside, and the scene has an opinion about both.
+  ScrubbedALine(player.standing);
+
   // The day pays for it exactly as it pays for anything else — this is an
   // afternoon you are not climbing in, which is the whole cost.
   PassHours(day, hours, dayDials);
   day.energy = std::max(0.0, day.energy - dials.energyPerHour * hours);
-  (void)player;
   return memory.cleanliness - before;
 }
 
@@ -63,6 +68,16 @@ bool NameFirstAscent(ProjectMemory& memory, const CragLine& line,
   // including the book's. Now there is a fact, and it is yours.
   memory.confirmedGrade = line.route.trueGrade;
   return true;
+}
+
+void CreditFirstAscent(PlayerState& player, const ProjectMemory& memory) {
+  if (!memory.firstAscent) return;
+  // Good style is what the old guard actually care about: ground-up, first
+  // go or near it. A line you siege into submission is still a new line,
+  // and they will still know how you did it.
+  const bool goodStyle = memory.firstSendStyle == Style::Onsight ||
+                         memory.firstSendStyle == Style::Flash;
+  DidFirstAscent(player.standing, goodStyle);
 }
 
 std::string FirstAscentLine(const ProjectMemory& memory,

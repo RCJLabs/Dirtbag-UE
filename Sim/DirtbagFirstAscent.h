@@ -81,6 +81,11 @@ bool CanName(const CragLine& line, const ProjectMemory& memory);
 bool NameFirstAscent(ProjectMemory& memory, const CragLine& line,
                      const std::string& name);
 
+// Tell the scene. Kept separate from NameFirstAscent so that naming stays a
+// pure operation on the ledger — this is the part that has opinions, and it
+// reads the style off the ledger rather than being told.
+void CreditFirstAscent(PlayerState& player, const ProjectMemory& memory);
+
 // The line as the book will print it after the ascent, including who did it
 // and what it really went at.
 std::string FirstAscentLine(const ProjectMemory& memory,
