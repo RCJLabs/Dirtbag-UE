@@ -45,6 +45,38 @@ void Pay(PlayerState& player, double amount) {
   player.cash += amount - toDebt;
 }
 
+bool WorkOddJob(PlayerState& player, DayState& day, const OddJob& job,
+                const DayDials& dials) {
+  if (job.needsVan && !VanRuns(player.van)) return false;
+
+  PassHours(day, job.hours, dials);
+  day.energy = std::max(0.0, day.energy - job.energy);
+  Pay(player, job.pay);
+  player.job.daysWorked++;
+  return true;
+}
+
+void WorkSalariedDay(PlayerState& player, DayState& day, const JobDials& jobs,
+                     const DayDials& dials) {
+  // The hours are the mechanic. Nine to five means the clock arrives at the
+  // far side of the day having skipped everything the day was for.
+  const double until = jobs.salaryStartHour + jobs.salaryHours;
+  if (day.hour < until) PassHours(day, until - day.hour, dials);
+  day.energy = std::max(0.0, day.energy - jobs.salaryEnergy);
+  Pay(player, SalaryDayPay(jobs));
+  player.job.daysWorked++;
+}
+
+void TakeSalariedJob(PlayerState& player) { player.job.salaried = true; }
+
+void QuitSalariedJob(PlayerState& player, const JobDials& jobs) {
+  if (!player.job.salaried) return;
+  player.job.salaried = false;
+  // Walking out costs something, but not much: the job was the punishment.
+  player.climber.psyche =
+      std::max(0.05, player.climber.psyche - jobs.salaryQuitPsycheCost);
+}
+
 DayState WakeUp(const PlayerState& player, const DayDials& dials) {
   (void)player;
   DayState day;

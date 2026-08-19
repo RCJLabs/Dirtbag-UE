@@ -13,6 +13,7 @@
 #include "../DirtbagDay.h"
 #include "../DirtbagDog.h"
 #include "../DirtbagGear.h"
+#include "../DirtbagJobs.h"
 #include "../DirtbagVan.h"
 #include "../DirtbagFirstAscent.h"
 #include "../DirtbagPartner.h"
@@ -1986,6 +1987,146 @@ static void TestTheVanRunsOnItsOwnRng() {
   CHECK(Play(false) == Play(true));
 }
 
+// --- Work ----------------------------------------------------------------------
+
+static void TestTheBoardIsDifferentEveryDay() {
+  JobDials j;
+  Rng world = Rng::FromSeed("crag-1");
+
+  std::vector<OddJob> monday = OddJobBoard(world, 1, j);
+  CHECK(static_cast<int>(monday.size()) == j.boardSize);
+
+  // Three different things, not the same gig three times.
+  for (size_t a = 0; a < monday.size(); a++)
+    for (size_t b = a + 1; b < monday.size(); b++)
+      CHECK(monday[a].name != monday[b].name);
+
+  // The same day is the same board; a different day is not.
+  CHECK(OddJobBoard(world, 1, j)[0].name == monday[0].name);
+  bool differs = false;
+  for (int day = 2; day <= 12; day++) {
+    std::vector<OddJob> other = OddJobBoard(world, day, j);
+    if (other[0].name != monday[0].name) differs = true;
+  }
+  CHECK(differs);
+
+  // Every gig is worth having and none of them is free money.
+  for (int day = 1; day <= 60; day++)
+    for (const OddJob& g : OddJobBoard(world, day, j)) {
+      CHECK(!g.name.empty());
+      CHECK(g.hours > 0.0);
+      CHECK(g.pay > 0.0);
+      CHECK(g.energy >= 0.0);
+    }
+}
+
+static void TestABrokenVanCostsYouTheWorkToo() {
+  // The sharp coupling: some gigs need the van, so a breakdown costs the
+  // repair AND the job that would have paid for it.
+  DayDials d;
+  PlayerState player;
+  DayState day = WakeUp(player, d);
+
+  OddJob hauling;
+  hauling.name = "hauling firewood";
+  hauling.needsVan = true;
+  hauling.pay = 70.0;
+
+  CHECK(WorkOddJob(player, day, hauling, d));       // van runs, fine
+
+  player.van.parts[static_cast<int>(VanPart::Belt)].failed = true;
+  const double cash = player.cash;
+  const double hour = day.hour;
+  CHECK(!WorkOddJob(player, day, hauling, d));      // and now it does not
+  CHECK(player.cash == cash);                       // nothing happened
+  CHECK(day.hour == hour);
+
+  // Work that does not need it is unaffected.
+  OddJob dishes;
+  dishes.name = "washing dishes at the diner";
+  dishes.needsVan = false;
+  CHECK(WorkOddJob(player, day, dishes, d));
+}
+
+static void TestOddJobsPayDebtFirst() {
+  DayDials d;
+  PlayerState player;
+  player.cash = 0.0;
+  player.owed = 100.0;
+  DayState day = WakeUp(player, d);
+
+  OddJob gig;
+  gig.pay = 60.0;
+  CHECK(WorkOddJob(player, day, gig, d));
+  CHECK(player.cash == 0.0);                        // none of it is yours yet
+  CHECK(std::fabs(player.owed - 40.0) < 1e-12);
+  CHECK(day.hour > d.wakeHour);                     // and it took the hours
+}
+
+static void TestTheSalaryOwnsTheMiddleOfTheDay() {
+  JobDials j;
+  PlayerState player;
+
+  // Unemployed, nothing owns anything.
+  CHECK(!SalariedToday(player.job, 1, j));
+  CHECK(!SalaryOwnsHour(player.job, 1, 12.0, j));
+
+  TakeSalariedJob(player);
+  CHECK(player.job.salaried);
+
+  // Five days on, two off, and the two off are what a weekend is.
+  int workdays = 0;
+  for (int day = 1; day <= 7; day++)
+    if (SalariedToday(player.job, day, j)) workdays++;
+  CHECK(workdays == j.salaryDaysPerWeek);
+
+  // And on a workday it owns exactly the hours the rock is good in.
+  CHECK(!SalaryOwnsHour(player.job, 1, 7.0, j));    // before
+  CHECK(SalaryOwnsHour(player.job, 1, 12.0, j));    // the middle of the day
+  CHECK(SalaryOwnsHour(player.job, 1, 16.0, j));
+  CHECK(!SalaryOwnsHour(player.job, 1, 18.0, j));   // after
+
+  // A day of it lands you on the far side of the afternoon.
+  DayDials d;
+  DayState day = WakeUp(player, d);
+  WorkSalariedDay(player, day, j, d);
+  CHECK(day.hour >= j.salaryStartHour + j.salaryHours);
+  CHECK(player.cash > 0.0);
+  CHECK(day.energy < 100.0);
+
+  // Quitting is allowed and costs a little, because the job was the
+  // punishment and walking out is not.
+  const double psyche = player.climber.psyche;
+  QuitSalariedJob(player, j);
+  CHECK(!player.job.salaried);
+  CHECK(player.climber.psyche < psyche);
+  QuitSalariedJob(player, j);   // and quitting twice is not a thing
+  CHECK(!player.job.salaried);
+}
+
+static void TestWorkRunsOnItsOwnRng() {
+  Rng world = Rng::FromSeed("crag-1");
+  Climber c;
+  c.skills.power = c.skills.fingers = c.skills.technique =
+      c.skills.endurance = c.skills.head = 55.0;
+  Route r = BuildRoute(world, "Control", 5, 5, RouteType::Crimp,
+                       Discipline::Boulder);
+  auto Play = [&](bool readTheBoard) {
+    Rng session = Rng::FromSeed("jobs-isolation");
+    SessionState st = StartSession(c);
+    ProjectMemory m;
+    m.routeName = r.name;
+    if (readTheBoard)
+      for (int day = 1; day <= 40; day++) OddJobBoard(world, day);
+    std::string trace;
+    for (int i = 0; i < 6; i++)
+      trace += std::to_string(
+          AttemptInSession(session, st, m, c, r, Conditions{}).highpoint);
+    return trace;
+  };
+  CHECK(Play(false) == Play(true));
+}
+
 // --- RNG ---------------------------------------------------------------------
 
 static void TestRngDeterminism() {
@@ -3036,6 +3177,11 @@ int main() {
   TestTheWholeArc();
   TestSaveCarriesFirstAscents();
   TestLoadsVersion2Save();
+  TestTheBoardIsDifferentEveryDay();
+  TestABrokenVanCostsYouTheWorkToo();
+  TestOddJobsPayDebtFirst();
+  TestTheSalaryOwnsTheMiddleOfTheDay();
+  TestWorkRunsOnItsOwnRng();
   TestBillsYouCannotPayWait();
   TestLoadsVersion5Save();
   TestWhatYouOwnSurvivesASave();

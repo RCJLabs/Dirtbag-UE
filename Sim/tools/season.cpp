@@ -25,6 +25,7 @@
 #include "DirtbagFirstAscent.h"
 #include "DirtbagGear.h"
 #include "DirtbagVan.h"
+#include "DirtbagJobs.h"
 #include "DirtbagPartner.h"
 #include "DirtbagSave.h"
 #include "DirtbagSession.h"
@@ -124,6 +125,8 @@ int main(int argc, char** argv) {
   // climbs every day there is a window; higher is somebody who rests.
   const double restUntilSkin = argc > 3 ? std::atof(argv[3]) : 0.0;
   const bool quiet = argc > 4;
+  // "salary" as a fifth argument takes the job on day one and never quits.
+  const bool takeTheSalary = argc > 5;
 
   const Rng world = Rng::FromSeed(seed);
   const Crag crag = RoadsideCrag(world);
@@ -136,6 +139,8 @@ int main(int argc, char** argv) {
   player.climber.skills.power = player.climber.skills.fingers =
       player.climber.skills.technique = player.climber.skills.endurance =
           player.climber.skills.head = 50.0;
+
+  if (takeTheSalary) TakeSalariedJob(player);
 
   Tally t;
   std::vector<std::string> lotTaken;
@@ -168,15 +173,35 @@ int main(int argc, char** argv) {
       }
     }
 
-    // Rent comes first: below a float, take a shift. A morning one, since
-    // the van is always safe then.
-    const bool needMoney = player.cash < 120.0;
-    if (needMoney) {
-      const double before = player.cash;
-      WorkShift(player, today, dd);
-      t.earned += player.cash - before;
+    // The salary owns its days whether or not you wanted them.
+    JobDials jd;
+    bool needMoney = false;
+    if (SalariedToday(player.job, player.day, jd)) {
+      WorkSalariedDay(player, today, jd, dd);
+      t.earned += SalaryDayPay(jd);
       t.daysWorked++;
-      note = "shift";
+      note = "work";
+    } else {
+      // Otherwise: rent comes first. Below a float, take a gig off the
+      // board — the best-paying one you can actually do.
+      needMoney = player.cash < 120.0 || player.owed > 0.0;
+      if (needMoney) {
+        const std::vector<OddJob> board = OddJobBoard(world, player.day, jd);
+        const OddJob* best = nullptr;
+        for (const OddJob& g : board) {
+          if (g.needsVan && !VanRuns(player.van)) continue;
+          if (!best || g.pay > best->pay) best = &g;
+        }
+        if (best) {
+          // Earned is what the gig paid, not what reached the pocket —
+          // debt takes its cut first and that is not lost income.
+          if (WorkOddJob(player, today, *best, dd)) {
+            t.earned += best->pay;
+            t.daysWorked++;
+            note = "gig";
+          }
+        }
+      }
     }
 
     // Drive to the crag and back, if the van goes. Half an hour each way.

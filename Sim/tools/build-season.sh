@@ -8,6 +8,6 @@ mkdir -p ../build
 g++ -std=c++17 -O2 -Wall -Wextra -Werror -I. \
     DirtbagRng.cpp DirtbagCore.cpp DirtbagSession.cpp DirtbagSessionLoop.cpp \
     DirtbagDay.cpp DirtbagSave.cpp DirtbagConditions.cpp DirtbagCrag.cpp \
-    DirtbagFirstAscent.cpp DirtbagPartner.cpp DirtbagDog.cpp DirtbagGear.cpp DirtbagVan.cpp \
+    DirtbagFirstAscent.cpp DirtbagPartner.cpp DirtbagDog.cpp DirtbagGear.cpp DirtbagVan.cpp DirtbagJobs.cpp \
     tools/season.cpp -o ../build/season
 ../build/season "$@"

@@ -12,6 +12,7 @@
 #include "DirtbagCore.h"
 #include "DirtbagDog.h"
 #include "DirtbagGear.h"
+#include "DirtbagJobs.h"
 #include "DirtbagVan.h"
 #include "DirtbagPartner.h"
 #include "DirtbagRng.h"
@@ -132,6 +133,9 @@ struct PlayerState {
 
   // The van: shelter, transport, and the reason seasons end early.
   Van van;
+
+  // Work, and whether it owns you.
+  Job job;
 };
 
 // One day's body-clock. Created at wake, consumed by sleep, never saved —
@@ -168,6 +172,22 @@ void Rest(DayState& day, double hours, const DayDials& dials = DayDials{});
 bool EatMeal(PlayerState& player, DayState& day, const DayDials& dials = DayDials{});
 
 void WorkShift(PlayerState& player, DayState& day, const DayDials& dials = DayDials{});
+
+// Take a gig off the board: its hours, its energy, its money. Returns false
+// if it needs the van and the van is not going anywhere — which is how a
+// breakdown costs you the fix and the work that would have paid for it.
+bool WorkOddJob(PlayerState& player, DayState& day, const OddJob& job,
+                const DayDials& dials = DayDials{});
+
+// Do the day the salary owns. Pays a fifth of the week, takes the middle of
+// it, and the middle of the day is when the rock is in condition.
+void WorkSalariedDay(PlayerState& player, DayState& day,
+                     const JobDials& jobs = JobDials{},
+                     const DayDials& dials = DayDials{});
+
+// Sign on, and walk out. Neither is punished; the hours do that.
+void TakeSalariedJob(PlayerState& player);
+void QuitSalariedJob(PlayerState& player, const JobDials& jobs = JobDials{});
 
 // The climber as they are right now: career skills, current skin, and
 // today's fatigue speaking through psyche.
