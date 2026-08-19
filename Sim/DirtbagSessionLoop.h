@@ -85,6 +85,12 @@ struct ProjectMemory {
   // then, because before the first ascent every grade at a project is an
   // opinion.
   int confirmedGrade = -1;
+
+  // Boulder or pitch. The ledger records what you did, and which of the two
+  // it was is part of that — a guidebook entry for a rope route reads
+  // "5.12a" and one for a boulder reads "V7", and a career card that cannot
+  // tell them apart will confidently print the wrong ladder.
+  Discipline discipline = Discipline::Boulder;
 };
 
 // A day's climbing body-state, from the session's first pull-on to its last.

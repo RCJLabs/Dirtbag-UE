@@ -18,6 +18,7 @@
 #include "../DirtbagAge.h"
 #include "../DirtbagBody.h"
 #include "../DirtbagKit.h"
+#include "../DirtbagLegacy.h"
 #include "../DirtbagTown.h"
 #include "../DirtbagVan.h"
 #include "../DirtbagFirstAscent.h"
@@ -3433,6 +3434,291 @@ static void TestSaveRejectsGarbageAndFuture() {
 
 // --- The body ----------------------------------------------------------------
 
+// --- Legacy ------------------------------------------------------------------
+
+static PlayerState ACareer() {
+  PlayerState p;
+  p.day = 9 * 365;                 // nine seasons in
+  p.climber.skills = {70, 70, 70, 70, 70};
+  p.standing.with[static_cast<int>(Faction::OldGuard)] = 0.6;
+  p.standing.with[static_cast<int>(Faction::Stewardship)] = -0.4;
+
+  ProjectMemory fa;
+  fa.routeName = "the arete left of Diesel";
+  fa.givenName = "Cattle Grid Arete";
+  fa.firstAscent = true;
+  fa.sent = true;
+  fa.grade = 6;
+  fa.confirmedGrade = 7;
+  fa.firstSendStyle = Style::Redpoint;
+  fa.attempts = 40;
+  p.projects.push_back(fa);
+
+  ProjectMemory pitch;
+  pitch.routeName = "the bolted line through the roof";
+  pitch.givenName = "Forty Minutes Up";
+  pitch.firstAscent = true;
+  pitch.sent = true;
+  pitch.grade = 9;
+  pitch.confirmedGrade = 10;
+  pitch.discipline = Discipline::Sport;
+  pitch.firstSendStyle = Style::Redpoint;
+  pitch.attempts = 60;
+  p.projects.push_back(pitch);
+
+  ProjectMemory never;
+  never.routeName = "Chalk Ghost";
+  never.attempts = 210;
+  never.grade = 6;
+  p.projects.push_back(never);
+  return p;
+}
+
+static void TestACareerCanEnd() {
+  LegacyDials d;
+  const PlayerState p = ACareer();
+  const Legacy l = TallyCareer(p, "Evan", 9, d);
+
+  CHECK(l.name == "Evan");
+  CHECK(l.seasons == 9);
+  CHECK(l.retiredAt > 30.0);
+  CHECK(l.firstAscents.size() == 2);
+  CHECK(l.totalSends == 2);
+  CHECK(l.nemesis == "Chalk Ghost");
+  CHECK(l.nemesisAttempts == 210);
+  CHECK(l.standing.with[static_cast<int>(Faction::OldGuard)] == 0.6);
+
+  // Keys, never given names. A guidebook that keys on what somebody called
+  // a line loses the line the day it is renamed, and naming has never been
+  // allowed to move a key anywhere else in this project.
+  for (const NamedLine& n : l.firstAscents) {
+    CHECK(!n.routeKey.empty());
+    CHECK(n.by == "Evan");
+  }
+  CHECK(l.firstAscents[0].routeKey == "the arete left of Diesel");
+  CHECK(l.firstAscents[0].givenName == "Cattle Grid Arete");
+
+  const std::string text = LegacyText(l);
+  CHECK(text.find("9 seasons") != std::string::npos);
+  CHECK(text.find("Chalk Ghost") != std::string::npos);   // the one that never went
+  CHECK(!text.empty());
+}
+
+static void TestTheGuidebookPrintsTheRightLadder() {
+  // A rope route reads 5.13c and a boulder reads V7. A career card that
+  // cannot tell them apart will confidently print the wrong ladder, which
+  // is the sort of thing a climber notices immediately and never forgives.
+  const Legacy l = TallyCareer(ACareer(), "Evan", 9);
+  std::string boulderEntry, sportEntry;
+  for (const NamedLine& n : l.firstAscents) {
+    if (n.discipline == Discipline::Sport) sportEntry = GuidebookEntry(n);
+    else boulderEntry = GuidebookEntry(n);
+  }
+  CHECK(boulderEntry.find("V7") != std::string::npos);
+  CHECK(sportEntry.find("5.13c") != std::string::npos);
+  CHECK(boulderEntry.find("FA Evan") != std::string::npos);
+  CHECK(sportEntry.find("Forty Minutes Up") != std::string::npos);
+}
+
+static void TestTheWorldRemembersAndTheBodyDoesNot() {
+  // The whole design call. Inheriting somebody else's fingers would be
+  // nonsense and would make the second life a save-scum of the first.
+  LegacyDials d;
+  const Legacy l = TallyCareer(ACareer(), "Evan", 9);
+  const PlayerState next = Inherit(l, d);
+  const PlayerState fresh;
+
+  // Nothing physical carries.
+  CHECK(next.climber.skills.power == fresh.climber.skills.power);
+  CHECK(next.climber.skills.fingers == fresh.climber.skills.fingers);
+  CHECK(next.climber.load == 0.0);
+  CHECK(!IsHurt(next.climber));
+  CHECK(next.projects.empty());          // none of the ledgers are yours
+  CHECK(next.day == 1);                  // and you are twenty-four again
+  CHECK(AgeOn(next.day) == AgeDials{}.startAge);
+
+  // The van and the coffee tin, and deliberately not the gear: a career
+  // that ended rich must not hand the next one a shortcut past the part of
+  // this game that is about being broke.
+  CHECK(next.cash == d.inheritedCash);
+  CHECK(next.kit.pads == fresh.kit.pads);
+  CHECK(!next.kit.hangboard);
+  CHECK(!IsGymMember(next.kit));
+  CHECK(!next.job.salaried);
+
+  // But the Lot knows whose van that is — and it cuts both ways.
+  CHECK(next.standing.with[static_cast<int>(Faction::OldGuard)] > 0.0);
+  CHECK(next.standing.with[static_cast<int>(Faction::Stewardship)] < 0.0);
+  CHECK(next.standing.with[static_cast<int>(Faction::OldGuard)] <
+        l.standing.with[static_cast<int>(Faction::OldGuard)]);
+
+  // A closure is not inherited. A gate that stays shut forever is a dead
+  // crag rather than a consequence.
+  Legacy shut = l;
+  shut.standing.closedDays = 9;
+  CHECK(Inherit(shut, d).standing.closedDays == 0);
+  CHECK(CragIsOpen(Inherit(shut, d).standing));
+}
+
+static void TestNobodyIsEverThrownOut() {
+  LegacyDials d;
+  // Retirement is offered, never forced. Deciding when to stop is the last
+  // real choice a climbing career contains.
+  PlayerState strong;
+  strong.day = 25 * 365;             // 49 years old
+  strong.climber.skills = {90, 90, 90, 90, 90};
+  // Old, but still climbing at their best: nothing is said.
+  CHECK(!TimeToThinkAboutIt(strong, 0, SkillToGrade(90.0), d));
+
+  // Two grades off their best and past the age: now the game is honest.
+  PlayerState faded;
+  faded.day = 25 * 365;
+  faded.climber.skills = {45, 45, 45, 45, 45};
+  CHECK(TimeToThinkAboutIt(faded, 0, SkillToGrade(90.0), d));
+
+  // A body that keeps breaking says it before the numbers do — at any age.
+  PlayerState young;
+  young.day = 2 * 365;
+  young.climber.skills = {70, 70, 70, 70, 70};
+  CHECK(!TimeToThinkAboutIt(young, 0, SkillToGrade(70.0), d));
+  CHECK(TimeToThinkAboutIt(young, d.injuriesInARowToHint, SkillToGrade(70.0), d));
+
+  // And age alone is never the reason. Plenty of people climb their hardest
+  // at forty, and telling one of them to pack it in because of a birthday
+  // would be both wrong and insulting.
+  PlayerState oldAndStrong;
+  oldAndStrong.day = 30 * 365;
+  oldAndStrong.climber.skills = {80, 80, 80, 80, 80};
+  CHECK(!TimeToThinkAboutIt(oldAndStrong, 0, SkillToGrade(80.0), d));
+}
+
+static void TestLoadsVersion11Save() {
+  // A v11 career predates the rope crag entirely, so every line it ever
+  // touched was a boulder — which is not a guess, it is the only thing that
+  // could have been true. And nobody came before it.
+  const std::string v11 =
+      "version=11\n"
+      "seed=v11-fixture\n"
+      "day=200\n"
+      "cash=420\n"
+      "skills.power=0\n"
+      "skills.fingers=0\n"
+      "skills.technique=0\n"
+      "skills.endurance=0\n"
+      "skills.head=0\n"
+      "morphology=1\n"
+      "skin=9\n"
+      "psyche=0.69999999999999996\n"
+      "projects=1\n"
+      "project.0.name=Chalk Ghost\n"
+      "project.0.grade=6\n"
+      "project.0.attempts=12\n"
+      "project.0.best=0\n"
+      "project.0.beta=0\n"
+      "project.0.sent=1\n"
+      "project.0.clean=1\n"
+      "project.0.given=\n"
+      "project.0.fa=0\n"
+      "project.0.confirmed=-1\n"
+      "project.0.style=4\n"
+      "owed=0\n"
+      "standing.0=0\n"
+      "standing.1=0\n"
+      "standing.2=0\n"
+      "standing.3=0\n"
+      "load=0\n"
+      "injury.active=0\n"
+      "injury.kind=0\n"
+      "injury.severity=0\n"
+      "injury.days=0\n"
+      "physio.last=0\n"
+      "kit.pads=1\n"
+      "kit.hangboard=0\n"
+      "kit.membership=0\n"
+      "job.salaried=0\n"
+      "job.days=0\n"
+      "job.weeks=0\n"
+      "standing.closed=0\n"
+      "shoes.wear=0\n"
+      "shoes.resoles=0\n"
+      "shoes.pairs=1\n"
+      "van.hours=0\n"
+      "van.0.wear=0\n"
+      "van.0.patches=0\n"
+      "van.0.failed=0\n"
+      "van.1.wear=0\n"
+      "van.1.patches=0\n"
+      "van.1.failed=0\n"
+      "van.2.wear=0\n"
+      "van.2.patches=0\n"
+      "van.2.failed=0\n"
+      "van.3.wear=0\n"
+      "van.3.patches=0\n"
+      "van.3.failed=0\n"
+      "van.4.wear=0\n"
+      "van.4.patches=0\n"
+      "van.4.failed=0\n"
+      "van.5.wear=0\n"
+      "van.5.patches=0\n"
+      "van.5.failed=0\n"
+      "dog.name=the dog\n"
+      "dog.adopted=0\n"
+      "dog.bond=0\n"
+      "dog.fed=0.40000000000000002\n"
+      "bonds=0\n";
+
+  SaveGame loaded;
+  CHECK(DeserializeSave(v11, loaded) == LoadResult::Ok);
+  CHECK(loaded.version == kSaveVersion);
+  CHECK(loaded.seed == "v11-fixture");
+  CHECK(loaded.player.day == 200);
+  CHECK(loaded.player.projects.size() == 1);
+  CHECK(loaded.player.projects[0].routeName == "Chalk Ghost");
+  CHECK(loaded.player.projects[0].attempts == 12);
+  CHECK(loaded.player.projects[0].sent);
+  CHECK(loaded.player.projects[0].discipline == Discipline::Boulder);
+  CHECK(loaded.legacies.empty());   // it is the first life
+
+  // And it re-saves in the new format, so the upgrade is permanent.
+  SaveGame again;
+  CHECK(DeserializeSave(SerializeSave(loaded), again) == LoadResult::Ok);
+  CHECK(again.player.projects[0].discipline == Discipline::Boulder);
+}
+
+static void TestGenerationsSurviveASave() {
+  SaveGame save;
+  save.seed = "dynasty";
+  save.player = ACareer();
+  save.legacies.push_back(TallyCareer(ACareer(), "Evan", 9));
+  save.legacies.push_back(TallyCareer(ACareer(), "Sam", 6));
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.legacies.size() == 2);
+  CHECK(back.legacies[0].name == "Evan");
+  CHECK(back.legacies[1].name == "Sam");
+  CHECK(back.legacies[1].seasons == 6);
+  CHECK(back.legacies[0].firstAscents.size() == 2);
+  CHECK(back.legacies[0].firstAscents[0].routeKey ==
+        "the arete left of Diesel");
+  CHECK(back.legacies[0].firstAscents[0].givenName == "Cattle Grid Arete");
+  CHECK(back.legacies[0].nemesis == "Chalk Ghost");
+  // And the ladder survives, which is the field that needed a version bump.
+  bool foundSport = false;
+  for (const NamedLine& n : back.legacies[0].firstAscents) {
+    if (n.discipline == Discipline::Sport) foundSport = true;
+  }
+  CHECK(foundSport);
+  CHECK(back.player.projects[1].discipline == Discipline::Sport);
+
+  // A save with no legacies is the first life, and must round-trip too.
+  SaveGame first;
+  first.seed = "alone";
+  SaveGame firstBack;
+  CHECK(DeserializeSave(SerializeSave(first), firstBack) == LoadResult::Ok);
+  CHECK(firstBack.legacies.empty());
+}
+
 // --- Sport -------------------------------------------------------------------
 
 static Route Pitch(const char* name, int grade) {
@@ -4670,6 +4956,12 @@ int main() {
   TestSevenDayLoop();
   TestSaveRoundTrip();
   TestSaveRejectsGarbageAndFuture();
+  TestACareerCanEnd();
+  TestTheGuidebookPrintsTheRightLadder();
+  TestTheWorldRemembersAndTheBodyDoesNot();
+  TestNobodyIsEverThrownOut();
+  TestLoadsVersion11Save();
+  TestGenerationsSurviveASave();
   TestTheCaveIsRopeRockAndRoadsideIsNot();
   TestTheCaveIsAStableWorldAndItsOwnOne();
   TestNoPartnerNoPitch();

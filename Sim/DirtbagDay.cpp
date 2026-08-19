@@ -195,6 +195,7 @@ ProjectMemory& MemoryFor(PlayerState& player, const Route& route) {
   }
   player.projects.emplace_back();
   player.projects.back().routeName = route.name;
+  player.projects.back().discipline = route.discipline;
   return player.projects.back();
 }
 

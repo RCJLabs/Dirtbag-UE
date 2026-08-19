@@ -151,6 +151,20 @@ void MigrateV10ToV11(SaveFields& fields) {
   fields["physio.last"] = "0";
 }
 
+// v11 → v12: the ledger learned which ladder its line is on, and careers
+// gained the ones that came before. A v11 save predates the rope crag
+// entirely, so every line it ever touched was a boulder — which is not a
+// guess, it is the only thing that could have been true.
+void MigrateV11ToV12(SaveFields& fields) {
+  int count = 0;
+  if (ParseInt(fields, "projects", count)) {
+    for (int i = 0; i < count; i++) {
+      fields[ProjKey(i, "disc")] = "0";   // Discipline::Boulder
+    }
+  }
+  fields["legacies"] = "0";   // it is the first life; nobody came before
+}
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -170,7 +184,7 @@ const std::vector<Migration>& DefaultMigrations() {
   static const std::vector<Migration> kMigrations = {
       &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5,
       &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9,
-      &MigrateV9ToV10, &MigrateV10ToV11};
+      &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12};
   return kMigrations;
 }
 
@@ -217,6 +231,40 @@ std::string SerializeSave(const SaveGame& save) {
     out << ProjKey(n, "confirmed") << "=" << IntToStr(m.confirmedGrade) << "\n";
     out << ProjKey(n, "style") << "=" << IntToStr(static_cast<int>(m.firstSendStyle))
         << "\n";
+    out << ProjKey(n, "disc") << "=" << IntToStr(static_cast<int>(m.discipline))
+        << "\n";
+  }
+
+  // The ones that came before. Their first ascents are the only reason the
+  // guidebook says anything at all about who put a line up.
+  out << "legacies=" << IntToStr(static_cast<int>(save.legacies.size()))
+      << "\n";
+  for (size_t i = 0; i < save.legacies.size(); i++) {
+    const Legacy& l = save.legacies[i];
+    const std::string k = "legacy." + IntToStr(static_cast<int>(i)) + ".";
+    out << k << "name=" << l.name << "\n";
+    out << k << "seasons=" << IntToStr(l.seasons) << "\n";
+    out << k << "retiredat=" << NumToStr(l.retiredAt) << "\n";
+    out << k << "hardest=" << IntToStr(l.hardestSendGrade) << "\n";
+    out << k << "hardestname=" << l.hardestSendName << "\n";
+    out << k << "hardestdisc="
+        << IntToStr(static_cast<int>(l.hardestSendDiscipline)) << "\n";
+    out << k << "sends=" << IntToStr(l.totalSends) << "\n";
+    out << k << "attempts=" << IntToStr(l.totalAttempts) << "\n";
+    out << k << "nemesis=" << l.nemesis << "\n";
+    out << k << "nemesisattempts=" << IntToStr(l.nemesisAttempts) << "\n";
+    out << k << "open=" << (l.cragOpenAtTheEnd ? "1" : "0") << "\n";
+    out << k << "fas=" << IntToStr(static_cast<int>(l.firstAscents.size()))
+        << "\n";
+    for (size_t j = 0; j < l.firstAscents.size(); j++) {
+      const NamedLine& n = l.firstAscents[j];
+      const std::string fk = k + "fa." + IntToStr(static_cast<int>(j)) + ".";
+      out << fk << "key=" << n.routeKey << "\n";
+      out << fk << "given=" << n.givenName << "\n";
+      out << fk << "grade=" << IntToStr(n.confirmedGrade) << "\n";
+      out << fk << "style=" << IntToStr(static_cast<int>(n.style)) << "\n";
+      out << fk << "disc=" << IntToStr(static_cast<int>(n.discipline)) << "\n";
+    }
   }
 
   out << "owed=" << NumToStr(save.player.owed) << "\n";
@@ -340,6 +388,13 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     // A given name is allowed to be absent and allowed to be empty: an
     // unnamed line is the normal case, not a corrupt one.
     ParseString(fields, ProjKey(i, "given"), m.givenName);
+    int disc = 0;
+    if (!ParseInt(fields, ProjKey(i, "disc"), disc)) {
+      return LoadResult::BadFormat;
+    }
+    // Clamped rather than trusted: a hand-edited save must not be able to
+    // hand the guidebook a ladder that does not exist.
+    m.discipline = disc == 1 ? Discipline::Sport : Discipline::Boulder;
     save.player.projects.push_back(m);
   }
 
@@ -384,6 +439,51 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     return LoadResult::BadFormat;
   }
   save.player.job.salaried = salaried != 0;
+  int legacyCount = 0;
+  if (!ParseInt(fields, "legacies", legacyCount)) return LoadResult::BadFormat;
+  for (int i = 0; i < legacyCount; i++) {
+    const std::string k = "legacy." + IntToStr(i) + ".";
+    Legacy l;
+    int hardestDisc = 0, open = 0, faCount = 0;
+    if (!ParseString(fields, k + "name", l.name) ||
+        !ParseInt(fields, k + "seasons", l.seasons) ||
+        !ParseDouble(fields, k + "retiredat", l.retiredAt) ||
+        !ParseInt(fields, k + "hardest", l.hardestSendGrade) ||
+        !ParseInt(fields, k + "hardestdisc", hardestDisc) ||
+        !ParseInt(fields, k + "sends", l.totalSends) ||
+        !ParseInt(fields, k + "attempts", l.totalAttempts) ||
+        !ParseInt(fields, k + "nemesisattempts", l.nemesisAttempts) ||
+        !ParseInt(fields, k + "open", open) ||
+        !ParseInt(fields, k + "fas", faCount)) {
+      return LoadResult::BadFormat;
+    }
+    // Names are allowed to be empty — a career that never sent anything has
+    // no hardest line, and a nemesis is a luxury.
+    ParseString(fields, k + "hardestname", l.hardestSendName);
+    ParseString(fields, k + "nemesis", l.nemesis);
+    l.hardestSendDiscipline =
+        hardestDisc == 1 ? Discipline::Sport : Discipline::Boulder;
+    l.cragOpenAtTheEnd = open != 0;
+
+    for (int j = 0; j < faCount; j++) {
+      const std::string fk = k + "fa." + IntToStr(j) + ".";
+      NamedLine n;
+      int style = 0, disc = 0;
+      if (!ParseString(fields, fk + "key", n.routeKey) ||
+          !ParseInt(fields, fk + "grade", n.confirmedGrade) ||
+          !ParseInt(fields, fk + "style", style) ||
+          !ParseInt(fields, fk + "disc", disc)) {
+        return LoadResult::BadFormat;
+      }
+      ParseString(fields, fk + "given", n.givenName);
+      n.style = static_cast<Style>(style);
+      n.discipline = disc == 1 ? Discipline::Sport : Discipline::Boulder;
+      n.by = l.name;
+      l.firstAscents.push_back(n);
+    }
+    save.legacies.push_back(l);
+  }
+
   if (!ParseDouble(fields, "owed", save.player.owed) ||
       !ParseDouble(fields, "shoes.wear", save.player.shoes.wear) ||
       !ParseInt(fields, "shoes.resoles", save.player.shoes.resoles) ||

@@ -203,6 +203,19 @@ public:
 
 	/** Writes under <Project>/Saved/SaveGames/. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
+	// Plain C++, not Blueprint: a career's predecessors are sim types and
+	// the game instance owns them. These are the *complete* save path — the
+	// Blueprint pair below writes a save with no legacies in it, which is
+	// correct only for a first life, so anything holding generations must
+	// come through here or it will quietly disinherit them.
+	static bool SaveGameToFile(const FString& Seed,
+	                           const FDirtbagPlayerState& Player,
+	                           const TArray<dirtbag::Legacy>& Legacies,
+	                           const FString& Filename);
+	static EDirtbagLoadResult LoadGameFromFile(
+	    const FString& Filename, FString& OutSeed,
+	    FDirtbagPlayerState& OutPlayer, TArray<dirtbag::Legacy>& OutLegacies);
+
 	static bool SaveToFile(const FString& Seed,
 	                       const FDirtbagPlayerState& Player,
 	                       const FString& Filename = FString(TEXT("dirtbag-save.txt")));

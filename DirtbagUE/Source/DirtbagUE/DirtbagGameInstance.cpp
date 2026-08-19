@@ -8,12 +8,14 @@ void UDirtbagGameInstance::Init()
 
 	FString LoadedSeed;
 	FDirtbagPlayerState LoadedPlayer;
-	const EDirtbagLoadResult Result =
-	    UDirtbagSimLibrary::LoadFromFile(SaveFilename, LoadedSeed, LoadedPlayer);
+	TArray<dirtbag::Legacy> LoadedLegacies;
+	const EDirtbagLoadResult Result = UDirtbagSimLibrary::LoadGameFromFile(
+	    SaveFilename, LoadedSeed, LoadedPlayer, LoadedLegacies);
 	if (Result == EDirtbagLoadResult::Ok)
 	{
 		Seed = LoadedSeed;
 		Player = LoadedPlayer;
+		Legacies = LoadedLegacies;
 		bLoadedFromSave = true;
 	}
 	// Anything else — missing, garbage, future — starts fresh; the bad file
@@ -83,7 +85,11 @@ void UDirtbagGameInstance::Sleep()
 
 bool UDirtbagGameInstance::SaveNow()
 {
-	return UDirtbagSimLibrary::SaveToFile(Seed, Player, SaveFilename);
+	// The complete path: anything that drops Legacies here disinherits every
+	// generation before this one, and nothing about the save would look
+	// wrong until somebody opened the guidebook.
+	return UDirtbagSimLibrary::SaveGameToFile(Seed, Player, Legacies,
+	                                          SaveFilename);
 }
 
 void UDirtbagGameInstance::EnsureBoard()
@@ -494,6 +500,55 @@ FString UDirtbagGameInstance::ShoeLine() const
 {
 	return FString(UTF8_TO_TCHAR(
 	    dirtbag::ShoeText(DirtbagConvert::ToSim(Player.Shoes)).c_str()));
+}
+
+// --- Retiring ----------------------------------------------------------------
+
+bool UDirtbagGameInstance::TimeToThinkAboutIt() const
+{
+	return dirtbag::TimeToThinkAboutIt(DirtbagConvert::ToSim(Player),
+	                                   ConsecutiveInjuries, PeakGradeEver);
+}
+
+FString UDirtbagGameInstance::CareerEpitaph() const
+{
+	const dirtbag::Legacy L = dirtbag::TallyCareer(
+	    DirtbagConvert::ToSim(Player), TCHAR_TO_UTF8(*ClimberName),
+	    1 + Player.Day / 365);
+	return UTF8_TO_TCHAR(dirtbag::LegacyText(L).c_str());
+}
+
+void UDirtbagGameInstance::RetireAndPassItOn(const FString& Name)
+{
+	const dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
+	const dirtbag::Legacy L = dirtbag::TallyCareer(
+	    SimPlayer, TCHAR_TO_UTF8(*Name), 1 + Player.Day / 365);
+	Legacies.Add(L);
+
+	Player = DirtbagConvert::FromSim(dirtbag::Inherit(L));
+	Day = UDirtbagSimLibrary::WakeUp(Player);
+	ConsecutiveInjuries = 0;
+	PeakGradeEver = 0.0;
+	ClimberName.Reset();
+	SaveNow();
+}
+
+int32 UDirtbagGameInstance::GenerationsBefore() const
+{
+	return Legacies.Num();
+}
+
+TArray<FString> UDirtbagGameInstance::InheritedGuidebook() const
+{
+	TArray<FString> Out;
+	for (const dirtbag::Legacy& L : Legacies)
+	{
+		for (const dirtbag::NamedLine& N : L.firstAscents)
+		{
+			Out.Add(UTF8_TO_TCHAR(dirtbag::GuidebookEntry(N).c_str()));
+		}
+	}
+	return Out;
 }
 
 // --- Age ---------------------------------------------------------------------

@@ -303,6 +303,38 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
 	bool BuyNewShoes();
 
+	// --- Retiring --------------------------------------------------------
+	// Offered, never forced. Deciding when to stop is the last real choice a
+	// climbing career contains, and taking it away would be the one
+	// unforgivable thing to do to one.
+
+	/** Has the game got something honest to say about stopping? Never a
+	 *  command — a body that keeps breaking, or two grades off your best and
+	 *  past the age. Age alone is never the reason. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Legacy")
+	bool TimeToThinkAboutIt() const;
+
+	/** "9 seasons. Hardest: The Guidebook Lied, V7. Two lines that are yours
+	 *  now. Chalk Ghost never went, after 210 tries. Retired at 47, with the
+	 *  crag open." */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Legacy")
+	FString CareerEpitaph() const;
+
+	/** End it. Tallies what the career was, files it with the ones before,
+	 *  and hands the valley to somebody twenty-four with nothing in their
+	 *  fingers — because the world remembers and the body does not. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Legacy")
+	void RetireAndPassItOn(const FString& ClimberName);
+
+	/** How many came before. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Legacy")
+	int32 GenerationsBefore() const;
+
+	/** The guidebook lines earlier generations put up: "Cattle Grid Arete,
+	 *  V7. FA Evan". These are the whole of what survives a retirement. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Legacy")
+	TArray<FString> InheritedGuidebook() const;
+
 	// --- Age -------------------------------------------------------------
 	// Derived from the day counter, never stored — which is why adding it
 	// needed no save version, and why a save can never disagree with a
@@ -557,6 +589,27 @@ private:
 	/** True once a shift has been worked today: the dog was on its own for
 	 *  four hours, which is what its bond is priced on. */
 	bool bWorkedToday = false;
+
+	/** The ones that came before, oldest first. Not a UPROPERTY: these are
+	 *  sim types, saved and loaded through DirtbagSave with everything else,
+	 *  and Blueprint reads them through InheritedGuidebook(). */
+	TArray<dirtbag::Legacy> Legacies;
+
+	/** Whose career this is. Set when the player names themselves; used on
+	 *  the epitaph and on every line they put up. */
+	UPROPERTY(BlueprintReadWrite, Category = "Dirtbag|Legacy")
+	FString ClimberName;
+
+	/** Injuries back to back, which says it before the numbers do. Reset by
+	 *  a season that does not end in one. */
+	UPROPERTY(BlueprintReadWrite, Category = "Dirtbag|Legacy")
+	int32 ConsecutiveInjuries = 0;
+
+	/** The best this career ever was, so decline is measured against it
+	 *  rather than against an age. Plenty of people climb their hardest at
+	 *  forty. */
+	UPROPERTY(BlueprintReadWrite, Category = "Dirtbag|Legacy")
+	double PeakGradeEver = 0.0;
 
 	// The forecast changes once a day; the HUD asks for it every frame.
 	// Cheap either way (~23us), but there is no reason to re-hash the seed

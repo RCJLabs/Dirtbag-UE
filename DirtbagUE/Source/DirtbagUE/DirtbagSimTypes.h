@@ -290,6 +290,12 @@ struct FDirtbagProjectMemory
 	/** What it turned out to be. -1 until somebody had done it. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|FirstAscent")
 	int32 ConfirmedGrade = -1;
+
+	/** Boulder or pitch. A guidebook entry for a rope route reads "5.12a"
+	 *  and one for a boulder reads "V7"; a card that cannot tell them apart
+	 *  confidently prints the wrong ladder. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	EDirtbagDiscipline Discipline = EDirtbagDiscipline::Boulder;
 };
 
 /** Career state — everything that outlives a day; what the save carries. */

@@ -386,6 +386,48 @@ EDirtbagLoadResult UDirtbagSimLibrary::LoadFromText(
 	return ToUEResult(Result);
 }
 
+bool UDirtbagSimLibrary::SaveGameToFile(const FString& Seed,
+                                        const FDirtbagPlayerState& Player,
+                                        const TArray<dirtbag::Legacy>& Legacies,
+                                        const FString& Filename)
+{
+	dirtbag::SaveGame Save;
+	Save.seed = TCHAR_TO_UTF8(*Seed);
+	Save.player = DirtbagConvert::ToSim(Player);
+	for (const dirtbag::Legacy& L : Legacies)
+	{
+		Save.legacies.push_back(L);
+	}
+	return FFileHelper::SaveStringToFile(
+	    UTF8_TO_TCHAR(dirtbag::SerializeSave(Save).c_str()),
+	    *SaveFilePath(Filename));
+}
+
+EDirtbagLoadResult UDirtbagSimLibrary::LoadGameFromFile(
+    const FString& Filename, FString& OutSeed, FDirtbagPlayerState& OutPlayer,
+    TArray<dirtbag::Legacy>& OutLegacies)
+{
+	FString Text;
+	if (!FFileHelper::LoadFileToString(Text, *SaveFilePath(Filename)))
+	{
+		return EDirtbagLoadResult::FileMissing;
+	}
+	dirtbag::SaveGame Save;
+	const dirtbag::LoadResult Result =
+	    dirtbag::DeserializeSave(TCHAR_TO_UTF8(*Text), Save);
+	if (Result == dirtbag::LoadResult::Ok)
+	{
+		OutSeed = UTF8_TO_TCHAR(Save.seed.c_str());
+		OutPlayer = DirtbagConvert::FromSim(Save.player);
+		OutLegacies.Reset();
+		for (const dirtbag::Legacy& L : Save.legacies)
+		{
+			OutLegacies.Add(L);
+		}
+	}
+	return ToUEResult(Result);
+}
+
 bool UDirtbagSimLibrary::SaveToFile(const FString& Seed,
                                     const FDirtbagPlayerState& Player,
                                     const FString& Filename)

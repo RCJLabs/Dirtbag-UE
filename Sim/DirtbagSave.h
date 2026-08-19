@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "DirtbagDay.h"
+#include "DirtbagLegacy.h"
 
 namespace dirtbag {
 
@@ -44,12 +45,18 @@ namespace dirtbag {
 // Version 8: where you stand with the scene, and whether the crag is shut.
 //   A v7 career had no scene to stand with, so it migrates to neutral on
 //   all four and an open crag — which is where a new career starts anyway.
-constexpr int kSaveVersion = 11;
+constexpr int kSaveVersion = 12;
 
 struct SaveGame {
   int version = kSaveVersion;
   std::string seed;  // the world's identity; every RNG stream derives from it
   PlayerState player;
+
+  // The ones that came before, oldest first. This is the whole of what
+  // survives a retirement: the world remembers, the body does not. A save
+  // with three of these is somebody's grandchild climbing past three
+  // generations of family names in the guidebook.
+  std::vector<Legacy> legacies;
 };
 
 using SaveFields = std::map<std::string, std::string>;

@@ -12,6 +12,7 @@ ProjectMemory NewProjectLedger(const CragLine& line,
   m.routeName = line.route.name;   // the permanent key, never the given name
   m.grade = line.route.grade;      // the book's guess, for now
   m.cleanliness = line.isProject ? dials.virginCleanliness : 1.0;
+  m.discipline = line.route.discipline;
   return m;
 }
 

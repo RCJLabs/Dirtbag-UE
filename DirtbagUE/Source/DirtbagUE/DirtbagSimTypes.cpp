@@ -81,6 +81,7 @@ dirtbag::ProjectMemory ToSim(const FDirtbagProjectMemory& In)
 	Out.givenName = TCHAR_TO_UTF8(*In.GivenName);
 	Out.firstAscent = In.bFirstAscent;
 	Out.confirmedGrade = In.ConfirmedGrade;
+	Out.discipline = static_cast<dirtbag::Discipline>(In.Discipline);
 	return Out;
 }
 
@@ -160,6 +161,7 @@ FDirtbagProjectMemory FromSim(const dirtbag::ProjectMemory& In)
 	Out.GivenName = UTF8_TO_TCHAR(In.givenName.c_str());
 	Out.bFirstAscent = In.firstAscent;
 	Out.ConfirmedGrade = In.confirmedGrade;
+	Out.Discipline = static_cast<EDirtbagDiscipline>(In.discipline);
 	return Out;
 }
 
