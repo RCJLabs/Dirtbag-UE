@@ -61,12 +61,17 @@ struct KitDials {
   // one thing, it costs skin, and it teaches you nothing about movement.
   double hangboardCost = 85.0;
   double hangboardHours = 1.0;
-  // More than a night's skin regrowth (1.5), and deliberately so. At 0.8 the
-  // board was free — you could hang every day of the year and still wake up
-  // fresher, and the probe did exactly that: 122 to 177 board days a season,
-  // eating the skin the crag was waiting for. A training day has to cost a
-  // climbing day or it is not a decision.
-  double hangboardSkinCost = 1.6;
+  // Hanging on wood with chalk on takes almost no skin off — that was never
+  // what a board costs, and pricing it in skin was a stand-in for a budget
+  // that did not exist yet. What a hangboard actually costs is tendons.
+  double hangboardSkinCost = 0.3;
+
+  // And that is the real price: more than a four-burn session, on the body's
+  // slow budget. A hangboard is the single most reliable way a climber gets
+  // injured, and until training load existed the board accrued *nothing* —
+  // it was free training with no way to pay for it, which is why a probe
+  // that owned one used it 177 days a year.
+  double hangboardLoad = 14.0;
   // Fingers only, and modest. Measured against the wall: a four-burn
   // session on a hard line trains 0.15 of a finger point, so 0.06 puts the
   // board at about 40% of a light session — worth doing on a day the

@@ -163,10 +163,13 @@ public:
 	    UDirtbagLiveAttempt* Attempt, UPARAM(ref) FDirtbagPlayerState& Player,
 	    UPARAM(ref) FDirtbagDayState& Day);
 
-	/** Lights out: skin regrows, psyche drifts home, day advances, bills
-	 *  land on their morning. Day state resets to the next wake. */
+	/** Lights out: skin regrows, training load comes down, psyche drifts
+	 *  home, day advances, bills land on their morning. This is also where
+	 *  the body rolls — above the load threshold, on a day you pulled on,
+	 *  this is when an injury lands. Day state resets to the next wake. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
-	static void SleepToNextDay(UPARAM(ref) FDirtbagPlayerState& Player,
+	static void SleepToNextDay(const FString& Seed,
+	                           UPARAM(ref) FDirtbagPlayerState& Player,
 	                           UPARAM(ref) FDirtbagDayState& Day);
 
 	/** Reading the line from the ground: judged against the guidebook grade,

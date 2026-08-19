@@ -15,6 +15,7 @@
 #include "../DirtbagGear.h"
 #include "../DirtbagFactions.h"
 #include "../DirtbagJobs.h"
+#include "../DirtbagBody.h"
 #include "../DirtbagKit.h"
 #include "../DirtbagTown.h"
 #include "../DirtbagVan.h"
@@ -1499,7 +1500,7 @@ static void TestFlailingIsNotTraining() {
       r.timeline.push_back(m);
     }
     const double before = player.climber.skills.fingers;
-    ApplyAttemptToDay(player, day, line, r, d);
+    ApplyAttemptToDay(player, day, line, r, Rng::FromSeed("body"), d);
     return player.climber.skills.fingers - before;
   };
 
@@ -1532,7 +1533,7 @@ static void TestFlailingIsNotTraining() {
     sent.timeline.push_back(m);
   }
   const double beforeJug = player.climber.skills.fingers;
-  ApplyAttemptToDay(player, day, jug, sent, d);
+  ApplyAttemptToDay(player, day, jug, sent, Rng::FromSeed("body"), d);
   CHECK(player.climber.skills.fingers - beforeJug < nearlyThere);
 }
 
@@ -1850,7 +1851,7 @@ static void TestShoesReachTheSession() {
     m.index = static_cast<int>(i);
     result.timeline.push_back(m);
   }
-  ApplyAttemptToDay(player, day, r, result);
+  ApplyAttemptToDay(player, day, r, result, Rng::FromSeed("body"));
   CHECK(player.shoes.wear > 0.0);
 }
 
@@ -1892,7 +1893,7 @@ static void TestBillsYouCannotPayWait() {
   broke.cash = 5.0;
   DayState day = WakeUp(broke, d);
   for (int i = 0; i < d.billsEveryDays; i++) {
-    SleepToNextDay(broke, day, d);
+    SleepToNextDay(broke, day, Rng::FromSeed("body"), d);
     day = WakeUp(broke, d);
   }
   CHECK(broke.cash >= 0.0);
@@ -3252,11 +3253,11 @@ static void TestFatigueFadesIn() {
     AttemptResult a = AttemptInSession(rng, cruiseDay.session,
                                        MemoryFor(cruiser, easy),
                                        cruiser.climber, easy, Conditions{});
-    ApplyAttemptToDay(cruiser, cruiseDay, easy, a);
+    ApplyAttemptToDay(cruiser, cruiseDay, easy, a, Rng::FromSeed("body"));
     AttemptResult b = AttemptInSession(rng, tryDay.session,
                                        MemoryFor(tryer, limit), tryer.climber,
                                        limit, Conditions{});
-    ApplyAttemptToDay(tryer, tryDay, limit, b);
+    ApplyAttemptToDay(tryer, tryDay, limit, b, Rng::FromSeed("body"));
   }
   CHECK(tryDay.energy < cruiseDay.energy);
 }
@@ -3265,10 +3266,10 @@ static void TestBillsLandWeekly() {
   PlayerState player;
   DayState day = WakeUp(player);
   const double start = player.cash;
-  for (int i = 0; i < 7; i++) SleepToNextDay(player, day);
+  for (int i = 0; i < 7; i++) SleepToNextDay(player, day, Rng::FromSeed("body"));
   CHECK(player.day == 8);
   CHECK(player.cash == start - DayDials{}.billsAmount);
-  for (int i = 0; i < 7; i++) SleepToNextDay(player, day);
+  for (int i = 0; i < 7; i++) SleepToNextDay(player, day, Rng::FromSeed("body"));
   CHECK(player.cash == start - 2 * DayDials{}.billsAmount);
 }
 
@@ -3276,10 +3277,10 @@ static void TestSkinRegrowsOvernight() {
   PlayerState player;
   player.climber.skin = 4.0;
   DayState day = WakeUp(player);
-  SleepToNextDay(player, day);
+  SleepToNextDay(player, day, Rng::FromSeed("body"));
   CHECK(player.climber.skin == 4.0 + DayDials{}.skinRegenPerNight);
   player.climber.skin = 8.9;
-  SleepToNextDay(player, day);
+  SleepToNextDay(player, day, Rng::FromSeed("body"));
   CHECK(player.climber.skin == DayDials{}.maxSkin);  // capped, never past fresh
 }
 
@@ -3287,8 +3288,8 @@ static void TestHungrySleepRecoversPoorly() {
   PlayerState fed, starving;
   DayState fedDay = WakeUp(fed), starvingDay = WakeUp(starving);
   starvingDay.hunger = 100.0;
-  SleepToNextDay(fed, fedDay);
-  SleepToNextDay(starving, starvingDay);
+  SleepToNextDay(fed, fedDay, Rng::FromSeed("body"));
+  SleepToNextDay(starving, starvingDay, Rng::FromSeed("body"));
   CHECK(fedDay.energy == 100.0);
   CHECK(starvingDay.energy == DayDials{}.sleepEnergyFloor);
 }
@@ -3313,11 +3314,11 @@ static void TestTrainingCreep() {
     AttemptResult g = AttemptInSession(sessionRng, gDay.session,
                                        MemoryFor(grinder, hard),
                                        grinder.climber, hard, Conditions{});
-    ApplyAttemptToDay(grinder, gDay, hard, g);
+    ApplyAttemptToDay(grinder, gDay, hard, g, Rng::FromSeed("body"));
     AttemptResult c = AttemptInSession(sessionRng, cDay.session,
                                        MemoryFor(cruiser, easy),
                                        cruiser.climber, easy, Conditions{});
-    ApplyAttemptToDay(cruiser, cDay, easy, c);
+    ApplyAttemptToDay(cruiser, cDay, easy, c, Rng::FromSeed("body"));
   }
   CHECK(grinder.climber.skills.fingers > 50.0);
   CHECK(grinder.climber.skills.fingers > cruiser.climber.skills.fingers);
@@ -3346,12 +3347,12 @@ static void TestSevenDayLoop() {
       AttemptResult r =
           AttemptInSession(sessionRng, day.session, MemoryFor(player, route),
                            ClimberForSession(player, day), route, Conditions{});
-      ApplyAttemptToDay(player, day, route, r);
+      ApplyAttemptToDay(player, day, route, r, Rng::FromSeed("body"));
     }
     EatMeal(player, day);
     WorkShift(player, day);
     EatMeal(player, day);
-    SleepToNextDay(player, day);
+    SleepToNextDay(player, day, Rng::FromSeed("body"));
   }
   CHECK(player.day == 8);
   // Worked every day: one week of wages minus food and bills stays solvent.
@@ -3426,6 +3427,295 @@ static void TestSaveRejectsGarbageAndFuture() {
   // A truncated save (missing fields) must refuse, never half-load.
   CHECK(DeserializeSave("version=1\nseed=x\nday=3\n", out) ==
         LoadResult::BadFormat);
+}
+
+// --- The body ----------------------------------------------------------------
+
+static void TestLoadRisesWithHardnessNotMileage() {
+  BodyDials d;
+  // A day of mileage on jugs and a day of trying hard are the same number
+  // of burns and nothing like the same cost. If this ever inverts, resting
+  // becomes about how much you climbed rather than how hard, and the whole
+  // point of a second budget goes with it.
+  Climber cruiser, tryer;
+  for (int i = 0; i < 10; i++) {
+    AccrueLoad(cruiser, 0.0, HoldType::Jug, d);
+    AccrueLoad(tryer, 2.0, HoldType::Crimp, d);
+  }
+  CHECK(tryer.load > cruiser.load * 4.0);
+
+  // And it caps, so a season of abuse cannot run the number off the end.
+  Climber wrecked;
+  for (int i = 0; i < 500; i++) AccrueLoad(wrecked, 4.0, HoldType::Crimp, d);
+  CHECK(wrecked.load == d.loadCeiling);
+}
+
+static void TestLoadIsASlowerClockThanSkin() {
+  BodyDials bd;
+  DayDials dd;
+  // Six nights takes skin from wrecked to fresh; load must take weeks, or
+  // it is just a second skin bar and says nothing new.
+  Climber c;
+  c.load = 100.0;
+  int nights = 0;
+  while (c.load > 0.0 && nights < 200) {
+    BodyDay(c, false, bd);
+    nights++;
+  }
+  CHECK(nights > 20);          // a month-ish, not a week
+  const double skinNights = dd.maxSkin / dd.skinRegenPerNight;
+  CHECK(nights > skinNights * 3.0);
+
+  // Resting properly beats sleeping it off, which is what makes a rest day
+  // a decision rather than a day you lost.
+  Climber lazy, resting;
+  lazy.load = resting.load = 50.0;
+  BodyDay(lazy, false, bd);
+  BodyDay(resting, true, bd);
+  CHECK(resting.load < lazy.load);
+}
+
+static void TestNobodyGetsHurtOutOfTheBlue() {
+  BodyDials d;
+  const Rng world = Rng::FromSeed("unlucky");
+  // Below the threshold: never, no matter how many days you roll. An injury
+  // has to be something you were warned about, or it is weather.
+  // Well below the line: never, across a lifetime of days.
+  Climber careful;
+  careful.load = d.injuryThreshold * 0.5;
+  for (int day = 1; day <= 5000; day++) {
+    CHECK(!RollForInjury(careful, world, day, d));
+  }
+  CHECK(!IsHurt(careful));
+
+  // And the risk has to climb with how far past the line you are, which is
+  // the property that actually holds this mechanic up. Without it the
+  // warning in LoadText means nothing and the number is decoration.
+  //
+  // Two obvious defects pass every other check in this test: dropping the
+  // `over <= 0` guard (Chance() refuses a negative probability anyway), and
+  // a fabs() sign error that makes being far past the line as safe as being
+  // just over it. Both are caught here and nowhere else.
+  const auto RateAt = [&](double load) {
+    int hurt = 0;
+    for (int i = 0; i < 3000; i++) {
+      Climber c;
+      c.load = load;
+      if (RollForInjury(c, world, i, d)) hurt++;
+    }
+    return hurt / 3000.0;
+  };
+  const double justOver = RateAt(d.injuryThreshold + 4.0);
+  const double wellOver = RateAt(d.injuryThreshold + 30.0);
+  const double redlined = RateAt(100.0);
+  CHECK(justOver > 0.0);
+  CHECK(wellOver > justOver * 3.0);
+  CHECK(redlined > wellOver);
+  // Under the line the rate is flat zero, not merely small.
+  CHECK(RateAt(d.injuryThreshold - 5.0) == 0.0);
+  CHECK(RateAt(0.0) == 0.0);
+
+  // Above it, and long enough, it lands.
+  Climber reckless;
+  bool hurt = false;
+  for (int day = 1; day <= 2000 && !hurt; day++) {
+    reckless.load = 95.0;
+    hurt = RollForInjury(reckless, world, day, d);
+  }
+  CHECK(hurt);
+  CHECK(IsHurt(reckless));
+  CHECK(reckless.injury.daysLeft > 0);
+  CHECK(reckless.injury.severity >= 0.0 && reckless.injury.severity <= 1.0);
+  // Being hurt is not only lost time.
+  CHECK(reckless.psyche < 0.7);
+
+  // Already hurt is not hurt again — that is what climbing on it is for.
+  const int was = reckless.injury.daysLeft;
+  reckless.load = 100.0;
+  for (int day = 1; day <= 200; day++) RollForInjury(reckless, world, day, d);
+  CHECK(reckless.injury.daysLeft == was);
+}
+
+static void TestMostInjuriesAreAFortnightAndTheSeasonEnderIsRare() {
+  BodyDials d;
+  const Rng world = Rng::FromSeed("epidemiology");
+  int n = 0, long_ = 0;
+  double totalDays = 0.0;
+  for (int i = 0; i < 4000; i++) {
+    Climber c;
+    c.load = 100.0;
+    if (!RollForInjury(c, world, i, d)) continue;
+    n++;
+    totalDays += c.injury.daysLeft;
+    if (c.injury.daysLeft > 40) long_++;
+  }
+  CHECK(n > 200);
+  const double mean = totalDays / n;
+  CHECK(mean > 10.0 && mean < 26.0);          // most are an annoyance
+  CHECK(long_ > 0);                            // the season-ender exists
+  CHECK(static_cast<double>(long_) / n < 0.2); // and it is rare
+}
+
+static void TestAnInjuryDecidesWhatYouCanStillClimbOn() {
+  BodyDials d;
+  // The injury's whole gameplay is the choice of what to get on. A pulley
+  // ends crimping and leaves slopers alone; a shoulder is the reverse. If
+  // both bit everything equally there would be no decision to make.
+  CHECK(InjuryBiteOn(InjuryKind::Pulley, HoldType::Crimp, d) >
+        InjuryBiteOn(InjuryKind::Pulley, HoldType::Sloper, d));
+  CHECK(InjuryBiteOn(InjuryKind::Shoulder, HoldType::Sloper, d) >
+        InjuryBiteOn(InjuryKind::Shoulder, HoldType::Crimp, d));
+  CHECK(InjuryBiteOn(InjuryKind::Lumbrical, HoldType::Pocket, d) >
+        InjuryBiteOn(InjuryKind::Lumbrical, HoldType::Crimp, d));
+  // Nothing that hurts ever fully leaves you alone.
+  for (int k = 0; k < kInjuryKindCount; k++) {
+    for (HoldType h : {HoldType::Crimp, HoldType::Sloper, HoldType::Pinch,
+                       HoldType::Pocket, HoldType::Jug, HoldType::Dyno,
+                       HoldType::Crack}) {
+      const double bite = InjuryBiteOn(static_cast<InjuryKind>(k), h, d);
+      CHECK(bite > 0.0 && bite <= 1.0);
+    }
+  }
+
+  // And it reaches the wall. A hurt climber on the holds that hurt is
+  // measurably worse; on the holds that do not, they are themselves.
+  Rng world = Rng::FromStream("hurt", Stream::Worldgen);
+  const Route crimpy = BuildRoute(world, "Tips", 6, 6, RouteType::Crimp,
+                                  Discipline::Boulder);
+  Climber healthy = MakeClimber(55, 55, 55, 55, 50);
+  Climber pulley = healthy;
+  pulley.injury.active = true;
+  pulley.injury.kind = InjuryKind::Pulley;
+  pulley.injury.severity = 1.0;
+  CHECK(AverageHighpoint(pulley, crimpy, 200) <
+        AverageHighpoint(healthy, crimpy, 200));
+}
+
+static void TestClimbingOnItIsAGambleBothWays() {
+  BodyDials d;
+  const Rng world = Rng::FromSeed("stubborn");
+
+  Climber c;
+  c.injury.active = true;
+  c.injury.severity = 0.2;
+  c.injury.daysLeft = 20;
+
+  // A healthy climber cannot aggravate what they have not got.
+  Climber fine;
+  CHECK(!ClimbOnIt(fine, world, 1, 1, d));
+
+  // One burn is a real gamble in both directions: sometimes you get away
+  // with it, which is what makes pulling on a choice rather than a warning.
+  int gotAway = 0, paid = 0;
+  for (int i = 0; i < 400; i++) {
+    Climber tryIt;
+    tryIt.injury.active = true;
+    tryIt.injury.severity = 0.2;
+    tryIt.injury.daysLeft = 20;
+    if (ClimbOnIt(tryIt, world, 1, i, d)) paid++; else gotAway++;
+  }
+  CHECK(paid > 0 && gotAway > 0);
+  CHECK(gotAway > paid);   // most of the time, you get away with it
+
+  // Twenty burns should be twenty times as sorry, not once.
+  Climber grinder;
+  grinder.injury.active = true;
+  grinder.injury.severity = 0.2;
+  grinder.injury.daysLeft = 20;
+  for (int i = 0; i < 20; i++) ClimbOnIt(grinder, world, 1, i, d);
+  CHECK(grinder.injury.daysLeft > 20);
+  CHECK(grinder.injury.severity > 0.2);
+  CHECK(grinder.injury.severity <= 1.0);
+
+  // But it is bounded. Adding days per aggravation rather than recomputing
+  // them from severity turned one bad fortnight into a 226-day injury in a
+  // season probe — which is not a season-ender, it is a runaway.
+  Climber stubborn;
+  stubborn.injury.active = true;
+  stubborn.injury.severity = 0.1;
+  stubborn.injury.daysLeft = 12;
+  for (int i = 0; i < 5000; i++) ClimbOnIt(stubborn, world, 1, i, d);
+  CHECK(stubborn.injury.severity == 1.0);
+  CHECK(stubborn.injury.daysLeft <= InjuryDaysFor(1.0, d));
+  // And the ceiling is a season-ender, not a career-ender.
+  CHECK(InjuryDaysFor(1.0, d) < 100);
+}
+
+static void TestPhysioBuysTimeAndNotAMiracle() {
+  BodyDials d;
+  PlayerState player;
+  player.climber.injury.active = true;
+  player.climber.injury.severity = 0.5;
+  player.climber.injury.daysLeft = 30;
+  player.cash = 400.0;
+
+  // Healthy people do not get to bank sessions.
+  PlayerState fine;
+  fine.cash = 400.0;
+  CHECK(!Physio(fine.climber, fine.cash, fine.lastPhysioDay, 1, d));
+  CHECK(fine.cash == 400.0);
+
+  CHECK(Physio(player.climber, player.cash, player.lastPhysioDay, 10, d));
+  CHECK(player.climber.injury.daysLeft == 30 - d.physioDaysSaved);
+  CHECK(player.cash == 400.0 - d.physioCost);
+
+  // No buying your way out of a season in an afternoon.
+  CHECK(!Physio(player.climber, player.cash, player.lastPhysioDay, 11, d));
+  CHECK(Physio(player.climber, player.cash, player.lastPhysioDay,
+               10 + d.physioDaysBetween, d));
+
+  // And it never heals you to zero — an injury always costs at least a day
+  // more, however much money you throw at it.
+  PlayerState rich;
+  rich.climber.injury.active = true;
+  rich.climber.injury.daysLeft = 2;
+  rich.cash = 10000.0;
+  CHECK(Physio(rich.climber, rich.cash, rich.lastPhysioDay, 100, d));
+  CHECK(rich.climber.injury.daysLeft >= 1);
+
+  // Broke is broke.
+  PlayerState skint;
+  skint.climber.injury.active = true;
+  skint.climber.injury.daysLeft = 30;
+  skint.cash = 10.0;
+  CHECK(!Physio(skint.climber, skint.cash, skint.lastPhysioDay, 1, d));
+  CHECK(skint.climber.injury.daysLeft == 30);
+}
+
+static void TestTendonsDoNotTearInACampChair() {
+  // The roll only happens on a day you pulled on. A player who rested all
+  // season through a redlined load is being stupid, not unlucky, and the
+  // sim must not punish them for the thing that was going to fix it.
+  DayDials dd;
+  const Rng world = Rng::FromSeed("resting");
+  PlayerState player;
+  player.climber.load = 100.0;
+  for (int i = 0; i < 30; i++) {
+    DayState day = WakeUp(player, dd);   // never pulls on: atGym stays false
+    SleepToNextDay(player, day, world, dd);
+  }
+  CHECK(!IsHurt(player.climber));
+  CHECK(player.climber.load == 0.0);   // and it came all the way back down
+}
+
+static void TestTheBodySurvivesASave() {
+  SaveGame save;
+  save.seed = "hurt";
+  save.player.climber.load = 71.5;
+  save.player.climber.injury.active = true;
+  save.player.climber.injury.kind = InjuryKind::Shoulder;
+  save.player.climber.injury.severity = 0.62;
+  save.player.climber.injury.daysLeft = 23;
+  save.player.lastPhysioDay = 140;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.climber.load == 71.5);
+  CHECK(back.player.climber.injury.active);
+  CHECK(back.player.climber.injury.kind == InjuryKind::Shoulder);
+  CHECK(back.player.climber.injury.severity == 0.62);
+  CHECK(back.player.climber.injury.daysLeft == 23);
+  CHECK(back.player.lastPhysioDay == 140);
 }
 
 // --- The kit -----------------------------------------------------------------
@@ -3610,7 +3900,7 @@ static void TestTheHangboardIsTheBrokeAnswer() {
         AttemptInSession(session, climbDay.session, mem,
                          ClimberForSession(climber, climbDay, dd), hard,
                          Conditions{});
-    ApplyAttemptToDay(climber, climbDay, hard, r, dd);
+    ApplyAttemptToDay(climber, climbDay, hard, r, Rng::FromSeed("body"), dd);
   }
   CHECK(climber.climber.skills.fingers > hanger.climber.skills.fingers);
 
@@ -3877,6 +4167,15 @@ int main() {
   TestSevenDayLoop();
   TestSaveRoundTrip();
   TestSaveRejectsGarbageAndFuture();
+  TestLoadRisesWithHardnessNotMileage();
+  TestLoadIsASlowerClockThanSkin();
+  TestNobodyGetsHurtOutOfTheBlue();
+  TestMostInjuriesAreAFortnightAndTheSeasonEnderIsRare();
+  TestAnInjuryDecidesWhatYouCanStillClimbOn();
+  TestClimbingOnItIsAGambleBothWays();
+  TestPhysioBuysTimeAndNotAMiracle();
+  TestTendonsDoNotTearInACampChair();
+  TestTheBodySurvivesASave();
   TestPadsPayOffWhereYouAreScared();
   TestPadsChangeNothingForCallersWhoNeverHeardOfThem();
   TestTheKitIsBoughtOrItIsNot();

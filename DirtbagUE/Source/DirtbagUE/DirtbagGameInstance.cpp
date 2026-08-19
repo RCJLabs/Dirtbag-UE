@@ -77,7 +77,7 @@ void UDirtbagGameInstance::Sleep()
 	DogWorry.Reset();
 	VanNews.Reset();
 
-	UDirtbagSimLibrary::SleepToNextDay(Player, Day);
+	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
 	SaveNow();
 }
 
@@ -255,7 +255,7 @@ FDirtbagAttemptResult UDirtbagGameInstance::CommitLiveFor(
 	dirtbag::CommitAttempt(SimDay.session,
 	                       dirtbag::MemoryFor(SimPlayer, SimRoute), SimRoute,
 	                       Result);
-	dirtbag::ApplyAttemptToDay(SimPlayer, SimDay, SimRoute, Result);
+	dirtbag::ApplyAttemptToDay(SimPlayer, SimDay, SimRoute, Result, Live.rng);
 
 	Player = DirtbagConvert::FromSim(SimPlayer);
 	Day = DirtbagConvert::FromSim(SimDay);
@@ -494,6 +494,37 @@ FString UDirtbagGameInstance::ShoeLine() const
 {
 	return FString(UTF8_TO_TCHAR(
 	    dirtbag::ShoeText(DirtbagConvert::ToSim(Player.Shoes)).c_str()));
+}
+
+// --- The body ----------------------------------------------------------------
+
+FString UDirtbagGameInstance::InjuryLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::InjuryText(DirtbagConvert::ToSim(Player.Climber)).c_str());
+}
+
+FString UDirtbagGameInstance::LoadLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::LoadText(DirtbagConvert::ToSim(Player.Climber)).c_str());
+}
+
+bool UDirtbagGameInstance::IsHurt() const
+{
+	return Player.Climber.Injury.bActive;
+}
+
+bool UDirtbagGameInstance::SeeAPhysio()
+{
+	dirtbag::Climber SimClimber = DirtbagConvert::ToSim(Player.Climber);
+	double Cash = Player.Cash;
+	int LastDay = Player.LastPhysioDay;
+	if (!dirtbag::Physio(SimClimber, Cash, LastDay, Player.Day)) return false;
+	Player.Climber = DirtbagConvert::FromSim(SimClimber);
+	Player.Cash = Cash;
+	Player.LastPhysioDay = LastDay;
+	return true;
 }
 
 // --- The kit -----------------------------------------------------------------

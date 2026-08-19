@@ -1,5 +1,7 @@
 #include "DirtbagSession.h"
 
+#include "DirtbagBody.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -85,6 +87,15 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
   if (move.crux) {
     // The crux is where the head shows up — commitment, not strength.
     effective += (c.skills.head - 50.0) / 100.0;
+  }
+
+  // What is currently wrong with you, and only where it bites. A pulley is
+  // over on crimps and fine on slopers, which is why an injured climber
+  // becomes a sloper climber for a month rather than stopping — the choice
+  // of what to get on is the injury's actual gameplay.
+  if (c.injury.active) {
+    effective -= dials.injuryGradePenalty * c.injury.severity *
+                 InjuryBiteOn(c.injury.kind, move.hold);
   }
 
   // The landing. Bare ground costs nothing low down — nobody has ever been

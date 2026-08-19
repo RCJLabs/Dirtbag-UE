@@ -1,5 +1,7 @@
 #include "DirtbagDay.h"
 
+#include "DirtbagBody.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -176,6 +178,10 @@ bool HangboardSession(PlayerState& player, DayState& day, const KitDials& kit,
   day.hangboardDone = true;
   day.energy = std::max(0.0, day.energy - kit.hangboardEnergy);
   player.climber.skin -= kit.hangboardSkinCost;
+  // Fingery by definition and at full intensity — nobody hangs a board
+  // casually. This is where the load a season of training costs comes from,
+  // and it is more than a four-burn session by design.
+  AddLoad(player.climber, kit.hangboardLoad);
   Gain(player.climber.skills.fingers,
        kit.hangboardFingerGain *
            std::max(0.15, 1.0 - player.climber.skills.fingers /
@@ -193,7 +199,8 @@ ProjectMemory& MemoryFor(PlayerState& player, const Route& route) {
 }
 
 void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
-                       const AttemptResult& result, const DayDials& dials) {
+                       const AttemptResult& result, const Rng& worldRng,
+                       const DayDials& dials) {
   PassHours(day, dials.attemptHours, dials);
 
   // Trying hard costs more than cruising: how far the line is above you,
@@ -222,6 +229,25 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
   const double skillGrade = SkillToGrade(routeAsk);
   const double challenge =
       Clamp01((static_cast<double>(route.trueGrade) - skillGrade + 2.0) / 3.0);
+
+  // Tendons keep their own ledger, on that same number — two ways of asking
+  // "was that hard" would drift, and the drift would be invisible until
+  // somebody got hurt for no reason. The hardest hold on the route stands
+  // for what it asked of your fingers, because one crimp in a route of jugs
+  // is still the move that hurt you.
+  HoldType hardest = HoldType::Jug;
+  double worst = -1.0;
+  for (const Move& m : route.moves) {
+    if (m.difficulty > worst) { worst = m.difficulty; hardest = m.hold; }
+  }
+  AccrueLoad(player.climber, challenge, hardest);
+
+  // And if something is already wrong, this is the burn that either got
+  // away with it or did not. Keyed on the session's attempt count so that
+  // twenty burns are twenty separate gambles rather than one.
+  if (IsHurt(player.climber)) {
+    ClimbOnIt(player.climber, worldRng, player.day, day.session.attemptsMade);
+  }
 
   // Diminishing returns: the same session that builds a beginner barely
   // moves a veteran. Newcomers feel progress; the top of the range is a
@@ -256,7 +282,8 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
            headroom(s.endurance));
 }
 
-void SleepToNextDay(PlayerState& player, DayState& day, const DayDials& dials) {
+void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
+                    const DayDials& dials) {
   // The wall's tab comes home: today's remaining skin is tomorrow's start.
   if (day.atGym) {
     player.climber.skin = day.session.skinLeft;
@@ -266,6 +293,14 @@ void SleepToNextDay(PlayerState& player, DayState& day, const DayDials& dials) {
       std::min(dials.maxSkin, player.climber.skin + dials.skinRegenPerNight);
   player.climber.psyche +=
       (dials.psycheBaseline - player.climber.psyche) * dials.psycheHomeRate;
+
+  // Tendons recover on their own clock — a month where skin takes six
+  // nights. A day you never pulled on is worth about twice one you did,
+  // which is what finally makes a rest day a decision.
+  BodyDay(player.climber, !day.atGym);
+  // And the roll, on a day you actually pulled on. Never on a rest day:
+  // tendons do not tear in a camp chair.
+  if (day.atGym) RollForInjury(player.climber, worldRng, player.day);
 
   // The month runs down like everything else that runs out. Without this
   // the probe reported 365 days of membership bought with a single $75,

@@ -252,7 +252,8 @@ FDirtbagAttemptResult UDirtbagSimLibrary::DayAttempt(
 	    SessionRng, SimDay.session, dirtbag::MemoryFor(SimPlayer, SimRoute),
 	    dirtbag::ClimberForSession(SimPlayer, SimDay), SimRoute, Conditions, {},
 	    BotExecution);
-	dirtbag::ApplyAttemptToDay(SimPlayer, SimDay, SimRoute, Result);
+	dirtbag::ApplyAttemptToDay(SimPlayer, SimDay, SimRoute, Result,
+	                           dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*SessionSeed)));
 
 	Player = DirtbagConvert::FromSim(SimPlayer);
 	Day = DirtbagConvert::FromSim(SimDay);
@@ -298,19 +299,24 @@ FDirtbagAttemptResult UDirtbagSimLibrary::CommitLiveAttempt(
 	dirtbag::CommitAttempt(SimDay.session,
 	                       dirtbag::MemoryFor(SimPlayer, SimRoute), SimRoute,
 	                       Result);
-	dirtbag::ApplyAttemptToDay(SimPlayer, SimDay, SimRoute, Result);
+	// The attempt's own stream: this burn either got away with climbing on
+	// an injury or did not, and that is a fact about this burn.
+	dirtbag::ApplyAttemptToDay(SimPlayer, SimDay, SimRoute, Result,
+	                           Attempt->Live.rng);
 
 	Player = DirtbagConvert::FromSim(SimPlayer);
 	Day = DirtbagConvert::FromSim(SimDay);
 	return DirtbagConvert::FromSim(Result);
 }
 
-void UDirtbagSimLibrary::SleepToNextDay(FDirtbagPlayerState& Player,
+void UDirtbagSimLibrary::SleepToNextDay(const FString& Seed,
+                                        FDirtbagPlayerState& Player,
                                         FDirtbagDayState& Day)
 {
 	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
 	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
-	dirtbag::SleepToNextDay(SimPlayer, SimDay);
+	dirtbag::SleepToNextDay(SimPlayer, SimDay,
+	                        dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)));
 	// A night's upkeep, not just a night's recovery: rock you cleaned gives
 	// a little back to the weather. It lives here rather than inside
 	// SleepToNextDay because the first-ascent layer sits above the day loop

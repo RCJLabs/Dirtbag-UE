@@ -26,6 +26,8 @@ dirtbag::Climber ToSim(const FDirtbagClimber& In)
 	Out.morphology = static_cast<dirtbag::Morphology>(In.Morphology);
 	Out.skin = In.Skin;
 	Out.psyche = In.Psyche;
+	Out.load = In.Load;
+	Out.injury = ToSim(In.Injury);
 	return Out;
 }
 
@@ -171,6 +173,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.job = ToSim(In.Job);
 	Out.standing = ToSim(In.Standing);
 	Out.kit = ToSim(In.Kit);
+	Out.lastPhysioDay = In.LastPhysioDay;
 	Out.bonds.reserve(In.Bonds.Num());
 	for (const FDirtbagPartnerBond& B : In.Bonds)
 	{
@@ -216,6 +219,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Job = FromSim(In.job);
 	Out.Standing = FromSim(In.standing);
 	Out.Kit = FromSim(In.kit);
+	Out.LastPhysioDay = In.lastPhysioDay;
 	Out.Bonds.Reserve(static_cast<int32>(In.bonds.size()));
 	for (const dirtbag::PartnerBond& B : In.bonds)
 	{
@@ -265,6 +269,26 @@ FDirtbagWeather FromSim(const dirtbag::Weather& In)
 	Out.Humidity = In.humidity;
 	Out.Cloud = In.cloud;
 	Out.Wind = In.wind;
+	return Out;
+}
+
+FDirtbagInjury FromSim(const dirtbag::Injury& In)
+{
+	FDirtbagInjury Out;
+	Out.bActive = In.active;
+	Out.Kind = static_cast<EDirtbagInjuryKind>(In.kind);
+	Out.Severity = In.severity;
+	Out.DaysLeft = In.daysLeft;
+	return Out;
+}
+
+dirtbag::Injury ToSim(const FDirtbagInjury& In)
+{
+	dirtbag::Injury Out;
+	Out.active = In.bActive;
+	Out.kind = static_cast<dirtbag::InjuryKind>(In.Kind);
+	Out.severity = In.Severity;
+	Out.daysLeft = In.DaysLeft;
 	return Out;
 }
 
@@ -407,6 +431,8 @@ FDirtbagClimber FromSim(const dirtbag::Climber& In)
 	Out.Morphology = static_cast<EDirtbagMorphology>(In.morphology);
 	Out.Skin = In.skin;
 	Out.Psyche = In.psyche;
+	Out.Load = In.load;
+	Out.Injury = FromSim(In.injury);
 	return Out;
 }
 

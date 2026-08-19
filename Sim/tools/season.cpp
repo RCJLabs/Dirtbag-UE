@@ -19,6 +19,7 @@
 
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
+#include "DirtbagBody.h"
 #include "DirtbagCrag.h"
 #include "DirtbagDay.h"
 #include "DirtbagDog.h"
@@ -51,6 +52,9 @@ struct Tally {
   int resoles = 0, newPairs = 0, deadRubberDays = 0;
   double spentVan = 0.0, spentFuel = 0.0, spentKit = 0.0;
   int gymDays = 0, boardDays = 0, memberDays = 0;
+  int injuries = 0, hurtDays = 0, climbedHurtDays = 0, aggravations = 0;
+  int physioSessions = 0;
+  double spentPhysio = 0.0, loadSum = 0.0, peakLoad = 0.0;
   int breakdowns = 0, strandedDays = 0, bodges = 0;
   int closedDays = 0, closures = 0;
   int photoGigs = 0, trailGigs = 0;
@@ -199,6 +203,22 @@ int main(int argc, char** argv) {
       }
     }
 
+    // The body, before anything is decided. Being hurt is the first thing
+    // you know about a day, not a thing you discover at the crag.
+    const bool hurt = IsHurt(player.climber);
+    if (hurt) t.hurtDays++;
+    t.loadSum += player.climber.load;
+    t.peakLoad = std::max(t.peakLoad, player.climber.load);
+    if (hurt && !kept) {
+      const double before = player.cash;
+      if (Physio(player.climber, player.cash, player.lastPhysioDay,
+                 player.day)) {
+        t.physioSessions++;
+        t.spentPhysio += before - player.cash;
+        note = "physio";
+      }
+    }
+
     // Shopping, before the day gets spent. A dirtbag buys in this order:
     // the cheap thing that works, then the landing, then the roof over
     // winter — and never so deep that the bills go unpaid, because being
@@ -329,7 +349,12 @@ int main(int argc, char** argv) {
     const bool stranded = !VanRuns(player.van);
     if (IsGymMember(player.kit)) t.memberDays++;
 
-    if (!win.exists || tooThin || stranded || shut) {
+    // Climbing on a bad one is how a fortnight becomes a season. A mild
+    // tweak you work around by getting on the holds that do not hurt; past
+    // half severity nobody sensible pulls on at all.
+    const bool tooHurt = hurt && player.climber.injury.severity > 0.5;
+
+    if (!win.exists || tooThin || stranded || shut || tooHurt) {
       // The day the rock said no. This is the pile the kit exists to reach:
       // 157 washed out, 75 more resting skin, and until now every one of
       // them was dead time no amount of money could touch.
@@ -353,7 +378,7 @@ int main(int argc, char** argv) {
             const AttemptResult r =
                 AttemptInSession(session, today.session, mem, body, *pick,
                                  Conditions{});
-            ApplyAttemptToDay(player, today, *pick, r, dd);
+            ApplyAttemptToDay(player, today, *pick, r, world, dd);
             t.burns++;
             t.movesClimbed += static_cast<int>(r.timeline.size());
           }
@@ -372,7 +397,12 @@ int main(int argc, char** argv) {
       // the board spends the crag's budget unless the crag was never going
       // to get it. Resting to 3.0 and then boarding at 3.1 is paying for
       // training with the session you were resting for.
+      // And not when the warning light is on. The board is what redlines
+      // you — it is the one thing in the game that loads tendons without
+      // the weather getting a say — so a player who listens to their body
+      // stops hanging before the threshold rather than after.
       if (!salvaged && player.climber.skin > 7.5 &&
+          player.climber.load < BodyDials{}.injuryThreshold * 0.8 &&
           HangboardSession(player, today, kd, dd)) {
         t.boardDays++;
         salvaged = true;
@@ -427,7 +457,7 @@ int main(int argc, char** argv) {
           const AttemptResult r =
               AttemptInSession(session, today.session, mem, body, line->route,
                                cond);
-          ApplyAttemptToDay(player, today, line->route, r, dd);
+          ApplyAttemptToDay(player, today, line->route, r, world, dd);
           t.burns++;
           burnsToday++;
 
@@ -538,14 +568,34 @@ int main(int argc, char** argv) {
              t.firstAscents, note.c_str());
       lastGradeReport = grade;
     }
-    SleepToNextDay(player, today, dd);
+    // The night's roll happens inside SleepToNextDay, which is the point of
+    // it living there — so an injury is noticed the way the player notices
+    // one, by waking up with it.
+    const bool wasHurt = IsHurt(player.climber);
+    const double sev = player.climber.injury.severity;
+    const int left = player.climber.injury.daysLeft;
+    if (wasHurt && today.atGym) t.climbedHurtDays++;
+    SleepToNextDay(player, today, world, dd);
+    if (!wasHurt && IsHurt(player.climber)) {
+      t.injuries++;
+    } else if (wasHurt && IsHurt(player.climber) &&
+               (player.climber.injury.severity > sev + 1e-9 ||
+                player.climber.injury.daysLeft > left)) {
+      t.aggravations++;
+    }
   }
 
   // One machine-readable line, always. Comparing two policies across
   // several seeds means parsing this output, and parsing the prose form
   // cost an afternoon to a sends count that wrapped onto the next line.
-  printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f\t%d"
-         "\t%d\t%.0f\t%d\t%d\t%d\n",
+  // Header first, so a column can never be read off by eye against the
+  // wrong name. Twice now a field has been appended to the values and not
+  // to the format, and the table came out with silently empty columns.
+  printf("HEAD\tseed\tpolicy\trest\tcash\tlow\tsends\tFAs\tdays\tburns"
+         "\tgrade\tstew\tclosures\tshut\twork%%\tbroke\tstarved"
+         "\tmissed\tgym\tboard\tinjuries\thurt\tpeakload\tphysio\n");
+  printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
+         "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -556,7 +606,8 @@ int main(int argc, char** argv) {
          t.daysClimbed, t.burns, SkillToGrade(player.climber.skills.power),
          player.standing.with[static_cast<int>(Faction::Stewardship)],
          t.closures, t.closedDays, 100.0 * t.daysWorked / DAYS, t.brokeDays,
-         t.starvedNights, t.missedWindows);
+         t.starvedNights, t.missedWindows, t.gymDays, t.boardDays,
+         t.injuries, t.hurtDays, t.peakLoad, t.physioSessions);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,
@@ -592,6 +643,14 @@ int main(int argc, char** argv) {
   printf("    shoes   $%7.0f (%d resoles, %d new pairs; %d days on dead "
          "rubber)\n", t.spentShoes, t.resoles, t.newPairs, t.deadRubberDays);
   printf("    fuel    $%7.0f\n", t.spentFuel);
+  printf("\n  the body, over %d days:\n", DAYS);
+  printf("    %d injuries, %d days hurt (%d of them climbed on), %d "
+         "aggravations\n", t.injuries, t.hurtDays, t.climbedHurtDays,
+         t.aggravations);
+  printf("    load: %.0f average, %.0f peak (%s)\n", t.loadSum / DAYS,
+         t.peakLoad, LoadText(player.climber).c_str());
+  printf("    physio  $%7.0f (%d sessions)\n", t.spentPhysio,
+         t.physioSessions);
   printf("    kit     $%7.0f (%d pads, %s, %d days a member -> %d gym days, "
          "%d on the board)\n", t.spentKit, player.kit.pads,
          player.kit.hangboard ? "a board" : "no board", t.memberDays,

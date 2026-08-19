@@ -65,11 +65,43 @@ struct Skills {
 
 enum class Morphology { Compact, Average, Lanky, Powerful };
 
+// What goes wrong, and where it bites. Climbing injuries are specific —
+// nobody has "an injury", they have a pulley or an elbow — and which one
+// decides what you can still climb on, which is the whole of what makes an
+// injury a decision rather than a pause.
+enum class InjuryKind {
+  Pulley,      // the classic: a finger, and crimps are over
+  Lumbrical,   // pockets, and only pockets, and it takes forever
+  Elbow,       // the slow one nobody rests properly; everything, a little
+  Shoulder,    // slopers and anything dynamic; crimping is fine
+};
+constexpr int kInjuryKindCount = 4;
+
+struct Injury {
+  bool active = false;
+  InjuryKind kind = InjuryKind::Pulley;
+  double severity = 0.0;   // 0..1; what it costs and how long it holds you
+  int daysLeft = 0;
+};
+
 struct Climber {
   Skills skills;
   Morphology morphology = Morphology::Average;
   double skin = 9.0;    // session budget, 0..9; thin skin hurts crimps
   double psyche = 0.7;  // 0..1
+
+  // Training load, 0..100. The second body budget, and a much slower one
+  // than skin: skin is back in six nights, load takes a month. It rises
+  // with how hard you pull rather than how often, because that is what
+  // hurts tendons — a mileage day on jugs costs skin and buys load nothing.
+  //
+  // This exists because two Phase 3 measurements in a row ended at the same
+  // wall: skin was the only budget, so nothing money could buy added
+  // climbing to a year, it only moved it around (notes/phase3-kit.md).
+  double load = 0.0;
+
+  // What is currently wrong with you.
+  Injury injury;
 };
 
 // --- Conditions -------------------------------------------------------------

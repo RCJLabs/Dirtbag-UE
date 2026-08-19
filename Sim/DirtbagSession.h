@@ -117,6 +117,12 @@ struct SessionDials {
   double noPadGradePenalty = 0.9;
   double padGroundedFraction = 0.35;
 
+  // Being hurt, in grade units on the holds the injury actually bites.
+  // Above dirtGradePenalty would be wrong — a hurt climber is not a filthy
+  // route — and below skinGradePenalty (1.4) would make it noise. Mirrors
+  // BodyDials so the resolver and the physio agree; the number lives there.
+  double injuryGradePenalty = 2.6;
+
   double fallSkinCost = 1.0;
   double sendSkinCost = 0.35;
 

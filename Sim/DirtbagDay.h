@@ -133,6 +133,11 @@ struct PlayerState {
   // What is on your feet, and how much of it is left.
   Shoes shoes;
 
+  // The last day you saw a physio. Physio is the one thing money buys that
+  // hands you climbing back rather than moving it around, and it is rate
+  // limited so a rich season cannot buy its way out of a bad one overnight.
+  int lastPhysioDay = 0;
+
   // What you own that buys you climbing: pads, a board, the gym. The
   // answer to the measurement that said the year ended with $133 in the
   // bank and nowhere for it to go.
@@ -237,13 +242,22 @@ ProjectMemory& MemoryFor(PlayerState& player, const Route& route);
 // Book one burn's day-costs (time, energy) and its training creep. Call
 // after the attempt resolves (AttemptInSession or a committed live attempt);
 // the session/ledger themselves are already paid by the session layer.
+// `worldRng` is required for the same reason SleepToNextDay's is: booking a
+// burn's costs is where pulling on an injury either gets away with it or
+// makes it worse, and a caller who left that out would play a game where
+// climbing hurt never cost anything.
 void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
-                       const AttemptResult& result,
+                       const AttemptResult& result, const Rng& worldRng,
                        const DayDials& dials = DayDials{});
 
 // Lights out: skin regrows, psyche drifts home, the day advances, bills
 // land on their morning. The session's remaining skin becomes tomorrow's.
-void SleepToNextDay(PlayerState& player, DayState& day,
+// `worldRng` is required rather than defaulted because this is where the
+// body rolls: load comes down and, above the threshold, an injury lands.
+// A caller who forgot it would silently play a game where nobody ever gets
+// hurt, and with no Unreal compiler in the loop that is the exact class of
+// mistake that reaches the PC. Making it a parameter makes it impossible.
+void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
                     const DayDials& dials = DayDials{});
 
 // The gym's route board: `count` routes laddered V0 upward, deterministic

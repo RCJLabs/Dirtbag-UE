@@ -139,6 +139,18 @@ void MigrateV9ToV10(SaveFields& fields) {
   fields["kit.membership"] = "0";
 }
 
+// v10 → v11: the body's second ledger. A v10 career had no training load
+// and could not be hurt, so it arrives exactly as it played: rested, and in
+// one piece. Which is honest — it never took a risk it did not know about.
+void MigrateV10ToV11(SaveFields& fields) {
+  fields["load"] = "0";
+  fields["injury.active"] = "0";
+  fields["injury.kind"] = "0";
+  fields["injury.severity"] = "0";
+  fields["injury.days"] = "0";
+  fields["physio.last"] = "0";
+}
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -158,7 +170,7 @@ const std::vector<Migration>& DefaultMigrations() {
   static const std::vector<Migration> kMigrations = {
       &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5,
       &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9,
-      &MigrateV9ToV10};
+      &MigrateV9ToV10, &MigrateV10ToV11};
   return kMigrations;
 }
 
@@ -212,6 +224,16 @@ std::string SerializeSave(const SaveGame& save) {
     out << "standing." << IntToStr(i) << "="
         << NumToStr(save.player.standing.with[i]) << "\n";
   }
+  out << "load=" << NumToStr(save.player.climber.load) << "\n";
+  out << "injury.active="
+      << IntToStr(save.player.climber.injury.active ? 1 : 0) << "\n";
+  out << "injury.kind="
+      << IntToStr(static_cast<int>(save.player.climber.injury.kind)) << "\n";
+  out << "injury.severity=" << NumToStr(save.player.climber.injury.severity)
+      << "\n";
+  out << "injury.days=" << IntToStr(save.player.climber.injury.daysLeft)
+      << "\n";
+  out << "physio.last=" << IntToStr(save.player.lastPhysioDay) << "\n";
   out << "kit.pads=" << IntToStr(save.player.kit.pads) << "\n";
   out << "kit.hangboard=" << IntToStr(save.player.kit.hangboard ? 1 : 0)
       << "\n";
@@ -330,6 +352,22 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   if (!ParseInt(fields, "standing.closed", save.player.standing.closedDays)) {
     return LoadResult::BadFormat;
   }
+  int hurt = 0, injuryKind = 0;
+  if (!ParseDouble(fields, "load", save.player.climber.load) ||
+      !ParseInt(fields, "injury.active", hurt) ||
+      !ParseInt(fields, "injury.kind", injuryKind) ||
+      !ParseDouble(fields, "injury.severity",
+                   save.player.climber.injury.severity) ||
+      !ParseInt(fields, "injury.days", save.player.climber.injury.daysLeft) ||
+      !ParseInt(fields, "physio.last", save.player.lastPhysioDay)) {
+    return LoadResult::BadFormat;
+  }
+  save.player.climber.injury.active = hurt != 0;
+  // Clamped rather than trusted: a hand-edited save must not be able to
+  // hand the resolver an injury kind that is not one of the four.
+  save.player.climber.injury.kind = static_cast<InjuryKind>(
+      injuryKind >= 0 && injuryKind < kInjuryKindCount ? injuryKind : 0);
+
   int hangboard = 0;
   if (!ParseInt(fields, "kit.pads", save.player.kit.pads) ||
       !ParseInt(fields, "kit.hangboard", hangboard) ||

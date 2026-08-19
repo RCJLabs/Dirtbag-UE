@@ -303,6 +303,30 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
 	bool BuyNewShoes();
 
+	// --- The body --------------------------------------------------------
+
+	/** "a pulley in the ring finger — 3 weeks, if you are sensible", or
+	 *  empty when nothing is wrong. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
+	FString InjuryLine() const;
+
+	/** "carrying a load" / "everything aches; this is the warning". The
+	 *  warning is worth listening to: measured over twelve seasons, a
+	 *  climber who stops training at it sends 38 against 24 for one who
+	 *  does not, and spends 55 days hurt against 1,467. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
+	FString LoadLine() const;
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
+	bool IsHurt() const;
+
+	/** Money for time: takes days off an injury, once a week at most. The
+	 *  one thing money buys that hands climbing back rather than moving it
+	 *  around. False if you are not hurt, cannot afford it, or saw one too
+	 *  recently. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Body")
+	bool SeeAPhysio();
+
 	// --- The kit ---------------------------------------------------------
 	// Things worth money that buy you climbing. Each returns false if you
 	// cannot afford it, and changes nothing when it does.

@@ -13,6 +13,7 @@
 #include "DirtbagDay.h"
 #include "DirtbagFactions.h"
 #include "DirtbagJobs.h"
+#include "DirtbagBody.h"
 #include "DirtbagKit.h"
 #include "DirtbagDog.h"
 #include "DirtbagGear.h"
@@ -111,6 +112,36 @@ struct FDirtbagRoute
 	TArray<FDirtbagMove> Moves;
 };
 
+/** What goes wrong, and where it bites. */
+UENUM(BlueprintType)
+enum class EDirtbagInjuryKind : uint8
+{
+	Pulley,      // a finger; crimps are over, slopers are fine
+	Lumbrical,   // pockets, only pockets, and it takes forever
+	Elbow,       // everything, a little; nobody rests it properly
+	Shoulder,    // slopers and anything dynamic; crimping feels fine
+};
+
+/** What is currently wrong with you. */
+USTRUCT(BlueprintType)
+struct FDirtbagInjury
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Body")
+	bool bActive = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Body")
+	EDirtbagInjuryKind Kind = EDirtbagInjuryKind::Pulley;
+
+	/** 0..1 — what it costs, and how long it holds you. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Body")
+	double Severity = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Body")
+	int32 DaysLeft = 0;
+};
+
 USTRUCT(BlueprintType)
 struct FDirtbagClimber
 {
@@ -140,6 +171,16 @@ struct FDirtbagClimber
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	double Psyche = 0.7;
+
+	/** Training load, 0..100 — the second body budget, and a much slower
+	 *  one. Skin is back in six nights; this takes a month. It rises with
+	 *  how hard you pull rather than how often, because that is what hurts
+	 *  tendons, and past ~62 it is how you get injured. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Body")
+	double Load = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Body")
+	FDirtbagInjury Injury;
 };
 
 USTRUCT(BlueprintType)
@@ -505,6 +546,11 @@ struct FDirtbagPlayerState
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Kit")
 	FDirtbagKit Kit;
+
+	/** The last day you saw a physio — rate limiting, so a rich season
+	 *  cannot buy its way out of a bad one overnight. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Body")
+	int32 LastPhysioDay = 0;
 };
 
 /** One day's body-clock. Never saved — saves happen at day boundaries. */
@@ -737,6 +783,8 @@ namespace DirtbagConvert
 	FDirtbagCragLine FromSim(const dirtbag::CragLine& In);
 	FDirtbagCrag FromSim(const dirtbag::Crag& In);
 
+	FDirtbagInjury FromSim(const dirtbag::Injury& In);
+	dirtbag::Injury ToSim(const FDirtbagInjury& In);
 	FDirtbagKit FromSim(const dirtbag::Kit& In);
 	dirtbag::Kit ToSim(const FDirtbagKit& In);
 	FDirtbagStanding FromSim(const dirtbag::Standing& In);
