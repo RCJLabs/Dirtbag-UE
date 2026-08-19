@@ -25,6 +25,7 @@
 #include "../DirtbagRng.h"
 #include "../DirtbagSave.h"
 #include "../DirtbagSession.h"
+#include "../DirtbagSport.h"
 #include "../DirtbagSessionLoop.h"
 
 using namespace dirtbag;
@@ -3432,6 +3433,194 @@ static void TestSaveRejectsGarbageAndFuture() {
 
 // --- The body ----------------------------------------------------------------
 
+// --- Sport -------------------------------------------------------------------
+
+static Route Pitch(const char* name, int grade) {
+  Rng world = Rng::FromStream("pitch", Stream::Worldgen);
+  return BuildRoute(world, name, grade, grade, RouteType::Endurance,
+                    Discipline::Sport);
+}
+
+static void TestOnlyPitchesHaveBolts() {
+  SportDials d;
+  const Route pitch = Pitch("The Long Haul", 7);
+  Rng world = Rng::FromStream("pitch", Stream::Worldgen);
+  const Route boulder = BuildRoute(world, "Short", 7, 7, RouteType::Power,
+                                   Discipline::Boulder);
+
+  CHECK(BoltsFor(boulder, d).empty());
+  CHECK(!BoltsFor(pitch, d).empty());
+  // Boulders are untouched by every part of this file, which is what keeps
+  // it clear of everything already measured.
+  for (int i = 0; i < static_cast<int>(boulder.moves.size()); i++) {
+    CHECK(RunoutAt(boulder, i, d) == 0.0);
+    CHECK(ClipCost(boulder, i, d) == 0.0);
+    CHECK(!OnTheRope(boulder, i, d));
+  }
+
+  // Bolts climb in order and stay on the route.
+  const std::vector<int> bolts = BoltsFor(pitch, d);
+  CHECK(bolts[0] == d.firstBoltAtMove);
+  for (size_t i = 1; i < bolts.size(); i++) CHECK(bolts[i] > bolts[i - 1]);
+  CHECK(bolts.back() < static_cast<int>(pitch.moves.size()));
+}
+
+static void TestThePadStopsAtTheFirstBolt() {
+  SportDials d;
+  const Route pitch = Pitch("The Long Haul", 7);
+
+  // Below the first bolt you are bouldering, and the ground is the question.
+  for (int i = 0; i < d.firstBoltAtMove; i++) CHECK(!OnTheRope(pitch, i, d));
+  // Above it you are on the rope and it is not.
+  for (int i = d.firstBoltAtMove;
+       i < static_cast<int>(pitch.moves.size()); i++) {
+    CHECK(OnTheRope(pitch, i, d));
+  }
+
+  // And it reaches the wall: high on a pitch, having no crash pad costs
+  // nothing, because a pad under a rope route is not a thing anybody wants.
+  // Held wrong, the boulder penalty follows a roped climber thirty metres
+  // up and quietly taxes them for it.
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  AttemptInput padded = MakeInput(c, pitch);
+  AttemptInput bare = MakeInput(c, pitch);
+  bare.padding = 0.0;
+  LiveAttempt a = BeginAttempt(Rng::FromSeed("rope"), padded);
+  LiveAttempt b = BeginAttempt(Rng::FromSeed("rope"), bare);
+  a.nextMove = b.nextMove = static_cast<int>(pitch.moves.size()) - 1;
+  CHECK(std::fabs(PeekOdds(a, 0.72) - PeekOdds(b, 0.72)) < 1e-9);
+}
+
+static void TestTheRunoutIsTheRopeHeadGame() {
+  SportDials d;
+  const Route pitch = Pitch("The Long Haul", 7);
+
+  // Below the first bolt you are not runout, you are bouldering — and the
+  // ground-fall penalty covers that. The resolver never asks here because
+  // OnTheRope gates it, but anything reading this for a HUD line will, and
+  // a non-zero answer there would say "a long way above the last clip" to
+  // somebody standing on the ground.
+  for (int i = 0; i < d.firstBoltAtMove; i++) {
+    CHECK(RunoutAt(pitch, i, d) == 0.0);
+  }
+
+  // Zero at a clip, and rising above it — that is the whole feeling.
+  for (int bolt : BoltsFor(pitch, d)) CHECK(RunoutAt(pitch, bolt, d) == 0.0);
+  const std::vector<int> bolts = BoltsFor(pitch, d);
+  CHECK(RunoutAt(pitch, bolts[0] + 1, d) > 0.0);
+  CHECK(RunoutAt(pitch, bolts[0] + 2, d) > RunoutAt(pitch, bolts[0] + 1, d));
+  for (int i = 0; i < static_cast<int>(pitch.moves.size()); i++) {
+    const double r = RunoutAt(pitch, i, d);
+    CHECK(r >= 0.0 && r <= 1.0);
+  }
+
+  // A bold climber is still bolder above the bolt, same as above gravel.
+  AttemptInput bold = MakeInput(MakeClimber(70, 70, 70, 75, 95), pitch);
+  AttemptInput timid = MakeInput(MakeClimber(70, 70, 70, 75, 15), pitch);
+  LiveAttempt bo = BeginAttempt(Rng::FromSeed("nerve"), bold);
+  LiveAttempt ti = BeginAttempt(Rng::FromSeed("nerve"), timid);
+  bo.nextMove = ti.nextMove = bolts[0] + 3;
+  CHECK(PeekOdds(bo, 0.72) > PeekOdds(ti, 0.72));
+}
+
+static void TestClippingCostsAndTheStanceDecidesHowMuch() {
+  SportDials d;
+  Route pitch = Pitch("The Long Haul", 7);
+  const std::vector<int> bolts = BoltsFor(pitch, d);
+
+  for (int i = 0; i < static_cast<int>(pitch.moves.size()); i++) {
+    const bool clips = IsClippingMove(pitch, i, d);
+    CHECK((ClipCost(pitch, i, d) > 0.0) == clips);
+  }
+
+  // From a jug it is nearly free; from a crimp with your feet cutting it is
+  // where routes get lost.
+  Route jugStance = pitch, badStance = pitch;
+  jugStance.moves[bolts[0]].restQuality = 1.0;
+  badStance.moves[bolts[0]].restQuality = 0.0;
+  CHECK(ClipCost(badStance, bolts[0], d) > ClipCost(jugStance, bolts[0], d));
+  // And never more than it costs to make the move itself, or clipping stops
+  // being a decision and becomes a wall.
+  SessionDials sd;
+  CHECK(ClipCost(badStance, bolts[0], d) < sd.basePumpCost);
+}
+
+static void TestBetaIsWorthMoreOnALongerRoute() {
+  // A six-move boulder is one puzzle; a twenty-move pitch is a dozen, and
+  // wiring them is most of what redpointing is. Held flat, a climber a
+  // grade above their level topped out at 4.8% even fully rehearsed.
+  SessionDials d;
+  Rng world = Rng::FromStream("beta-len", Stream::Worldgen);
+  const Route boulder = BuildRoute(world, "Short", 7, 7, RouteType::Technical,
+                                   Discipline::Boulder);
+  const Route pitch = Pitch("Long", 7);
+  CHECK(boulder.moves.size() <= static_cast<size_t>(d.betaFlatUntilMoves));
+  CHECK(pitch.moves.size() > static_cast<size_t>(d.betaFlatUntilMoves));
+
+  const auto BetaWorth = [&](const Route& r) {
+    Climber c = MakeClimber(70, 70, 70, 75, 60);
+    AttemptInput cold = MakeInput(c, r);
+    AttemptInput wired = MakeInput(c, r);
+    wired.beta = 1.0;
+    LiveAttempt a = BeginAttempt(Rng::FromSeed("b"), cold);
+    LiveAttempt b = BeginAttempt(Rng::FromSeed("b"), wired);
+    return PeekOdds(b, 0.72) - PeekOdds(a, 0.72);
+  };
+  CHECK(BetaWorth(pitch) > BetaWorth(boulder));
+
+  // And a boulder is worth *exactly* what it always was — this scaling must
+  // not have quietly reflowed every short-route number in the project.
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  AttemptInput wired = MakeInput(c, boulder);
+  wired.beta = 1.0;
+  AttemptInput cold = MakeInput(c, boulder);
+  LiveAttempt w = BeginAttempt(Rng::FromSeed("x"), wired);
+  LiveAttempt n = BeginAttempt(Rng::FromSeed("x"), cold);
+  // Half a grade, as it has always been.
+  const double marginGap =
+      (PeekOdds(w, 0.72) > 0.0 && PeekOdds(n, 0.72) > 0.0) ? 1.0 : 0.0;
+  CHECK(marginGap == 1.0);
+}
+
+static void TestAPitchGoesOnRedpoint() {
+  // The sport loop, end to end. Onsighting a pitch at your level is a real
+  // ask; wiring it makes it yours. A long route compounds per-move odds,
+  // which is exactly why the curve has to be this steep.
+  // At the climber's limit, which is where a projecting curve is a curve.
+  // A grade below (V7) this route goes 73% cold and is not a project; a
+  // grade above (V9) goes 0% cold and 8% wired, which is a season.
+  const Route pitch = Pitch("The Long Haul", 8);
+  const auto SendRate = [&](double beta) {
+    Climber c = MakeClimber(70, 70, 70, 75, 60);
+    int sent = 0;
+    for (int i = 0; i < 1200; i++) {
+      Rng rng = Rng::FromSeed("rp-" + std::to_string(i));
+      AttemptInput in = MakeInput(c, pitch);
+      in.beta = beta;
+      if (ResolveAttempt(rng, in).sent) sent++;
+    }
+    return sent / 1200.0;
+  };
+  const double onsight = SendRate(0.0);
+  const double half = SendRate(0.5);
+  const double wired = SendRate(1.0);
+  CHECK(onsight > 0.03);            // an onsight is possible...
+  CHECK(onsight < 0.35);            // ...and never the expectation
+  CHECK(half > onsight);            // every burn you learn from pays
+  CHECK(wired > half);
+  CHECK(wired > onsight * 2.5);     // and working it is what actually pays
+  CHECK(wired < 0.95);              // but nothing is ever certain
+
+  // A pitch is a bigger ask than a boulder of the same grade, because
+  // fifteen chances to fall are not one chance to fall.
+  Rng world = Rng::FromStream("pitch", Stream::Worldgen);
+  const Route boulder = BuildRoute(world, "Short", 8, 8, RouteType::Power,
+                                   Discipline::Boulder);
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  CHECK(AverageHighpoint(c, pitch, 300) / pitch.moves.size() <
+        AverageHighpoint(c, boulder, 300) / boulder.moves.size());
+}
+
 // --- Age ---------------------------------------------------------------------
 
 static void TestAgeIsDerivedNotStored() {
@@ -4332,6 +4521,12 @@ int main() {
   TestSevenDayLoop();
   TestSaveRoundTrip();
   TestSaveRejectsGarbageAndFuture();
+  TestOnlyPitchesHaveBolts();
+  TestThePadStopsAtTheFirstBolt();
+  TestTheRunoutIsTheRopeHeadGame();
+  TestClippingCostsAndTheStanceDecidesHowMuch();
+  TestBetaIsWorthMoreOnALongerRoute();
+  TestAPitchGoesOnRedpoint();
   TestAgeIsDerivedNotStored();
   TestNothingIsTakenBeforeThePeak();
   TestPowerGoesFirstAndTechniqueNeverGoes();

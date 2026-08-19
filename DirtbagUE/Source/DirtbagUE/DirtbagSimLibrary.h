@@ -247,6 +247,34 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
 	static double LastLightHour(int32 Day);
 
+	// --- Sport -----------------------------------------------------------
+	// A pitch is not a long boulder. Above the first bolt the ground stops
+	// being the question and the runout takes over; clipping costs pump,
+	// and more from a bad stance.
+
+	/** Which move each bolt is at. Empty for a boulder. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Sport")
+	static TArray<int32> BoltsFor(const FDirtbagRoute& Route);
+
+	/** 0 clipped and safe .. 1 as far above the bolt as fear goes. Always 0
+	 *  on a boulder, and always 0 below the first bolt — down there you are
+	 *  not runout, you are bouldering. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sport")
+	static double RunoutAt(const FDirtbagRoute& Route, int32 MoveIndex);
+
+	/** Above the first bolt the crash pad stops mattering, which is what
+	 *  keeps the boulder penalty from following a climber up a pitch. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sport")
+	static bool OnTheRope(const FDirtbagRoute& Route, int32 MoveIndex);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sport")
+	static bool IsClippingMove(const FDirtbagRoute& Route, int32 MoveIndex);
+
+	/** "clipped" / "the bolt is below your feet" / "a long way above the
+	 *  last clip" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sport")
+	static FString RunoutText(double Runout);
+
 	// --- The town --------------------------------------------------------
 	// Six venues, authored. The opening hours are the mechanic: the diner
 	// shuts at nine so a long day means eating from a warmer, and the gear

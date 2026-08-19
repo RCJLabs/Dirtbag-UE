@@ -1,6 +1,7 @@
 #include "DirtbagSession.h"
 
 #include "DirtbagBody.h"
+#include "DirtbagSport.h"
 
 #include <algorithm>
 #include <cmath>
@@ -64,7 +65,17 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
   // Dirt reads as ability you do not have: no chalk sticks, the feet are
   // gravel, and the holds are somewhere under the moss.
   effective -= dials.dirtGradePenalty * (1.0 - input.cleanliness);
-  effective += input.beta * 0.5;
+  // Knowing the sequence, worth more the more sequence there is.
+  {
+    const int n = static_cast<int>(input.route.moves.size());
+    const double t =
+        Clamp01(static_cast<double>(n - dials.betaFlatUntilMoves) /
+                std::max(1.0, static_cast<double>(dials.betaLongAtMoves -
+                                                  dials.betaFlatUntilMoves)));
+    const double worth =
+        dials.betaGradeValue * (1.0 + (dials.betaValueAtLength - 1.0) * t);
+    effective += input.beta * worth;
+  }
   effective += MorphologyAdjust(c, move, dials);
   // Body and head state: both default to neutral (warm, ordinary-day
   // psyche), so only session-loop callers feel them.
@@ -98,18 +109,28 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
                  InjuryBiteOn(c.injury.kind, move.hold);
   }
 
-  // The landing. Bare ground costs nothing low down — nobody has ever been
-  // gripped on move one — and climbs toward the top, which is why a pad is
-  // worth its price exactly where a boulderer is trying hardest. Head is
-  // what pays it: a bold climber above gravel is still bolder than a
-  // timid one, they are just both worse off than they would be with foam.
+  // What you would hit, which is a different question on a rope than on a
+  // pad. Both are paid out of head — a bold climber is still bolder — but
+  // they are not the same fear and they must not both apply.
   const int moves = static_cast<int>(input.route.moves.size());
-  if (moves > 0) {
+  const double nerve = Clamp01(0.5 + (c.skills.head - 50.0) / 100.0);
+  if (OnTheRope(input.route, index)) {
+    // Above the first bolt the ground is not the question any more. The
+    // crash-pad penalty has to *stop* here or it follows a roped climber
+    // thirty metres up a pitch and punishes them for having no foam under
+    // a route nobody would put foam under.
+    effective -= dials.runoutGradePenalty * RunoutAt(input.route, index) *
+                 (1.0 - 0.5 * nerve);
+  } else if (moves > 0) {
+    // The landing. Bare ground costs nothing low down — nobody has ever
+    // been gripped on move one — and climbs toward the top, which is why a
+    // pad is worth its price exactly where a boulderer is trying hardest.
+    // This still applies to the first moves of a pitch, below the first
+    // bolt, which is exactly where it should.
     const double up = static_cast<double>(index + 1) / static_cast<double>(moves);
     const double exposed =
         Clamp01((up - dials.padGroundedFraction) /
                 std::max(0.001, 1.0 - dials.padGroundedFraction));
-    const double nerve = Clamp01(0.5 + (c.skills.head - 50.0) / 100.0);
     effective -= dials.noPadGradePenalty * (1.0 - Clamp01(input.padding)) *
                  exposed * (1.0 - 0.5 * nerve);
   }
@@ -208,6 +229,14 @@ MoveResult StepMove(LiveAttempt& la, double execution) {
                     std::max(0.0, move.difficulty - effective);
   cost *= 1.0 - la.dials.enduranceRelief * (la.input.climber.skills.endurance / 100.0);
   cost *= 1.3 - 0.6 * exec;
+
+  // Pulling up slack with one hand off a hold. Nearly free from a jug, and
+  // from a crimp with your feet cutting it is where routes get lost — which
+  // is the whole reason a clipping stance is a thing climbers talk about.
+  // Endurance and clean execution do not pay this down: the rope weighs
+  // what it weighs.
+  cost += ClipCost(la.input.route, la.nextMove);
+
   la.pump = std::min(100.0, la.pump + std::max(2.0, cost));
 
   mr.pumpAfter = la.pump;

@@ -117,6 +117,26 @@ struct SessionDials {
   double noPadGradePenalty = 0.9;
   double padGroundedFraction = 0.35;
 
+  // Above the bolt, in grade units at maximum runout. Paid out of head the
+  // same way a boulder's missing pad is, because it is the same feeling
+  // arriving by a different route. Mirrors SportDials so the resolver and
+  // the guidebook agree; the number lives there.
+  double runoutGradePenalty = 1.1;
+
+  // What knowing the sequence is worth, in grade units at full beta — and
+  // how much more it is worth on a long route, because there is more of it
+  // to have. A six-move boulder is one puzzle; a twenty-move pitch is a
+  // dozen, and wiring them is most of what redpointing *is*.
+  //
+  // Held flat, a climber one grade above their level topped out at 4.8%
+  // even fully rehearsed, because per-move odds compound over fifteen moves
+  // and half a grade could not pay for that. Flat beta quietly said that
+  // learning a pitch is worth no more than learning a boulder problem.
+  double betaGradeValue = 0.5;
+  int betaFlatUntilMoves = 8;      // a boulder is unchanged, exactly
+  double betaValueAtLength = 2.2;  // multiplier once a route is long
+  int betaLongAtMoves = 22;
+
   // Being hurt, in grade units on the holds the injury actually bites.
   // Above dirtGradePenalty would be wrong — a hurt climber is not a filthy
   // route — and below skinGradePenalty (1.4) would make it noise. Mirrors

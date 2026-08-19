@@ -76,6 +76,16 @@ Route BuildRoute(const Rng& worldRng, const std::string& name, int grade,
     if (move.hold == HoldType::Jug && !move.crux) {
       move.restQuality = rng.FloatRange(0.3, 0.8);
     }
+    // A pitch is not a long boulder. Real sport routes have stances every
+    // few moves, and that is the whole reason a climber can stay on one for
+    // twenty moves at their limit — measured without them, a V7.8 climber
+    // sent a 19-move V7 pitch 0.9% of the time while sending the V7 boulder
+    // 68%, because pump accrued for the full length with almost nowhere to
+    // shake out. One guaranteed mid-route rest was not a pitch, it was a
+    // boulder with a ledge in it.
+    if (discipline == Discipline::Sport && !move.crux && i % 4 == 3) {
+      move.restQuality = std::max(move.restQuality, rng.FloatRange(0.35, 0.85));
+    }
     if (discipline == Discipline::Sport && i == moveCount / 2 && !move.crux) {
       move.restQuality = std::max(move.restQuality, rng.FloatRange(0.4, 0.9));
     }

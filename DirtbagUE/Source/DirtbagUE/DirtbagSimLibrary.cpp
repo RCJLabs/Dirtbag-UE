@@ -1,5 +1,7 @@
 #include "DirtbagSimLibrary.h"
 
+#include "DirtbagSport.h"
+
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
@@ -443,6 +445,40 @@ double UDirtbagSimLibrary::FirstLightHour(int32 Day)
 double UDirtbagSimLibrary::LastLightHour(int32 Day)
 {
 	return dirtbag::LastLightHour(Day);
+}
+
+// --- Sport -------------------------------------------------------------------
+
+TArray<int32> UDirtbagSimLibrary::BoltsFor(const FDirtbagRoute& Route)
+{
+	TArray<int32> Out;
+	for (int Bolt : dirtbag::BoltsFor(DirtbagConvert::ToSim(Route)))
+	{
+		Out.Add(Bolt);
+	}
+	return Out;
+}
+
+double UDirtbagSimLibrary::RunoutAt(const FDirtbagRoute& Route,
+                                    int32 MoveIndex)
+{
+	return dirtbag::RunoutAt(DirtbagConvert::ToSim(Route), MoveIndex);
+}
+
+bool UDirtbagSimLibrary::OnTheRope(const FDirtbagRoute& Route, int32 MoveIndex)
+{
+	return dirtbag::OnTheRope(DirtbagConvert::ToSim(Route), MoveIndex);
+}
+
+bool UDirtbagSimLibrary::IsClippingMove(const FDirtbagRoute& Route,
+                                        int32 MoveIndex)
+{
+	return dirtbag::IsClippingMove(DirtbagConvert::ToSim(Route), MoveIndex);
+}
+
+FString UDirtbagSimLibrary::RunoutText(double Runout)
+{
+	return UTF8_TO_TCHAR(dirtbag::RunoutText(Runout).c_str());
 }
 
 // --- The town ----------------------------------------------------------------
