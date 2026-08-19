@@ -71,15 +71,29 @@ struct ConditionsDials {
   double windGain = 0.18;
 
   // --- Weather generation, per day, from the "weather" rng stream --------
-  // A cold season — which is to say bouldering season. Lows around 21F and
-  // highs around 75F across the year, an average day running 37F at dawn to
-  // 63F mid-afternoon. Dawn is genuinely too cold to pull hard (numb fingers
-  // read nothing) and mid-afternoon is greasy, so the rock comes into
-  // condition on the way up and again on the way down — and which of those
-  // two crossings is the good one is what the aspect decides.
-  double baseTempF = 48.0;      // the season's centre
+  // The year's centre. Dawn is genuinely too cold to pull hard (numb
+  // fingers read nothing) and mid-afternoon is greasy, so the rock comes
+  // into condition on the way up and again on the way down — and which of
+  // those two crossings is the good one is what the aspect decides.
+  double baseTempF = 48.0;      // the YEAR's centre, not the season's
   double tempSwingF = 12.0;     // day-to-day variation either side
   double diurnalSwingF = 30.0;  // within one day, dawn to mid-afternoon
+
+  // --- Seasons ----------------------------------------------------------
+  // How much hotter high summer is than the year's mean, and when that
+  // falls. At 20 the year runs from a winter centred near 28F to a summer
+  // centred near 68F, which moves the window rather than merely making it
+  // better or worse: in summer only dawn is cool enough and only the
+  // north-facing rock is worth walking to, in winter the good hours are the
+  // middle of the day, and the shoulder seasons are what bouldering is for.
+  //
+  // This is what makes a job cost something. Measured without seasons, a
+  // nine-to-five and an east-facing crag never conflicted, because the
+  // window sat in the evening all year (notes/phase3-jobs.md). A winter
+  // window at midday is a window you cannot have if you are at work.
+  double seasonSwingF = 20.0;
+  int warmestDay = 200;    // day 1 is midwinter-ish; the peak is high summer
+  int daysPerYear = 365;
   double coldestHour = 3.0;     // when the low lands
   double hottestHour = 15.0;    // when the high lands
 
@@ -117,6 +131,13 @@ struct Weather {
   double cloud = 0.3;     // 0..1; cloud cover blunts the sun penalty
   double wind = 0.2;      // 0..1
 };
+
+// The year's temperature centre on this day — what `baseTempF` used to be
+// for every day of the year.
+double SeasonalCentreF(int day, const ConditionsDials& dials = ConditionsDials{});
+
+// What the season is called, for anything that wants to say it.
+const char* SeasonName(int day, const ConditionsDials& dials = ConditionsDials{});
 
 // Deterministic per world-seed and day, on its own named rng stream so
 // adding weather cannot shift worldgen or session vectors.

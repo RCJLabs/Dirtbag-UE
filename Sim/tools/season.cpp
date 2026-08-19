@@ -53,6 +53,7 @@ struct Tally {
   int movesClimbed = 0;
   double warmthSum = 0.0, skinSum = 0.0, oddsSum = 0.0;
   int oddsN = 0;
+  int missedWindows = 0;
 };
 
 // Which line to point at today: the hardest thing that still reads as
@@ -124,9 +125,10 @@ int main(int argc, char** argv) {
   // Skin you insist on having before pulling on. 0 is the grinder who
   // climbs every day there is a window; higher is somebody who rests.
   const double restUntilSkin = argc > 3 ? std::atof(argv[3]) : 0.0;
-  const bool quiet = argc > 4;
-  // "salary" as a fifth argument takes the job on day one and never quits.
-  const bool takeTheSalary = argc > 5;
+  // Arg 4 is "q" for the one-line form, anything else (or absent) verbose.
+  // Arg 5 is "salary" to take the job on day one and never quit.
+  const bool quiet = argc > 4 && std::string(argv[4]) == "q";
+  const bool takeTheSalary = argc > 5 && std::string(argv[5]) == "salary";
 
   const Rng world = Rng::FromSeed(seed);
   const Crag crag = RoadsideCrag(world);
@@ -256,7 +258,14 @@ int main(int argc, char** argv) {
       }
     } else {
       // Wait for the window, then spend skin in it.
-      if (today.hour < win.startHour) Rest(today, win.startHour - today.hour, dd);
+      // Wait for the window if it is still ahead. If it has already gone —
+      // which is what a working day does to a winter window — you climb in
+      // whatever is left, and that is the whole cost of having a job.
+      if (today.hour < win.startHour) {
+        Rest(today, win.startHour - today.hour, dd);
+      }
+      const bool missedIt = today.hour > win.endHour;
+      if (missedIt) t.missedWindows++;
 
       StartGymSession(player, today, dd);
       const Climber body = ClimberForSession(player, today, dd);
@@ -268,7 +277,10 @@ int main(int argc, char** argv) {
         while (!IsWorkable(mem, fd) && today.hour < win.endHour)
           CleanLine(player, today, mem, 0.5, fd, dd);
 
-        const Conditions cond = ConditionsAt(w, crag.aspect, win.peakHour, cd);
+        // Conditions where the clock actually is, not where the window was.
+        const double climbAt =
+            missedIt ? today.hour : win.peakHour;
+        const Conditions cond = ConditionsAt(w, crag.aspect, climbAt, cd);
         Rng session = Rng::FromSeed(seed + "#day" + std::to_string(player.day));
         int burnsToday = 0;
         while (today.session.skinLeft > 0.5 &&
@@ -420,6 +432,8 @@ int main(int argc, char** argv) {
   printf("    van     $%7.0f (%d breakdowns, %d days stranded, %d bodged, "
          "%.0f hours under it)\n", t.spentVan, t.breakdowns, t.strandedDays,
          t.bodges, t.vanHoursLost);
+  printf("    -> %d windows arrived at after they had gone\n",
+         t.missedWindows);
   printf("    -> %.0f%% of days worked to stay level; %d moves climbed\n",
          100.0 * t.daysWorked / DAYS, t.movesClimbed);
 

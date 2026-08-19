@@ -45,15 +45,36 @@ const char* AspectName(Aspect a) {
   return "north-facing";
 }
 
+double SeasonalCentreF(int day, const ConditionsDials& dials) {
+  const int period = std::max(1, dials.daysPerYear);
+  const double phase =
+      2.0 * kPi * static_cast<double>(day - dials.warmestDay) / period;
+  return dials.baseTempF + dials.seasonSwingF * std::cos(phase);
+}
+
+const char* SeasonName(int day, const ConditionsDials& dials) {
+  // Named off the temperature rather than the calendar, because that is
+  // what a climber means by "the season".
+  const double centre = SeasonalCentreF(day, dials);
+  const double high = dials.baseTempF + dials.seasonSwingF * 0.5;
+  const double low = dials.baseTempF - dials.seasonSwingF * 0.5;
+  if (centre >= high) return "summer";
+  if (centre <= low) return "winter";
+  // Rising or falling decides which shoulder you are on.
+  return SeasonalCentreF(day + 5, dials) > centre ? "spring" : "autumn";
+}
+
 Weather GenerateWeather(const Rng& worldRng, int day,
                         const ConditionsDials& dials) {
   // Its own stream: weather must never move worldgen or session vectors.
   Rng rng = worldRng.Derive("weather#" + std::to_string(day));
 
+  // The day's weather sits around wherever the year currently is.
+  const double centre = SeasonalCentreF(day, dials);
   const double swing = (rng.NextDouble() * 2.0 - 1.0) * dials.tempSwingF;
   Weather w;
-  w.highTempF = dials.baseTempF + swing + dials.diurnalSwingF * 0.5;
-  w.lowTempF = dials.baseTempF + swing - dials.diurnalSwingF * 0.5;
+  w.highTempF = centre + swing + dials.diurnalSwingF * 0.5;
+  w.lowTempF = centre + swing - dials.diurnalSwingF * 0.5;
 
   // Humidity skews low-ish: most days are workable, a few are a grease-fest.
   const double hRoll = rng.NextDouble();

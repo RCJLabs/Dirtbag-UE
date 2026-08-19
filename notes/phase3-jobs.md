@@ -41,7 +41,44 @@ Raising the energy cost does not fix it — 45 → 65 → 80 gives 3, 4, 4 sends
 on one seed and 6, 2, 2 on another. That is noise, not a mechanic, so the
 dial is back at 45 rather than tuned until a number looked right.
 
-## What the trap actually needs
+## Seasons, and the trap arriving
+
+Built next, for exactly this reason. One `baseTempF` became a year: a
+temperature centre that swings 20°F either side of 48, warmest at day 200.
+The window stops sitting in one place and migrates.
+
+| | centre | peak hour | days with a window | **windows lost to a 9–5** |
+|---|---|---|---|---|
+| winter | 28°F | **14:12** | 60% | **44%** |
+| spring | 47°F | 9:24 | 67% | 0% |
+| summer | 68°F | **6:00** | **33%** | 0% |
+| autumn | 48°F | 13:00 | 62% | 14% |
+
+In summer only dawn is cool enough, and only a third of days are worth
+walking to the crag for. In winter the good hours *are* the working day.
+
+Played over a year, the salaried climber **arrives too late for about twice
+as many windows**:
+
+| | dirtbag | salaried |
+|---|---|---|
+| crag-1 | 34 | **60** |
+| crag-2 | 26 | **48** |
+| crag-3 | 22 | **45** |
+
+**Being honest about how far that goes.** It is a real cost and a moderate
+one. Sends fall (7 → 2 on one seed, 6 → 4 on another) but not
+catastrophically, because weekends and the shoulder seasons hand most of
+the year back. Money is still solved completely — $19,900 against $150.
+
+So the trap now exists and is seasonal rather than constant: **a job costs
+you the winter.** Whether that is enough of a trap is a question for
+somebody who has played one, not for another probe run. The remaining
+levers, in order of honesty: a west-facing crag (morning windows all year),
+a longer working day, or accepting that this is what a job costs and the
+rest is the player's judgement.
+
+## What the trap needed
 
 It is not more hours or more tiredness. The cost of a job is **that you
 cannot chase conditions**, and that only bites when conditions move:

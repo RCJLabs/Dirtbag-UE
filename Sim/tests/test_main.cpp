@@ -261,9 +261,18 @@ static void TestWindowChangesWhenYouBurn() {
   // mechanical rather than statistical — at your own grade you often send
   // during recon, which flatters the send rate while hiding the real cost.
   // Count the burns the window actually gets instead.
+  // Find a day that actually comes good rather than assuming one does.
+  // Day 3 used to be as good as any; with seasons it is midwinter, and the
+  // rock is not in condition at all.
+  int goodDay = 0;
+  for (int day = 1; day <= 400 && goodDay == 0; day++)
+    if (FindPrimeWindow(GenerateWeather(world, day, d), Aspect::East, d).exists)
+      goodDay = day;
+  CHECK(goodDay > 0);
+
   auto WindowBurnsLeft = [&](int recon) {
     const Route& p = projects[0];
-    Weather w = GenerateWeather(world, 3, d);
+    Weather w = GenerateWeather(world, goodDay, d);
     PrimeWindow win = FindPrimeWindow(w, Aspect::East, d);
     CHECK(win.exists);
     const Conditions poor =
@@ -880,6 +889,105 @@ static void TestLoadsVersion2Save() {
   CHECK(!m.firstAscent);            // and it was never yours
   CHECK(m.givenName.empty());
   CHECK(m.confirmedGrade == -1);    // nothing to confirm
+}
+
+static void TestTheYearHasSeasons() {
+  ConditionsDials d;
+
+  // Hottest where it says, coldest half a year away, and the swing is the
+  // size it claims.
+  const double summer = SeasonalCentreF(d.warmestDay, d);
+  const double winter = SeasonalCentreF(d.warmestDay + d.daysPerYear / 2, d);
+  CHECK(summer > winter);
+  CHECK(std::fabs(summer - (d.baseTempF + d.seasonSwingF)) < 0.01);
+  CHECK(std::fabs(winter - (d.baseTempF - d.seasonSwingF)) < 0.01);
+
+  // It comes back round: a year later is the same place.
+  CHECK(std::fabs(SeasonalCentreF(40, d) -
+                  SeasonalCentreF(40 + d.daysPerYear, d)) < 0.01);
+
+  // Four names, and they are in the right places.
+  CHECK(std::string(SeasonName(d.warmestDay, d)) == "summer");
+  CHECK(std::string(SeasonName(d.warmestDay + d.daysPerYear / 2, d)) ==
+        "winter");
+  bool sawSpring = false, sawAutumn = false;
+  for (int day = 1; day <= d.daysPerYear; day++) {
+    const std::string s = SeasonName(day, d);
+    if (s == "spring") sawSpring = true;
+    if (s == "autumn") sawAutumn = true;
+  }
+  CHECK(sawSpring);
+  CHECK(sawAutumn);
+}
+
+static void TestTheWindowMovesThroughTheYear() {
+  // The point of seasons, and the thing that gives a job teeth: in summer
+  // only dawn is cool enough, in winter the good hours are the middle of
+  // the day. A window that sat in the same place all year could never
+  // conflict with anything.
+  ConditionsDials d;
+  Rng world = Rng::FromSeed("crag-1");
+
+  auto MeanPeak = [&](int from, int days) {
+    double sum = 0.0;
+    int n = 0, withWindow = 0;
+    for (int day = from; day < from + days; day++) {
+      PrimeWindow w =
+          FindPrimeWindow(GenerateWeather(world, day, d), Aspect::East, d);
+      if (!w.exists) continue;
+      withWindow++;
+      sum += w.peakHour;
+      n++;
+    }
+    return std::pair<double, double>(n ? sum / n : 0.0,
+                                     100.0 * withWindow / days);
+  };
+
+  const auto summer = MeanPeak(d.warmestDay, 45);
+  const auto winter = MeanPeak(d.warmestDay + d.daysPerYear / 2, 45);
+
+  // Summer climbs at dawn; winter climbs in the middle of the day.
+  CHECK(summer.first > 0.0);
+  CHECK(winter.first > 0.0);
+  CHECK(summer.first < winter.first - 3.0);
+
+  // And summer offers far fewer days worth walking to the crag for.
+  CHECK(summer.second < winter.second);
+}
+
+static void TestAJobCostsYouTheWinter() {
+  // Measured before seasons existed, a nine-to-five and an east-facing crag
+  // never conflicted, because the window sat in the evening all year. The
+  // whole reason for seasons is that a winter window at midday is one you
+  // cannot have if you are at work.
+  ConditionsDials d;
+  JobDials j;
+  Rng world = Rng::FromSeed("crag-1");
+
+  Job employed;
+  employed.salaried = true;
+
+  auto LostToWork = [&](int from, int days) {
+    int windows = 0, lost = 0;
+    for (int day = from; day < from + days; day++) {
+      PrimeWindow w =
+          FindPrimeWindow(GenerateWeather(world, day, d), Aspect::East, d);
+      if (!w.exists) continue;
+      if (!SalariedToday(employed, day, j)) continue;   // a day off is free
+      windows++;
+      bool reachable = false;
+      for (double h = w.startHour; h <= w.endHour + 1e-9; h += 0.25)
+        if (!SalaryOwnsHour(employed, day, h, j)) reachable = true;
+      if (!reachable) lost++;
+    }
+    return windows ? 100.0 * lost / windows : 0.0;
+  };
+
+  const double winterLost = LostToWork(d.warmestDay + d.daysPerYear / 2, 60);
+  const double summerLost = LostToWork(d.warmestDay, 60);
+
+  CHECK(winterLost > 25.0);   // winter is when the job actually costs you
+  CHECK(winterLost > summerLost);   // and summer is when it does not
 }
 
 // --- The Lot -------------------------------------------------------------------
@@ -3177,6 +3285,9 @@ int main() {
   TestTheWholeArc();
   TestSaveCarriesFirstAscents();
   TestLoadsVersion2Save();
+  TestTheYearHasSeasons();
+  TestTheWindowMovesThroughTheYear();
+  TestAJobCostsYouTheWinter();
   TestTheBoardIsDifferentEveryDay();
   TestABrokenVanCostsYouTheWorkToo();
   TestOddJobsPayDebtFirst();
