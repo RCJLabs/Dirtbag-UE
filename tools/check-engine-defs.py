@@ -280,6 +280,64 @@ def check_sim_types_in_uclass(headers):
     return checked, problems
 
 
+def check_param_shadowing(headers):
+    """UHT: a UFUNCTION parameter may not share a name with a UPROPERTY.
+
+    "Function parameter: 'X' cannot be defined in 'F' as it is already
+    defined in scope 'C' (shadowing is not allowed)". Plain C++ allows it
+    happily, so the compiler here never objects.
+
+    This one arrived as a *consequence* of fixing the previous UHT error:
+    moving ClimberName out of the private section into public put it in the
+    same scope as RetireAndPassItOn's parameter of the same name. Three
+    round trips for three mechanical rules, so this check sweeps every class
+    at once rather than surfacing them one build at a time.
+    """
+    problems = []
+    checked = 0
+    for h in headers:
+        text = io.open(h, encoding="utf-8").read()
+        for m in re.finditer(r"\bclass\s+\w*API\s+(\w+)|\bclass\s+(\w+)\s*:", text):
+            pass
+        # One pass per class body: collect UPROPERTY names, then compare every
+        # UFUNCTION signature's parameter names against them.
+        for cm in re.finditer(r"UCLASS\([^)]*\)\s*\nclass\s+(?:\w+\s+)?(\w+)", text):
+            cls = cm.group(1)
+            body = text[cm.end():]
+            end = body.find("\n};")
+            if end >= 0:
+                body = body[:end]
+
+            props = set()
+            for pm in re.finditer(
+                    r"UPROPERTY\([^)]*\)\s*\n\s*[\w:<>,\s\*&]+?(\w+)\s*(?:=[^;]*)?;",
+                    body):
+                props.add(pm.group(1))
+
+            for fm in re.finditer(
+                    r"UFUNCTION\([^)]*\)\s*\n((?:[^;{]|\n)*?);", body):
+                sig = fm.group(1)
+                paren = sig.find("(")
+                if paren < 0:
+                    continue
+                args = sig[paren + 1:sig.rfind(")")]
+                for arg in args.split(","):
+                    nm = re.search(r"(\w+)\s*(?:=[^,]*)?$", arg.strip())
+                    if not nm:
+                        continue
+                    checked += 1
+                    if nm.group(1) in props:
+                        line = text[:cm.end() + fm.start()].count("\n") + 1
+                        problems.append(
+                            "%s:%d  %s::%s has a parameter named '%s', which "
+                            "is also a UPROPERTY on the same class - UHT "
+                            "forbids the shadowing. Rename the parameter."
+                            % (h, line, cls,
+                               sig.strip().split("(")[0].split()[-1],
+                               nm.group(1)))
+    return checked, problems
+
+
 for f, c, n, d in bad:
     print("MISSING DEFINITION: %s -> %s::%s()   [%s]" % (f, c, n, d))
 for sim in unbridged:
@@ -293,9 +351,14 @@ simChecked, simProblems = check_sim_types_in_uclass(
     glob.glob(os.path.join(engine_src, "*.h")))
 for p in simProblems:
     print(p)
+shChecked, shProblems = check_param_shadowing(
+    glob.glob(os.path.join(engine_src, "*.h")))
+for p in shProblems:
+    print(p)
 print("checked %d declarations across %d header/cpp pairs; "
       "%d sim files bridged; %d Blueprint properties; problems: %d"
       % (checked, pairs, len(glob.glob("Sim/*.cpp")) - len(unbridged),
          bpChecked, len(bad) + len(unbridged) + len(bpProblems) +
-         len(simProblems)))
-sys.exit(1 if (bad or unbridged or bpProblems or simProblems) else 0)
+         len(simProblems) + len(shProblems)))
+sys.exit(1 if (bad or unbridged or bpProblems or simProblems or shProblems)
+         else 0)

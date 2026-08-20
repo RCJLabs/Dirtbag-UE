@@ -389,7 +389,7 @@ public:
 	 *  and hands the valley to somebody twenty-four with nothing in their
 	 *  fingers — because the world remembers and the body does not. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Legacy")
-	void RetireAndPassItOn(const FString& ClimberName);
+	void RetireAndPassItOn(const FString& RetiringAs);
 
 	/** How many came before. */
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Legacy")
