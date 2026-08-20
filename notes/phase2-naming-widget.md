@@ -44,6 +44,12 @@ If all of that works, the pipeline is live and only the naming is missing.
 **Widget Blueprint** → **User Widget** → name it `WBP_NameFirstAscent`.
 Double-click to open.
 
+> **Check it landed in `Content`, not `Engine`.** If the Content Browser
+> was showing engine content when you right-clicked, the asset goes to
+> `/Engine/Functions/UserInterface/` — it will not ship with the game and an
+> engine update can lose it. Right-click the asset → **Move To…** → put it
+> under **Content**. The path shows in the tooltip when you hover it.
+
 You are in the **Designer** tab (top right toggles Designer/Graph).
 
 1. In the **Palette** (left), drag a **Canvas Panel** onto the graph if
@@ -126,6 +132,11 @@ That makes the prompt say *the arete left of Diesel* rather than nothing.
      line it was and typing one is how you name the wrong route.
    - **Name**: drag your `NameBox` variable in → from it drag → **Get
      Text** → then → **To String (Text)** → plug into **Name**.
+
+     > **Not `Get Display Name`.** It is near `Get Text` in the search and
+     > it compiles perfectly, but it returns the *widget object's* name —
+     > so every line you ever named would be called `NameBox`. If your
+     > first ascent comes out with the wrong name, this is why.
 4. From **Name First Ascent**'s exec pin, drag → **Remove from Parent**.
    That closes the widget.
 
