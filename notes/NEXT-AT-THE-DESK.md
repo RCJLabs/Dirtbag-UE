@@ -11,7 +11,14 @@ Detail lives in the per-feature notes; this is the running order.
 
 1. **Close Unreal and Visual Studio completely.**
 2. **GitHub Desktop → Fetch origin → Pull.** Top commit should be
-   *"Wire the Shaded Cave as a venue you can actually stand at"*.
+   *"Fix a UHT parameter shadow, and check for it"* or later.
+
+> Three UHT errors were found and fixed on 2026-08-20 — BlueprintReadWrite
+> on a private member, a TArray of a sim type inside a UCLASS, and a
+> parameter shadowing a UPROPERTY. All three are now checked by
+> `tools/check-engine-defs.py`. UHT runs before the compiler and nothing in
+> the container reaches that stage, so this class of mistake is found on
+> your machine and then turned into a rule.
 3. **Delete** `C:\Dev\DirtbagUE\Dirtbag-UE\DirtbagUE\Binaries`.
 4. Double-click `DirtbagUE.uproject` → **Yes** to rebuild. 2–5 minutes.
 
