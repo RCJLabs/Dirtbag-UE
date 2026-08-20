@@ -8,8 +8,8 @@ void UDirtbagGameInstance::Init()
 
 	FString LoadedSeed;
 	FDirtbagPlayerState LoadedPlayer;
-	TArray<dirtbag::Legacy> LoadedLegacies;
-	const EDirtbagLoadResult Result = UDirtbagSimLibrary::LoadGameFromFile(
+	std::vector<dirtbag::Legacy> LoadedLegacies;
+	const EDirtbagLoadResult Result = DirtbagSaveIO::LoadGameFromFile(
 	    SaveFilename, LoadedSeed, LoadedPlayer, LoadedLegacies);
 	if (Result == EDirtbagLoadResult::Ok)
 	{
@@ -88,8 +88,7 @@ bool UDirtbagGameInstance::SaveNow()
 	// The complete path: anything that drops Legacies here disinherits every
 	// generation before this one, and nothing about the save would look
 	// wrong until somebody opened the guidebook.
-	return UDirtbagSimLibrary::SaveGameToFile(Seed, Player, Legacies,
-	                                          SaveFilename);
+	return DirtbagSaveIO::SaveGameToFile(Seed, Player, Legacies, SaveFilename);
 }
 
 void UDirtbagGameInstance::EnsureBoard()
@@ -610,7 +609,7 @@ void UDirtbagGameInstance::RetireAndPassItOn(const FString& Name)
 	const dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
 	const dirtbag::Legacy L = dirtbag::TallyCareer(
 	    SimPlayer, TCHAR_TO_UTF8(*Name), 1 + Player.Day / 365);
-	Legacies.Add(L);
+	Legacies.push_back(L);
 
 	Player = DirtbagConvert::FromSim(dirtbag::Inherit(L));
 	Day = UDirtbagSimLibrary::WakeUp(Player);
@@ -622,7 +621,7 @@ void UDirtbagGameInstance::RetireAndPassItOn(const FString& Name)
 
 int32 UDirtbagGameInstance::GenerationsBefore() const
 {
-	return Legacies.Num();
+	return static_cast<int32>(Legacies.size());
 }
 
 TArray<FString> UDirtbagGameInstance::InheritedGuidebook() const

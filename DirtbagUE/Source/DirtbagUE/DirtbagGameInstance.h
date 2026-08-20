@@ -11,6 +11,11 @@
 
 #include "DirtbagSimTypes.h"
 
+// The sim's own container, deliberately: UHT parses every declaration in a
+// UCLASS body and cannot resolve a plain namespaced C++ type inside a
+// TArray. See the note in DirtbagSimLibrary.h.
+#include <vector>
+
 #include "DirtbagGameInstance.generated.h"
 
 /**
@@ -653,7 +658,7 @@ private:
 	/** The ones that came before, oldest first. Not a UPROPERTY: these are
 	 *  sim types, saved and loaded through DirtbagSave with everything else,
 	 *  and Blueprint reads them through InheritedGuidebook(). */
-	TArray<dirtbag::Legacy> Legacies;
+	std::vector<dirtbag::Legacy> Legacies;
 
 	// The forecast changes once a day; the HUD asks for it every frame.
 	// Cheap either way (~23us), but there is no reason to re-hash the seed

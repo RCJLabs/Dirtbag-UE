@@ -10,7 +10,33 @@
 
 #include "DirtbagSimTypes.h"
 
+#include <vector>
+
 #include "DirtbagSimLibrary.generated.h"
+
+// The complete save path — and deliberately not on the Blueprint library.
+//
+// UHT parses every declaration inside a UCLASS body, including the ones it
+// is not asked to reflect, and it cannot resolve a plain namespaced C++ type
+// inside a container: `TArray<dirtbag::Legacy>` fails with "Unable to find
+// 'class', 'delegate', 'enum', or 'struct'". So these live out here, taking
+// the sim's own std::vector rather than a TArray for the same reason.
+//
+// UDirtbagSimLibrary's SaveToFile/LoadFromFile pair writes a save with no
+// legacies in it, which is correct only for a first life. Anything holding
+// generations must come through here or it will quietly disinherit them.
+
+namespace DirtbagSaveIO
+{
+	bool SaveGameToFile(const FString& Seed, const FDirtbagPlayerState& Player,
+	                    const std::vector<dirtbag::Legacy>& Legacies,
+	                    const FString& Filename);
+
+	EDirtbagLoadResult LoadGameFromFile(
+	    const FString& Filename, FString& OutSeed,
+	    FDirtbagPlayerState& OutPlayer,
+	    std::vector<dirtbag::Legacy>& OutLegacies);
+}
 
 /**
  * One live attempt the minigame drives move by move (SETUP.md §4 step 4).
@@ -203,19 +229,6 @@ public:
 
 	/** Writes under <Project>/Saved/SaveGames/. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
-	// Plain C++, not Blueprint: a career's predecessors are sim types and
-	// the game instance owns them. These are the *complete* save path — the
-	// Blueprint pair below writes a save with no legacies in it, which is
-	// correct only for a first life, so anything holding generations must
-	// come through here or it will quietly disinherit them.
-	static bool SaveGameToFile(const FString& Seed,
-	                           const FDirtbagPlayerState& Player,
-	                           const TArray<dirtbag::Legacy>& Legacies,
-	                           const FString& Filename);
-	static EDirtbagLoadResult LoadGameFromFile(
-	    const FString& Filename, FString& OutSeed,
-	    FDirtbagPlayerState& OutPlayer, TArray<dirtbag::Legacy>& OutLegacies);
-
 	static bool SaveToFile(const FString& Seed,
 	                       const FDirtbagPlayerState& Player,
 	                       const FString& Filename = FString(TEXT("dirtbag-save.txt")));

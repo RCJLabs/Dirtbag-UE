@@ -214,6 +214,72 @@ def check_blueprint_private(headers):
     return checked, problems
 
 
+def check_sim_types_in_uclass(headers):
+    """UHT parses every declaration in a UCLASS body, reflected or not.
+
+    It cannot resolve a plain namespaced C++ type inside a container, so
+    `TArray<dirtbag::Legacy>` fails with "Unable to find 'class', 'delegate',
+    'enum', or 'struct' with name 'dirtbag::Legacy'" — at the UHT stage,
+    which nothing in this container reaches. That cost a build cycle, on the
+    round trip immediately after the one BlueprintReadWrite-on-private cost.
+
+    Two rules, both mechanical:
+      * no container of a sim type anywhere in a UCLASS body
+      * no UFUNCTION whose signature mentions a sim type at all
+
+    A plain (non-container) sim member like `dirtbag::Legacy Last;` is fine
+    and common, so it is not flagged.
+    """
+    problems = []
+    checked = 0
+    # Unreal's own containers only. UHT resolves the element type of a
+    # TArray/TMap/TSet and fails on a namespaced C++ type; it ignores
+    # std::vector entirely as an unknown template, which is why
+    # `std::vector<dirtbag::Partner>` has been in this header building fine
+    # since the Lot was added. The first version of this check flagged that
+    # too, and was wrong.
+    container = re.compile(r"\bT(?:Array|Map|Set)<[^<>]*\bdirtbag::")
+    for h in headers:
+        text = io.open(h, encoding="utf-8").read()
+        depth = 0
+        in_uclass = False
+        pending_ufunction = 0
+        for n, line in enumerate(text.split("\n"), 1):
+            bare = line.strip()
+            if bare.startswith("UCLASS("):
+                in_uclass = True
+                depth = 0
+            if in_uclass:
+                depth += line.count("{") - line.count("}")
+                if depth < 0:
+                    in_uclass = False
+                    continue
+                if bare.startswith("UFUNCTION("):
+                    pending_ufunction = 6      # signature may wrap a few lines
+                    continue
+                if "dirtbag::" in bare:
+                    checked += 1
+                    if container.search(bare):
+                        problems.append(
+                            "%s:%d  TArray/TMap/TSet of a sim type inside a "
+                            "UCLASS body - UHT resolves element types and "
+                            "cannot find a namespaced C++ one. Use "
+                            "std::vector, or declare it outside the class "
+                            "(see DirtbagSaveIO).\n    %s"
+                            % (h, n, bare[:100]))
+                    elif pending_ufunction > 0:
+                        problems.append(
+                            "%s:%d  UFUNCTION signature mentions a sim type - "
+                            "Blueprint cannot see one. Mirror it, or make this "
+                            "a plain function outside the class.\n    %s"
+                            % (h, n, bare[:100]))
+                if pending_ufunction > 0:
+                    pending_ufunction -= 1
+                    if ";" in bare:
+                        pending_ufunction = 0
+    return checked, problems
+
+
 for f, c, n, d in bad:
     print("MISSING DEFINITION: %s -> %s::%s()   [%s]" % (f, c, n, d))
 for sim in unbridged:
@@ -223,8 +289,13 @@ bpChecked, bpProblems = check_blueprint_private(
     glob.glob(os.path.join(engine_src, "*.h")))
 for p in bpProblems:
     print(p)
+simChecked, simProblems = check_sim_types_in_uclass(
+    glob.glob(os.path.join(engine_src, "*.h")))
+for p in simProblems:
+    print(p)
 print("checked %d declarations across %d header/cpp pairs; "
       "%d sim files bridged; %d Blueprint properties; problems: %d"
       % (checked, pairs, len(glob.glob("Sim/*.cpp")) - len(unbridged),
-         bpChecked, len(bad) + len(unbridged) + len(bpProblems)))
-sys.exit(1 if (bad or unbridged or bpProblems) else 0)
+         bpChecked, len(bad) + len(unbridged) + len(bpProblems) +
+         len(simProblems)))
+sys.exit(1 if (bad or unbridged or bpProblems or simProblems) else 0)
