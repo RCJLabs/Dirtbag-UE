@@ -22,6 +22,11 @@ Detail lives in the per-feature notes; this is the running order.
 > already verifies. Both are green here, so a failure is something neither
 > can see.
 
+> **One build already failed here and is fixed** — three legacy properties
+> were `BlueprintReadWrite` in a private section, which is valid C++ and a
+> hard UHT error. `tools/check-engine-defs.py` catches that class now, so
+> pull before you rebuild.
+
 **If it fails:** `Saved\Logs\DirtbagUE.log`, bottom of the file, send me the
 lines around the first `error`. Everything checkable without Unreal is
 green — **43,686 harness checks**, unity build clean, and four checkers

@@ -348,6 +348,22 @@ public:
 	bool SponsorOwnsToday() const;
 
 	// --- Retiring --------------------------------------------------------
+
+	/** Whose career this is. Set when the player names themselves; used on
+	 *  the epitaph and on every line they put up. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Legacy")
+	FString ClimberName;
+
+	/** Injuries back to back, which says it before the numbers do. Reset by
+	 *  a season that does not end in one. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Legacy")
+	int32 ConsecutiveInjuries = 0;
+
+	/** The best this career ever was, so decline is measured against it
+	 *  rather than against an age. Plenty of people climb their hardest at
+	 *  forty. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Legacy")
+	double PeakGradeEver = 0.0;
 	// Offered, never forced. Deciding when to stop is the last real choice a
 	// climbing career contains, and taking it away would be the one
 	// unforgivable thing to do to one.
@@ -638,22 +654,6 @@ private:
 	 *  sim types, saved and loaded through DirtbagSave with everything else,
 	 *  and Blueprint reads them through InheritedGuidebook(). */
 	TArray<dirtbag::Legacy> Legacies;
-
-	/** Whose career this is. Set when the player names themselves; used on
-	 *  the epitaph and on every line they put up. */
-	UPROPERTY(BlueprintReadWrite, Category = "Dirtbag|Legacy")
-	FString ClimberName;
-
-	/** Injuries back to back, which says it before the numbers do. Reset by
-	 *  a season that does not end in one. */
-	UPROPERTY(BlueprintReadWrite, Category = "Dirtbag|Legacy")
-	int32 ConsecutiveInjuries = 0;
-
-	/** The best this career ever was, so decline is measured against it
-	 *  rather than against an age. Plenty of people climb their hardest at
-	 *  forty. */
-	UPROPERTY(BlueprintReadWrite, Category = "Dirtbag|Legacy")
-	double PeakGradeEver = 0.0;
 
 	// The forecast changes once a day; the HUD asks for it every frame.
 	// Cheap either way (~23us), but there is no reason to re-hash the seed
