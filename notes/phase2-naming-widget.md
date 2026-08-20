@@ -82,13 +82,23 @@ Switch to the **Graph** tab (top right).
 
 1. Find the **Event Construct** node (it is there by default; if not,
    right-click → search `Event Construct`).
-2. Drag off its white execution pin → search **Get Game Instance** → then
-   drag off that → **Cast To DirtbagGameInstance**.
-3. From the cast's **As Dirtbag Game Instance** pin, drag → **Get Naming
+2. Drag off its white execution pin → search **Cast To
+   DirtbagGameInstance** → place it.
+3. **Right-click on empty graph space** — do not drag from a pin — → search
+   **Get Game Instance** → place it. Connect its blue return pin into the
+   cast node's **Object** input.
+
+   > **Why that order.** `Get Game Instance` is a *pure* node: it has no
+   > execution pins at all. Dragging off an exec pin filters the search to
+   > nodes that take one, so it is not in that list and never will be. An
+   > earlier version of this file said to drag it off the exec pin, which
+   > cannot work. If you see `Get Unique Instance` in the list, that is a
+   > different node — not this one.
+4. From the cast's **As Dirtbag Game Instance** pin, drag → **Get Naming
    Line Text**.
-4. In the **Variables** list (bottom left, under this widget), drag
+5. In the **Variables** list (bottom left, under this widget), drag
    `LineText` into the graph → from it drag → **Set Text (Text)**.
-5. Connect: `Event Construct` → `Cast` → `Set Text`. Plug **Naming Line
+6. Connect: `Event Construct` → `Cast` → `Set Text`. Plug **Naming Line
    Text** into the Set Text node's **In Text** pin.
 
 That makes the prompt say *the arete left of Diesel* rather than nothing.
@@ -98,8 +108,9 @@ That makes the prompt say *the arete left of Diesel* rather than nothing.
 1. Select `ConfirmButton` in the Hierarchy. In **Details**, scroll to
    **Events** and click the green **+** next to **On Clicked**. It drops an
    `On Clicked (ConfirmButton)` node into the graph.
-2. From that node's exec pin: **Get Game Instance** → **Cast To
-   DirtbagGameInstance**.
+2. From that node's exec pin: **Cast To DirtbagGameInstance**. Then
+   right-click empty space for **Get Game Instance** and feed its return
+   into the cast's **Object** pin — same pure-node reason as above.
 3. From the cast pin, drag → **Name First Ascent**. It has two inputs:
    - **Board Index**: from the cast pin, drag → **Get Naming Board Index**,
      and plug that in. *Do not type a number here* — the game knows which
@@ -114,8 +125,9 @@ keep the widget open if the name was empty — it refuses an empty name.
 
 ### The later button (if you made one)
 
-`On Clicked (LaterButton)` → **Get Game Instance** → **Cast To
-DirtbagGameInstance** → **Dismiss Naming** → **Remove from Parent**.
+`On Clicked (LaterButton)` → **Cast To DirtbagGameInstance** (fed from a
+**Get Game Instance** placed on empty space) → **Dismiss Naming** →
+**Remove from Parent**.
 
 Nothing is lost by walking away: you did the first ascent, and it stays
 yours to name whenever you come back.
