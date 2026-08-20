@@ -15,6 +15,7 @@
 #include "DirtbagJobs.h"
 #include "DirtbagBody.h"
 #include "DirtbagKit.h"
+#include "DirtbagSponsor.h"
 #include "DirtbagTown.h"
 #include "DirtbagDog.h"
 #include "DirtbagGear.h"
@@ -484,6 +485,37 @@ struct FDirtbagTown
 	TArray<FDirtbagVenue> Venues;
 };
 
+/** The ladder. Each rung pays more and owns more of your calendar. */
+UENUM(BlueprintType)
+enum class EDirtbagSponsorTier : uint8
+{
+	None,
+	Shoes,    // free rubber, and that is the whole deal. No strings.
+	Gear,     // a small stipend, a bag of kit, and they want photos
+	Title,    // real money, and they own days you would rather have
+};
+
+/** Who pays you to climb, and what they want for it. */
+USTRUCT(BlueprintType)
+struct FDirtbagSponsorship
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
+	EDirtbagSponsorTier Tier = EDirtbagSponsorTier::None;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
+	int32 SeasonsHeld = 0;
+
+	/** What you had sent when they last looked. Review asks what you have
+	 *  done lately, not what your peak was. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
+	int32 GradeAtLastReview = -1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
+	int32 SeasonsWithoutProgress = 0;
+};
+
 /** What you own that buys you climbing. */
 USTRUCT(BlueprintType)
 struct FDirtbagKit
@@ -614,6 +646,9 @@ struct FDirtbagPlayerState
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Kit")
 	FDirtbagKit Kit;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
+	FDirtbagSponsorship Sponsor;
 
 	/** The last day you saw a physio — rate limiting, so a rich season
 	 *  cannot buy its way out of a bad one overnight. */
@@ -856,6 +891,8 @@ namespace DirtbagConvert
 	FDirtbagTown FromSim(const dirtbag::Town& In);
 	FDirtbagInjury FromSim(const dirtbag::Injury& In);
 	dirtbag::Injury ToSim(const FDirtbagInjury& In);
+	FDirtbagSponsorship FromSim(const dirtbag::Sponsorship& In);
+	dirtbag::Sponsorship ToSim(const FDirtbagSponsorship& In);
 	FDirtbagKit FromSim(const dirtbag::Kit& In);
 	dirtbag::Kit ToSim(const FDirtbagKit& In);
 	FDirtbagStanding FromSim(const dirtbag::Standing& In);

@@ -12,6 +12,7 @@ static_assert(static_cast<int>(EDirtbagAspect::West) == static_cast<int>(dirtbag
 static_assert(static_cast<int>(EDirtbagSessionAdvice::Wrecked) == static_cast<int>(dirtbag::SessionAdvice::Wrecked), "SessionAdvice enums out of sync");
 static_assert(static_cast<int>(EDirtbagVanPart::Clutch) == static_cast<int>(dirtbag::VanPart::Clutch), "VanPart enums out of sync");
 static_assert(static_cast<int>(EDirtbagService::Work) == static_cast<int>(dirtbag::Service::Work), "Service enums out of sync");
+static_assert(static_cast<int>(EDirtbagSponsorTier::Title) == static_cast<int>(dirtbag::SponsorTier::Title), "SponsorTier enums out of sync");
 static_assert(static_cast<int>(EDirtbagFaction::Stewardship) == static_cast<int>(dirtbag::Faction::Stewardship), "Faction enums out of sync");
 static_assert(static_cast<int>(EDirtbagInjuryKind::Shoulder) == static_cast<int>(dirtbag::InjuryKind::Shoulder), "InjuryKind enums out of sync");
 
@@ -178,6 +179,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.job = ToSim(In.Job);
 	Out.standing = ToSim(In.Standing);
 	Out.kit = ToSim(In.Kit);
+	Out.sponsor = ToSim(In.Sponsor);
 	Out.lastPhysioDay = In.LastPhysioDay;
 	Out.bonds.reserve(In.Bonds.Num());
 	for (const FDirtbagPartnerBond& B : In.Bonds)
@@ -224,6 +226,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Job = FromSim(In.job);
 	Out.Standing = FromSim(In.standing);
 	Out.Kit = FromSim(In.kit);
+	Out.Sponsor = FromSim(In.sponsor);
 	Out.LastPhysioDay = In.lastPhysioDay;
 	Out.Bonds.Reserve(static_cast<int32>(In.bonds.size()));
 	for (const dirtbag::PartnerBond& B : In.bonds)
@@ -334,6 +337,30 @@ dirtbag::Injury ToSim(const FDirtbagInjury& In)
 	Out.kind = static_cast<dirtbag::InjuryKind>(In.Kind);
 	Out.severity = In.Severity;
 	Out.daysLeft = In.DaysLeft;
+	return Out;
+}
+
+FDirtbagSponsorship FromSim(const dirtbag::Sponsorship& In)
+{
+	FDirtbagSponsorship Out;
+	// mirror-skip: obligationsMetThisSeason -- within-season bookkeeping the
+	// review reads and then clears. Blueprint has no use for a counter that
+	// is zero every time a season boundary makes it interesting.
+	// mirror-skip: obligationsMissedThisSeason -- same.
+	Out.Tier = static_cast<EDirtbagSponsorTier>(In.tier);
+	Out.SeasonsHeld = In.seasonsHeld;
+	Out.GradeAtLastReview = In.gradeAtLastReview;
+	Out.SeasonsWithoutProgress = In.seasonsWithoutProgress;
+	return Out;
+}
+
+dirtbag::Sponsorship ToSim(const FDirtbagSponsorship& In)
+{
+	dirtbag::Sponsorship Out;
+	Out.tier = static_cast<dirtbag::SponsorTier>(In.Tier);
+	Out.seasonsHeld = In.SeasonsHeld;
+	Out.gradeAtLastReview = In.GradeAtLastReview;
+	Out.seasonsWithoutProgress = In.SeasonsWithoutProgress;
 	return Out;
 }
 

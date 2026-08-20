@@ -26,6 +26,7 @@
 #include "../DirtbagRng.h"
 #include "../DirtbagSave.h"
 #include "../DirtbagSession.h"
+#include "../DirtbagSponsor.h"
 #include "../DirtbagSport.h"
 #include "../DirtbagSessionLoop.h"
 
@@ -3434,6 +3435,148 @@ static void TestSaveRejectsGarbageAndFuture() {
 
 // --- The body ----------------------------------------------------------------
 
+// --- Sponsorship -------------------------------------------------------------
+
+static void TestNobodySponsorsAClimberNobodyHasHeardOf() {
+  SponsorDials d;
+  Standing unknown;                       // nobody has an opinion
+  Standing known;
+  known.with[static_cast<int>(Faction::Scene)] = 0.7;
+
+  // Ability is not the currency. What people can *see* is.
+  CHECK(OfferFor(d.gradeForTitle + 2, 0, unknown, d) != SponsorTier::Title);
+  CHECK(OfferFor(d.gradeForTitle, 0, known, d) == SponsorTier::Title);
+
+  // And the ladder is a ladder.
+  CHECK(OfferFor(0, 0, known, d) == SponsorTier::None);
+  CHECK(OfferFor(d.gradeForShoes, 0, unknown, d) == SponsorTier::Shoes);
+  CHECK(OfferFor(d.gradeForGear, 0, known, d) == SponsorTier::Gear);
+
+  // First ascents are visibility, because they are what gets written about
+  // — a quiet crusher with four new lines is somebody people have heard of.
+  Standing quiet;
+  CHECK(OfferFor(d.gradeForGear, 0, quiet, d) == SponsorTier::Shoes);
+  CHECK(OfferFor(d.gradeForGear, 4, quiet, d) == SponsorTier::Gear);
+}
+
+static void TestTheirDaysAreTheGoodDays() {
+  SponsorDials d;
+  const Rng world = Rng::FromSeed("shoot");
+  Sponsorship title;
+  title.tier = SponsorTier::Title;
+
+  // The whole mechanic: you cannot shoot climbing photos in the rain, and
+  // nobody runs a comp in February for the love of it. A shift takes a
+  // spare day; a shoot takes the one you wanted.
+  int onGoodDays = 0;
+  for (int day = 1; day <= 2000; day++) {
+    CHECK(!ObligationToday(title, world, day, false, d));   // never, ever
+    if (ObligationToday(title, world, day, true, d)) onGoodDays++;
+  }
+  CHECK(onGoodDays > 0);
+
+  // A shoe deal owns nothing. That is what makes it the one to take.
+  Sponsorship shoes;
+  shoes.tier = SponsorTier::Shoes;
+  for (int day = 1; day <= 500; day++) {
+    CHECK(!ObligationToday(shoes, world, day, true, d));
+  }
+  // And a title deal owns more of your calendar than a gear deal.
+  Sponsorship gear;
+  gear.tier = SponsorTier::Gear;
+  int gearDays = 0, titleDays = 0;
+  for (int day = 1; day <= 2000; day++) {
+    if (ObligationToday(gear, world, day, true, d)) gearDays++;
+    if (ObligationToday(title, world, day, true, d)) titleDays++;
+  }
+  CHECK(titleDays > gearDays);
+  CHECK(gearDays > 0);
+}
+
+static void TestADealIsReviewedAndBeingHurtIsNotFailing() {
+  SponsorDials d;
+  Sponsorship deal;
+  deal.tier = SponsorTier::Title;
+  deal.gradeAtLastReview = 9;
+
+  // Keep climbing harder and they keep you.
+  CHECK(ReviewSeason(deal, 10, 0, d) == SponsorTier::Title);
+  CHECK(deal.seasonsWithoutProgress == 0);
+  CHECK(deal.seasonsHeld == 1);
+
+  // Stop, and after a couple of seasons they stop returning calls — one
+  // rung down rather than out, because a career ending in a single review
+  // would be a punishment rather than a story.
+  for (int i = 0; i < d.seasonsOfNothingBeforeDropped; i++) {
+    ReviewSeason(deal, 10, 0, d);
+  }
+  CHECK(deal.tier == SponsorTier::Gear);
+
+  // Being hurt is not failing, and a sponsor who dropped you for it would
+  // be worse than most real ones.
+  Sponsorship hurt;
+  hurt.tier = SponsorTier::Title;
+  hurt.gradeAtLastReview = 9;
+  for (int i = 0; i < 5; i++) {
+    ReviewSeason(hurt, 9, d.injuryDaysThatPauseReview, hurt.tier ==
+                 SponsorTier::None ? d : d);
+  }
+  CHECK(hurt.tier == SponsorTier::Title);
+  CHECK(hurt.seasonsWithoutProgress == 0);
+}
+
+static void TestSigningSaysSomethingAboutYou() {
+  Standing s;
+  const double sceneBefore = StandingWith(s, Faction::Scene);
+  SignedWith(SponsorTier::Title, s);
+  CHECK(StandingWith(s, Faction::Scene) > sceneBefore);
+  // Taking money to climb is the oldest argument in the sport, and the
+  // opposed axis was built for exactly this.
+  CHECK(StandingWith(s, Faction::OldGuard) < 0.0);
+
+  // A bigger deal says more.
+  Standing small, big;
+  SignedWith(SponsorTier::Shoes, small);
+  SignedWith(SponsorTier::Title, big);
+  CHECK(StandingWith(big, Faction::Scene) > StandingWith(small, Faction::Scene));
+
+  // And no deal says nothing at all.
+  Standing none;
+  SignedWith(SponsorTier::None, none);
+  CHECK(StandingWith(none, Faction::Scene) == 0.0);
+}
+
+static void TestTheShoeDealIsWorthMoreThanItLooks() {
+  SponsorDials d;
+  // It pays nothing and saves a dirtbag $165 a pair on a $6,000 year, which
+  // for this game's economy is most of a deal.
+  CHECK(MonthlyStipend(SponsorTier::Shoes, d) == 0.0);
+  CHECK(MonthlyStipend(SponsorTier::Title, d) >
+        MonthlyStipend(SponsorTier::Gear, d));
+  Sponsorship shoes;
+  shoes.tier = SponsorTier::Shoes;
+  CHECK(CoversShoes(shoes));
+  Sponsorship none;
+  CHECK(!CoversShoes(none));
+  CHECK(MonthlyStipend(SponsorTier::None, d) == 0.0);
+}
+
+static void TestADealSurvivesASave() {
+  SaveGame save;
+  save.seed = "sponsored";
+  save.player.sponsor.tier = SponsorTier::Gear;
+  save.player.sponsor.seasonsHeld = 4;
+  save.player.sponsor.gradeAtLastReview = 8;
+  save.player.sponsor.seasonsWithoutProgress = 1;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.sponsor.tier == SponsorTier::Gear);
+  CHECK(back.player.sponsor.seasonsHeld == 4);
+  CHECK(back.player.sponsor.gradeAtLastReview == 8);
+  CHECK(back.player.sponsor.seasonsWithoutProgress == 1);
+}
+
 // --- Legacy ------------------------------------------------------------------
 
 static PlayerState ACareer() {
@@ -4956,6 +5099,12 @@ int main() {
   TestSevenDayLoop();
   TestSaveRoundTrip();
   TestSaveRejectsGarbageAndFuture();
+  TestNobodySponsorsAClimberNobodyHasHeardOf();
+  TestTheirDaysAreTheGoodDays();
+  TestADealIsReviewedAndBeingHurtIsNotFailing();
+  TestSigningSaysSomethingAboutYou();
+  TestTheShoeDealIsWorthMoreThanItLooks();
+  TestADealSurvivesASave();
   TestACareerCanEnd();
   TestTheGuidebookPrintsTheRightLadder();
   TestTheWorldRemembersAndTheBodyDoesNot();

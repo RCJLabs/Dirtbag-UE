@@ -165,6 +165,15 @@ void MigrateV11ToV12(SaveFields& fields) {
   fields["legacies"] = "0";   // it is the first life; nobody came before
 }
 
+// v12 → v13: who pays you. A v12 career had nobody calling, which is both
+// the truth and what a fresh Sponsorship already is.
+void MigrateV12ToV13(SaveFields& fields) {
+  fields["sponsor.tier"] = "0";
+  fields["sponsor.seasons"] = "0";
+  fields["sponsor.lastgrade"] = "-1";
+  fields["sponsor.stale"] = "0";
+}
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -184,7 +193,8 @@ const std::vector<Migration>& DefaultMigrations() {
   static const std::vector<Migration> kMigrations = {
       &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5,
       &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9,
-      &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12};
+      &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12,
+      &MigrateV12ToV13};
   return kMigrations;
 }
 
@@ -266,6 +276,15 @@ std::string SerializeSave(const SaveGame& save) {
       out << fk << "disc=" << IntToStr(static_cast<int>(n.discipline)) << "\n";
     }
   }
+
+  out << "sponsor.tier="
+      << IntToStr(static_cast<int>(save.player.sponsor.tier)) << "\n";
+  out << "sponsor.seasons=" << IntToStr(save.player.sponsor.seasonsHeld)
+      << "\n";
+  out << "sponsor.lastgrade="
+      << IntToStr(save.player.sponsor.gradeAtLastReview) << "\n";
+  out << "sponsor.stale="
+      << IntToStr(save.player.sponsor.seasonsWithoutProgress) << "\n";
 
   out << "owed=" << NumToStr(save.player.owed) << "\n";
   for (int i = 0; i < kFactionCount; i++) {
@@ -439,6 +458,21 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     return LoadResult::BadFormat;
   }
   save.player.job.salaried = salaried != 0;
+  int sponsorTier = 0;
+  if (!ParseInt(fields, "sponsor.tier", sponsorTier) ||
+      !ParseInt(fields, "sponsor.seasons", save.player.sponsor.seasonsHeld) ||
+      !ParseInt(fields, "sponsor.lastgrade",
+                save.player.sponsor.gradeAtLastReview) ||
+      !ParseInt(fields, "sponsor.stale",
+                save.player.sponsor.seasonsWithoutProgress)) {
+    return LoadResult::BadFormat;
+  }
+  // Clamped rather than trusted, like every other enum out of a save file.
+  save.player.sponsor.tier =
+      (sponsorTier >= 0 && sponsorTier < kSponsorTierCount)
+          ? static_cast<SponsorTier>(sponsorTier)
+          : SponsorTier::None;
+
   int legacyCount = 0;
   if (!ParseInt(fields, "legacies", legacyCount)) return LoadResult::BadFormat;
   for (int i = 0; i < legacyCount; i++) {

@@ -16,6 +16,7 @@
 #include "DirtbagGear.h"
 #include "DirtbagJobs.h"
 #include "DirtbagKit.h"
+#include "DirtbagSponsor.h"
 #include "DirtbagVan.h"
 #include "DirtbagPartner.h"
 #include "DirtbagRng.h"
@@ -138,6 +139,10 @@ struct PlayerState {
   // hands you climbing back rather than moving it around, and it is rate
   // limited so a rich season cannot buy its way out of a bad one overnight.
   int lastPhysioDay = 0;
+
+  // Who pays you to climb, and what they want for it. The only money in
+  // the game that arrives *because* you climbed rather than instead of it.
+  Sponsorship sponsor;
 
   // What you own that buys you climbing: pads, a board, the gym. The
   // answer to the measurement that said the year ended with $133 in the

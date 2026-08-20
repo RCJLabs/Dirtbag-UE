@@ -31,6 +31,7 @@
 #include "DirtbagTown.h"
 #include "DirtbagPartner.h"
 #include "DirtbagSave.h"
+#include "DirtbagSponsor.h"
 #include "DirtbagSession.h"
 #include "DirtbagSessionLoop.h"
 
@@ -55,6 +56,8 @@ struct Tally {
   int injuries = 0, hurtDays = 0, climbedHurtDays = 0, aggravations = 0;
   int physioSessions = 0;
   double spentPhysio = 0.0, loadSum = 0.0, peakLoad = 0.0;
+  int dealsSigned = 0, sponsoredDays = 0, obligationDays = 0;
+  double sponsorPay = 0.0;
   int breakdowns = 0, strandedDays = 0, bodges = 0;
   int closedDays = 0, closures = 0;
   int photoGigs = 0, trailGigs = 0;
@@ -153,6 +156,10 @@ int main(int argc, char** argv) {
   // This is the policy the whole kit exists to make possible, and the one
   // that says whether money now buys anything.
   const bool buysKit = argc > 5 && std::string(argv[5]) == "kitted";
+  // "sponsored" takes every deal offered. The last untried answer to the
+  // Phase 3 gate: every other source of money competes with climbing, and
+  // this one arrives because of it — at the price of the good days.
+  const bool takesDeals = argc > 5 && std::string(argv[5]) == "sponsored";
 
   const Rng world = Rng::FromSeed(seed);
   const Crag crag = RoadsideCrag(world);
@@ -218,6 +225,27 @@ int main(int argc, char** argv) {
         note = "physio";
       }
     }
+
+    // Who is calling. Offers are checked monthly, because a sponsor is not
+    // watching you every Tuesday.
+    SponsorDials sp;
+    if (takesDeals && player.day % 30 == 1) {
+      const CareerSummary c = SummarizeCareer(player);
+      int fas = 0;
+      for (const ProjectMemory& m : player.projects) if (m.firstAscent) fas++;
+      const SponsorTier offered =
+          OfferFor(c.hardestSendGrade, fas, player.standing, sp);
+      if (static_cast<int>(offered) > static_cast<int>(player.sponsor.tier)) {
+        player.sponsor.tier = offered;
+        player.sponsor.gradeAtLastReview = c.hardestSendGrade;
+        SignedWith(offered, player.standing);
+        t.dealsSigned++;
+        note = std::string("signed: ") + SponsorTierName(offered);
+      }
+      const double paid = MonthlyStipend(player.sponsor.tier, sp);
+      if (paid > 0.0) { Pay(player, paid); t.sponsorPay += paid; }
+    }
+    if (player.sponsor.tier != SponsorTier::None) t.sponsoredDays++;
 
     // Shopping, before the day gets spent. A dirtbag buys in this order:
     // the cheap thing that works, then the landing, then the roof over
@@ -354,7 +382,21 @@ int main(int argc, char** argv) {
     // half severity nobody sensible pulls on at all.
     const bool tooHurt = hurt && player.climber.injury.severity > 0.5;
 
-    if (!win.exists || tooThin || stranded || shut || tooHurt) {
+    // The day they own. Only ever one with a window — you cannot shoot
+    // climbing photos in the rain — which is the whole mechanic: a shift
+    // takes a spare day and a shoot takes the one you wanted.
+    const bool theirDay =
+        ObligationToday(player.sponsor, world, player.day, win.exists, sp);
+    if (theirDay) {
+      PassHours(today, sp.obligationHours, dd);
+      today.energy = std::max(0.0, today.energy - sp.obligationEnergy);
+      player.sponsor.obligationsMetThisSeason++;
+      t.obligationDays++;
+      note = note.empty() ? "their day, not yours"
+                          : note + " + their day, not yours";
+    }
+
+    if (!win.exists || tooThin || stranded || shut || tooHurt || theirDay) {
       // The day the rock said no. This is the pile the kit exists to reach:
       // 157 washed out, 75 more resting skin, and until now every one of
       // them was dead time no amount of money could touch.
@@ -593,21 +635,23 @@ int main(int argc, char** argv) {
   // to the format, and the table came out with silently empty columns.
   printf("HEAD\tseed\tpolicy\trest\tcash\tlow\tsends\tFAs\tdays\tburns"
          "\tgrade\tstew\tclosures\tshut\twork%%\tbroke\tstarved"
-         "\tmissed\tgym\tboard\tinjuries\thurt\tpeakload\tphysio\n");
+         "\tmissed\tgym\tboard\tinjuries\thurt\tpeakload\tphysio\tsponsor$\ttheirdays\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
-         "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\n",
+         "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
          : kept           ? "kept"
          : buysKit        ? "kitted"
+         : takesDeals     ? "sponsored"
                           : "greedy",
          restUntilSkin, player.cash, t.cashLow, t.sends, t.firstAscents,
          t.daysClimbed, t.burns, SkillToGrade(player.climber.skills.power),
          player.standing.with[static_cast<int>(Faction::Stewardship)],
          t.closures, t.closedDays, 100.0 * t.daysWorked / DAYS, t.brokeDays,
          t.starvedNights, t.missedWindows, t.gymDays, t.boardDays,
-         t.injuries, t.hurtDays, t.peakLoad, t.physioSessions);
+         t.injuries, t.hurtDays, t.peakLoad, t.physioSessions,
+         t.sponsorPay, t.obligationDays);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,
@@ -651,6 +695,10 @@ int main(int argc, char** argv) {
          t.peakLoad, LoadText(player.climber).c_str());
   printf("    physio  $%7.0f (%d sessions)\n", t.spentPhysio,
          t.physioSessions);
+  printf("\n  who pays you: %s\n", SponsorText(player.sponsor).c_str());
+  printf("    %d deals signed, %d days under one -> $%.0f, and %d days that "
+         "were theirs\n", t.dealsSigned, t.sponsoredDays, t.sponsorPay,
+         t.obligationDays);
   printf("    kit     $%7.0f (%d pads, %s, %d days a member -> %d gym days, "
          "%d on the board)\n", t.spentKit, player.kit.pads,
          player.kit.hangboard ? "a board" : "no board", t.memberDays,

@@ -303,6 +303,31 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
 	bool BuyNewShoes();
 
+	// --- Sponsorship -----------------------------------------------------
+	// The only money in the game that arrives because you climbed rather
+	// than instead of it — and the only money whose cost is measured in
+	// good days, because you cannot shoot climbing photos in the rain.
+
+	/** What would be offered right now, given what people can see: what you
+	 *  have sent, what you have put up, and what the Scene thinks. Ability
+	 *  is not the currency — a crusher nobody has heard of gets nothing. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sponsor")
+	EDirtbagSponsorTier OfferOnTheTable() const;
+
+	/** Take it. Says something about you: the Scene likes a sponsored
+	 *  climber and the old guard has opinions. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Sponsor")
+	bool SignWithSponsor();
+
+	/** "free shoes, and they want nothing" / "$640 a month, and they want
+	 *  three days — and they will not be the rainy ones" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sponsor")
+	FString SponsorLine() const;
+
+	/** Do they own today? Only ever a day with a window. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sponsor")
+	bool SponsorOwnsToday() const;
+
 	// --- Retiring --------------------------------------------------------
 	// Offered, never forced. Deciding when to stop is the last real choice a
 	// climbing career contains, and taking it away would be the one

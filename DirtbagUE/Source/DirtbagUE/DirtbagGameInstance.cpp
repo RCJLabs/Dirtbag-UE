@@ -502,6 +502,58 @@ FString UDirtbagGameInstance::ShoeLine() const
 	    dirtbag::ShoeText(DirtbagConvert::ToSim(Player.Shoes)).c_str()));
 }
 
+// --- Sponsorship -------------------------------------------------------------
+
+namespace
+{
+	int CountFirstAscents(const FDirtbagPlayerState& Player)
+	{
+		int N = 0;
+		for (const FDirtbagProjectMemory& M : Player.Projects)
+		{
+			if (M.bFirstAscent) N++;
+		}
+		return N;
+	}
+}
+
+EDirtbagSponsorTier UDirtbagGameInstance::OfferOnTheTable() const
+{
+	const FDirtbagCareerSummary Career = GetCareer();
+	return static_cast<EDirtbagSponsorTier>(dirtbag::OfferFor(
+	    Career.HardestSendGrade, CountFirstAscents(Player),
+	    DirtbagConvert::ToSim(Player.Standing)));
+}
+
+bool UDirtbagGameInstance::SignWithSponsor()
+{
+	const EDirtbagSponsorTier Offered = OfferOnTheTable();
+	if (Offered <= Player.Sponsor.Tier) return false;
+
+	dirtbag::Standing SimStanding = DirtbagConvert::ToSim(Player.Standing);
+	dirtbag::SignedWith(static_cast<dirtbag::SponsorTier>(Offered),
+	                    SimStanding);
+	Player.Standing = DirtbagConvert::FromSim(SimStanding);
+
+	Player.Sponsor.Tier = Offered;
+	Player.Sponsor.GradeAtLastReview = GetCareer().HardestSendGrade;
+	return true;
+}
+
+FString UDirtbagGameInstance::SponsorLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::SponsorText(DirtbagConvert::ToSim(Player.Sponsor)).c_str());
+}
+
+bool UDirtbagGameInstance::SponsorOwnsToday() const
+{
+	return dirtbag::ObligationToday(
+	    DirtbagConvert::ToSim(Player.Sponsor),
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day,
+	    TodaysWindow().bExists);
+}
+
 // --- Retiring ----------------------------------------------------------------
 
 bool UDirtbagGameInstance::TimeToThinkAboutIt() const
