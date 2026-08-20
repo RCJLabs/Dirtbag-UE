@@ -63,8 +63,22 @@ UENUM(BlueprintType)
 enum class EDirtbagVenue : uint8
 {
 	Gym,
-	Crag
+	Crag,
+	/** The Shaded Cave: rope routes, north-facing, forty minutes up the
+	 *  hill. Outdoors like the Crag in every respect that matters -- the
+	 *  window, the guidebook, cleaning, beta -- and different only in which
+	 *  rock it loads and which way that rock faces. */
+	Cave
 };
+
+/** Is this venue rock rather than plastic? Everything outdoors shares the
+ *  weather, the guidebook and the brush; only the gym does not. Written
+ *  once so that adding the third venue could not leave a `== Crag` test
+ *  behind that quietly means "not the cave either". */
+inline bool IsOutdoors(EDirtbagVenue Venue)
+{
+	return Venue != EDirtbagVenue::Gym;
+}
 
 UCLASS()
 class UDirtbagGameInstance : public UGameInstance
@@ -212,6 +226,11 @@ public:
 	 *  Meaningless indoors, where a gym problem has no book. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
 	FDirtbagCragLine GetCragLine(int32 Index);
+
+	/** A line at a named outdoor venue, so a wall can ask for cave rock
+	 *  while the player is still standing at Roadside. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	FDirtbagCragLine GetCragLineAt(EDirtbagVenue AtVenue, int32 Index);
 
 	/** How many things there are to climb where you are standing. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
@@ -652,4 +671,9 @@ private:
 	FDirtbagCrag Crag;
 
 	bool bCragLoaded = false;
+
+	/** Which crag `Crag` currently holds. Roadside and the cave are
+	 *  different rock with different aspects, so arriving at one has to
+	 *  reload rather than keep serving the other's lines. */
+	EDirtbagVenue LoadedCrag = EDirtbagVenue::Crag;
 };

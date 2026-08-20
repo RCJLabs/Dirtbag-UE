@@ -114,9 +114,9 @@ FDirtbagRoute UDirtbagGameInstance::GetBoardRoute(int32 Index)
 FDirtbagRoute UDirtbagGameInstance::GetRouteAt(EDirtbagVenue AtVenue,
                                                int32 Index)
 {
-	if (AtVenue == EDirtbagVenue::Crag)
+	if (IsOutdoors(AtVenue))
 	{
-		return GetCragLine(Index).Route;
+		return GetCragLineAt(AtVenue, Index).Route;
 	}
 	EnsureBoard();
 	if (Board.Num() == 0)
@@ -128,11 +128,19 @@ FDirtbagRoute UDirtbagGameInstance::GetRouteAt(EDirtbagVenue AtVenue,
 
 void UDirtbagGameInstance::EnsureCrag()
 {
-	if (bCragLoaded)
+	// The venue decides which rock. Arriving at the cave with Roadside still
+	// loaded would serve boulder lines at a rope crag and compute the window
+	// for the wrong aspect -- east-facing shade on a north-facing wall.
+	const EDirtbagVenue Want =
+	    Venue == EDirtbagVenue::Cave ? EDirtbagVenue::Cave : EDirtbagVenue::Crag;
+	if (bCragLoaded && LoadedCrag == Want)
 	{
 		return;
 	}
-	Crag = UDirtbagSimLibrary::RoadsideCrag(Seed);
+	LoadedCrag = Want;
+	Crag = Want == EDirtbagVenue::Cave
+	           ? UDirtbagSimLibrary::ShadedCave(Seed)
+	           : UDirtbagSimLibrary::RoadsideCrag(Seed);
 	bCragLoaded = true;
 
 	// Seed a ledger for every unclimbed line, at the filth it is actually
@@ -161,6 +169,8 @@ void UDirtbagGameInstance::EnsureCrag()
 			dirtbag::CragLine SimLine;
 			SimLine.route.name = TCHAR_TO_UTF8(*Line.Route.Name);
 			SimLine.route.grade = Line.Route.Grade;
+			SimLine.route.discipline =
+			    static_cast<dirtbag::Discipline>(Line.Route.Discipline);
 			SimLine.isProject = true;
 			Player.Projects.Add(
 			    DirtbagConvert::FromSim(dirtbag::NewProjectLedger(SimLine)));
@@ -178,6 +188,31 @@ FDirtbagCrag UDirtbagGameInstance::GetCrag()
 {
 	EnsureCrag();
 	return Crag;
+}
+
+FDirtbagCragLine UDirtbagGameInstance::GetCragLineAt(EDirtbagVenue AtVenue,
+                                                     int32 Index)
+{
+	// Asking for one venue's rock while standing at another is legitimate —
+	// a wall resolves its own line in BeginPlay, before anybody has arrived
+	// anywhere — so this loads what was asked for rather than what is
+	// underfoot, and puts back what was there.
+	const EDirtbagVenue Standing = Venue;
+	Venue = AtVenue;
+	EnsureCrag();
+	const FDirtbagCragLine Line =
+	    Crag.Lines.Num() == 0
+	        ? FDirtbagCragLine()
+	        : Crag.Lines[FMath::Clamp(Index, 0, Crag.Lines.Num() - 1)];
+
+	// Put the rock back. Restoring only the venue would leave the cave
+	// loaded and CragAspect pointing north while the player stands at
+	// east-facing Roadside — a crag climbing in one aspect's shade while its
+	// window is computed for another, which is the exact failure EnsureCrag
+	// exists to prevent.
+	Venue = Standing;
+	EnsureCrag();
+	return Line;
 }
 
 FDirtbagCragLine UDirtbagGameInstance::GetCragLine(int32 Index)

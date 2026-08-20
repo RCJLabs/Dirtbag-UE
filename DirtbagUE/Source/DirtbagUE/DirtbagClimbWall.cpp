@@ -167,7 +167,7 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 	// good the line is, and whether anyone has done it at all. A three-star
 	// V4 and a no-star V4 are different decisions.
 	FString Book;
-	if (Game && Venue == EDirtbagVenue::Crag)
+	if (Game && IsOutdoors(Venue))
 	{
 		const FDirtbagCragLine Line = Game->GetCragLine(BoardIndex);
 		if (Line.bIsProject)
@@ -260,7 +260,7 @@ void ADirtbagClimbWall::OnClean()
 	{
 		return;
 	}
-	if (Venue != EDirtbagVenue::Crag)
+	if (!IsOutdoors(Venue))
 	{
 		Toast(TEXT("Someone else cleans the holds here."), FColor::Silver,
 		      4.f, kToastClean);
@@ -284,7 +284,7 @@ void ADirtbagClimbWall::OnAskBeta()
 	{
 		return;
 	}
-	if (Venue != EDirtbagVenue::Crag)
+	if (!IsOutdoors(Venue))
 	{
 		Toast(TEXT("The setter's beta is on the tag."), FColor::Silver, 4.f,
 		      kToastClean);
