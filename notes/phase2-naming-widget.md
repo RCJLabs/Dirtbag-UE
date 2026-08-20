@@ -56,9 +56,18 @@ You are in the **Designer** tab (top right toggles Designer/Graph).
 3. Drag a **Text** widget into the Vertical Box. Rename it (double-click in
    the Hierarchy) to `HeaderText`. In Details → **Content → Text**, type:
    `FIRST ASCENT`.
-4. Drag a second **Text** into the Vertical Box, under the first. Name it
-   `LineText`. Leave its text empty — the graph fills it in with which line
-   you just did.
+4. Drag a second **Text** into the Vertical Box, under the first. **Rename
+   it to `LineText`** — double-click its name in the **Hierarchy** panel, or
+   select it and press **F2**. Leave its text empty; the graph fills it in
+   with which line you just did.
+
+   > **Renaming is what makes it a variable.** A widget left at its default
+   > name (`Text Block`) is not one, so it will not appear in the Variables
+   > list in the Graph tab and step 2 will look like it is missing a node.
+   > If you get there and cannot find `LineText`, this is why.
+   >
+   > `HeaderText` does not have to be a variable — its text is static and
+   > nothing in the graph writes to it. Only `LineText` does.
 5. Drag an **Editable Text (Box)** into the Vertical Box. Name it
    `NameBox`. In Details → **Hint Text**, type `name it`.
    - **Tick `Is Variable`** at the top of the Details panel for this one.
