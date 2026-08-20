@@ -13,6 +13,7 @@
 #include "../DirtbagDay.h"
 #include "../DirtbagDog.h"
 #include "../DirtbagGear.h"
+#include "../DirtbagEthics.h"
 #include "../DirtbagFactions.h"
 #include "../DirtbagJobs.h"
 #include "../DirtbagAge.h"
@@ -3435,6 +3436,235 @@ static void TestSaveRejectsGarbageAndFuture() {
 
 // --- The body ----------------------------------------------------------------
 
+// --- Ethics ------------------------------------------------------------------
+
+static double YearsUntilFound(double visibility, int n = 1500) {
+  EthicsDials d;
+  double total = 0.0;
+  int caught = 0;
+  for (int i = 0; i < n; i++) {
+    std::vector<Secret> secrets{
+        Commit(EthicalAct::ChippedAHold, "Chalk Ghost", 1)};
+    Rng world = Rng::FromSeed("ey-" + std::to_string(i));
+    for (int day = 1; day <= 30 * 365; day++) {
+      if (SomebodyFindsOut(secrets, world, day, visibility, d) >= 0) {
+        total += day / 365.0;
+        caught++;
+        break;
+      }
+    }
+  }
+  return caught ? total / caught : 1e9;
+}
+
+static void TestBeingWatchedIsWhatCatchesYou() {
+  // The whole design. The same act on the same day, by two people, is two
+  // completely different lives — and it is success that exposes you.
+  Standing nobody;
+  Standing star;
+  star.with[static_cast<int>(Faction::Scene)] = 1.0;
+
+  CHECK(VisibilityFrom(nobody, SponsorTier::None) == 0.0);
+  CHECK(VisibilityFrom(star, SponsorTier::Title) >
+        VisibilityFrom(star, SponsorTier::None));
+  CHECK(VisibilityFrom(nobody, SponsorTier::Title) >
+        VisibilityFrom(nobody, SponsorTier::None));
+  CHECK(VisibilityFrom(star, SponsorTier::Title) <= 1.0);
+
+  // Being disliked by the Scene is not the same as being unknown to it, but
+  // it is not what gets your old lines looked at either.
+  Standing hated;
+  hated.with[static_cast<int>(Faction::Scene)] = -1.0;
+  CHECK(VisibilityFrom(hated, SponsorTier::None) == 0.0);
+
+  const double quiet = YearsUntilFound(0.0);
+  const double watched = YearsUntilFound(1.0);
+  CHECK(watched < quiet);
+  CHECK(quiet > watched * 1.5);   // and it is not a marginal difference
+}
+
+static void TestItReallyMightNeverComeOut() {
+  // The choice has to be genuinely tempting, not a trap with a timer on it.
+  // A quiet career has better than even odds of carrying this to the end —
+  // measured, 50% across thirty years — and that is the whole reason
+  // anybody would do it.
+  EthicsDials d;
+  int never = 0;
+  const int N = 1200;
+  for (int i = 0; i < N; i++) {
+    std::vector<Secret> secrets{
+        Commit(EthicalAct::ChippedAHold, "Chalk Ghost", 1)};
+    Rng world = Rng::FromSeed("nv-" + std::to_string(i));
+    bool out = false;
+    for (int day = 1; day <= 30 * 365 && !out; day++) {
+      out = SomebodyFindsOut(secrets, world, day, 0.0, d) >= 0;
+    }
+    if (!out) never++;
+  }
+  const double share = static_cast<double>(never) / N;
+  CHECK(share > 0.3);   // an unknown very often gets away with it...
+  CHECK(share < 0.7);   // ...and never reliably
+
+  // A star does not. Almost nobody with a career keeps this.
+  int starNever = 0;
+  for (int i = 0; i < 400; i++) {
+    std::vector<Secret> secrets{
+        Commit(EthicalAct::ChippedAHold, "Chalk Ghost", 1)};
+    Rng world = Rng::FromSeed("sv-" + std::to_string(i));
+    bool out = false;
+    for (int day = 1; day <= 30 * 365 && !out; day++) {
+      out = SomebodyFindsOut(secrets, world, day, 1.0, d) >= 0;
+    }
+    if (!out) starNever++;
+  }
+  CHECK(starNever < 400 / 10);
+}
+
+static void TestAFreshSecretIsQuiet() {
+  EthicsDials d;
+  // The people who were there have not compared notes yet, and nobody is
+  // looking at a line that just went. Not even a star is caught same-week.
+  //
+  // The world seed varies per iteration, and that is the whole point of the
+  // loop: discovery derives its stream from (world, day, index), so reusing
+  // one world would roll the same forty-five numbers four hundred times.
+  // The first version of this test did exactly that, and passed with the
+  // quiet-period guard deleted.
+  for (int i = 0; i < 400; i++) {
+    const Rng world = Rng::FromSeed("fresh-" + std::to_string(i));
+    std::vector<Secret> secrets{Commit(EthicalAct::ChippedAHold, "X", 100)};
+    for (int day = 100; day < 100 + d.quietDays; day++) {
+      CHECK(SomebodyFindsOut(secrets, world, day, 1.0, d) < 0);
+    }
+  }
+}
+
+static void TestOneThingAtATime() {
+  EthicsDials d;
+  const Rng world = Rng::FromSeed("cascade");
+  // A career unravelling in a single afternoon is a punishment; this is
+  // meant to be a story. Five secrets cannot all surface on one day.
+  std::vector<Secret> secrets;
+  for (int i = 0; i < 5; i++) {
+    secrets.push_back(Commit(static_cast<EthicalAct>(i), "L", 1));
+  }
+  for (int day = 1; day <= 20000; day++) {
+    const int found = SomebodyFindsOut(secrets, world, day, 1.0, d);
+    if (found < 0) continue;
+    int knownToday = 0;
+    for (const Secret& s : secrets) {
+      if (s.known && s.dayFound == day) knownToday++;
+    }
+    CHECK(knownToday == 1);
+  }
+  // And they do all come out eventually, to somebody that visible.
+  CHECK(Unknown(secrets).empty());
+}
+
+static void TestSomeLiesTakeTheAscentAndSomeDoNot() {
+  // Chipping and retro-bolting change the rock: the ascent stands, hollow,
+  // on a line that is not what it was. The other three are lies about what
+  // happened, and there is nothing left to stand.
+  CHECK(!StripsTheAscent(EthicalAct::ChippedAHold));
+  CHECK(!StripsTheAscent(EthicalAct::RetroBolted));
+  CHECK(StripsTheAscent(EthicalAct::ClaimedASend));
+  CHECK(StripsTheAscent(EthicalAct::StagedAPhoto));
+  CHECK(StripsTheAscent(EthicalAct::PulledOnGear));
+}
+
+static void TestWhoIsActuallyAngry() {
+  EthicsDials d;
+  // The old guard is the injured party — these are their ethics and the
+  // rock is theirs. The stewards care about what was done to rock and about
+  // the rest not at all.
+  Standing chipped, claimed;
+  double p1 = 0.7, p2 = 0.7;
+  ItComesOut(Commit(EthicalAct::ChippedAHold, "L", 1), chipped, p1, d);
+  ItComesOut(Commit(EthicalAct::ClaimedASend, "L", 1), claimed, p2, d);
+
+  CHECK(StandingWith(chipped, Faction::OldGuard) < 0.0);
+  CHECK(StandingWith(claimed, Faction::OldGuard) < 0.0);
+  // Chipping is the unforgivable one.
+  CHECK(StandingWith(chipped, Faction::OldGuard) <
+        StandingWith(claimed, Faction::OldGuard));
+  // Only the rock acts reach the stewards.
+  CHECK(StandingWith(chipped, Faction::Stewardship) < 0.0);
+  CHECK(StandingWith(claimed, Faction::Stewardship) >= 0.0);
+  // And being found out is not only arithmetic.
+  CHECK(p1 < 0.7);
+  CHECK(p2 < 0.7);
+
+  // A secret nobody knows costs nothing — the act is not what is priced,
+  // being caught is.
+  Standing untouched;
+  double psyche = 0.7;
+  const std::vector<Secret> carried{Commit(EthicalAct::ChippedAHold, "L", 1)};
+  CHECK(Unknown(carried).size() == 1);
+  CHECK(StandingWith(untouched, Faction::OldGuard) == 0.0);
+  CHECK(psyche == 0.7);
+}
+
+static void TestWhatYouDidSurvivesASave() {
+  SaveGame save;
+  save.seed = "carried";
+  save.player.secrets.push_back(
+      Commit(EthicalAct::ChippedAHold, "Chalk Ghost", 400));
+  Secret caught = Commit(EthicalAct::StagedAPhoto, "", 900);
+  caught.known = true;
+  caught.dayFound = 2600;
+  save.player.secrets.push_back(caught);
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.secrets.size() == 2);
+  CHECK(back.player.secrets[0].act == EthicalAct::ChippedAHold);
+  CHECK(back.player.secrets[0].routeKey == "Chalk Ghost");
+  CHECK(back.player.secrets[0].dayDone == 400);
+  CHECK(!back.player.secrets[0].known);
+  // A staged photo is not on a line, so an empty route key has to survive
+  // as an empty route key rather than failing the parse.
+  CHECK(back.player.secrets[1].routeKey.empty());
+  CHECK(back.player.secrets[1].known);
+  CHECK(back.player.secrets[1].dayFound == 2600);
+
+  // An honest career round-trips too, and it is the common one.
+  SaveGame clean;
+  clean.seed = "honest";
+  SaveGame cleanBack;
+  CHECK(DeserializeSave(SerializeSave(clean), cleanBack) == LoadResult::Ok);
+  CHECK(cleanBack.player.secrets.empty());
+}
+
+static void TestFindingOutIsDeterministic() {
+  EthicsDials d;
+  const auto Run = [&](int seed) {
+    std::vector<Secret> secrets{Commit(EthicalAct::PulledOnGear, "L", 1)};
+    Rng world = Rng::FromSeed("determinism-" + std::to_string(seed));
+    for (int day = 1; day <= 20000; day++) {
+      if (SomebodyFindsOut(secrets, world, day, 0.5, d) >= 0) return day;
+    }
+    return -1;   // a real answer: about one career in eighty keeps it
+  };
+  // Same seed, same day, always — including the seeds where it never comes
+  // out, which is why this compares the answer rather than assuming one.
+  int everFound = 0;
+  for (int seed = 0; seed < 20; seed++) {
+    const int first = Run(seed);
+    CHECK(first == Run(seed));
+    if (first > 0) everFound++;
+  }
+  CHECK(everFound > 15);   // and at this visibility, most careers do
+
+  // And the text says the years out loud, because that is the point of it.
+  Secret old = Commit(EthicalAct::ChippedAHold, "Chalk Ghost", 1);
+  CHECK(EthicsText(old, 4000).empty());   // nobody knows: nothing to say
+  old.known = true;
+  old.dayFound = 3300;
+  const std::string said = EthicsText(old, 3300);
+  CHECK(said.find("Chalk Ghost") != std::string::npos);
+  CHECK(said.find("9 years ago") != std::string::npos);
+}
+
 // --- Sponsorship -------------------------------------------------------------
 
 static void TestNobodySponsorsAClimberNobodyHasHeardOf() {
@@ -5099,6 +5329,14 @@ int main() {
   TestSevenDayLoop();
   TestSaveRoundTrip();
   TestSaveRejectsGarbageAndFuture();
+  TestBeingWatchedIsWhatCatchesYou();
+  TestItReallyMightNeverComeOut();
+  TestAFreshSecretIsQuiet();
+  TestOneThingAtATime();
+  TestSomeLiesTakeTheAscentAndSomeDoNot();
+  TestWhoIsActuallyAngry();
+  TestWhatYouDidSurvivesASave();
+  TestFindingOutIsDeterministic();
   TestNobodySponsorsAClimberNobodyHasHeardOf();
   TestTheirDaysAreTheGoodDays();
   TestADealIsReviewedAndBeingHurtIsNotFailing();

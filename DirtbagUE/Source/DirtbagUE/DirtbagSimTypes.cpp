@@ -13,6 +13,7 @@ static_assert(static_cast<int>(EDirtbagSessionAdvice::Wrecked) == static_cast<in
 static_assert(static_cast<int>(EDirtbagVanPart::Clutch) == static_cast<int>(dirtbag::VanPart::Clutch), "VanPart enums out of sync");
 static_assert(static_cast<int>(EDirtbagService::Work) == static_cast<int>(dirtbag::Service::Work), "Service enums out of sync");
 static_assert(static_cast<int>(EDirtbagSponsorTier::Title) == static_cast<int>(dirtbag::SponsorTier::Title), "SponsorTier enums out of sync");
+static_assert(static_cast<int>(EDirtbagEthicalAct::PulledOnGear) == static_cast<int>(dirtbag::EthicalAct::PulledOnGear), "EthicalAct enums out of sync");
 static_assert(static_cast<int>(EDirtbagFaction::Stewardship) == static_cast<int>(dirtbag::Faction::Stewardship), "Faction enums out of sync");
 static_assert(static_cast<int>(EDirtbagInjuryKind::Shoulder) == static_cast<int>(dirtbag::InjuryKind::Shoulder), "InjuryKind enums out of sync");
 
@@ -180,6 +181,11 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.standing = ToSim(In.Standing);
 	Out.kit = ToSim(In.Kit);
 	Out.sponsor = ToSim(In.Sponsor);
+	Out.secrets.reserve(In.Secrets.Num());
+	for (const FDirtbagSecret& S : In.Secrets)
+	{
+		Out.secrets.push_back(ToSim(S));
+	}
 	Out.lastPhysioDay = In.LastPhysioDay;
 	Out.bonds.reserve(In.Bonds.Num());
 	for (const FDirtbagPartnerBond& B : In.Bonds)
@@ -227,6 +233,11 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Standing = FromSim(In.standing);
 	Out.Kit = FromSim(In.kit);
 	Out.Sponsor = FromSim(In.sponsor);
+	Out.Secrets.Reserve(static_cast<int32>(In.secrets.size()));
+	for (const dirtbag::Secret& S : In.secrets)
+	{
+		Out.Secrets.Add(FromSim(S));
+	}
 	Out.LastPhysioDay = In.lastPhysioDay;
 	Out.Bonds.Reserve(static_cast<int32>(In.bonds.size()));
 	for (const dirtbag::PartnerBond& B : In.bonds)
@@ -337,6 +348,28 @@ dirtbag::Injury ToSim(const FDirtbagInjury& In)
 	Out.kind = static_cast<dirtbag::InjuryKind>(In.Kind);
 	Out.severity = In.Severity;
 	Out.daysLeft = In.DaysLeft;
+	return Out;
+}
+
+FDirtbagSecret FromSim(const dirtbag::Secret& In)
+{
+	FDirtbagSecret Out;
+	Out.Act = static_cast<EDirtbagEthicalAct>(In.act);
+	Out.RouteKey = UTF8_TO_TCHAR(In.routeKey.c_str());
+	Out.DayDone = In.dayDone;
+	Out.bKnown = In.known;
+	Out.DayFound = In.dayFound;
+	return Out;
+}
+
+dirtbag::Secret ToSim(const FDirtbagSecret& In)
+{
+	dirtbag::Secret Out;
+	Out.act = static_cast<dirtbag::EthicalAct>(In.Act);
+	Out.routeKey = TCHAR_TO_UTF8(*In.RouteKey);
+	Out.dayDone = In.DayDone;
+	Out.known = In.bKnown;
+	Out.dayFound = In.DayFound;
 	return Out;
 }
 

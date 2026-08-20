@@ -15,6 +15,7 @@
 #include "DirtbagJobs.h"
 #include "DirtbagBody.h"
 #include "DirtbagKit.h"
+#include "DirtbagEthics.h"
 #include "DirtbagSponsor.h"
 #include "DirtbagTown.h"
 #include "DirtbagDog.h"
@@ -485,6 +486,41 @@ struct FDirtbagTown
 	TArray<FDirtbagVenue> Venues;
 };
 
+/** The five shortcuts. Each buys something real and each is a thing you
+ *  would not say out loud at the fire. */
+UENUM(BlueprintType)
+enum class EDirtbagEthicalAct : uint8
+{
+	ChippedAHold,   // it goes now. It did not before, and it never will again.
+	RetroBolted,    // somebody's ground-up line, made safe without asking
+	ClaimedASend,   // the oldest one in the sport
+	StagedAPhoto,   // a shot of a send that did not happen
+	PulledOnGear,   // one hang nobody saw, and you called it clean
+};
+
+/** Something you did that nobody saw — and the day somebody found out. */
+USTRUCT(BlueprintType)
+struct FDirtbagSecret
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Ethics")
+	EDirtbagEthicalAct Act = EDirtbagEthicalAct::ChippedAHold;
+
+	/** The line it was done to. Empty for a staged photo. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Ethics")
+	FString RouteKey;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Ethics")
+	int32 DayDone = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Ethics")
+	bool bKnown = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Ethics")
+	int32 DayFound = 0;
+};
+
 /** The ladder. Each rung pays more and owns more of your calendar. */
 UENUM(BlueprintType)
 enum class EDirtbagSponsorTier : uint8
@@ -649,6 +685,11 @@ struct FDirtbagPlayerState
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
 	FDirtbagSponsorship Sponsor;
+
+	/** What you did that nobody saw. Carried, not priced — an act costs
+	 *  nothing until the day somebody finds out. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Ethics")
+	TArray<FDirtbagSecret> Secrets;
 
 	/** The last day you saw a physio — rate limiting, so a rich season
 	 *  cannot buy its way out of a bad one overnight. */
@@ -891,6 +932,8 @@ namespace DirtbagConvert
 	FDirtbagTown FromSim(const dirtbag::Town& In);
 	FDirtbagInjury FromSim(const dirtbag::Injury& In);
 	dirtbag::Injury ToSim(const FDirtbagInjury& In);
+	FDirtbagSecret FromSim(const dirtbag::Secret& In);
+	dirtbag::Secret ToSim(const FDirtbagSecret& In);
 	FDirtbagSponsorship FromSim(const dirtbag::Sponsorship& In);
 	dirtbag::Sponsorship ToSim(const FDirtbagSponsorship& In);
 	FDirtbagKit FromSim(const dirtbag::Kit& In);

@@ -16,6 +16,7 @@
 #include "DirtbagGear.h"
 #include "DirtbagJobs.h"
 #include "DirtbagKit.h"
+#include "DirtbagEthics.h"
 #include "DirtbagSponsor.h"
 #include "DirtbagVan.h"
 #include "DirtbagPartner.h"
@@ -139,6 +140,10 @@ struct PlayerState {
   // hands you climbing back rather than moving it around, and it is rate
   // limited so a rich season cannot buy its way out of a bad one overnight.
   int lastPhysioDay = 0;
+
+  // The things you did that nobody saw. Carried, not priced — an act only
+  // costs anything on the day somebody finds out.
+  std::vector<Secret> secrets;
 
   // Who pays you to climb, and what they want for it. The only money in
   // the game that arrives *because* you climbed rather than instead of it.
