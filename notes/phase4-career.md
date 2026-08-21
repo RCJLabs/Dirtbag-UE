@@ -92,6 +92,71 @@ before the living player's ledger, every time the crag loads.
 After: **2 named lines across 4 lives**, and the later generations find them
 already done.
 
+## 5. The valley is not exhausted — measured properly, after two wrong turns
+
+The §3 reading below — *"one person lived there and three more failed"* —
+was taken on the build before the Lot named anything and before commitment
+protected a line. Re-measured on the current build, and the answer is
+different. It took two wrong turns to get to, both worth recording.
+
+**Are the remaining projects reachable at all?** Send rate per burn on a
+good day, Roadside's open projects:
+
+| project | true | workable, no beta | clean + wired, skill 65 | skill 75 |
+|---|---|---|---|---|
+| the slab right of the pull-off | V3 | 99.8% | 100% | 100% |
+| the short wall behind the cattle grid | V4 | 86.2% | 100% | 100% |
+| the arete left of Diesel | V8 | **0.0%** | **66.8%** | 96.8% |
+| the low traverse into Chalk Ghost | V8 | 0.0% | 40.0% | 95.0% |
+| the blank wall behind the parking | V10 | 0.0% | 0.0% | 1.5% |
+
+**The whole difference between impossible and two-thirds is cleaning it
+properly and learning it.** The probe brushed every line to exactly
+`workable` (0.55, the minimum) and never rehearsed, so it saw 0% and
+concluded the valley was used up. Same shape as the crash pad: nobody had
+ever tried.
+
+### Wrong turn one: a `projector` policy barely helped
+
+Brushing to 0.98 instead of 0.55 moved almost nothing, because the climbers
+were not strong enough for the V8s either way. So it was not dirt.
+
+### Wrong turn two: I misread a column and nearly reported a collapse
+
+The next measurement appeared to show careers ending at **V0.35** — a
+climber who could not do a V1 at 54 having started at V5 — which would have
+been a serious bug in the aging model. It was field 34 of the probe's row,
+which is `shoewear`. `allround` is field 33.
+
+Read correctly, a career ends at **V4.0–V5.0**, and the shape is exactly the
+designed one:
+
+| | power | fingers | technique | endurance | head |
+|---|---|---|---|---|---|
+| start (24) | 50 | 50 | 50 | 50 | 50 |
+| end (54) | **16.8** | 42.2 | **59.3** | 40.6 | **55.8** |
+
+Power collapses, fingers and endurance slide, **technique and head are
+higher than they started**. "You climb smarter than you pull now", in
+numbers. No bug.
+
+### So: it reads like a valley
+
+A career starts at V5.0, peaks around **V7**, ends around V4.5. The V8
+projects need skill ~65 clean and wired — **the very top of a peak career**,
+reachable in the strong years and not otherwise. The V10 needs 75+, which
+nobody in this world ever reaches.
+
+Over ninety years and four generations: **the player puts up one, the Lot
+puts up three, and one line is still standing at the end.** That is not an
+exhausted valley. That is a valley where the plums go to whoever is
+strongest, and the testpiece stays unclimbed.
+
+**What is left is a question of taste, not a defect:** the player gets one
+of the four that go, because Dev is stronger than any career the player
+will have. Whether that is right is Evan's call. It is certainly true to
+life, and it may be thin for a game.
+
 ## 3. What that leaves, which is a content problem and not a bug
 
 Generations 2, 3 and 4 put up **no first ascents at all**. Roadside has five
