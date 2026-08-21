@@ -404,6 +404,61 @@ static void TestCragHasProjectsAndTheyAreOpen() {
     if (!l.isProject) CHECK(!l.firstAscentBy.empty());
 }
 
+static void TestTheBookHasSomethingAtTheTopOfACareer() {
+  // A measured career peaks at V6.6 on average and the V8 projects need
+  // skill 65 clean and wired (notes/phase4-the-lot.md). Roadside used to run
+  // V3, V4, V8, V8, V10 — the player cleared the two moderates in their
+  // first season and then had thirty years with nothing to aim at. There has
+  // to be a line pitched at the top of a normal career, in every world.
+  const char* kSitStart = "the sit start to Shade Line";
+  int inBand = 0, present = 0, worlds = 0;
+  int hardest = 0, easiest = 99;
+  for (int s = 0; s < 200; s++) {
+    Crag crag = RoadsideCrag(Rng::FromSeed("career-" + std::to_string(s)));
+    worlds++;
+    bool foundReachable = false;
+    for (const CragLine* p : OpenProjects(crag)) {
+      if (p->description != kSitStart) continue;
+      present++;
+      hardest = std::max(hardest, p->route.trueGrade);
+      easiest = std::min(easiest, p->route.trueGrade);
+      if (p->route.trueGrade >= 6 && p->route.trueGrade <= 7) inBand++;
+    }
+    // The gap that started this: something open between the moderates a
+    // beginner takes and the V8s nobody in this world will ever climb.
+    for (const CragLine* p : OpenProjects(crag))
+      if (p->route.trueGrade >= 5 && p->route.trueGrade <= 7) foundReachable = true;
+    CHECK(foundReachable);
+  }
+  CHECK(present == worlds);        // it is book content, not a random spawn
+  // A line everybody has pulled on is close to known, so the book cannot be
+  // out by two: a V8 here would put the hole straight back.
+  CHECK(hardest == 7);
+  CHECK(easiest == 5);
+  CHECK(inBand * 2 > worlds);      // and usually it is exactly what it says
+
+  // The wide drift still applies to lines nobody has touched, or the hard
+  // end of the book stops being a real question.
+  int wideHardest = 0;
+  for (int s = 0; s < 200; s++) {
+    Crag crag = RoadsideCrag(Rng::FromSeed("career-" + std::to_string(s)));
+    for (const CragLine* p : OpenProjects(crag))
+      if (p->description == "the blank wall behind the parking")
+        wideHardest = std::max(wideHardest, p->route.trueGrade);
+  }
+  CHECK(wideHardest == 11);        // guess 9, drift up to +2
+
+  // The new line was appended rather than inserted, so every project that
+  // already existed kept the exact grade it had. Saves depend on this: a
+  // project the player is mid-way through must not change difficulty
+  // because content was added somewhere else in the list.
+  Crag one = RoadsideCrag(Rng::FromSeed("crag-1"));
+  std::vector<int> got;
+  for (const CragLine* p : OpenProjects(one)) got.push_back(p->route.trueGrade);
+  const std::vector<int> want = {3, 4, 8, 8, 10, 7};
+  CHECK(got == want);
+}
+
 static void TestSandbagsAreSpecific() {
   // A crag's sandbags are famous and deliberate, not a dice roll — and they
   // are rare enough to matter when you hit one.
@@ -5212,7 +5267,10 @@ static void TestTheCaveIsAStableWorldAndItsOwnOne() {
   Rng r1 = Rng::FromSeed("cave-1");
   const Crag roadside = RoadsideCrag(r1);
   CHECK(roadside.lines[0].route.name == "Roadside Attraction");
-  CHECK(roadside.lines.size() == 30);
+  // A content freeze, not a law of nature: it moves when a line is added to
+  // Roadside on purpose, and catches it when one moves by accident. 25 book
+  // entries and 6 projects.
+  CHECK(roadside.lines.size() == 31);
 
   // Pitches are longer than boulders, which is the thing the whole sport
   // system is about.
@@ -6309,6 +6367,7 @@ int main() {
   TestCragIsStable();
   TestCragIsNotALadder();
   TestCragHasProjectsAndTheyAreOpen();
+  TestTheBookHasSomethingAtTheTopOfACareer();
   TestSandbagsAreSpecific();
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();

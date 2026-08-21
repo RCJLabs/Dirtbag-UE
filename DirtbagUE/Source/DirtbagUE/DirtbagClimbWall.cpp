@@ -41,6 +41,9 @@ enum : int32
 	kToastPrompt = 4101,
 	kToastClean = 4102,
 	kToastResult = 4103,
+	// Its own key, or the brush toast would replace it the next press and
+	// the one message worth reading would be the one you never see.
+	kToastClaim = 4104,
 };
 
 void Toast(const FString& Msg, FColor Color = FColor::White,
@@ -296,7 +299,8 @@ void ADirtbagClimbWall::OnClean()
 		      4.f, kToastClean);
 		return;
 	}
-	if (Game->CleanLine(BoardIndex, CleanHoursPerPress) <= 0.0)
+	const double Gained = Game->CleanLine(BoardIndex, CleanHoursPerPress);
+	if (Gained <= 0.0)
 	{
 		Toast(TEXT("It is as clean as it is going to get."), FColor::Silver,
 		      4.f, kToastClean);
@@ -306,6 +310,14 @@ void ADirtbagClimbWall::OnClean()
 	                      CleanHoursPerPress * 60.f,
 	                      *Game->CleanlinessText(BoardIndex)),
 	      FColor::Silver, 4.f, kToastClean);
+
+	// The one time brushing is news rather than housekeeping: this is the
+	// press that puts your name on the line. Said once, when it happens.
+	const FString Claim = Game->ClaimText(BoardIndex, Gained);
+	if (!Claim.IsEmpty())
+	{
+		Toast(Claim, FColor::White, 6.f, kToastClaim);
+	}
 }
 
 void ADirtbagClimbWall::OnAskBeta()

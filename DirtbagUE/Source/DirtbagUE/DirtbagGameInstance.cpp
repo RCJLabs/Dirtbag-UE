@@ -595,6 +595,32 @@ double UDirtbagGameInstance::CleanLine(int32 BoardIndex, double Hours)
 	return Gained;
 }
 
+FString UDirtbagGameInstance::ClaimText(int32 BoardIndex, double GainedThisPress)
+{
+	const FDirtbagProjectMemory* Ledger = LedgerFor(BoardIndex);
+	if (!Ledger || Ledger->bFirstAscent)
+	{
+		return FString();
+	}
+	// Only at the crossing. Below the threshold you have tickled the line;
+	// crossing it is somebody walking past, seeing the chalk gone and the
+	// holds bare, and drawing the obvious conclusion.
+	//
+	// No project test is needed and none would be safe: an established line
+	// starts at cleanliness 1.0, so `Was` is already above the threshold and
+	// this returns empty for everything in the book. That is the same
+	// default that made the bare `> 0.2` in SpokenFor fragile, working for
+	// us here rather than against us.
+	const dirtbag::PartnerDials Dials;
+	const double Was = Ledger->Cleanliness - GainedThisPress;
+	if (Was > Dials.brushedEnoughToBeYours ||
+	    Ledger->Cleanliness <= Dials.brushedEnoughToBeYours)
+	{
+		return FString();
+	}
+	return TEXT("Word gets round. Nobody at the Lot will touch it now.");
+}
+
 bool UDirtbagGameInstance::IsWorkable(int32 BoardIndex)
 {
 	const FDirtbagProjectMemory* Ledger = LedgerFor(BoardIndex);

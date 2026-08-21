@@ -276,6 +276,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	double CleanLine(int32 BoardIndex, double Hours);
 
+	/** The one line the player has to be told, because it is the difference
+	 *  between losing the valley's projects and taking them. Brushing a line
+	 *  puts your name on it: SpokenFor counts a brushed project as claimed,
+	 *  so the Lot leaves it alone even if you cannot climb it for another ten
+	 *  years. Measured over ninety years and six seeds, a player who brushes
+	 *  the lines above their grade ends 16 first ascents to the Lot's 7; one
+	 *  who only brushes what they can already climb ends 6 to 15
+	 *  (notes/phase4-staking-a-claim.md). Nothing in the game said so.
+	 *
+	 *  Empty until the brushing crosses the threshold, so it is news exactly
+	 *  once per line rather than a label. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
+	FString ClaimText(int32 BoardIndex, double GainedThisPress);
+
 	/** Whether it is worth pulling on yet. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	bool IsWorkable(int32 BoardIndex);

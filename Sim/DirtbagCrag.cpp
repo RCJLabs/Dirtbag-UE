@@ -79,6 +79,12 @@ struct ProjectEntry {
   const char* description;
   int guess;         // the book's guess; a project's grade is an opinion
   RouteType type;
+  // How well the guess is actually informed, which is not the same question
+  // as how hard the line is. The cave's projects are bolted, so somebody has
+  // already hung on them and the drift there is tighter for the same reason.
+  // A line at the back of a crag that nobody has touched is a real guess; a
+  // sit start to a classic that everybody has pulled on is close to known.
+  bool wellKnown = false;
 };
 
 const ProjectEntry kProjects[] = {
@@ -91,6 +97,28 @@ const ProjectEntry kProjects[] = {
     {"the arete left of Diesel",              7, RouteType::Power},
     {"the low traverse into Chalk Ghost",     8, RouteType::Endurance},
     {"the blank wall behind the parking",     9, RouteType::Crimp},
+    // And the one in between, which is a third reason entirely. Shade Line
+    // is V4 and one of the best things here, so its sit start has been
+    // brushed by everybody and done by nobody: too hard for the locals who
+    // love the crag, too soft to interest the visitor who came for Send
+    // Train. That is what a project at the top of a normal career looks
+    // like — not a frontier line, just the good one you have to become
+    // strong enough to deserve.
+    //
+    // It is here because the guidebook had a hole in it. Roadside's other
+    // projects come out around V3, V4, V8, V8 and V10, and a career peaks
+    // at V6.6 on average (notes/phase4-the-lot.md): the player cleared the
+    // two moderates in their first season and then had thirty years with
+    // nothing to aim at. Technical rather than Power on purpose — across a
+    // measured career power collapses to 16.8 while technique ends *higher*
+    // than it started, so this is a line you can still come back for at
+    // fifty, which is the more interesting promise.
+    //
+    // Appended rather than slotted into grade order: the drift below draws
+    // from a stateful stream, so inserting it mid-list would re-roll every
+    // project after it and change the difficulty of lines players are
+    // already part-way through.
+    {"the sit start to Shade Line",           6, RouteType::Technical, true},
 };
 constexpr int kProjectCount =
     static_cast<int>(sizeof(kProjects) / sizeof(kProjects[0]));
@@ -237,8 +265,15 @@ Crag RoadsideCrag(const Rng& worldRng) {
     // it. A guess is usually close and occasionally embarrassing in either
     // direction: the line you talked up as V9 goes at V8 and the locals are
     // kind about it, or it turns out to be the hardest thing here.
+    // A well-known line's guess is narrow and can miss in either direction:
+    // people have pulled on the moves, so the book is close, but nobody has
+    // linked them and the last move is always the surprise. A line nobody
+    // has touched gets the wide spread, which is what makes the hard end of
+    // the book a genuine question.
     const double roll = projectRng.NextDouble();
-    const int drift = roll < 0.25 ? -1 : (roll < 0.6 ? 0 : (roll < 0.9 ? 1 : 2));
+    const int drift =
+        e.wellKnown ? (roll < 0.20 ? -1 : (roll < 0.75 ? 0 : 1))
+                    : (roll < 0.25 ? -1 : (roll < 0.6 ? 0 : (roll < 0.9 ? 1 : 2)));
     const int trueGrade = std::max(0, e.guess + drift);
 
     // A project's moves are as real as anything else's — the rock does not

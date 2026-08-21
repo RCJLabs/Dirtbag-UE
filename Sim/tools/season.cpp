@@ -183,6 +183,16 @@ int main(int argc, char** argv) {
   // policy had ever run it -- so ninety years of careers concluded the
   // valley was exhausted when it was only unbrushed.
   const bool projects = argc > 5 && std::string(argv[5]) == "projector";
+  // `stakeout` is `projector` plus one habit every real dirtbag has and no
+  // probe policy has ever modelled: brushing a line you cannot climb yet.
+  //
+  // SpokenFor already counts a brushed line as yours, so the game has always
+  // allowed this. The probe never did it because PickLine skips anything
+  // that reads NotThisYear, so a project ten years above the player's grade
+  // was never touched -- and the Lot, which rolls for a first ascent every
+  // day from day one, had a decade's head start on every line in the book.
+  // This policy tests whether that head start is the whole story.
+  const bool stakesClaims = argc > 5 && std::string(argv[5]) == "stakeout";
 
   // Arg 6 overrides skin regen per night (shipped: 1.5, so nine points of
   // skin is six nights). This is not a balance proposal — it is the knob
@@ -584,6 +594,18 @@ int main(int argc, char** argv) {
 
       StartGymSession(player, today, kd, dd);
       const Climber body = ClimberForSession(player, today, dd);
+      // Before climbing: put the brush on the lines you want but cannot do.
+      // Half an hour each, which is real time out of a real window -- the
+      // claim is not free, and that is the point of measuring it.
+      if (stakesClaims) {
+        for (const CragLine* p : OpenProjects(crag)) {
+          if (today.hour >= dusk) break;
+          ProjectMemory& m = LedgerFor(player, *p);
+          if (m.cleanliness > 0.4 || m.sent) continue;
+          CleanLine(player, today, m, 0.5, fd, dd);
+        }
+      }
+
       const CragLine* line = PickLine(crag, body, player);
       if (line) {
         ProjectMemory& mem = LedgerFor(player, *line);
@@ -593,7 +615,7 @@ int main(int argc, char** argv) {
         // A projector keeps brushing past workable. Everyone else stops at
         // the minimum, which on a project is the difference between a 0%
         // line and a 67% one, and is why the valley looked used up.
-        const double brushUntil = projects ? 0.98 : 0.0;
+        const double brushUntil = (projects || stakesClaims) ? 0.98 : 0.0;
         while ((!IsWorkable(mem, fd) || mem.cleanliness < brushUntil) &&
                today.hour < win.endHour && today.hour < dusk)
           CleanLine(player, today, mem, 0.5, fd, dd);
@@ -867,6 +889,7 @@ int main(int argc, char** argv) {
          : kept           ? "kept"
          : buysKit        ? "kitted"
          : savesUp        ? "saver"
+         : stakesClaims   ? "stakeout"
          : projects       ? "projector"
          : takesDeals     ? "sponsored"
                           : "greedy",

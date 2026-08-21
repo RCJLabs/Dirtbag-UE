@@ -68,7 +68,17 @@ having a hole in it:
 | the blank wall behind the parking | **V10** |
 
 **Nothing between V4 and V8.** The player clears the first two at V5 in their
-first season and then has nothing to aim at for thirty years. A project is
+first season and then has nothing to aim at for thirty years.
+
+> **[corrected 2026-08-21]** That table is **crag-1, not Roadside**. Measured
+> across 500 worlds, **92.2% already had an open project at V5-V7** — the
+> guess-5 cattle grid and the guess-7 arete drift into the band often enough
+> that the gap is the exception. crag-1 is one of the unlucky 7.8%, and one
+> seed was generalised here into a structural claim about the guidebook. The
+> V6-V7 project was added anyway and takes it to 100%, but the hole it fills
+> was a **1-in-13 world**, not the shape of the crag. See
+> `phase4-staking-a-claim.md`, which also finds that filling it does not move
+> the player's share at all — the constraint was never content. A project is
 supposed to be the thing you might do in your strong years if you commit —
 and there isn't one.
 
