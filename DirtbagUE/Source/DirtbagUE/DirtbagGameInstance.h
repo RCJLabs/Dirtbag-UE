@@ -297,6 +297,13 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|FirstAscent")
 	FString NamingLineText;
 
+	/** "Bouncin  V4  FA you" — the line as the book will print it, set the
+	 *  moment a name is given and carried for the rest of the day. Not
+	 *  saved: it is an acknowledgement, and the ascent itself lives in the
+	 *  ledger. Empty when nothing has been named today. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|FirstAscent")
+	FString LastAscentLine;
+
 	/** Raised by the wall when a line nobody had done goes. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	void OfferNaming(int32 BoardIndex);
@@ -676,6 +683,10 @@ private:
 	/** The ledger for a line, created filthy the first time a virgin line is
 	 *  touched. Returns null only when there is nothing at that index. */
 	FDirtbagProjectMemory* LedgerFor(int32 BoardIndex);
+
+	/** Who signs an ascent. A climber who has not named themselves is still
+	 *  allowed to do first ascents; the book calls them "you" and means it. */
+	FString AscentSignature() const;
 
 	/** Today's Lot, with the career's bonds folded in. */
 	std::vector<dirtbag::Partner> LotToday();

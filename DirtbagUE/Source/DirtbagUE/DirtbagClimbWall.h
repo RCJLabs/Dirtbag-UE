@@ -229,6 +229,12 @@ private:
 	void FinishAttempt();
 	void EndSession();
 	void UpdateHud();
+
+	// Re-read what the book calls this line. Only display: Route.Name is the
+	// ledger key every attempt is recorded against and must never move,
+	// which is exactly why the name on screen is a separate field.
+	void RefreshBookName();
+
 	void PlayAnim(UAnimSequence* Anim, bool bLoop);
 	FVector HoldLocation(int32 Index) const;
 

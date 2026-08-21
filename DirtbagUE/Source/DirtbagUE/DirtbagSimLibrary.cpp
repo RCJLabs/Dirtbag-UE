@@ -627,3 +627,46 @@ FString UDirtbagSimLibrary::GuidebookLine(const FDirtbagCragLine& Line)
 	}
 	return FString(UTF8_TO_TCHAR(dirtbag::GuidebookLine(Sim).c_str()));
 }
+
+void UDirtbagSimLibrary::WriteIntoTheBook(FDirtbagCrag& Book,
+                                          const FDirtbagPlayerState& Player,
+                                          const FString& By)
+{
+	for (FDirtbagCragLine& Line : Book.Lines)
+	{
+		const FDirtbagProjectMemory* Ledger = nullptr;
+		for (const FDirtbagProjectMemory& M : Player.Projects)
+		{
+			if (M.RouteName == Line.Route.Name)
+			{
+				Ledger = &M;
+				break;
+			}
+		}
+		if (Ledger == nullptr)
+		{
+			continue;
+		}
+
+		// Rebuilt rather than round-tripped, as GuidebookLine is — and
+		// pointedly without DisplayName, which arrives already filled with
+		// the fallback. Feeding that back in would tell the sim every line
+		// in the book had been named.
+		dirtbag::CragLine Sim;
+		Sim.route.name = TCHAR_TO_UTF8(*Line.Route.Name);
+		Sim.route.grade = Line.Route.Grade;
+		Sim.isProject = Line.bIsProject;
+		Sim.firstAscentBy = TCHAR_TO_UTF8(*Line.FirstAscentBy);
+
+		if (!dirtbag::WriteIntoTheBook(Sim, DirtbagConvert::ToSim(*Ledger),
+		                               TCHAR_TO_UTF8(*By)))
+		{
+			continue;
+		}
+		Line.DisplayName = UTF8_TO_TCHAR(dirtbag::DisplayName(Sim).c_str());
+		Line.FirstAscentBy = UTF8_TO_TCHAR(Sim.firstAscentBy.c_str());
+		Line.bIsProject = Sim.isProject;
+		Line.Route.Grade = Sim.route.grade;
+	}
+}
+

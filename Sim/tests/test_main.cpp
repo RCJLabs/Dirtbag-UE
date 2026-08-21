@@ -706,6 +706,60 @@ static void TestTheBookRecordsWhatItReallyWent() {
   CHECK(FirstAscentLine(empty, "you").empty());
 }
 
+static void TestTheBookGetsWrittenInto() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  const std::string key = OpenProjects(crag)[0]->route.name;
+  const int guessed = OpenProjects(crag)[0]->route.grade;
+
+  CragLine* line = nullptr;
+  for (CragLine& l : crag.lines) {
+    if (l.route.name == key) line = &l;
+  }
+  CHECK(line != nullptr);
+
+  ProjectMemory m = NewProjectLedger(*line);
+  // Nothing done: the page is untouched, and calling this is harmless.
+  CHECK(!WriteIntoTheBook(*line, m, "you"));
+  CHECK(line->isProject);
+  CHECK(line->displayName.empty());
+  CHECK(line->route.grade == guessed);
+
+  m.sent = true;
+  CHECK(NameFirstAscent(m, *line, "Bouncin"));
+  // Naming alone never touches the book — that is what this function is for,
+  // and it is the bug that shipped: named in the ledger, still a nameless
+  // project on the page.
+  CHECK(line->displayName.empty());
+  CHECK(line->isProject);
+
+  CHECK(WriteIntoTheBook(*line, m, "you"));
+  CHECK(line->displayName == "Bouncin");
+  CHECK(DisplayName(*line) == "Bouncin");
+  CHECK(line->firstAscentBy == "you");
+  CHECK(!line->isProject);
+  CHECK(line->route.grade == m.confirmedGrade);
+  CHECK(line->route.name == key);                // the ledger key never moves
+  CHECK(GuidebookLine(*line).find("Bouncin") != std::string::npos);
+  CHECK(GuidebookLine(*line).find("project,") == std::string::npos);
+
+  // And now nobody can name it again, including you.
+  CHECK(!CanName(*line, m));
+
+  // Idempotent: a book that is rebuilt every time the venue changes gets
+  // this run over it every time, and must not drift.
+  const int settled = line->route.grade;
+  for (int i = 0; i < 5; i++) WriteIntoTheBook(*line, m, "you");
+  CHECK(line->displayName == "Bouncin");
+  CHECK(line->route.grade == settled);
+
+  // A ledger for a different line never writes itself onto this one.
+  CragLine other = crag.lines[0];
+  const std::string otherName = other.route.name;
+  CHECK(!WriteIntoTheBook(other, m, "you"));
+  CHECK(other.route.name == otherName);
+  CHECK(other.displayName.empty());
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -5411,6 +5465,7 @@ int main() {
   TestCleaningCostsTheDay();
   TestNamingIsEarnedAndExact();
   TestTheBookRecordsWhatItReallyWent();
+  TestTheBookGetsWrittenInto();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

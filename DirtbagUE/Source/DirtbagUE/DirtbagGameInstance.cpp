@@ -78,6 +78,9 @@ void UDirtbagGameInstance::Sleep()
 	bWorkedToday = false;
 	DogWorry.Reset();
 	VanNews.Reset();
+	// Yesterday's first ascent stops being news. It is in the book now,
+	// which is where a thing you did goes once it stops being a moment.
+	LastAscentLine.Reset();
 
 	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
 
@@ -183,6 +186,12 @@ void UDirtbagGameInstance::EnsureCrag()
 			    DirtbagConvert::FromSim(dirtbag::NewProjectLedger(SimLine)));
 		}
 	}
+
+	// Put the player's own ascents back on the page. Nothing about the crag
+	// is saved — it is regenerated from the world seed every time the venue
+	// changes — so without this a line you named reverts to a nameless
+	// project the moment you walk to the cave and back.
+	UDirtbagSimLibrary::WriteIntoTheBook(Crag, Player, AscentSignature());
 
 	// The guidebook owns which way its rock faces. Keeping a second copy of
 	// that on the game instance is how a crag ends up climbing in one
@@ -435,6 +444,11 @@ FString UDirtbagGameInstance::ConditionsLine() const
 }
 
 // --- First ascents -----------------------------------------------------------
+
+FString UDirtbagGameInstance::AscentSignature() const
+{
+	return ClimberName.IsEmpty() ? FString(TEXT("you")) : ClimberName;
+}
 
 FDirtbagProjectMemory* UDirtbagGameInstance::LedgerFor(int32 BoardIndex)
 {
@@ -1272,6 +1286,15 @@ bool UDirtbagGameInstance::NameFirstAscent(int32 BoardIndex,
 	}
 	*Ledger = DirtbagConvert::FromSim(SimLedger);
 
+	// The book is loaded and stale by one line. EnsureCrag would fix it on
+	// the next venue change, which is far too late: the player is standing
+	// in front of the thing they just named.
+	UDirtbagSimLibrary::WriteIntoTheBook(Crag, Player, AscentSignature());
+
+	// Say it back. Naming was silent until now — the widget closed and
+	// nothing in the world acknowledged that the line was yours.
+	LastAscentLine = FirstAscentLine(BoardIndex);
+
 	bNamingPending = false;
 
 	// A first ascent is the one thing in this game worth writing down the
@@ -1287,8 +1310,10 @@ FString UDirtbagGameInstance::FirstAscentLine(int32 BoardIndex)
 	{
 		return FString();
 	}
+	const FString By = AscentSignature();
 	return FString(UTF8_TO_TCHAR(
-	    dirtbag::FirstAscentLine(DirtbagConvert::ToSim(*Ledger), "you")
+	    dirtbag::FirstAscentLine(DirtbagConvert::ToSim(*Ledger),
+	                             TCHAR_TO_UTF8(*By))
 	        .c_str()));
 }
 

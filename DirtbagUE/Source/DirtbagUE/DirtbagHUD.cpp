@@ -136,6 +136,15 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		         GEngine->GetMediumFont(), 1.f);
 	}
 
+	// And once it is named, the book's own line — the answer to the prompt
+	// above, and the only place the name you chose is ever said back to you.
+	if (!Game->LastAscentLine.IsEmpty())
+	{
+		Y += 22.f;
+		DrawText(Game->LastAscentLine, FLinearColor(0.95f, 0.85f, 0.40f, 1.f),
+		         X, Y, GEngine->GetMediumFont(), 1.f);
+	}
+
 	// The career, small, bottom left — it is a slow number and reads like one.
 	DrawText(Game->GetCareerLine(), kDim, X, H - 38.f, GEngine->GetSmallFont(),
 	         1.f);
