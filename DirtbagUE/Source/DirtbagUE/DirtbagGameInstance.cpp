@@ -78,6 +78,7 @@ void UDirtbagGameInstance::Sleep()
 	bWorkedToday = false;
 	DogWorry.Reset();
 	VanNews.Reset();
+	SponsorNews.Reset();
 	// Yesterday's first ascent stops being news. It is in the book now,
 	// which is where a thing you did goes once it stops being a moment.
 	LastAscentLine.Reset();
@@ -97,6 +98,51 @@ void UDirtbagGameInstance::Sleep()
 	if (SalariedToday())
 	{
 		WorkSalariedDay();
+	}
+
+	// The sponsor's side of the bargain. Both halves ran nowhere before
+	// this: the stipend was never paid, so the $640-a-month title tier paid
+	// $0, and the review was never run — not by the engine and not even by
+	// the probe — so no rung was ever won or lost by anybody.
+	//
+	// Monthly rather than daily, because a stipend is a monthly thing and
+	// because the offer check is already monthly. Day 1 is excluded: they
+	// do not pay you for the day you signed.
+	if (Player.Sponsor.Tier != EDirtbagSponsorTier::None &&
+	    Player.Day > 1 && Player.Day % 30 == 1)
+	{
+		const double Paid = dirtbag::MonthlyStipend(
+		    static_cast<dirtbag::SponsorTier>(Player.Sponsor.Tier));
+		if (Paid > 0.0)
+		{
+			dirtbag::PlayerState Wallet = DirtbagConvert::ToSim(Player);
+			dirtbag::Pay(Wallet, Paid);
+			Player.Cash = Wallet.cash;
+			Player.Owed = Wallet.owed;
+			SponsorNews = FString::Printf(TEXT("%s paid: $%.0f."),
+			                              *SponsorLine(), Paid);
+		}
+	}
+
+	// And once a year they look at what you have actually done. Being hurt
+	// pauses that clock rather than running it, which is why the day count
+	// this reads had to become saved state.
+	if (Player.Sponsor.Tier != EDirtbagSponsorTier::None &&
+	    Player.Day > 1 && Player.Day % 365 == 1)
+	{
+		dirtbag::Sponsorship Deal = DirtbagConvert::ToSim(Player.Sponsor);
+		const EDirtbagSponsorTier Was = Player.Sponsor.Tier;
+		const dirtbag::SponsorTier Now = dirtbag::ReviewSeason(
+		    Deal, GetCareer().HardestSendGrade, Deal.daysHurtThisSeason);
+		Deal.daysHurtThisSeason = 0;
+		Player.Sponsor = DirtbagConvert::FromSim(Deal);
+
+		SponsorNews =
+		    static_cast<EDirtbagSponsorTier>(Now) < Was
+		        ? FString::Printf(TEXT("They stopped returning calls. %s"),
+		                          *SponsorLine())
+		        : FString::Printf(TEXT("They are keeping you on. %s"),
+		                          *SponsorLine());
 	}
 
 	// And whether anybody put it together while you slept. This lives in

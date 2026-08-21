@@ -974,6 +974,100 @@ static void TestAShoeDealActuallyBuysShoes() {
   CHECK(!CoversShoes(none));
 }
 
+static void TestASponsorGetsPaidAndReviewed() {
+  // The nightly count, which is the state the review reads. Written in
+  // SleepToNextDay because that is where nights are, and saved because a
+  // reload must not launder a season spent injured into a season spent
+  // slacking.
+  PlayerState hurt;
+  hurt.sponsor.tier = SponsorTier::Gear;
+  hurt.climber.injury.active = true;
+  hurt.climber.injury.daysLeft = 40;
+  hurt.climber.injury.severity = 0.5;
+  const Rng world = Rng::FromSeed("sponsor-nights");
+  DayState d = WakeUp(hurt);
+  for (int night = 0; night < 40; night++) SleepToNextDay(hurt, d, world);
+  CHECK(hurt.sponsor.daysHurtThisSeason > 0);
+
+  PlayerState fine;
+  fine.sponsor.tier = SponsorTier::Gear;
+  DayState fd = WakeUp(fine);
+  for (int night = 0; night < 40; night++) SleepToNextDay(fine, fd, world);
+  CHECK(fine.sponsor.daysHurtThisSeason == 0);
+
+  // And it survives the disk, which is the only reason it is saved state
+  // rather than a counter on the game instance.
+  SaveGame save;
+  save.player = hurt;
+  save.seed = "sponsor";
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.sponsor.daysHurtThisSeason ==
+        hurt.sponsor.daysHurtThisSeason);
+
+  // A v14 save has no such field, and zero is not an approximation there:
+  // ReviewSeason was called by nothing at all, in the engine or the probe,
+  // so nobody with a v14 career had ever been looked at.
+  //
+  // The fixture is derived from this build's own writer rather than typed
+  // out: drop the line v14 could not have had and put the version back.
+  // A hand-typed fixture tests what I believed v14 looked like, which is
+  // the thing most likely to be wrong.
+  std::string v14 = SerializeSave(save);
+  const std::size_t at = v14.find("sponsor.hurtdays=");
+  CHECK(at != std::string::npos);
+  v14.erase(at, v14.find('\n', at) + 1 - at);
+  CHECK(v14.find("sponsor.hurtdays") == std::string::npos);
+  const std::size_t vat = v14.find("version=15\n");
+  CHECK(vat != std::string::npos);
+  v14.replace(vat, std::string("version=15\n").size(), "version=14\n");
+
+  SaveGame old;
+  CHECK(DeserializeSave(v14, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);              // arrives upgraded
+  CHECK(old.player.sponsor.daysHurtThisSeason == 0);
+  CHECK(old.player.sponsor.tier == hurt.sponsor.tier);   // and intact
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+
+  // The review itself. Two flat seasons drop a rung...
+  SponsorDials sp;
+  Sponsorship deal;
+  deal.tier = SponsorTier::Title;
+  deal.gradeAtLastReview = 8;
+  for (int season = 0; season < sp.seasonsOfNothingBeforeDropped; season++) {
+    ReviewSeason(deal, 8, 0, sp);
+  }
+  CHECK(deal.tier == SponsorTier::Gear);
+
+  // ...unless you were hurt for them, which is the whole reason the day
+  // count had to become real state.
+  Sponsorship injured;
+  injured.tier = SponsorTier::Title;
+  injured.gradeAtLastReview = 8;
+  for (int season = 0; season < sp.seasonsOfNothingBeforeDropped; season++) {
+    ReviewSeason(injured, 8, sp.injuryDaysThatPauseReview, sp);
+  }
+  CHECK(injured.tier == SponsorTier::Title);
+
+  // And progress keeps you regardless.
+  Sponsorship climbing;
+  climbing.tier = SponsorTier::Title;
+  climbing.gradeAtLastReview = 8;
+  for (int season = 1; season <= 4; season++) {
+    ReviewSeason(climbing, 8 + season, 0, sp);
+  }
+  CHECK(climbing.tier == SponsorTier::Title);
+  CHECK(climbing.seasonsHeld == 4);
+
+  // The stipend is the other half that ran nowhere. Every rung that is
+  // supposed to pay, pays.
+  CHECK(MonthlyStipend(SponsorTier::None, sp) == 0.0);
+  CHECK(MonthlyStipend(SponsorTier::Shoes, sp) == 0.0);
+  CHECK(MonthlyStipend(SponsorTier::Gear, sp) > 0.0);
+  CHECK(MonthlyStipend(SponsorTier::Title, sp) >
+        MonthlyStipend(SponsorTier::Gear, sp));
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -5684,6 +5778,7 @@ int main() {
   TestHeadTrainsOnWhatYouCommitTo();
   TestClaimingIsNamingPlusTellingTheScene();
   TestAShoeDealActuallyBuysShoes();
+  TestASponsorGetsPaidAndReviewed();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

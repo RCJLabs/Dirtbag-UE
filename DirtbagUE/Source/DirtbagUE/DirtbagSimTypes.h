@@ -550,6 +550,17 @@ struct FDirtbagSponsorship
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
 	int32 SeasonsWithoutProgress = 0;
+
+	/** Days spent hurt since the last review, which the review reads to
+	 *  decide whether a flat season was failure or a torn pulley.
+	 *
+	 *  Unlike the obligation counters this cannot be mirror-skipped: the
+	 *  sim increments it every night inside SleepToNextDay, and the engine
+	 *  reaches that through a ToSim/FromSim round trip, so a mirror that
+	 *  dropped it would throw the increment away every single night and the
+	 *  injury pause would never once fire. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
+	int32 DaysHurtThisSeason = 0;
 };
 
 /** What you own that buys you climbing. */

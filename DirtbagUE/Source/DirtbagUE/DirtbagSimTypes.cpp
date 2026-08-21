@@ -384,6 +384,7 @@ FDirtbagSponsorship FromSim(const dirtbag::Sponsorship& In)
 	Out.SeasonsHeld = In.seasonsHeld;
 	Out.GradeAtLastReview = In.gradeAtLastReview;
 	Out.SeasonsWithoutProgress = In.seasonsWithoutProgress;
+	Out.DaysHurtThisSeason = In.daysHurtThisSeason;
 	return Out;
 }
 
@@ -392,6 +393,7 @@ dirtbag::Sponsorship ToSim(const FDirtbagSponsorship& In)
 	dirtbag::Sponsorship Out;
 	Out.tier = static_cast<dirtbag::SponsorTier>(In.Tier);
 	Out.seasonsHeld = In.SeasonsHeld;
+	Out.daysHurtThisSeason = In.DaysHurtThisSeason;
 	Out.gradeAtLastReview = In.GradeAtLastReview;
 	Out.seasonsWithoutProgress = In.SeasonsWithoutProgress;
 	return Out;

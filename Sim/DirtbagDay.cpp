@@ -336,6 +336,12 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // down now counts down here, where a night is.
   FactionDay(player.standing, worldRng, player.day);
 
+  // A day spent hurt is a day the sponsor is not allowed to hold against
+  // you, and the counting of it is a per-night tick like everything else
+  // here. Fourth rule-of-thumb application: anything that counts, counts
+  // here, where a night is.
+  if (IsHurt(player.climber)) player.sponsor.daysHurtThisSeason++;
+
   player.day += 1;
   // Bills land on their morning, every billsEveryDays-th day after day 1.
   if (dials.billsEveryDays > 0 && player.day > 1 &&

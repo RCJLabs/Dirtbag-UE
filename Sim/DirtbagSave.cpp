@@ -172,11 +172,18 @@ void MigrateV12ToV13(SaveFields& fields) {
   fields["sponsor.seasons"] = "0";
   fields["sponsor.lastgrade"] = "-1";
   fields["sponsor.stale"] = "0";
+  fields["sponsor.hurtdays"] = "0";
 }
 
 // v13 → v14: what you did that nobody saw. A v13 career carried nothing,
 // which is the honest answer and the common one.
 void MigrateV13ToV14(SaveFields& fields) { fields["secrets"] = "0"; }
+
+// v14 → v15: days hurt since the last review. A v14 career had never been
+// reviewed at all — ReviewSeason was written and called by nothing, in the
+// engine and in the probe alike — so migrating to zero is not an
+// approximation, it is the truth: nobody has ever looked at them.
+void MigrateV14ToV15(SaveFields& fields) { fields["sponsor.hurtdays"] = "0"; }
 
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
@@ -198,7 +205,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5,
       &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9,
       &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12,
-      &MigrateV12ToV13, &MigrateV13ToV14};
+      &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15};
   return kMigrations;
 }
 
@@ -301,6 +308,8 @@ std::string SerializeSave(const SaveGame& save) {
       << IntToStr(save.player.sponsor.gradeAtLastReview) << "\n";
   out << "sponsor.stale="
       << IntToStr(save.player.sponsor.seasonsWithoutProgress) << "\n";
+  out << "sponsor.hurtdays="
+      << IntToStr(save.player.sponsor.daysHurtThisSeason) << "\n";
 
   out << "owed=" << NumToStr(save.player.owed) << "\n";
   for (int i = 0; i < kFactionCount; i++) {
@@ -502,7 +511,9 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       !ParseInt(fields, "sponsor.lastgrade",
                 save.player.sponsor.gradeAtLastReview) ||
       !ParseInt(fields, "sponsor.stale",
-                save.player.sponsor.seasonsWithoutProgress)) {
+                save.player.sponsor.seasonsWithoutProgress) ||
+      !ParseInt(fields, "sponsor.hurtdays",
+                save.player.sponsor.daysHurtThisSeason)) {
     return LoadResult::BadFormat;
   }
   // Clamped rather than trusted, like every other enum out of a save file.

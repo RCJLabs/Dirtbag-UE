@@ -645,6 +645,13 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Ethics")
 	FString EthicsNews;
 
+	/** What the sponsor did overnight: the month's money, or the once-a-year
+	 *  verdict on whether they are keeping you. Empty on any night neither
+	 *  happened. Not saved — it is news, and news is for the morning it
+	 *  arrives. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
+	FString SponsorNews;
+
 	// --- The Lot ---------------------------------------------------------
 
 	/** The Lot's people as they are today: strength derived from seed and

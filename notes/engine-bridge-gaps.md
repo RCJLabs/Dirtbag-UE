@@ -60,6 +60,47 @@ their named scope complete, and the sim's half genuinely is. The engine's
 half is not, and nothing said so, because a `BlueprintCallable` that exists
 is indistinguishable from one that is called.
 
+## Wired since (2026-08-21)
+
+**`FuelFor`** — charged in `DriveVan`, which every drive in the game comes
+through. Charged rather than refused: you cannot decline to have burned the
+fuel you already burned, so a skint player arrives owing for the drive.
+`LastDriveFuel` carries the number to the arrival toast, because a cost the
+player never sees reads as a bug.
+
+**`WorkSalariedDay` / `SalaryDayPay`** — run from `Sleep`, right after
+`SleepToNextDay` resets the day to the wake hour. At dawn, not offered as an
+action: a trap you can decline is not a trap. `SalaryOwnsHour` stays unwired
+and now says why — with the day worked at dawn the clock is always past the
+shift, so it is unreachable by construction rather than by omission.
+
+**`MonthlyStipend` / `ReviewSeason`** — monthly and yearly, from `Sleep`.
+The review needed `daysHurtThisSeason`, which had to become **saved state**
+(SAVE_VERSION 15), because being hurt pauses the review clock and a reload
+must not launder a season spent injured into a season spent slacking.
+
+> Worth recording: **`ReviewSeason` was unwired in the probe too.** Every
+> other gap here was engine-only. This one meant no career anywhere — played
+> or simulated — had ever been reviewed, so the "a failed review costs a rung
+> rather than the career" line in the sponsorship changelog was describing
+> code that had never run outside a unit test.
+
+## A hole in the tooling, found by trying to break it
+
+`check-mirror-coverage.py` checks that every sim field is read by its
+`FromSim`. It does **not** check `ToSim`, and deleting
+`Out.daysHurtThisSeason = In.DaysHurtThisSeason` from the engine-to-sim
+direction passes every checker and every test in the repo.
+
+That direction is not cosmetic. The sim increments this field inside
+`SleepToNextDay`, and the engine reaches that through a ToSim/FromSim round
+trip — so a mirror that dropped it on the way *in* would throw the increment
+away every single night and the injury pause would never once fire. Exactly
+the class of silent bug this project keeps finding, one layer down.
+
+**Not fixed here.** Making the checker symmetric will flag every derived
+field a `ToSim` legitimately drops, and triaging those is its own pass.
+
 ## The rule this leaves behind
 
 The old rule was *anything that happens overnight happens in `Sleep`*, which

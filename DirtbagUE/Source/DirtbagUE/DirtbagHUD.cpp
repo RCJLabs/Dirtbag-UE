@@ -162,6 +162,16 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		         GEngine->GetMediumFont(), 1.f);
 	}
 
+	// The sponsor's news: the month's money, or the yearly verdict. Same
+	// treatment as the Lot's, because it arrives the same way — overnight,
+	// already decided.
+	if (!Game->SponsorNews.IsEmpty())
+	{
+		Y += 22.f;
+		DrawText(Game->SponsorNews, FLinearColor(0.85f, 0.55f, 0.35f, 1.f), X,
+		         Y, GEngine->GetMediumFont(), 1.f);
+	}
+
 	// And what came out about you. Same size and colour as the Lot's news
 	// because it arrives the same way — overnight, already true, and about
 	// something you did rather than something you are choosing.
