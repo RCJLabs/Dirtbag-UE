@@ -8,3 +8,10 @@ DirtbagUE/Saved/
 DirtbagUE/.vs/
 DirtbagUE/*.sln
 DirtbagUE/*.slnx
+
+# Vendored Fab packs — re-downloadable from the launcher, and far too big to
+# version. PWL_Light_Manager is 235 MB and ProceduralBuildingGenerator 681 MB;
+# together they are the whole free Git LFS tier in one commit, and LFS storage
+# is never reclaimed once spent. SETUP.md section 3a lists what to reinstall.
+DirtbagUE/Content/PWL_Light_Manager/
+DirtbagUE/Content/ProceduralBuildingGenerator/

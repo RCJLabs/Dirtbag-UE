@@ -87,6 +87,30 @@ Two purchases, both cheap, both replaceable later:
    warehouse pack until Phase 1 — Phase 0's question is tension and
    legibility, and art hides the answer.
 
+## 3a. Vendored Fab packs (not in the repo)
+
+Some purchased packs are too big to version and are ignored in `.gitignore`.
+A fresh clone will not have them, and any level or Blueprint referencing them
+will show missing references until they are reinstalled from the Fab library
+in the Epic launcher, into `DirtbagUE/Content/` under the pack's own name.
+
+| pack | folder | size |
+| --- | --- | --- |
+| PWL Light Manager | `Content/PWL_Light_Manager/` | 235 MB |
+| Procedural Building Generator | `Content/ProceduralBuildingGenerator/` | 681 MB |
+
+**Why they are ignored rather than tracked in LFS.** `.gitattributes` routes
+`*.uasset` and `*.umap` through Git LFS, which is right for our own content —
+Blueprints, levels, the climb-wall assets — because those are small and change
+often. It is wrong for these: 916 MB is the entire free LFS tier (~1 GB
+storage, ~1 GB/month bandwidth) spent in a single commit, one fresh clone
+would exhaust the month's bandwidth, and **LFS storage is not reclaimed by
+deleting the files or rewriting history** — the objects stay and the quota
+stays spent. Against that, reinstalling from the launcher costs five minutes.
+
+Add a row here whenever a pack is added to the ignore list, so the reinstall
+list stays complete rather than living in somebody's memory.
+
 ## 4. Phase 0 build order (suggested)
 
 > **The sim is already exposed to Blueprint** (`Source/DirtbagUE/
