@@ -1158,6 +1158,24 @@ static void TestTheMirroredDialsStillAgree() {
   CHECK(sd.runoutGradePenalty == pd.runoutGradePenalty);
   CHECK(sd.injuryGradePenalty == bd.injuryGradePenalty);
 
+  // The fourth pair, and the only one nobody had written down as one. Both
+  // of KitDials' copies were read by nothing anywhere — the resolver has
+  // always used the SessionDials ones — so the pad could be retuned at the
+  // shop with no effect at the wall, in silence.
+  const KitDials kd;
+  CHECK(sd.noPadGradePenalty == kd.noPadGradePenalty);
+  CHECK(sd.padGroundedFraction == kd.padGroundedFraction);
+
+  // And a fifth pair the checker found that I did not know about: how long
+  // a year is, held separately by the age model and the season model. Let
+  // those drift and the game runs a birthday and a solstice on different
+  // calendars — a career's ages sliding against its seasons, with no
+  // symptom sharp enough to notice until somebody is 40 in high summer
+  // twice running.
+  const AgeDials ad;
+  const ConditionsDials cd2;
+  CHECK(ad.daysPerYear == cd2.daysPerYear);
+
   // And the shoe formula is now genuinely one formula rather than two that
   // happened to agree. Whatever the shop quotes is what the wall charges,
   // at every wear and on both kinds of hold.

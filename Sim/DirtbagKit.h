@@ -49,11 +49,16 @@ struct KitDials {
   // handicap and never the whole story. It scales with height, so the first
   // moves are free and the last ones are not — which is where a boulderer
   // actually backs off, and why the pad is worth its price.
+  // Mirrored into SessionDials, which is where the resolver reads them
+  // from; these are the owning copies. Same arrangement as GearDials for
+  // shoes and SportDials for the runout — share the function, mirror the
+  // constant — and TestTheMirroredDialsStillAgree pins the pair, because
+  // until it did, both of these were tunable here with no effect anywhere.
   double noPadGradePenalty = 0.9;
 
   // Below this fraction of the way up, the ground is close enough that no
   // amount of foam is the point. Nobody has ever been gripped on move one.
-  double groundedFraction = 0.35;
+  double padGroundedFraction = 0.35;
 
   // --- The hangboard ----------------------------------------------------
   // Eighty-five dollars of plywood and a screw gun. It is the cheap answer

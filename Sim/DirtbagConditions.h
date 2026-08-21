@@ -94,7 +94,7 @@ struct ConditionsDials {
   // window at midday is a window you cannot have if you are at work.
   double seasonSwingF = 20.0;
   int warmestDay = 200;    // day 1 is midwinter-ish; the peak is high summer
-  int daysPerYear = 365;
+  int daysPerYear = 365;   // mirrors AgeDials; see the note there
   double coldestHour = 3.0;     // when the low lands
   double hottestHour = 15.0;    // when the high lands
 

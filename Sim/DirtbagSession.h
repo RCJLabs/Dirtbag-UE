@@ -114,6 +114,10 @@ struct SessionDials {
   // and never the whole story. It scales with how far up you are, so the
   // first moves are free - nobody has ever been scared on move one - and
   // the last ones are not, which is exactly where a boulderer backs off.
+  // Mirrors KitDials so the resolver and the shop agree; the numbers live
+  // there. The fourth such pair, and the only one that was not written down
+  // as one — which is how both of KitDials' copies came to be read by
+  // nothing at all.
   double noPadGradePenalty = 0.9;
   double padGroundedFraction = 0.35;
 
