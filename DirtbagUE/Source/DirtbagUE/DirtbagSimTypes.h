@@ -26,6 +26,10 @@
 #include "DirtbagSave.h"
 #include "DirtbagSession.h"
 #include "DirtbagSessionLoop.h"
+// The one that was missing. Every other sim header the engine touches is
+// aggregated here; Sport was not, so the belay functions were invisible to
+// DirtbagGameInstance.cpp and the build died on a container-green commit.
+#include "DirtbagSport.h"
 
 #include "DirtbagSimTypes.generated.h"
 

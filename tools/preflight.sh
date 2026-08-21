@@ -43,4 +43,8 @@ echo "== dials read, and mirrors pinned =="
 python3 tools/check-dials.py
 
 echo
+echo "== engine includes reach what the engine names =="
+python3 tools/check-engine-includes.py
+
+echo
 echo "ALL CHECKS PASSED"

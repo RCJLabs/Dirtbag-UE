@@ -1406,7 +1406,7 @@ void UDirtbagGameInstance::AdvanceTheLot()
 	// thirty-year career converges on certainty however small the dial is,
 	// so commitment has to protect a line structurally rather than
 	// probabilistically.
-	const std::vector<std::string> Taken =
+	std::vector<std::string> Taken =
 	    dirtbag::SpokenFor(DirtbagConvert::ToSim(Player).projects);
 	std::vector<dirtbag::Partner> Lot = LotToday();
 	for (const dirtbag::Partner& P : Lot)
@@ -1434,7 +1434,7 @@ void UDirtbagGameInstance::AdvanceTheLot()
 		// stayed an open project and the player could still walk up and
 		// take the first ascent of something Dev did last spring.
 		dirtbag::CragLine& Got = SimCrag.lines[Line];
-		dirtbag::TheyPutUpTheLine(Got, P);
+		dirtbag::TheyPutUpTheLine(Got, P.name);
 		P.firstAscents.push_back(Got.route.name);
 		Taken.push_back(Got.route.name);
 
