@@ -192,7 +192,15 @@ int main(int argc, char** argv) {
   // was never touched -- and the Lot, which rolls for a first ascent every
   // day from day one, had a decade's head start on every line in the book.
   // This policy tests whether that head start is the whole story.
-  const bool stakesClaims = argc > 5 && std::string(argv[5]) == "stakeout";
+  // `hoarder` is `stakeout` plus the one thing no policy has ever done:
+  // actually bank money. `saver` is misleadingly named -- it buys pads and
+  // its own comment says the pad is "the only thing in the game worth saving
+  // for", which is exactly the hole dreams are supposed to fill. Nobody has
+  // ever measured what a career can accumulate, or what accumulating costs
+  // in climbing, and a dream cannot be priced without both.
+  const bool hoards = argc > 5 && std::string(argv[5]) == "hoarder";
+  const bool stakesClaims =
+      (argc > 5 && std::string(argv[5]) == "stakeout") || hoards;
 
   // Arg 6 overrides skin regen per night (shipped: 1.5, so nine points of
   // skin is six nights). This is not a balance proposal — it is the knob
@@ -228,6 +236,10 @@ int main(int argc, char** argv) {
   // they commit" -- which was intuition, never measured, and measurable
   // only once the Lot's claims actually reached the book.
   const double lotChance = argc > 11 ? std::atof(argv[11]) : -1.0;
+  // Arg 12: what a hoarder is working towards. The whole point of the sweep
+  // -- at zero this is stakeout, and every dollar above it is bought with
+  // days that could have been climbing.
+  const double savingsTarget = argc > 12 ? std::atof(argv[12]) : 20000.0;
 
   const Rng world = Rng::FromSeed(seed);
   // Not const: across generations the book has to be written into, or the
@@ -413,6 +425,10 @@ int main(int argc, char** argv) {
           player.cash < kd.padCost + 150.0) {
         needMoney = true;
       }
+      // A hoarder works towards a number instead of a thermostat. This is
+      // the only policy that ever turns a climbing day into a working day
+      // for something other than rent, which is what a dream would do.
+      if (hoards && player.cash < savingsTarget) needMoney = true;
       if (needMoney) {
         const std::vector<OddJob> board = OddJobBoard(world, player.day, jd);
         const OddJob* best = nullptr;
@@ -902,6 +918,7 @@ int main(int argc, char** argv) {
          : kept           ? "kept"
          : buysKit        ? "kitted"
          : savesUp        ? "saver"
+         : hoards         ? "hoarder"
          : stakesClaims   ? "stakeout"
          : projects       ? "projector"
          : takesDeals     ? "sponsored"
