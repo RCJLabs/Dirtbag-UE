@@ -290,6 +290,15 @@ int main(int argc, char** argv) {
 
   for (int day = 1; day <= DAYS; day++) {
     DayState today = WakeUp(player, dd);
+    // Snapshot the injury at dawn, before any climbing. ClimbOnIt fires
+    // per burn during the session, so a snapshot taken later in the day --
+    // which is where this used to live, just above SleepToNextDay -- is
+    // taken after the event it is trying to detect, and reports zero
+    // aggravations forever. It did: 274 days climbed on hurt, 0
+    // aggravations, and the mechanic was working the whole time.
+    const bool hurtAtDawn = IsHurt(player.climber);
+    const double sevAtDawn = player.climber.injury.severity;
+    const int leftAtDawn = player.climber.injury.daysLeft;
     const Weather w = GenerateWeather(world, player.day, cd);
     const PrimeWindow win = FindPrimeWindow(w, crag.aspect, cd);
 
@@ -769,17 +778,21 @@ int main(int argc, char** argv) {
     // The night's roll happens inside SleepToNextDay, which is the point of
     // it living there — so an injury is noticed the way the player notices
     // one, by waking up with it.
-    const bool wasHurt = IsHurt(player.climber);
-    const double sev = player.climber.injury.severity;
-    const int left = player.climber.injury.daysLeft;
+    const bool wasHurt = hurtAtDawn;
+    const double sev = sevAtDawn;
+    const int left = leftAtDawn;
     if (wasHurt && today.atGym) t.climbedHurtDays++;
+    // Whether the day made it worse is asked before sleep, because sleep
+    // is what heals: a night's recovery would mask an aggravation that
+    // cost more than the night gave back.
+    const bool worsened = wasHurt && IsHurt(player.climber) &&
+                          (player.climber.injury.severity > sev + 1e-9 ||
+                           player.climber.injury.daysLeft > left);
     SleepToNextDay(player, today, world, dd);
     if (!wasHurt && IsHurt(player.climber)) {
       t.injuries++;
       consecutiveInjuries++;
-    } else if (wasHurt && IsHurt(player.climber) &&
-               (player.climber.injury.severity > sev + 1e-9 ||
-                player.climber.injury.daysLeft > left)) {
+    } else if (worsened) {
       t.aggravations++;
     }
     if (!IsHurt(player.climber) && !wasHurt) {
