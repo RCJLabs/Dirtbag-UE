@@ -48,6 +48,7 @@ struct Tally {
   int mealsEaten = 0, dogMeals = 0, brokeDays = 0, starvedNights = 0;
   double cashLow = 1e9, cashHigh = -1e9;
   int linesLostToTheLot = 0;
+  double peakAllround = 0.0;   // the best this body ever was
   std::vector<std::string> lotNames;   // what they called them
   std::vector<LineTally> perLine;
   double earned = 0.0, spentFood = 0.0, spentDog = 0.0, spentBills = 0.0;
@@ -770,6 +771,13 @@ int main(int argc, char** argv) {
     }
     peakGradeEver = std::max(peakGradeEver,
                              SkillToGrade(player.climber.skills.power));
+    {
+      const Skills& s = player.climber.skills;
+      t.peakAllround = std::max(
+          t.peakAllround,
+          SkillToGrade((s.power + s.fingers + s.technique + s.endurance +
+                        s.head) / 5.0));
+    }
 
     // The one thing that ends a career. Never a command: the game offers,
     // and this policy always takes it, because a probe that declines would
@@ -834,6 +842,7 @@ int main(int argc, char** argv) {
       for (const std::string& s : t.lotNames) printf("    %s\n", s.c_str());
       printf("\n");
     }
+    printf("PEAK\t%.2f\tbest allround the player ever was\n", t.peakAllround);
     printf("GUIDEBOOK\t%d\tlives\t%d\tyours\t%d\ttheirs\n", lives,
            lineCount, static_cast<int>(t.lotNames.size()));
   }

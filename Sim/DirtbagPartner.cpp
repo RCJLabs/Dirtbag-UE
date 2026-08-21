@@ -57,11 +57,15 @@ Climber PartnerOn(const Rng& worldRng, const std::string& name,
   const double creep = dials.skillPerDay * ambition * std::max(0, day - 1);
   // A spread so nobody is flat across every discipline — the same numbers
   // every day for the same person.
-  c.skills.power = baseSkill + creep + (rng.NextDouble() * 8.0 - 4.0);
-  c.skills.fingers = baseSkill + creep + (rng.NextDouble() * 8.0 - 4.0);
-  c.skills.technique = baseSkill + creep + (rng.NextDouble() * 8.0 - 4.0);
-  c.skills.endurance = baseSkill + creep + (rng.NextDouble() * 8.0 - 4.0);
-  c.skills.head = baseSkill + creep + (rng.NextDouble() * 8.0 - 4.0);
+  const auto at = [&]() {
+    return std::min(dials.ceiling,
+                    baseSkill + creep + (rng.NextDouble() * 8.0 - 4.0));
+  };
+  c.skills.power = at();
+  c.skills.fingers = at();
+  c.skills.technique = at();
+  c.skills.endurance = at();
+  c.skills.head = at();
   c.skin = 9.0;
   c.psyche = 0.7;
   return c;

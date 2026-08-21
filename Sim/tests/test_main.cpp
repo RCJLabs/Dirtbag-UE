@@ -1499,6 +1499,49 @@ static void TestTheLotPutsUpLinesAndNamesThem() {
   CHECK(everTaken);
 }
 
+static void TestTheLotPlateausLikePeopleDo() {
+  PartnerDials d;
+  const Rng world = Rng::FromSeed("gym-1");
+
+  // The dial's own sentence, checked rather than trusted: a season moves
+  // somebody about a third of a grade. It said this while being set to
+  // 0.03, which is 1.53 grades a season -- four and a half times its own
+  // documented intent, and nothing in the repo disagreed with it.
+  const double gradesPerSeason = d.skillPerDay * 365.0 / 100.0 * 14.0;
+  CHECK(gradesPerSeason > 0.25);
+  CHECK(gradesPerSeason < 0.45);
+
+  // And a ceiling, because there was none. Partners are the only climbers
+  // in the game with no age model, so the creep ran unbounded: over thirty
+  // years Dev reached power 382.5 on a scale documented 0..100, and Trish --
+  // who is delighted to help and cannot climb your project -- reached 237.6.
+  for (int day : {1, 365, 3650, 10950, 40000}) {
+    for (const Partner& p : LotRegulars(world, day, d)) {
+      CHECK(p.climber.skills.power <= d.ceiling);
+      CHECK(p.climber.skills.fingers <= d.ceiling);
+      CHECK(p.climber.skills.technique <= d.ceiling);
+      CHECK(p.climber.skills.endurance <= d.ceiling);
+      CHECK(p.climber.skills.head <= d.ceiling);
+    }
+  }
+
+  // They do still improve, or the Lot is scenery.
+  double early = 0.0, late = 0.0;
+  for (const Partner& p : LotRegulars(world, 1, d)) early += p.climber.skills.power;
+  for (const Partner& p : LotRegulars(world, 3650, d)) late += p.climber.skills.power;
+  CHECK(late > early);
+
+  // The strongest local plateaus rather than ascending forever: ten years
+  // apart, past the ceiling, is the same person.
+  double at20 = 0.0, at40 = 0.0;
+  for (const Partner& p : LotRegulars(world, 7300, d))
+    at20 = std::max(at20, p.climber.skills.power);
+  for (const Partner& p : LotRegulars(world, 14600, d))
+    at40 = std::max(at40, p.climber.skills.power);
+  CHECK(at20 == at40);
+  CHECK(at20 == d.ceiling);
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -6291,6 +6334,7 @@ int main() {
   TestEachCragCostsSomethingDifferentToReach();
   TestTheValleyRemembersAcrossGenerations();
   TestTheLotPutsUpLinesAndNamesThem();
+  TestTheLotPlateausLikePeopleDo();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();
