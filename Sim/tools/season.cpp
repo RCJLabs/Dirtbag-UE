@@ -161,6 +161,15 @@ int main(int argc, char** argv) {
   // this one arrives because of it — at the price of the good days.
   const bool takesDeals = argc > 5 && std::string(argv[5]) == "sponsored";
 
+  // Arg 6 overrides skin regen per night (shipped: 1.5, so nine points of
+  // skin is six nights). This is not a balance proposal — it is the knob
+  // that answers the one question five measurements have left standing:
+  // *if skin stops being the binding constraint, what binds next?* If the
+  // answer is "the weather", then no money mechanic can ever close Phase
+  // 3's gate and the gate is what has to move. If the answer is "nothing",
+  // then skin was the whole wall and lifting it is a real option.
+  const double skinRegen = argc > 6 ? std::atof(argv[6]) : -1.0;
+
   const Rng world = Rng::FromSeed(seed);
   const Crag crag = RoadsideCrag(world);
   ConditionsDials cd;
@@ -169,6 +178,7 @@ int main(int argc, char** argv) {
     dd.billsAmount = 0.0;
     dd.mealCost = 0.0;
   }
+  if (skinRegen > 0.0) dd.skinRegenPerNight = skinRegen;
   FirstAscentDials fd;
   DogDials dog;
 
@@ -635,9 +645,12 @@ int main(int argc, char** argv) {
   // to the format, and the table came out with silently empty columns.
   printf("HEAD\tseed\tpolicy\trest\tcash\tlow\tsends\tFAs\tdays\tburns"
          "\tgrade\tstew\tclosures\tshut\twork%%\tbroke\tstarved"
-         "\tmissed\tgym\tboard\tinjuries\thurt\tpeakload\tphysio\tsponsor$\ttheirdays\n");
+         "\tmissed\tgym\tboard\tinjuries\thurt\tpeakload\tphysio\tsponsor$"
+         "\ttheirdays\tskinregen\tpower\tfingers\ttechnique\tendurance"
+         "\thead\tallround\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
-         "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d\n",
+         "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
+         "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -651,7 +664,23 @@ int main(int argc, char** argv) {
          t.closures, t.closedDays, 100.0 * t.daysWorked / DAYS, t.brokeDays,
          t.starvedNights, t.missedWindows, t.gymDays, t.boardDays,
          t.injuries, t.hurtDays, t.peakLoad, t.physioSessions,
-         t.sponsorPay, t.obligationDays);
+         t.sponsorPay, t.obligationDays, dd.skinRegenPerNight,
+         player.climber.skills.power, player.climber.skills.fingers,
+         player.climber.skills.technique, player.climber.skills.endurance,
+         player.climber.skills.head,
+         // `grade` above is SkillToGrade(power) and has been since this
+         // probe was written, which under-reports a season: power is the
+         // *slowest* growing skill, gaining +2.4 in a year where fingers
+         // gain +7.6. Read off power a year of climbing looks worth a third
+         // of a grade; across all five it is worth about half. `allround`
+         // is the five-skill mean and is the honest headline. `grade` is
+         // left alone so the older notes stay comparable to their own
+         // numbers.
+         SkillToGrade((player.climber.skills.power +
+                       player.climber.skills.fingers +
+                       player.climber.skills.technique +
+                       player.climber.skills.endurance +
+                       player.climber.skills.head) / 5.0));
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,
