@@ -188,6 +188,20 @@ int main(int argc, char** argv) {
   if (kept) {
     dd.billsAmount = 0.0;
     dd.mealCost = 0.0;
+    // And a float, which the control was missing for five measurements.
+    //
+    // `kept` was meant to be "a player for whom money is not a question".
+    // It was not. Zeroing the bills also removed every reason to work, so
+    // the kept player earned nothing, ended every year on about $2, and
+    // could never buy shoes -- ending on 0.89 wear against a working
+    // player's 0.30. Since dead rubber is worth roughly 3.7 sends against
+    // 1.0, that one omission accounts for the whole of the anomaly the
+    // first Phase 3 note recorded and could not explain: "fewer sends than
+    // the player paying rent".
+    //
+    // A control that removes the costs *and* the income is not a control
+    // for "does money pressure climbing". It is a control for being broke.
+    // The float itself is applied where the player exists, below.
   }
   if (skinRegen > 0.0) dd.skinRegenPerNight = skinRegen;
   FirstAscentDials fd;
@@ -199,6 +213,10 @@ int main(int argc, char** argv) {
           player.climber.skills.head = 50.0;
 
   if (startingPads >= 0) player.kit.pads = startingPads;
+  // The kept control's float. See the note where its dials are zeroed:
+  // without this it is a control for being broke rather than for being
+  // free of money, and it could never afford shoes.
+  if (kept) player.cash = 10000.0;
 
   if (takeTheSalary) TakeSalariedJob(player);
 
@@ -267,6 +285,17 @@ int main(int argc, char** argv) {
       }
       const double paid = MonthlyStipend(player.sponsor.tier, sp);
       if (paid > 0.0) { Pay(player, paid); t.sponsorPay += paid; }
+    }
+
+    // And once a year they decide whether to keep you. ReviewSeason was
+    // called by nothing anywhere until today — engine or probe — so no
+    // career, played or simulated, had ever been reviewed. Matches the
+    // engine, which does this from Sleep on the same cadence.
+    if (player.sponsor.tier != SponsorTier::None && player.day > 1 &&
+        player.day % 365 == 1) {
+      ReviewSeason(player.sponsor, SummarizeCareer(player).hardestSendGrade,
+                   player.sponsor.daysHurtThisSeason, sp);
+      player.sponsor.daysHurtThisSeason = 0;
     }
     if (player.sponsor.tier != SponsorTier::None) t.sponsoredDays++;
 
@@ -548,7 +577,13 @@ int main(int argc, char** argv) {
           if (r.sent) {
             t.sends++;
             if (CanName(*line, mem)) {
-              NameFirstAscent(mem, *line, "Line " + std::to_string(player.day));
+              // ClaimFirstAscent, not NameFirstAscent: the probe had the
+              // same half-a-verb bug the engine did, so every simulated
+              // first ascent was worth no opinion to any faction — and
+              // standing is what earns a sponsor, so the probe has been
+              // measuring a career the Lot never noticed.
+              ClaimFirstAscent(player, mem, *line,
+                               "Line " + std::to_string(player.day));
               t.firstAscents++;
               note += (note.empty() ? "" : " + ");
               note += "FIRST ASCENT of " + line->description;

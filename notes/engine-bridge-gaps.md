@@ -28,7 +28,7 @@ the count cannot quietly grow.
 
 | what | consequence in the actual game |
 |---|---|
-| `FuelFor` | **driving is free.** The changelog called fuel "the only cost that goes up the more you climb" — true in the probe, never true in the game |
+| `FuelFor` | **driving is free in the game.** The probe has always charged it (`season.cpp`), which is where the $918–$1,224 a season came from; the engine never did |
 | `WorkSalariedDay`, `SalaryDayPay`, `SalaryOwnsHour` | **the salaried-job trap does not exist.** The engine can ask `SalariedToday()` and has no way to work the day |
 | `MonthlyStipend` | **a sponsored player is never paid.** The $640/month title tier pays $0 |
 | `ReviewSeason` | **a deal is never reviewed**, so no rung is ever won or lost |
