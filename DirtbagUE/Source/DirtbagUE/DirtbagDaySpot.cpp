@@ -78,8 +78,18 @@ FString ADirtbagDaySpot::PromptText() const
 		                             *What, Game->Player.Cash);
 	}
 	case EDirtbagSpotKind::GearShop:
-		return FString::Printf(TEXT("Shoes?  (E)  -  %s.  $%.0f"),
-		                       *Game->ShoeLine(), Game->Player.Cash);
+	{
+		// Say what it is costing you once it is costing you anything. Dead
+		// rubber is the cheapest real handicap in the game and the only one
+		// the player had no way to see.
+		const double Grades = Game->ShoeCostInGrades();
+		return Grades >= 0.05
+		    ? FString::Printf(
+		          TEXT("Shoes?  (E)  -  %s, costing you %.1f of a grade.  $%.0f"),
+		          *Game->ShoeLine(), Grades, Game->Player.Cash)
+		    : FString::Printf(TEXT("Shoes?  (E)  -  %s.  $%.0f"),
+		                      *Game->ShoeLine(), Game->Player.Cash);
+	}
 	case EDirtbagSpotKind::Fire:
 	{
 		// The fire's prompt names who is here, because that is what makes

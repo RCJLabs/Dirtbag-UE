@@ -175,6 +175,11 @@ int main(int argc, char** argv) {
   // pads are the bold and the safe season, and the gap between them is the
   // whole mechanic.
   const int startingPads = argc > 7 ? std::atoi(argv[7]) : -1;
+  // Arg 8: never buy or resole shoes. Dead rubber has never once been felt
+  // in the actual game -- ToSim dropped shoeWear, so every attempt resolved
+  // on new shoes -- so before calling that fixed it is worth knowing what
+  // the thing nobody has felt is actually worth.
+  const bool neverBuysRubber = argc > 8 && std::string(argv[8]) == "norubber";
 
   const Rng world = Rng::FromSeed(seed);
   const Crag crag = RoadsideCrag(world);
@@ -557,7 +562,7 @@ int main(int argc, char** argv) {
 
     // Rubber: resole while the uppers hold, replace when they do not.
     GearDials gd;
-    if (player.shoes.wear > gd.noticeablyWorn) {
+    if (!neverBuysRubber && player.shoes.wear > gd.noticeablyWorn) {
       const double before = player.cash;
       const bool shod = CoversShoes(player.sponsor);
       if (CanResole(player.shoes, gd)) {
@@ -656,10 +661,10 @@ int main(int argc, char** argv) {
          "\tgrade\tstew\tclosures\tshut\twork%%\tbroke\tstarved"
          "\tmissed\tgym\tboard\tinjuries\thurt\tpeakload\tphysio\tsponsor$"
          "\ttheirdays\tskinregen\tpower\tfingers\ttechnique\tendurance"
-         "\thead\tallround\n");
+         "\thead\tallround\tshoewear\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
-         "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\n",
+         "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -689,7 +694,8 @@ int main(int argc, char** argv) {
                        player.climber.skills.fingers +
                        player.climber.skills.technique +
                        player.climber.skills.endurance +
-                       player.climber.skills.head) / 5.0));
+                       player.climber.skills.head) / 5.0),
+         player.shoes.wear);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

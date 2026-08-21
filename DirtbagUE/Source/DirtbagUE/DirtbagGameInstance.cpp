@@ -613,6 +613,13 @@ FString UDirtbagGameInstance::SessionAdviceText() const
 
 // --- Gear and the van --------------------------------------------------------
 
+double UDirtbagGameInstance::ShoeCostInGrades() const
+{
+	// Edging, because that is the hold dead rubber punishes hardest and so
+	// the number a player would actually notice.
+	return dirtbag::ShoePenalty(DirtbagConvert::ToSim(Player.Shoes), true);
+}
+
 FString UDirtbagGameInstance::ShoeLine() const
 {
 	return FString(UTF8_TO_TCHAR(

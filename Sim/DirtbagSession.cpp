@@ -1,6 +1,7 @@
 #include "DirtbagSession.h"
 
 #include "DirtbagBody.h"
+#include "DirtbagGear.h"
 #include "DirtbagSport.h"
 
 #include <algorithm>
@@ -92,9 +93,9 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
   const bool edging = move.hold == HoldType::Crimp ||
                       move.hold == HoldType::Pocket ||
                       move.hold == HoldType::Pinch;
-  const double rubberGone = Clamp01(input.shoeWear);
-  effective -= dials.deadShoeGradePenalty * rubberGone * rubberGone *
-               (edging ? 1.0 : dials.shoeBiteOnGoodHolds);
+  effective -= ShoePenaltyFor(input.shoeWear, edging,
+                              dials.deadShoeGradePenalty,
+                              dials.shoeBiteOnGoodHolds);
   if (move.crux) {
     // The crux is where the head shows up — commitment, not strength.
     effective += (c.skills.head - 50.0) / 100.0;

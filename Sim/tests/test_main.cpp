@@ -1136,6 +1136,62 @@ static void TestStandingBuysBetaAndPeopleLiftYou() {
   CHECK(PsycheFrom(stranger, pd) == 0.0);
 }
 
+static void TestTheMirroredDialsStillAgree() {
+  // Three numbers live in two dial structs each, and every one of them says
+  // so in a comment: "Mirrors GearDials", "Mirrors SportDials", "Mirrors
+  // BodyDials". That arrangement is deliberate — it keeps DirtbagSession
+  // from having to include half the project to price a move — and it is
+  // exactly the shape this repo keeps writing rules against, because a
+  // comment is not a guard.
+  //
+  // Nothing would fail if one of these moved. The shop would quote a price
+  // for dead rubber that the wall did not charge, the guidebook would
+  // describe a runout the resolver did not price, and the physio would
+  // disagree with the climbing about what an injury costs. All silently.
+  const SessionDials sd;
+  const GearDials gd;
+  const SportDials pd;
+  const BodyDials bd;
+
+  CHECK(sd.deadShoeGradePenalty == gd.deadShoeGradePenalty);
+  CHECK(sd.shoeBiteOnGoodHolds == gd.deadShoeBiteOnGoodHolds);
+  CHECK(sd.runoutGradePenalty == pd.runoutGradePenalty);
+  CHECK(sd.injuryGradePenalty == bd.injuryGradePenalty);
+
+  // And the shoe formula is now genuinely one formula rather than two that
+  // happened to agree. Whatever the shop quotes is what the wall charges,
+  // at every wear and on both kinds of hold.
+  for (double wear = 0.0; wear <= 1.0; wear += 0.05) {
+    Shoes s;
+    s.wear = wear;
+    for (int edging = 0; edging < 2; edging++) {
+      CHECK(ShoePenalty(s, edging == 1, gd) ==
+            ShoePenaltyFor(wear, edging == 1, sd.deadShoeGradePenalty,
+                           sd.shoeBiteOnGoodHolds));
+    }
+  }
+
+  // Squared, not linear: a slightly worn shoe is fine and a dead one is a
+  // different sport. Half-worn costs a quarter, not a half.
+  CHECK(ShoePenaltyFor(0.0, true, gd.deadShoeGradePenalty,
+                       gd.deadShoeBiteOnGoodHolds) == 0.0);
+  const double half = ShoePenaltyFor(0.5, true, gd.deadShoeGradePenalty,
+                                     gd.deadShoeBiteOnGoodHolds);
+  const double dead = ShoePenaltyFor(1.0, true, gd.deadShoeGradePenalty,
+                                     gd.deadShoeBiteOnGoodHolds);
+  CHECK(half < dead * 0.3);
+  CHECK(dead == gd.deadShoeGradePenalty);
+
+  // Edging holds punish dead rubber hardest, which is what pushes a worn
+  // pair onto slopers long before it stops you.
+  CHECK(ShoePenaltyFor(1.0, false, gd.deadShoeGradePenalty,
+                       gd.deadShoeBiteOnGoodHolds) < dead);
+
+  // Wear past dead is still dead rather than worse than dead.
+  CHECK(ShoePenaltyFor(4.0, true, gd.deadShoeGradePenalty,
+                       gd.deadShoeBiteOnGoodHolds) == dead);
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -5848,6 +5904,7 @@ int main() {
   TestAShoeDealActuallyBuysShoes();
   TestASponsorGetsPaidAndReviewed();
   TestStandingBuysBetaAndPeopleLiftYou();
+  TestTheMirroredDialsStillAgree();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

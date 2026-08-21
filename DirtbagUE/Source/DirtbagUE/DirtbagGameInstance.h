@@ -328,6 +328,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
 	FString ShoeLine() const;
 
+	/** What the rubber is costing you right now, in grades on edging holds.
+	 *  0 on a new pair.
+	 *
+	 *  Worth showing because it is worth a lot and has never been visible:
+	 *  measured over ten seasons, a climber who never replaces their shoes
+	 *  sends 1.0 against 3.7 on the same burns, for about $9 of the year's
+	 *  cash. The cheapest thing in the game that matters. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gear")
+	double ShoeCostInGrades() const;
+
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
 	bool ResoleShoes();
 

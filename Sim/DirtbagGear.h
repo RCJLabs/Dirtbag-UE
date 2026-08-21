@@ -63,13 +63,23 @@ struct Shoes {
 void WearShoes(Shoes& shoes, int moves, int grade,
                const GearDials& dials = GearDials{});
 
-// Grades lost on this kind of hold, right now.
-// unwired-ok: NOT WIRED -- and worse, duplicated: the resolver prices dead
-// rubber with its own inline copy of this formula. Two copies of one
-// question, which is the drift this project keeps writing rules against.
-// Tracked in notes/engine-bridge-gaps.md
+// Grades lost on this kind of hold, right now. The shop's way in.
 double ShoePenalty(const Shoes& shoes, bool edgingHold,
                    const GearDials& dials = GearDials{});
+
+// The one place dead rubber is priced, taking the two numbers rather than a
+// dial struct so the resolver can call it without dragging GearDials
+// through DirtbagSession.
+//
+// This project's standing arrangement for a value two systems both need is
+// *share the function, mirror the constant* — the runout does it, the crash
+// pad does it. Shoes were doing neither: SessionDials mirrored the numbers,
+// as it should, and then the resolver wrote the formula out again beside
+// them. `ShoePenalty` ended up with no caller at all, which is how the
+// duplication surfaced at all. This pins the arithmetic; the test pins the
+// numbers.
+double ShoePenaltyFor(double wear, bool edgingHold, double deadPenalty,
+                      double biteOnGoodHolds);
 
 // Can this pair take another resole, and what would it cost?
 bool CanResole(const Shoes& shoes, const GearDials& dials = GearDials{});

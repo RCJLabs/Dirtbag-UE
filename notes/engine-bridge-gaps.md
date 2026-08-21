@@ -124,6 +124,25 @@ round-trips, it is **erased from the sim on the next call**. Worth keeping
 as the shape of the mistake: a justification that answers *does anyone
 display this* when the question was *does anyone lose this*.
 
+**`ShoePenalty`** — see `notes/shoes.md`. The unwired one was a symptom: the
+resolver carried its own copy of the formula. `ShoePenaltyFor` is now the
+single pricing of dead rubber, the golden vectors did not move (which is what
+says the two copies really were identical), and a test pins all three
+declared dial mirrors — shoes, the runout, and the injury penalty — because a
+comment saying "mirrors GearDials" is not a guard.
+
+Measured before calling it fixed, since until today nobody had ever felt it:
+a climber who never replaces their shoes sends **1.0 against 3.7** on the
+same burns, winning 7 seeds, tying 3, losing 0 — for about **$9** of the
+year's cash. The gear shop now says what the rubber is costing you.
+
+## Still open: the belayer, and only the belayer
+
+`WillBelay`, `BurnsTheyWillHold`, `BestBelayer`, `BelayText` — the Shaded
+Cave's mechanic, and held deliberately until the cave is placed in the level.
+`NeedsABelayer` is wired, so the game can ask the question and cannot answer
+it; wiring a belayer picker with nowhere to belay would be guessing at a UI.
+
 ## The rule this leaves behind
 
 The old rule was *anything that happens overnight happens in `Sleep`*, which
