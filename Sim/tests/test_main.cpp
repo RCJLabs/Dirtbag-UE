@@ -811,6 +811,76 @@ static void TestTheLoadWarningAgreesWithItself() {
   CHECK(LoadText(c, moved) == "carrying a load");
 }
 
+static void TestHeadTrainsOnWhatYouCommitTo() {
+  const SessionDials sd;
+
+  // A boulder, so the ground is the question.
+  const Rng headWorld = Rng::FromSeed("head-world");
+  Route boulder = BuildRoute(headWorld, "the highball", 4, 4, RouteType::Power,
+                             Discipline::Boulder);
+  const int last = static_cast<int>(boulder.moves.size()) - 1;
+
+  // Nobody has ever been gripped on move one.
+  CHECK(ExposureAt(boulder, 0, 0.0, sd) == 0.0);
+  // High on bare ground is the whole point.
+  CHECK(ExposureAt(boulder, last, 0.0, sd) > 0.0);
+  // And pads are exactly what buys it away.
+  CHECK(ExposureAt(boulder, last, 1.0, sd) == 0.0);
+  CHECK(ExposureAt(boulder, last, 0.5, sd) <
+        ExposureAt(boulder, last, 0.0, sd));
+  CHECK(ExposureAt(boulder, last, 0.5, sd) > 0.0);
+  // It climbs as you do, rather than switching on.
+  CHECK(ExposureAt(boulder, last, 0.0, sd) >
+        ExposureAt(boulder, last / 2, 0.0, sd));
+
+  // On a rope, pads are not the question and must not answer it: a fully
+  // padded climber is still runout above the bolt. This is the escape hatch
+  // that stops head being unreachable for anyone who owns two pads — the
+  // cave is where a safe boulderer gets their head back.
+  Route pitch = BuildRoute(headWorld, "the cave pitch", 4, 4,
+                           RouteType::Endurance, Discipline::Sport);
+  bool sawRunoutUnderFullPads = false;
+  for (int i = 0; i < static_cast<int>(pitch.moves.size()); i++) {
+    if (OnTheRope(pitch, i) && ExposureAt(pitch, i, 1.0, sd) > 0.0) {
+      sawRunoutUnderFullPads = true;
+    }
+  }
+  CHECK(sawRunoutUnderFullPads);
+
+  // And the training. Same climber, same route, same burn — one on bare
+  // ground and one behind pads.
+  const auto SeasonOfHead = [&](double padding) {
+    PlayerState p;
+    p.climber.skills.power = p.climber.skills.fingers =
+        p.climber.skills.technique = p.climber.skills.endurance =
+            p.climber.skills.head = 50.0;
+    DayState d = WakeUp(p);
+    d.session.padding = padding;
+    const Rng world = headWorld;
+    Rng burns = Rng::FromSeed("head-burns");
+    for (int burn = 0; burn < 60; burn++) {
+      AttemptInput in;
+      in.climber = p.climber;
+      in.route = boulder;
+      in.padding = padding;
+      in.beta = 1.0;
+      in.warmth = 1.0;
+      AttemptResult r = ResolveAttempt(burns, in);
+      // Force the burn to have reached the top, so the two runs differ in
+      // padding and in nothing else.
+      r.highpoint = last;
+      ApplyAttemptToDay(p, d, boulder, r, world);
+    }
+    return p.climber.skills.head - 50.0;
+  };
+
+  const double bold = SeasonOfHead(0.0);
+  const double safe = SeasonOfHead(1.0);
+  CHECK(bold > 0.0);      // committing is what teaches it
+  CHECK(safe == 0.0);     // and pads are what buys the lesson away
+  CHECK(bold > safe);
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -5518,6 +5588,7 @@ int main() {
   TestTheBookRecordsWhatItReallyWent();
   TestTheBookGetsWrittenInto();
   TestTheLoadWarningAgreesWithItself();
+  TestHeadTrainsOnWhatYouCommitTo();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

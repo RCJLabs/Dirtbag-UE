@@ -281,6 +281,22 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
        dials.trainingRate * dials.enduranceMileageRate *
            static_cast<double>(result.timeline.size()) *
            headroom(s.endurance));
+
+  // And head, on the boldest thing you committed to rather than the hardest.
+  // Falling counts: this reads the highpoint reached, not whether it went,
+  // because a fall from above the bolt teaches the lesson at least as well
+  // as sticking the move did. Head was read by the resolver, by the sport
+  // runout, and by the age model that calls it one of two skills that never
+  // decline, and until now nothing in the game trained it at all — a whole
+  // axis frozen at whatever the climber was born with.
+  const int reachedIndex =
+      std::min(result.highpoint, static_cast<int>(route.moves.size()) - 1);
+  double boldest = 0.0;
+  for (int i = 0; i <= reachedIndex; i++) {
+    boldest = std::max(boldest, ExposureAt(route, i, day.session.padding));
+  }
+  Gain(player.climber.skills.head,
+       dials.headExposureRate * boldest * headroom(s.head));
 }
 
 void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,

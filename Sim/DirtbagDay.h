@@ -90,6 +90,24 @@ struct DayDials {
   // on stays the thing you can nearly do.
   double engagementFloor = 0.2;
 
+  // What head trains on: the boldest move you actually committed to, in the
+  // grade units ExposureAt already prices. Head is the one skill that does
+  // not train on trying hard — a scary move on an easy line teaches it and a
+  // desperate move on a well-padded one does not — which is why it is
+  // deliberately outside the challenge/engagement gate the other four sit
+  // behind.
+  //
+  // It cannot be farmed. Exposure is zero low down, zero under pads, and
+  // zero below the first bolt's worth of rope, so the only way to earn it is
+  // to be high on something you could get hurt on. Buying a second pad
+  // genuinely trades head for sends, which is the trade a real boulderer
+  // makes and the first place in this game where kit costs you something.
+  //
+  // Sized by measurement, not by feel: at 0.20 a season on one pad is
+  // worth about a point and a half of head, a season on bare ground about
+  // three, and a season behind two pads almost nothing.
+  double headExposureRate = 0.20;
+
   // Running on empty shows up as nerve before it shows up as strength, and
   // it arrives gradually: above freshEnergy you're fine, below it the fade
   // ramps in, reaching fatiguePsyche at zero. A cliff-edge threshold was

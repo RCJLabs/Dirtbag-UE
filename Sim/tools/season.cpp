@@ -169,6 +169,12 @@ int main(int argc, char** argv) {
   // 3's gate and the gate is what has to move. If the answer is "nothing",
   // then skin was the whole wall and lifting it is a real option.
   const double skinRegen = argc > 6 ? std::atof(argv[6]) : -1.0;
+  // Arg 7 overrides the pads you start with (shipped: 1 of the 2 that
+  // matter, so padding 0.5). The knob exists because head trains on
+  // exposure, and pads are the thing that buys exposure away — 0 pads and 2
+  // pads are the bold and the safe season, and the gap between them is the
+  // whole mechanic.
+  const int startingPads = argc > 7 ? std::atoi(argv[7]) : -1;
 
   const Rng world = Rng::FromSeed(seed);
   const Crag crag = RoadsideCrag(world);
@@ -186,6 +192,8 @@ int main(int argc, char** argv) {
   player.climber.skills.power = player.climber.skills.fingers =
       player.climber.skills.technique = player.climber.skills.endurance =
           player.climber.skills.head = 50.0;
+
+  if (startingPads >= 0) player.kit.pads = startingPads;
 
   if (takeTheSalary) TakeSalariedJob(player);
 
