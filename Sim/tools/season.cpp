@@ -31,6 +31,7 @@
 #include "DirtbagTown.h"
 #include "DirtbagPartner.h"
 #include "DirtbagSave.h"
+#include "DirtbagLegacy.h"
 #include "DirtbagSponsor.h"
 #include "DirtbagSession.h"
 #include "DirtbagSessionLoop.h"
@@ -193,9 +194,20 @@ int main(int argc, char** argv) {
   // Arg 9 overrides the most foam can ever do, for finding a cap at which
   // the pad is a trade rather than a switch.
   const double foamCap = argc > 9 ? std::atof(argv[9]) : -1.0;
+  // Arg 10 = "careers": retire and inherit when the game offers it, instead
+  // of running one immortal climber forever. Everything the legacy system
+  // does -- TimeToThinkAboutIt, TallyCareer, Inherit, the guidebook -- was
+  // reachable only from the engine, so nothing had ever simulated more than
+  // one lifetime. Phase 4's gate is a career playing end to end, and this
+  // is the only way to look at one without living it.
+  const bool multiLife = argc > 10 && std::string(argv[10]) == "careers";
 
   const Rng world = Rng::FromSeed(seed);
-  const Crag crag = RoadsideCrag(world);
+  // Not const: across generations the book has to be written into, or the
+  // next climber arrives to find their predecessor's lines unclimbed. That
+  // is exactly what ninety years of this probe found on its first run --
+  // four careers each doing the first ascent of the same two boulders.
+  Crag crag = RoadsideCrag(world);
   ConditionsDials cd;
   DayDials dd;
   if (kept) {
@@ -234,6 +246,11 @@ int main(int argc, char** argv) {
   if (takeTheSalary) TakeSalariedJob(player);
 
   Tally t;
+  int consecutiveInjuries = 0;
+  int sinceHurt = 0;
+  double peakGradeEver = 0.0;
+  int lives = 1;
+  std::vector<Legacy> legacies;
   std::vector<std::string> lotTaken;
   int lastGradeReport = 0;
 
@@ -700,11 +717,81 @@ int main(int argc, char** argv) {
     SleepToNextDay(player, today, world, dd);
     if (!wasHurt && IsHurt(player.climber)) {
       t.injuries++;
+      consecutiveInjuries++;
     } else if (wasHurt && IsHurt(player.climber) &&
                (player.climber.injury.severity > sev + 1e-9 ||
                 player.climber.injury.daysLeft > left)) {
       t.aggravations++;
     }
+    if (!IsHurt(player.climber) && !wasHurt) {
+      // A clean stretch resets the "three in a row" that offers retirement.
+      // Without this every career that ever got hurt three times would be
+      // offered the door for the rest of its life.
+      sinceHurt++;
+      if (sinceHurt > 120) { consecutiveInjuries = 0; sinceHurt = 0; }
+    } else {
+      sinceHurt = 0;
+    }
+    peakGradeEver = std::max(peakGradeEver,
+                             SkillToGrade(player.climber.skills.power));
+
+    // The one thing that ends a career. Never a command: the game offers,
+    // and this policy always takes it, because a probe that declines would
+    // measure nothing.
+    if (multiLife &&
+        TimeToThinkAboutIt(player, consecutiveInjuries, peakGradeEver)) {
+      const Legacy done = TallyCareer(player, "Climber " + std::to_string(lives),
+                                      1 + player.day / 365);
+      legacies.push_back(done);
+      // Write them into the book before the next one arrives, so the
+      // valley remembers what the ledger cannot: Inherit wipes the personal
+      // ledger, correctly, and the page is not personal.
+      for (const NamedLine& n : done.firstAscents) {
+        for (CragLine& line : crag.lines) WriteIntoTheBook(line, n);
+      }
+      player = Inherit(done);
+      // Do NOT carry player.day across. Inherit sets it to 1 on purpose:
+      // age is *derived* from the day counter, so resetting the counter is
+      // how the next climber is twenty-four. Carrying it over -- which this
+      // probe did on its first run -- births the inheritor at the age their
+      // predecessor retired, and the whole thirty years reads as a
+      // catastrophic skill collapse rather than two careers.
+      //
+      // The cost of that decision, which is real and belongs in the notes:
+      // the world's calendar restarts with them. Generation two climbs
+      // generation one's weather.
+      lives++;
+      consecutiveInjuries = 0;
+      sinceHurt = 0;
+      peakGradeEver = 0.0;
+      today = WakeUp(player, dd);
+    }
+  }
+
+  // The guidebook, which is Phase 4's actual gate: "a career plays end to
+  // end and the guidebook at the end reads like somebody lived there".
+  // Nothing has ever printed it, so nothing has ever checked.
+  if (multiLife) {
+    // The last life never retired, so it never got tallied. Count it, or
+    // the guidebook is missing whoever is standing in it -- but say so,
+    // because LegacyText only knows how to write an ending and will claim
+    // a twenty-five-year-old two seasons in has retired.
+    const std::size_t stillGoing = legacies.size();
+    legacies.push_back(TallyCareer(player, "Climber " + std::to_string(lives),
+                                   1 + player.day / 365));
+    printf("\n=== %d lives over %d years ===\n\n", lives, DAYS / 365);
+    int lineCount = 0;
+    for (std::size_t i = 0; i < legacies.size(); i++) {
+      if (i == stillGoing) printf("[still climbing]\n");
+      printf("%s\n", LegacyText(legacies[i]).c_str());
+      for (const NamedLine& n : legacies[i].firstAscents) {
+        printf("    %-42s  [key: %s]\n", GuidebookEntry(n).c_str(),
+               n.routeKey.c_str());
+        lineCount++;
+      }
+      printf("\n");
+    }
+    printf("GUIDEBOOK\t%d\tlives\t%d\tnamed lines\n", lives, lineCount);
   }
 
   // One machine-readable line, always. Comparing two policies across
@@ -774,9 +861,16 @@ int main(int argc, char** argv) {
   printf("  %d meals, %d tins of dog food; dog %s (bond %.2f)\n", t.mealsEaten,
          t.dogMeals, player.dog.adopted ? "adopted" : "still a stray",
          player.dog.bond);
-  printf("  the Lot took %d lines; %zu open lines remain\n",
-         t.linesLostToTheLot, OpenProjects(crag).size() - t.linesLostToTheLot -
-                                  t.firstAscents);
+  // Signed, and floored. Unsigned arithmetic on a size_t underflowed to
+  // 18446744073709551614 the first time a long run claimed more lines than
+  // the crag had open -- which is not impossible over thirty years, because
+  // across generations the projects reset with the world and can be claimed
+  // again.
+  const int openLeft =
+      std::max(0, static_cast<int>(OpenProjects(crag).size()) -
+                      t.linesLostToTheLot - t.firstAscents);
+  printf("  the Lot took %d lines; %d open lines remain\n",
+         t.linesLostToTheLot, openLeft);
 
   const double bills = static_cast<double>(DAYS / dd.billsEveryDays) *
                        dd.billsAmount;

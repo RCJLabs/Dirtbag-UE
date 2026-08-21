@@ -6,6 +6,16 @@
 
 namespace dirtbag {
 
+Climber NewClimber() {
+  Climber c;
+  c.skills.power = kStartingSkill;
+  c.skills.fingers = kStartingSkill;
+  c.skills.technique = kStartingSkill;
+  c.skills.endurance = kStartingSkill;
+  c.skills.head = kStartingSkill;
+  return c;
+}
+
 const char* BoulderGradeName(int grade) {
   static const char* kNames[] = {
       "V0", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9",

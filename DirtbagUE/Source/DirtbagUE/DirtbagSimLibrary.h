@@ -378,4 +378,12 @@ public:
 	static void WriteIntoTheBook(UPARAM(ref) FDirtbagCrag& Book,
 	                             const FDirtbagPlayerState& Player,
 	                             const FString& By);
+
+	/** The generations before this one, written into the same book.
+	 *
+	 *  Not Blueprint-visible: it takes the sim's own Legacy vector, which is
+	 *  where the engine keeps them, and there is no mirror for it because a
+	 *  TArray of a namespaced type is a UHT error. */
+	static void WriteLegaciesIntoTheBook(
+	    FDirtbagCrag& Book, const std::vector<dirtbag::Legacy>& Legacies);
 };

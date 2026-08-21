@@ -634,6 +634,36 @@ FString UDirtbagSimLibrary::GuidebookLine(const FDirtbagCragLine& Line)
 	return FString(UTF8_TO_TCHAR(dirtbag::GuidebookLine(Sim).c_str()));
 }
 
+void UDirtbagSimLibrary::WriteLegaciesIntoTheBook(
+    FDirtbagCrag& Book, const std::vector<dirtbag::Legacy>& Legacies)
+{
+	// Oldest first, so that if two careers somehow claimed the same rock the
+	// later one is the name that stands -- which is also what a real
+	// guidebook does when a disputed line gets re-recorded.
+	for (const dirtbag::Legacy& L : Legacies)
+	{
+		for (const dirtbag::NamedLine& N : L.firstAscents)
+		{
+			for (FDirtbagCragLine& Line : Book.Lines)
+			{
+				dirtbag::CragLine Sim;
+				Sim.route.name = TCHAR_TO_UTF8(*Line.Route.Name);
+				Sim.route.grade = Line.Route.Grade;
+				Sim.isProject = Line.bIsProject;
+				Sim.firstAscentBy = TCHAR_TO_UTF8(*Line.FirstAscentBy);
+				if (!dirtbag::WriteIntoTheBook(Sim, N))
+				{
+					continue;
+				}
+				Line.DisplayName = UTF8_TO_TCHAR(dirtbag::DisplayName(Sim).c_str());
+				Line.FirstAscentBy = UTF8_TO_TCHAR(Sim.firstAscentBy.c_str());
+				Line.bIsProject = Sim.isProject;
+				Line.Route.Grade = Sim.route.grade;
+			}
+		}
+	}
+}
+
 void UDirtbagSimLibrary::WriteIntoTheBook(FDirtbagCrag& Book,
                                           const FDirtbagPlayerState& Player,
                                           const FString& By)

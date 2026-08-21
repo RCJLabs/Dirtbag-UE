@@ -260,6 +260,11 @@ void UDirtbagGameInstance::EnsureCrag()
 	// is saved — it is regenerated from the world seed every time the venue
 	// changes — so without this a line you named reverts to a nameless
 	// project the moment you walk to the cave and back.
+	// Everybody who came before, then the person standing in it. Order
+	// matters only in the sense that the living player's ledger should win
+	// a tie, and it cannot: a line a predecessor named is no longer an open
+	// project, so CanName refuses it.
+	UDirtbagSimLibrary::WriteLegaciesIntoTheBook(Crag, Legacies);
 	UDirtbagSimLibrary::WriteIntoTheBook(Crag, Player, AscentSignature());
 
 	// The guidebook owns which way its rock faces. Keeping a second copy of

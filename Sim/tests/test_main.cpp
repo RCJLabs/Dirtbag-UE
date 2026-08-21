@@ -1339,6 +1339,74 @@ static void TestTheSunTerraceIsTheWinterCrag() {
   CHECK(sum / n < 16.0);   // and long before the light goes
 }
 
+static void TestTheValleyRemembersAcrossGenerations() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  CragLine* project = nullptr;
+  for (CragLine& l : crag.lines) {
+    if (l.isProject) { project = &l; break; }
+  }
+  CHECK(project != nullptr);
+  const std::string key = project->route.name;
+
+  // Somebody does it and names it, and their career ends.
+  PlayerState first;
+  first.climber = NewClimber();
+  ProjectMemory m = NewProjectLedger(*project);
+  m.sent = true;
+  m.firstSendStyle = Style::Redpoint;
+  CHECK(ClaimFirstAscent(first, m, *project, "Old Money"));
+  first.projects.push_back(m);
+  const Legacy done = TallyCareer(first, "Climber One", 20);
+  CHECK(!done.firstAscents.empty());
+
+  // The next one inherits nothing personal -- correctly, the ledger is
+  // theirs and not yours.
+  const PlayerState next = Inherit(done);
+  CHECK(next.projects.empty());
+
+  // Which is exactly why the book has to be written separately. Before this
+  // existed, ninety years of the career probe produced four climbers each
+  // doing the *first* ascent of the same two boulders, and a guidebook that
+  // listed the same rock four times under four names.
+  bool wrote = false;
+  for (const NamedLine& n : done.firstAscents) {
+    for (CragLine& line : crag.lines) {
+      if (WriteIntoTheBook(line, n)) wrote = true;
+    }
+  }
+  CHECK(wrote);
+
+  CragLine* after = nullptr;
+  for (CragLine& l : crag.lines) {
+    if (l.route.name == key) after = &l;
+  }
+  CHECK(after != nullptr);
+  CHECK(after->displayName == "Old Money");
+  CHECK(!after->isProject);
+  CHECK(after->firstAscentBy == done.name);
+
+  // And the inheritor cannot claim it again, which is the property that
+  // actually failed.
+  ProjectMemory theirs = NewProjectLedger(*after);
+  theirs.sent = true;
+  CHECK(!CanName(*after, theirs));
+
+  // A legacy line that is not on this crag changes nothing.
+  NamedLine elsewhere;
+  elsewhere.routeKey = "a boulder in another valley";
+  elsewhere.givenName = "Not Here";
+  for (CragLine& line : crag.lines) {
+    CHECK(!WriteIntoTheBook(line, elsewhere));
+  }
+
+  // Nor does a legacy with no name -- somebody who did it and never said
+  // what they called it leaves the page alone.
+  NamedLine unnamed;
+  unnamed.routeKey = key;
+  CHECK(!WriteIntoTheBook(*after, unnamed));
+  CHECK(after->displayName == "Old Money");
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -4532,11 +4600,39 @@ static void TestTheWorldRemembersAndTheBodyDoesNot() {
   LegacyDials d;
   const Legacy l = TallyCareer(ACareer(), "Evan", 9);
   const PlayerState next = Inherit(l, d);
-  const PlayerState fresh;
 
-  // Nothing physical carries.
-  CHECK(next.climber.skills.power == fresh.climber.skills.power);
-  CHECK(next.climber.skills.fingers == fresh.climber.skills.fingers);
+  // Nothing physical carries — they start where anybody starts.
+  //
+  // This used to compare against a default-constructed PlayerState, which
+  // is a *zeroed struct* rather than a person, and so it passed while the
+  // inheritor was being born with 0 in all five skills: unable to send a V0
+  // and, because the retirement test needs a peak above zero, never once
+  // offered the chance to stop. Thirty years of it went unnoticed because
+  // the assertion agreed with the bug.
+  CHECK(next.climber.skills.power == kStartingSkill);
+  CHECK(next.climber.skills.fingers == kStartingSkill);
+  CHECK(next.climber.skills.technique == kStartingSkill);
+  CHECK(next.climber.skills.endurance == kStartingSkill);
+  CHECK(next.climber.skills.head == kStartingSkill);
+
+  // Which is to say: exactly the body a brand-new career gets, no more.
+  const Climber arriving = NewClimber();
+  CHECK(next.climber.skills.power == arriving.skills.power);
+  CHECK(next.climber.skills.head == arriving.skills.head);
+
+  // And the two properties the zeroed version silently failed: they can
+  // climb, and they can eventually stop.
+  CHECK(SummarizeCareer(next).abilityGrade > 0.0);
+  PlayerState ageing = next;
+  double peak = 0.0;
+  bool everOffered = false;
+  for (int day = 1; day <= 60 * 365; day++) {
+    ageing.day = day;
+    AgeDay(ageing.climber, ageing.day);
+    peak = std::max(peak, SkillToGrade(ageing.climber.skills.power));
+    if (TimeToThinkAboutIt(ageing, 0, peak)) { everOffered = true; break; }
+  }
+  CHECK(everOffered);
   CHECK(next.climber.load == 0.0);
   CHECK(!IsHurt(next.climber));
   CHECK(next.projects.empty());          // none of the ledgers are yours
@@ -4547,7 +4643,7 @@ static void TestTheWorldRemembersAndTheBodyDoesNot() {
   // that ended rich must not hand the next one a shortcut past the part of
   // this game that is about being broke.
   CHECK(next.cash == d.inheritedCash);
-  CHECK(next.kit.pads == fresh.kit.pads);
+  CHECK(next.kit.pads == PlayerState{}.kit.pads);   // one pad, like anybody
   CHECK(!next.kit.hangboard);
   CHECK(!IsGymMember(next.kit));
   CHECK(!next.job.salaried);
@@ -6101,6 +6197,7 @@ int main() {
   TestTheBestBelayerIsTheMostPatientOne();
   TestTheSunTerraceIsTheWinterCrag();
   TestEachCragCostsSomethingDifferentToReach();
+  TestTheValleyRemembersAcrossGenerations();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

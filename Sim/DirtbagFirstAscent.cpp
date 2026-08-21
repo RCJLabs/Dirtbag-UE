@@ -84,6 +84,17 @@ void CreditFirstAscent(PlayerState& player, const ProjectMemory& memory) {
   DidFirstAscent(player.standing, goodStyle);
 }
 
+bool WriteIntoTheBook(CragLine& line, const NamedLine& named) {
+  if (named.routeKey != line.route.name) return false;
+  if (named.givenName.empty()) return false;
+
+  line.displayName = named.givenName;
+  line.firstAscentBy = named.by;
+  line.isProject = false;
+  if (named.confirmedGrade >= 0) line.route.grade = named.confirmedGrade;
+  return true;
+}
+
 bool ClaimFirstAscent(PlayerState& player, ProjectMemory& memory,
                       const CragLine& line, const std::string& name) {
   if (!NameFirstAscent(memory, line, name)) return false;

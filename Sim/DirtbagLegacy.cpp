@@ -69,7 +69,16 @@ PlayerState Inherit(const Legacy& previous, const LegacyDials& dials) {
   // Nothing physical carries. The next climber is twenty-four with a fresh
   // body and nothing in the fingers, because inheriting somebody else's
   // tendons is nonsense and would make the second life a save-scum of the
-  // first. Skills stay at whatever a new PlayerState starts with.
+  // first.
+  //
+  // "Nothing in the fingers" means *a beginner*, not *a zero*. This used to
+  // read "skills stay at whatever a new PlayerState starts with", and what
+  // a new PlayerState starts with is a zeroed struct — so every inherited
+  // climber had 0 in all five, could not send a V0 (measured: 45 attempts
+  // on Roadside Attraction, the warm-up), and could never be offered
+  // retirement, because that test needs a peak above zero and they never
+  // had one. They climbed to 85 and past it. See notes/phase4-career.md.
+  next.climber = NewClimber();
   next.day = 1;
   next.cash = dials.inheritedCash;
 

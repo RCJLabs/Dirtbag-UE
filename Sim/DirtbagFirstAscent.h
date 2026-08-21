@@ -20,6 +20,7 @@
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
 #include "DirtbagDay.h"
+#include "DirtbagLegacy.h"
 #include "DirtbagSessionLoop.h"
 
 namespace dirtbag {
@@ -118,6 +119,19 @@ std::string FirstAscentLine(const ProjectMemory& memory,
 // line is named.
 bool WriteIntoTheBook(CragLine& line, const ProjectMemory& memory,
                       const std::string& by);
+
+// The same, for somebody who is no longer here to have a ledger.
+//
+// A career's ledger is personal and Inherit wipes it, which is right. But
+// the *book* is not personal, and deriving it from the living player's
+// ledger alone meant every generation arrived to find their predecessors'
+// lines unclimbed again. Measured over ninety years: four climbers each did
+// the first ascent of the same two boulders, and the guidebook at the end
+// listed the same rock four times under four names.
+//
+// A Legacy carries exactly what the page needs — the key, the name they
+// gave it, what it went at, and who they were.
+bool WriteIntoTheBook(CragLine& line, const NamedLine& named);
 
 // Overnight upkeep for every project ledger: rock re-dirties slowly.
 //

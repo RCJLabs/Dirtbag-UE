@@ -56,12 +56,28 @@ struct Route {
 
 struct Skills {
   // All 0..100, as in the 2D game.
+  //
+  // These default to zero, which is right for a struct and wrong for a
+  // person: a climber at 0 is not a beginner, they are somebody who cannot
+  // pull on. Anything constructing a *climber* wants kStartingSkill.
   double power = 0.0;
   double fingers = 0.0;
   double technique = 0.0;
   double endurance = 0.0;
   double head = 0.0;
 };
+
+// What somebody who turns up at the Lot is made of. 50 is "solid
+// intermediate" on the ladder in concepts/BALANCE-SKILL-LADDER.md — V5.0,
+// which is where a new career starts and where an inherited one restarts.
+//
+// It is a named constant because it was previously *nowhere*: the engine's
+// FDirtbagClimber defaulted every skill to 50 in its own header, the sim's
+// Skills{} defaulted them to 0, and Inherit returned a plain PlayerState.
+// So the second generation of every career was born with zero in all five,
+// could not climb a V0, and could never be offered retirement — because
+// that test needs a peak above zero and they never had one.
+constexpr double kStartingSkill = 50.0;
 
 enum class Morphology { Compact, Average, Lanky, Powerful };
 
@@ -103,6 +119,11 @@ struct Climber {
   // What is currently wrong with you.
   Injury injury;
 };
+
+// A climber as they arrive at the Lot: the starting body, and nothing else
+// assumed. Use this rather than `Climber{}` anywhere a *person* is being
+// made, because `Climber{}` is a zeroed struct and a person is not.
+Climber NewClimber();
 
 // --- Conditions -------------------------------------------------------------
 
