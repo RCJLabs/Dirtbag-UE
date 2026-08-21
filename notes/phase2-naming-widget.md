@@ -144,8 +144,17 @@ That makes the prompt say *the arete left of Diesel* rather than nothing.
    undoes it, so without this you keep a mouse cursor and cannot move.
    After **Remove from Parent**:
    - Right-click → **Get Player Controller**.
-   - From it → **Set Input Mode Game Only** (target = that controller).
-   - From it → **Set Show Mouse Cursor**, box **unticked**.
+   - **Drag off its `Return Value` pin** → **Set Input Mode Game Only**
+     (its Target fills in from the pin you dragged).
+   - **Drag off that same `Return Value` pin again** → **Set Show Mouse
+     Cursor**, box **unticked**. Wire `Set Input Mode Game Only`'s `then`
+     into its execute pin.
+
+   > `Set Show Mouse Cursor` is not a function — `bShowMouseCursor` is a
+   > *variable on PlayerController*, so it only exists as a node once you
+   > drag from a controller pin. Right-clicking in empty graph space in a
+   > UserWidget will never offer it. (If it still doesn't appear, untick
+   > **Context Sensitive** at the top of the search popup.)
 
    > Both buttons need this. If only Confirm has it, walking away with
    > *Later* leaves you stuck in exactly the same way.
@@ -231,8 +240,10 @@ just the one that already exists. Good alternatives, in order of preference:
 9. **The step everyone misses.** This is a *chain*, not two loose nodes —
    both of these need their execute pins wired or they never run:
    - Right-click → **Get Player Controller** (Player Index 0).
-   - Right-click → **Set Show Mouse Cursor**. Target = that controller, and
-     **tick the box** `true`.
+   - **Drag off its `Return Value` pin** → **Set Show Mouse Cursor**, and
+     **tick the box** `true`. It is a *variable on PlayerController*, not a
+     function, so it only appears in the search when you drag from a
+     controller pin — right-clicking in empty space won't find it.
    - **Connect `Add to Viewport`'s `then` pin → `Set Show Mouse Cursor`'s
      execute pin.** Setting the target alone leaves the node orphaned: it
      sits there looking wired and never fires.

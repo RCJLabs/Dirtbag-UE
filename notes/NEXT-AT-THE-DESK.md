@@ -73,6 +73,9 @@ tested; nothing can type a name without it.
    the Branch's False pin.
 6. **`Set Input Mode UI Only`** + `Set Show Mouse Cursor`. Skip this and you
    will see the box and be unable to type in it. Everyone misses it.
+   `Set Show Mouse Cursor` is a *variable on PlayerController*, not a
+   function — drag it off the `Get Player Controller` pin or it won't
+   show up in the search at all.
 
 **Test it fast:** wall at **Board Index 25** (*the slab right of the
 pull-off*, V3), `Venue = Crag`, press **C** four times to clean, then climb.
