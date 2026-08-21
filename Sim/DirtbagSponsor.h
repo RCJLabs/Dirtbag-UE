@@ -43,6 +43,7 @@ enum class SponsorTier {
 };
 constexpr int kSponsorTierCount = 4;
 
+// unwired-ok: a formatter; SponsorText is what the HUD prints
 const char* SponsorTierName(SponsorTier tier);
 
 struct SponsorDials {
@@ -114,6 +115,8 @@ SponsorTier OfferFor(int hardestSend, int firstAscents,
                      const Standing& standing,
                      const SponsorDials& dials = SponsorDials{});
 
+// unwired-ok: NOT WIRED -- a sponsored player is never paid. Tracked in
+// notes/engine-bridge-gaps.md
 double MonthlyStipend(SponsorTier tier,
                       const SponsorDials& dials = SponsorDials{});
 
@@ -131,6 +134,8 @@ bool ObligationToday(const Sponsorship& deal, const Rng& worldRng, int day,
 // End of season: do they keep you? Returns the tier you hold afterwards.
 // `daysHurtThisSeason` pauses the clock rather than running it, because
 // being injured is not the same as not trying.
+// unwired-ok: NOT WIRED -- a deal is never reviewed, so no rung is ever
+// won or lost. Tracked in notes/engine-bridge-gaps.md
 SponsorTier ReviewSeason(Sponsorship& deal, int hardestSendNow,
                          int daysHurtThisSeason,
                          const SponsorDials& dials = SponsorDials{});

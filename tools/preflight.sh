@@ -35,4 +35,8 @@ echo "== mirror coverage =="
 python3 tools/check-mirror-coverage.py
 
 echo
+echo "== sim reachable from the engine =="
+python3 tools/check-unwired.py
+
+echo
 echo "ALL CHECKS PASSED"

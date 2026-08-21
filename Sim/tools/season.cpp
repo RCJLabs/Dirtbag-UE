@@ -559,12 +559,13 @@ int main(int argc, char** argv) {
     GearDials gd;
     if (player.shoes.wear > gd.noticeablyWorn) {
       const double before = player.cash;
+      const bool shod = CoversShoes(player.sponsor);
       if (CanResole(player.shoes, gd)) {
-        if (Resole(player.shoes, player.cash, gd)) {
+        if (Resole(player.shoes, player.cash, shod, gd)) {
           t.resoles++;
           t.spentShoes += before - player.cash;
         }
-      } else if (BuyNewShoes(player.shoes, player.cash, gd)) {
+      } else if (BuyNewShoes(player.shoes, player.cash, shod, gd)) {
         t.newPairs++;
         t.spentShoes += before - player.cash;
       }

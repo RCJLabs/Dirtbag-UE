@@ -916,7 +916,11 @@ bool UDirtbagGameInstance::ResoleShoes()
 {
 	dirtbag::Shoes S = DirtbagConvert::ToSim(Player.Shoes);
 	double Cash = Player.Cash;
-	if (!dirtbag::Resole(S, Cash)) return false;
+	// The bottom sponsorship rung is a shoe deal and nothing else, so this
+	// is the only place it can ever be worth anything.
+	const bool bSponsored =
+	    dirtbag::CoversShoes(DirtbagConvert::ToSim(Player.Sponsor));
+	if (!dirtbag::Resole(S, Cash, bSponsored)) return false;
 	Player.Shoes = DirtbagConvert::FromSim(S);
 	Player.Cash = Cash;
 	return true;
@@ -926,7 +930,9 @@ bool UDirtbagGameInstance::BuyNewShoes()
 {
 	dirtbag::Shoes S = DirtbagConvert::ToSim(Player.Shoes);
 	double Cash = Player.Cash;
-	if (!dirtbag::BuyNewShoes(S, Cash)) return false;
+	const bool bSponsored =
+	    dirtbag::CoversShoes(DirtbagConvert::ToSim(Player.Sponsor));
+	if (!dirtbag::BuyNewShoes(S, Cash, bSponsored)) return false;
 	Player.Shoes = DirtbagConvert::FromSim(S);
 	Player.Cash = Cash;
 	return true;
@@ -1285,10 +1291,20 @@ bool UDirtbagGameInstance::NameFirstAscent(int32 BoardIndex,
 	SimLine.firstAscentBy = TCHAR_TO_UTF8(*Line.FirstAscentBy);
 	dirtbag::ProjectMemory SimLedger = DirtbagConvert::ToSim(*Ledger);
 
-	if (!dirtbag::NameFirstAscent(SimLedger, SimLine, TCHAR_TO_UTF8(*Name)))
+	// ClaimFirstAscent, not NameFirstAscent: naming is the ledger half, and
+	// on its own it leaves the valley with no opinion about what you just
+	// did. Doing a line nobody had done is the loudest thing a climber can
+	// do here and it was worth exactly nothing to any faction.
+	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
+	if (!dirtbag::ClaimFirstAscent(SimPlayer, SimLedger, SimLine,
+	                               TCHAR_TO_UTF8(*Name)))
 	{
 		return false;
 	}
+	// Only the standing comes back. The ledger is written through the
+	// pointer below, and round-tripping the whole player here would undo
+	// anything the rest of this frame had already changed.
+	Player.Standing = DirtbagConvert::FromSim(SimPlayer.standing);
 	*Ledger = DirtbagConvert::FromSim(SimLedger);
 
 	// The book is loaded and stale by one line. EnsureCrag would fix it on

@@ -133,6 +133,7 @@ std::string EthicsText(const Secret& secret, int today);
 
 // What you are carrying, for a screen that shows it. Empty is the honest
 // career and the common one.
+// unwired-ok: the empty-secret constant; the engine builds its own
 std::vector<const Secret*> Unknown(const std::vector<Secret>& secrets);
 
 }  // namespace dirtbag

@@ -105,6 +105,8 @@ double ShareBeta(const Partner& partner, const CragLine& line,
                  const PartnerDials& dials = PartnerDials{});
 
 // What climbing with this person does to your head, added to psyche.
+// unwired-ok: NOT WIRED -- a partner lifts no psyche in game. Tracked in
+// notes/engine-bridge-gaps.md
 double PsycheFrom(const Partner& partner,
                   const PartnerDials& dials = PartnerDials{});
 

@@ -81,9 +81,12 @@ Crag RoadsideCrag(const Rng& worldRng);
 Crag ShadedCave(const Rng& worldRng);
 
 // Lines at or under this grade, in book order — what a guidebook page shows.
+// unwired-ok: the guidebook page's filter; there is no guidebook screen
 std::vector<const CragLine*> LinesUpTo(const Crag& crag, int grade);
 
 // The open projects, in book order.
+// unwired-ok: the guidebook page's filter; the engine walks Crag.Lines
+// itself
 std::vector<const CragLine*> OpenProjects(const Crag& crag);
 
 // "Diesel V5 ***" / "project, the arete left of Diesel". The guidebook line

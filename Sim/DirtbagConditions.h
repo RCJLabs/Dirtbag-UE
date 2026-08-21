@@ -31,6 +31,7 @@ namespace dirtbag {
 // comes into the shade mid-afternoon; that shade line is the window.
 enum class Aspect { North, East, South, West };
 
+// unwired-ok: a formatter, and no screen prints an aspect yet
 const char* AspectName(Aspect a);
 
 // Every number a designer might turn, with its reason.
@@ -165,6 +166,7 @@ double LastLightHour(int day, const ConditionsDials& dials = ConditionsDials{});
 double SeasonalCentreF(int day, const ConditionsDials& dials = ConditionsDials{});
 
 // What the season is called, for anything that wants to say it.
+// unwired-ok: a formatter, and no screen prints a season yet
 const char* SeasonName(int day, const ConditionsDials& dials = ConditionsDials{});
 
 // Deterministic per world-seed and day, on its own named rng stream so

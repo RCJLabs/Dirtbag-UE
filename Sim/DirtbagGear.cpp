@@ -27,9 +27,11 @@ bool CanResole(const Shoes& shoes, const GearDials& dials) {
   return shoes.resoles < dials.resolesPerPair;
 }
 
-bool Resole(Shoes& shoes, double& cash, const GearDials& dials) {
-  if (!CanResole(shoes, dials) || cash < dials.resoleCost) return false;
-  cash -= dials.resoleCost;
+bool Resole(Shoes& shoes, double& cash, bool sponsored,
+            const GearDials& dials) {
+  const double price = sponsored ? 0.0 : dials.resoleCost;
+  if (!CanResole(shoes, dials) || cash < price) return false;
+  cash -= price;
   shoes.resoles++;
   // Most of the performance back, and never quite new: each resole leaves a
   // little more of the shoe behind.
@@ -37,9 +39,11 @@ bool Resole(Shoes& shoes, double& cash, const GearDials& dials) {
   return true;
 }
 
-bool BuyNewShoes(Shoes& shoes, double& cash, const GearDials& dials) {
-  if (cash < dials.newShoeCost) return false;
-  cash -= dials.newShoeCost;
+bool BuyNewShoes(Shoes& shoes, double& cash, bool sponsored,
+                 const GearDials& dials) {
+  const double price = sponsored ? 0.0 : dials.newShoeCost;
+  if (cash < price) return false;
+  cash -= price;
   shoes.wear = 0.0;
   shoes.resoles = 0;
   shoes.pairsOwned++;

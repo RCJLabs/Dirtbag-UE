@@ -64,6 +64,10 @@ void WearShoes(Shoes& shoes, int moves, int grade,
                const GearDials& dials = GearDials{});
 
 // Grades lost on this kind of hold, right now.
+// unwired-ok: NOT WIRED -- and worse, duplicated: the resolver prices dead
+// rubber with its own inline copy of this formula. Two copies of one
+// question, which is the drift this project keeps writing rules against.
+// Tracked in notes/engine-bridge-gaps.md
 double ShoePenalty(const Shoes& shoes, bool edgingHold,
                    const GearDials& dials = GearDials{});
 
@@ -71,8 +75,16 @@ double ShoePenalty(const Shoes& shoes, bool edgingHold,
 bool CanResole(const Shoes& shoes, const GearDials& dials = GearDials{});
 
 // Returns false if you cannot afford it, or the uppers are finished.
-bool Resole(Shoes& shoes, double& cash, const GearDials& dials = GearDials{});
-bool BuyNewShoes(Shoes& shoes, double& cash,
+//
+// `sponsored` is who is paying, and it has no default on purpose. A shoe
+// deal is the entire content of the bottom sponsorship rung — "free shoes,
+// and they want nothing" — and `CoversShoes` sat written and uncalled from
+// the day it landed, so that rung gave the player precisely nothing. A
+// parameter every caller has to answer is the only version of this that
+// cannot go quiet again.
+bool Resole(Shoes& shoes, double& cash, bool sponsored,
+            const GearDials& dials = GearDials{});
+bool BuyNewShoes(Shoes& shoes, double& cash, bool sponsored,
                  const GearDials& dials = GearDials{});
 
 // "the rubber is going" / "you can see your toes"

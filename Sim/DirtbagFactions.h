@@ -107,9 +107,12 @@ bool CragIsOpen(const Standing& s);
 
 // Which faction someone at the Lot speaks for, so that standing means
 // something in a conversation rather than only on a screen.
+// unwired-ok: maps a job to a faction; WorkOddJob does that by name today
 Faction FactionOf(const std::string& partnerName);
 
 // How much more (or less) beta somebody gives you for who you are.
+// unwired-ok: NOT WIRED -- standing buys no beta in game. Tracked in
+// notes/engine-bridge-gaps.md
 double BetaMultiplierFor(const Standing& s, const std::string& partnerName,
                          const FactionDials& dials = FactionDials{});
 

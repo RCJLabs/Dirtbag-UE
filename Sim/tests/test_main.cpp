@@ -881,6 +881,99 @@ static void TestHeadTrainsOnWhatYouCommitTo() {
   CHECK(bold > safe);
 }
 
+static void TestClaimingIsNamingPlusTellingTheScene() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  const CragLine project = *OpenProjects(crag)[0];
+
+  // NameFirstAscent alone is the ledger half and leaves the valley with no
+  // opinion at all. That is correct and it is also exactly how the credit
+  // came to sit uncalled: two halves, one of them optional.
+  PlayerState quiet;
+  ProjectMemory qm = NewProjectLedger(project);
+  qm.sent = true;
+  qm.firstSendStyle = Style::Onsight;
+  const Standing before = quiet.standing;
+  CHECK(NameFirstAscent(qm, project, "Ledger Only"));
+  for (int i = 0; i < kFactionCount; i++) {
+    CHECK(quiet.standing.with[i] == before.with[i]);
+  }
+
+  // ClaimFirstAscent is the whole verb.
+  PlayerState loud;
+  ProjectMemory lm = NewProjectLedger(project);
+  lm.sent = true;
+  lm.firstSendStyle = Style::Onsight;
+  CHECK(ClaimFirstAscent(loud, lm, project, "Bouncin"));
+  CHECK(lm.givenName == "Bouncin");
+  CHECK(lm.firstAscent);
+  bool moved = false;
+  for (int i = 0; i < kFactionCount; i++) {
+    if (loud.standing.with[i] != before.with[i]) moved = true;
+  }
+  CHECK(moved);   // doing a line nobody had done is worth an opinion
+
+  // A refused naming credits nothing — no half-claims.
+  PlayerState nope;
+  ProjectMemory nm = NewProjectLedger(project);
+  CHECK(!ClaimFirstAscent(nope, nm, project, "Not Yours"));
+  CHECK(!nm.firstAscent);
+  for (int i = 0; i < kFactionCount; i++) {
+    CHECK(nope.standing.with[i] == before.with[i]);
+  }
+
+  // Style still reaches the scene through the claim: a new line is a new
+  // line to Development whoever you are, but ground-up and first go is what
+  // the old guard actually care about. Reading that off the ledger rather
+  // than being told is the point of the split.
+  PlayerState sieged;
+  ProjectMemory sm = NewProjectLedger(project);
+  sm.sent = true;
+  sm.firstSendStyle = Style::Redpoint;
+  CHECK(ClaimFirstAscent(sieged, sm, project, "Eventually"));
+  const int dev = static_cast<int>(Faction::Development);
+  const int old = static_cast<int>(Faction::OldGuard);
+  CHECK(loud.standing.with[dev] == sieged.standing.with[dev]);
+  CHECK(loud.standing.with[old] > sieged.standing.with[old]);
+}
+
+static void TestAShoeDealActuallyBuysShoes() {
+  GearDials g;
+
+  // No deal: you pay.
+  Shoes worn;
+  worn.wear = 0.9;
+  double cash = 500.0;
+  CHECK(Resole(worn, cash, false, g));
+  CHECK(cash < 500.0);
+
+  // The bottom rung is a shoe deal and nothing else. Before this was wired
+  // it was "free shoes, and they want nothing" and it gave you nothing.
+  Sponsorship deal;
+  deal.tier = SponsorTier::Shoes;
+  CHECK(CoversShoes(deal));
+
+  Shoes worn2;
+  worn2.wear = 0.9;
+  double free = 500.0;
+  CHECK(Resole(worn2, free, CoversShoes(deal), g));
+  CHECK(free == 500.0);          // they are paying
+  CHECK(worn2.resoles == 1);     // and you still got the resole
+
+  // New pairs too, and a broke climber is not broke any more.
+  Shoes dead;
+  dead.wear = 1.0;
+  dead.resoles = 99;
+  double nothing = 0.0;
+  CHECK(!BuyNewShoes(dead, nothing, false, g));
+  CHECK(BuyNewShoes(dead, nothing, CoversShoes(deal), g));
+  CHECK(nothing == 0.0);
+  CHECK(dead.wear == 0.0);
+
+  // Every tier that covers shoes covers them; None does not.
+  Sponsorship none;
+  CHECK(!CoversShoes(none));
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -1971,16 +2064,16 @@ static void TestResoleOrReplace() {
 
   // A resole is most of the performance for a third of the price.
   CHECK(CanResole(s, g));
-  CHECK(Resole(s, cash, g));
+  CHECK(Resole(s, cash, false, g));
   CHECK(s.wear < 0.9);
   CHECK(s.wear > 0.0);            // and never quite new again
   CHECK(cash == 500.0 - g.resoleCost);
 
   // But the uppers only take so many.
   s.wear = 0.9;
-  CHECK(Resole(s, cash, g));
+  CHECK(Resole(s, cash, false, g));
   CHECK(!CanResole(s, g));
-  CHECK(!Resole(s, cash, g));
+  CHECK(!Resole(s, cash, false, g));
 
   // The warning only appears once this pair is worn again — a freshly
   // resoled shoe with no resoles left says nothing, because there is
@@ -1991,7 +2084,7 @@ static void TestResoleOrReplace() {
 
   // At which point it is a new pair or nothing.
   const double before = cash;
-  CHECK(BuyNewShoes(s, cash, g));
+  CHECK(BuyNewShoes(s, cash, false, g));
   CHECK(s.wear == 0.0);
   CHECK(s.resoles == 0);
   CHECK(s.pairsOwned == 2);
@@ -2001,8 +2094,8 @@ static void TestResoleOrReplace() {
   double empty = 10.0;
   Shoes poor;
   poor.wear = 0.95;
-  CHECK(!Resole(poor, empty, g));
-  CHECK(!BuyNewShoes(poor, empty, g));
+  CHECK(!Resole(poor, empty, false, g));
+  CHECK(!BuyNewShoes(poor, empty, false, g));
   CHECK(poor.wear == 0.95);       // and nothing happened
   CHECK(empty == 10.0);
 
@@ -5589,6 +5682,8 @@ int main() {
   TestTheBookGetsWrittenInto();
   TestTheLoadWarningAgreesWithItself();
   TestHeadTrainsOnWhatYouCommitTo();
+  TestClaimingIsNamingPlusTellingTheScene();
+  TestAShoeDealActuallyBuysShoes();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

@@ -78,12 +78,17 @@ struct Job {
 bool SalariedToday(const Job& job, int day, const JobDials& dials = JobDials{});
 
 // Does the salary have you during this hour?
+// unwired-ok: NOT WIRED -- reached only through WorkSalariedDay. Tracked
+// in notes/engine-bridge-gaps.md
 bool SalaryOwnsHour(const Job& job, int day, double hour,
                     const JobDials& dials = JobDials{});
 
 // What a week of it pays.
+// unwired-ok: NOT WIRED -- reached only through WorkSalariedDay. Tracked
+// in notes/engine-bridge-gaps.md
 double SalaryDayPay(const JobDials& dials = JobDials{});
 
+// unwired-ok: a formatter, and the board draws its own rows
 const char* JobText(const Job& job);
 
 }  // namespace dirtbag
