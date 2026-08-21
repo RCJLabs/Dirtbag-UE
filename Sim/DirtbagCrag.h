@@ -64,7 +64,13 @@ struct Crag {
   Aspect aspect = Aspect::North;
   std::vector<CragLine> lines;
 
-  // How long the drive is from the van, in hours. The crag's real cost.
+  // How long the drive is from the van, in hours. The crag's real cost,
+  // and since 2026-08-21 an actual one: the travel spot asks the guidebook
+  // for this rather than carrying its own hand-typed copy, so a crag cannot
+  // be forty minutes away in the book and half an hour away in the level.
+  //
+  // Charged on whichever end of a drive is rock, so leaving costs what
+  // arriving did.
   double approachHours = 0.5;
 };
 

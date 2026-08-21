@@ -243,6 +243,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
 	FDirtbagCragLine GetCragLineAt(EDirtbagVenue AtVenue, int32 Index);
 
+	/** How long it takes to get to this venue's rock, in hours, from the
+	 *  guidebook rather than from the level.
+	 *
+	 *  `Crag::approachHours` was set by all three crags (0.5, 0.7, 0.9) and
+	 *  read by nothing, while the travel spot carried a hand-typed number
+	 *  that meant the same thing. Two copies of one fact, and the level's
+	 *  was the one that counted — so the cave's forty minutes up the hill
+	 *  was true only if somebody remembered to type it.
+	 *
+	 *  Returns a negative number indoors, where there is no rock and the
+	 *  spot's own Travel Hours is the right answer. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Crag")
+	double ApproachHoursFor(EDirtbagVenue AtVenue);
+
 	/** How many things there are to climb where you are standing. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	int32 NumRoutesHere();

@@ -1248,6 +1248,33 @@ static void TestTheBestBelayerIsTheMostPatientOne() {
   CHECK(BestBelayer(nobody, sd) == nullptr);
 }
 
+static void TestEachCragCostsSomethingDifferentToReach() {
+  const Rng world = Rng::FromSeed("crag-1");
+  const Crag roadside = RoadsideCrag(world);
+  const Crag cave = ShadedCave(world);
+  const Crag terrace = SunTerrace(world);
+
+  // Every crag says how far it is, and until today nothing read it -- the
+  // travel spot in the level carried a hand-typed number meaning the same
+  // thing, so the guidebook and the game could disagree and the level won.
+  // Now the engine asks the book, which makes these numbers load-bearing
+  // rather than decorative.
+  CHECK(roadside.approachHours > 0.0);
+  CHECK(cave.approachHours > roadside.approachHours);
+  CHECK(terrace.approachHours > cave.approachHours);
+
+  // And they have to be far enough apart to feel like different decisions.
+  // Ten minutes between two crags is not a choice, it is a rounding error.
+  CHECK(cave.approachHours - roadside.approachHours >= 0.15);
+  CHECK(terrace.approachHours - cave.approachHours >= 0.15);
+
+  // Nothing is so far that a day out is impossible: there and back has to
+  // leave a session in the shortest day of the year.
+  ConditionsDials cd;
+  const double shortest = DaylightHours(1, cd);
+  CHECK(shortest > 2.0 * terrace.approachHours + 2.0);
+}
+
 static void TestTheSunTerraceIsTheWinterCrag() {
   const Rng world = Rng::FromSeed("crag-1");
   const Crag terrace = SunTerrace(world);
@@ -6073,6 +6100,7 @@ int main() {
   TestThePadSaysWhatItCosts();
   TestTheBestBelayerIsTheMostPatientOne();
   TestTheSunTerraceIsTheWinterCrag();
+  TestEachCragCostsSomethingDifferentToReach();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

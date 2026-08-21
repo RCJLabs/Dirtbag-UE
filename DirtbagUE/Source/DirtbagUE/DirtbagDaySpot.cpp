@@ -64,7 +64,7 @@ FString ADirtbagDaySpot::PromptText() const
 		                       Game->Player.Day, Game->Player.Cash);
 	case EDirtbagSpotKind::Travel:
 		return FString::Printf(TEXT("Drive to %s?  (E)  -  %.0f minutes"),
-		                       *TravelName, TravelHours * 60.0);
+		                       *TravelName, DriveHours() * 60.0);
 	case EDirtbagSpotKind::Dog:
 		return FString::Printf(TEXT("Feed it?  (E)  -  %s.  $%.0f"),
 		                       *Game->DogLine(), Game->Player.Cash);
@@ -350,6 +350,30 @@ void ADirtbagDaySpot::OnInteract()
 	}
 }
 
+double ADirtbagDaySpot::DriveHours() const
+{
+	if (Game)
+	{
+		UDirtbagGameInstance* G = const_cast<UDirtbagGameInstance*>(Game.Get());
+
+		// A drive costs the approach of whichever end of it is rock, so the
+		// way back is the same length as the way out. Asking only about the
+		// destination would make the cave forty minutes to reach and half
+		// an hour to leave, because the Lot is at Roadside.
+		const double There = G->ApproachHoursFor(ArriveAt);
+		if (There > 0.0)
+		{
+			return There;
+		}
+		const double Here = G->ApproachHoursFor(G->Venue);
+		if (Here > 0.0)
+		{
+			return Here;
+		}
+	}
+	return TravelHours;
+}
+
 void ADirtbagDaySpot::BeginDrive()
 {
 	if (!TravelTarget)
@@ -406,8 +430,9 @@ void ADirtbagDaySpot::ArriveFromDrive()
 
 	// The drive itself: hours on the clock, hours on the van, and the
 	// chance that the thing you have been ignoring picks this morning.
-	const int32 Broke = Game->DriveVan(TravelHours);
-	Game->PassHours(TravelHours);
+	const double Hours = DriveHours();
+	const int32 Broke = Game->DriveVan(Hours);
+	Game->PassHours(Hours);
 	Game->SetVenue(ArriveAt);
 
 	if (Broke >= 0)
@@ -423,7 +448,6 @@ void ADirtbagDaySpot::ArriveFromDrive()
 		                                         false);
 	}
 	Say(FString::Printf(TEXT("Drove to %s. %.0f minutes and $%.0f gone."),
-	                    *TravelName, TravelHours * 60.0,
-	                    Game->LastDriveFuel),
+	                    *TravelName, Hours * 60.0, Game->LastDriveFuel),
 	    FColor::Silver);
 }

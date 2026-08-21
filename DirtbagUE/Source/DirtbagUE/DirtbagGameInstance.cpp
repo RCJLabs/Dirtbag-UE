@@ -300,6 +300,25 @@ FDirtbagCragLine UDirtbagGameInstance::GetCragLineAt(EDirtbagVenue AtVenue,
 	return Line;
 }
 
+double UDirtbagGameInstance::ApproachHoursFor(EDirtbagVenue AtVenue)
+{
+	if (!IsOutdoors(AtVenue))
+	{
+		return -1.0;   // no rock, no approach; the spot's own number stands
+	}
+	// Same save-and-restore as GetCragLineAt, and for the same reason: a
+	// travel spot asks about the far end of the drive while the player is
+	// still standing at this one, and leaving the wrong crag loaded would
+	// point CragAspect at rock the player is nowhere near.
+	const EDirtbagVenue Standing = Venue;
+	Venue = AtVenue;
+	EnsureCrag();
+	const double Hours = Crag.ApproachHours;
+	Venue = Standing;
+	EnsureCrag();
+	return Hours;
+}
+
 FDirtbagCragLine UDirtbagGameInstance::GetCragLine(int32 Index)
 {
 	EnsureCrag();
