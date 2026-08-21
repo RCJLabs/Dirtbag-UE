@@ -79,6 +79,8 @@ void UDirtbagGameInstance::Sleep()
 	DogWorry.Reset();
 	VanNews.Reset();
 	SponsorNews.Reset();
+	// Whoever stood at the bottom of the rope yesterday is fresh again.
+	RopedBurnsToday = 0;
 	// Yesterday's first ascent stops being news. It is in the book now,
 	// which is where a thing you did goes once it stops being a moment.
 	LastAscentLine.Reset();
@@ -1203,6 +1205,51 @@ void UDirtbagGameInstance::StoreBonds(
 	{
 		Player.Bonds.Add(DirtbagConvert::FromSim(B));
 	}
+}
+
+// --- The rope ----------------------------------------------------------------
+
+FString UDirtbagGameInstance::BelayLine() const
+{
+	const std::vector<dirtbag::Partner> Lot =
+	    const_cast<UDirtbagGameInstance*>(this)->LotToday();
+	return UTF8_TO_TCHAR(
+	    dirtbag::BelayText(dirtbag::BestBelayer(Lot)).c_str());
+}
+
+bool UDirtbagGameInstance::HasABelayer() const
+{
+	const std::vector<dirtbag::Partner> Lot =
+	    const_cast<UDirtbagGameInstance*>(this)->LotToday();
+	return dirtbag::BestBelayer(Lot) != nullptr;
+}
+
+int32 UDirtbagGameInstance::BurnsHeldToday() const
+{
+	const std::vector<dirtbag::Partner> Lot =
+	    const_cast<UDirtbagGameInstance*>(this)->LotToday();
+	const dirtbag::Partner* Who = dirtbag::BestBelayer(Lot);
+	return Who ? dirtbag::BurnsTheyWillHold(*Who) : 0;
+}
+
+bool UDirtbagGameInstance::CanTieIn() const
+{
+	return RopedBurnsToday < BurnsHeldToday();
+}
+
+FString UDirtbagGameInstance::RopeRefusal() const
+{
+	if (!HasABelayer())
+	{
+		// The sim owns how this reads; a null belayer is exactly the case
+		// BelayText was written for.
+		return BelayLine();
+	}
+	if (!CanTieIn())
+	{
+		return TEXT("They have been down there long enough. Tomorrow.");
+	}
+	return FString();
 }
 
 TArray<FDirtbagPartner> UDirtbagGameInstance::GetLot()

@@ -118,6 +118,21 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Dirtbag|Route")
 	int32 BoardIndex = 0;
 
+	/** Which way the climber faces, in the wall's own space. -90 is into
+	 *  the wall, which is where a climber looks.
+	 *
+	 *  The wall's face points along +Y: the approach trigger sits at +250Y
+	 *  and the session camera at +450Y looking back down -Y. The climber has
+	 *  to agree with that, and until now nothing set its rotation at all —
+	 *  only SetWorldLocation, every move — so it kept whatever the mesh
+	 *  happened to be authored with and climbed with its back to the rock.
+	 *
+	 *  Exposed rather than hard-coded because it depends on the skeletal
+	 *  mesh's forward axis, which I cannot see from here. If your mannequin
+	 *  is authored facing -X rather than +X, this is +90 instead. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Staging")
+	float ClimberYaw = -90.f;
+
 	// --- Fallbacks -------------------------------------------------------
 	// Used only in levels with no game instance (isolated test maps). With
 	// one present these are overwritten at BeginPlay from the board or the

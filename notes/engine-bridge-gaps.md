@@ -136,12 +136,21 @@ a climber who never replaces their shoes sends **1.0 against 3.7** on the
 same burns, winning 7 seeds, tying 3, losing 0 — for about **$9** of the
 year's cash. The gear shop now says what the rubber is costing you.
 
-## Still open: the belayer, and only the belayer
+## Closed — all fourteen, 2026-08-21
 
-`WillBelay`, `BurnsTheyWillHold`, `BestBelayer`, `BelayText` — the Shaded
-Cave's mechanic, and held deliberately until the cave is placed in the level.
-`NeedsABelayer` is wired, so the game can ask the question and cannot answer
-it; wiring a belayer picker with nowhere to belay would be guessing at a UI.
+`WillBelay`, `BurnsTheyWillHold`, `BestBelayer`, `BelayText` went in once the
+cave existed in the level. **No partner, no pitch** is enforced in
+`StartAttempt` rather than in a toast, because a rule you can walk past by
+pressing E again is not a rule. Who is holding your rope and how many burns
+they are good for is said on approach, at the moment it matters, rather than
+discovered by being refused.
+
+`RopedBurnsToday` counts against their patience and resets at lights out,
+with the rest of the day-scoped news. This is the first thing in the game
+rapport buys that nothing else can, and it is the reason the Lot exists.
+
+**`check-unwired.py` now reports 0 NOT WIRED.** The count started at
+thirteen this morning plus the two found on the way in.
 
 ## The rule this leaves behind
 

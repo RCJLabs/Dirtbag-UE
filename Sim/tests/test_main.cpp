@@ -1210,6 +1210,44 @@ static void TestTheMirroredDialsStillAgree() {
                        gd.deadShoeBiteOnGoodHolds) == dead);
 }
 
+static void TestTheBestBelayerIsTheMostPatientOne() {
+  SportDials sd;
+  // The engine picks one person off the Lot and shows their name and their
+  // burn budget at the wall, so "best" has to mean "will stand there
+  // longest" rather than anything else. Nothing pinned that: the existing
+  // belay tests check nobody, a non-climber, and one person at a time.
+  Partner stranger;
+  stranger.name = "Ray";
+  stranger.climbs = true;
+  stranger.rapport = 0.0;
+
+  Partner mate = stranger;
+  mate.name = "Margo";
+  mate.rapport = 1.0;
+
+  Partner neighbour = stranger;
+  neighbour.name = "Trish";
+  neighbour.climbs = false;      // delighted to help, and cannot
+
+  const std::vector<Partner> lot = {neighbour, stranger, mate};
+  const Partner* best = BestBelayer(lot, sd);
+  CHECK(best != nullptr);
+  CHECK(best->name == "Margo");
+  CHECK(BurnsTheyWillHold(*best, sd) == BurnsTheyWillHold(mate, sd));
+  CHECK(BelayText(best, sd).find("Margo") != std::string::npos);
+
+  // Order must not decide it. Same Lot, other way round.
+  const std::vector<Partner> reversed = {mate, stranger, neighbour};
+  const Partner* again = BestBelayer(reversed, sd);
+  CHECK(again != nullptr);
+  CHECK(again->name == "Margo");
+
+  // And a Lot of people who will not tie in is the same as an empty one,
+  // which is what stops the wall offering a rope nobody is holding.
+  const std::vector<Partner> nobody = {neighbour, neighbour};
+  CHECK(BestBelayer(nobody, sd) == nullptr);
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -5969,6 +6007,7 @@ int main() {
   TestStandingBuysBetaAndPeopleLiftYou();
   TestTheMirroredDialsStillAgree();
   TestThePadSaysWhatItCosts();
+  TestTheBestBelayerIsTheMostPatientOne();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

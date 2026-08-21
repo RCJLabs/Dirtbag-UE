@@ -739,6 +739,44 @@ private:
 	/** Today's Lot, with the career's bonds folded in. */
 	std::vector<dirtbag::Partner> LotToday();
 
+public:
+	// --- The rope ---------------------------------------------------------
+	// No partner, no pitch. A boulder needs nobody; a bolted line needs
+	// somebody willing to stand at the bottom of it, and how long they will
+	// stand there is rapport. The first thing in the game rapport buys that
+	// nothing else can.
+
+	/** "Margo will hold your rope all afternoon" / "nobody is going up there
+	 *  with you today". Always answers, even on a boulder — the wall decides
+	 *  whether the answer matters. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Rope")
+	FString BelayLine() const;
+
+	/** Is anybody at the Lot willing today? */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Rope")
+	bool HasABelayer() const;
+
+	/** How many burns they are good for. A stranger gives you a couple;
+	 *  somebody who has known you a season gives you the day. 0 with nobody. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Rope")
+	int32 BurnsHeldToday() const;
+
+	/** Roped burns taken today, against that budget. Reset at lights out —
+	 *  their patience comes back with the morning, like everything else. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rope")
+	int32 RopedBurnsToday = 0;
+
+	/** Can you tie in right now? False with nobody there, and false once
+	 *  you have used up what they were good for. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Rope")
+	bool CanTieIn() const;
+
+	/** Why not, in the game's voice. Empty when you can. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Rope")
+	FString RopeRefusal() const;
+
+private:
+
 	/** Write rapport and claims back into the career. */
 	void StoreBonds(const std::vector<dirtbag::Partner>& Lot);
 
