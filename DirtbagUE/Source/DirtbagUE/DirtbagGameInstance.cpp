@@ -85,6 +85,8 @@ void UDirtbagGameInstance::Sleep()
 	// which is where a thing you did goes once it stops being a moment.
 	LastAscentLine.Reset();
 	DirtbagYearNews.Reset();
+	CrewNews.Reset();
+	const bool bHadACrewName = !Player.Crew.Name.IsEmpty();
 
 	// SleepToNextDay ticks the streak, so a year completing is visible as
 	// the count going up across the call. Reading the count rather than
@@ -93,6 +95,15 @@ void UDirtbagGameInstance::Sleep()
 	const int32 YearsBefore = Player.Job.DirtbagYears;
 
 	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
+
+	if (!bHadACrewName && !Player.Crew.Name.IsEmpty())
+	{
+		// Not "you are now called" — nobody announces a nickname to your
+		// face. You hear it secondhand, which is how they always arrive.
+		CrewNews = FString::Printf(
+		    TEXT("You heard somebody at the fire call you %s."),
+		    *Player.Crew.Name);
+	}
 
 	if (Player.Job.DirtbagYears > YearsBefore)
 	{
@@ -929,6 +940,12 @@ bool UDirtbagGameInstance::TakeOddJob(const FDirtbagOddJob& Job)
 	// A shift is a shift: the dog did not come to it either.
 	bWorkedToday = true;
 	return true;
+}
+
+FString UDirtbagGameInstance::CrewLine() const
+{
+	return FString(dirtbag::CrewText(DirtbagConvert::ToSim(Player.Crew))
+	                   .c_str());
 }
 
 FString UDirtbagGameInstance::DirtbagYearLine() const

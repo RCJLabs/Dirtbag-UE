@@ -20,7 +20,7 @@ decision to drop them.
 | missing | evidence | needs the editor? |
 |---|---|---|
 | **Dreams** (Rig / War Chest / Home Base) | no match anywhere in `Sim/`; "war chest" appears once, as a comment on starting cash | no |
-| **The crew-naming system** | no match; "the development crew" is a faction name | no |
+| ~~**The crew-naming system**~~ | **built 2026-08-21** — `notes/the-crew.md` | no |
 | ~~**Dirtbag Year achievement**~~ | **built 2026-08-21** — `notes/dirtbag-year.md` | no |
 | **The campfire game** | no match; §4 says *"keep ONE campfire game"* | yes |
 

@@ -94,6 +94,10 @@ struct Legacy {
   // times you did it, and whether the one you did not finish was close.
   int dirtbagYears = 0;
   int longestDirtbagStreak = 0;
+
+  // What the town called them. Outlives the crew and the career both --
+  // that is what a nickname does.
+  std::string crewName;
 };
 
 // Should the game start being honest about stopping? Never a command.

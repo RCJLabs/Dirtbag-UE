@@ -47,6 +47,7 @@ Legacy TallyCareer(const PlayerState& player, const std::string& name,
   out.nemesisAttempts = career.nemesisAttempts;
   out.dirtbagYears = player.job.dirtbagYears;
   out.longestDirtbagStreak = player.job.longestStreak;
+  out.crewName = player.crew.name;
 
   for (const ProjectMemory& m : player.projects) {
     if (!m.firstAscent) continue;
@@ -142,6 +143,12 @@ std::string LegacyText(const Legacy& legacy) {
     out += "One line that is yours now. ";
   } else if (fas > 1) {
     out += std::to_string(fas) + " lines that are yours now. ";
+  }
+
+  // Who they were, before what they did. A career that got called something
+  // was a career somebody was watching.
+  if (!legacy.crewName.empty()) {
+    out += "They called them " + legacy.crewName + ". ";
   }
 
   // Years nobody owned. Said before the nemesis and the retirement, because

@@ -229,6 +229,13 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	{
 		Slow += TEXT("      ") + Years;
 	}
+	// And what the town calls you, which is the slowest fact of all — it is
+	// said once in a career and never revised.
+	const FString Crew = Game->CrewLine();
+	if (!Crew.IsEmpty())
+	{
+		Slow += TEXT("      ") + Crew;
+	}
 	DrawText(Slow, kDim, X, H - 56.f, GEngine->GetSmallFont(), 1.f);
 
 	// And the morning it lands, said once, up where news goes rather than
@@ -238,6 +245,14 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	{
 		DrawText(Game->DirtbagYearNews, FLinearColor(0.95f, 0.90f, 0.70f, 1.f),
 		         X, H - 76.f, GEngine->GetMediumFont(), 1.f);
+	}
+	// The morning the town names you. Sits above the year line rather than
+	// sharing it, because a career can do both in one night and one
+	// overwriting the other would lose the rarer of the two.
+	if (!Game->CrewNews.IsEmpty())
+	{
+		DrawText(Game->CrewNews, FLinearColor(0.95f, 0.90f, 0.70f, 1.f), X,
+		         H - 96.f, GEngine->GetMediumFont(), 1.f);
 	}
 
 	// The career, small, bottom left — it is a slow number and reads like one.

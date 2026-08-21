@@ -335,6 +335,10 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // something you did.
   DirtbagDay(player.job);
 
+  // And a day of the town watching who gets out of the van. Same reason it
+  // lives here: being called something is not an action you take.
+  CrewDay(player.crew, player.bonds, player.standing, worldRng, player.day);
+
   // The month runs down like everything else that runs out. Without this
   // the probe reported 365 days of membership bought with a single $75,
   // which is a very good gym.

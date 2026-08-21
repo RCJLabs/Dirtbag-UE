@@ -596,6 +596,157 @@ static void TestTheDirtbagYearMigrates() {
   CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
 }
 
+static void TestTheTownNamesYourCrew() {
+  CrewDials cd;
+  const Rng world = Rng::FromSeed("crew-1");
+  Standing scene;
+  scene.with[static_cast<int>(Faction::Scene)] = 0.8;
+
+  // One partner is a partnership, not a crew. The game already models that
+  // as a bond and does not need a name for it.
+  std::vector<PartnerBond> one = {{"Margo", 0.9, {}}};
+  CHECK(!ReadsAsACrew(one, cd));
+
+  // Two people you actually climb with is a crew. Knowing their name is not
+  // climbing with them.
+  std::vector<PartnerBond> nodding = {{"Margo", 0.2, {}}, {"Dev", 0.3, {}}};
+  CHECK(!ReadsAsACrew(nodding, cd));
+  std::vector<PartnerBond> real = {{"Margo", 0.9, {}}, {"Dev", 0.7, {}}};
+  CHECK(ReadsAsACrew(real, cd));
+
+  // And it has to hold for a month. A crew that exists for one good week in
+  // September is three people who had a good week in September.
+  Crew crew;
+  for (int d = 1; d < cd.daysBeforeTheyNameYou; d++) {
+    CHECK(!CrewDay(crew, real, scene, world, d, cd));
+    CHECK(crew.name.empty());
+  }
+  CHECK(CrewDay(crew, real, scene, world, cd.daysBeforeTheyNameYou, cd));
+  CHECK(!crew.name.empty());
+  CHECK(crew.membersWhenNamed == 3);              // two of them and you
+  CHECK(crew.namedOnDay == cd.daysBeforeTheyNameYou);
+
+  // Said once. The town does not keep announcing it.
+  CHECK(!CrewDay(crew, real, scene, world, cd.daysBeforeTheyNameYou + 1, cd));
+  CHECK(CrewText(crew) == "They call you " + crew.name + ".");
+
+  // Named is named. It does not come back for revision when the crew drifts
+  // apart -- a career that outlives its own crew still gets called the thing
+  // it got called.
+  const std::string stuck = crew.name;
+  for (int d = 0; d < 400; d++) CrewDay(crew, one, scene, world, 1000 + d, cd);
+  CHECK(crew.name == stuck);
+
+  // A thin fortnight does not cost you the month: the counter slides back at
+  // the rate it built rather than resetting, so a crew that mostly holds
+  // together still gets there.
+  Crew patchy;
+  for (int d = 0; d < 20; d++) CrewDay(patchy, real, scene, world, d, cd);
+  CHECK(patchy.daysReadingAsACrew == 20);
+  for (int d = 0; d < 5; d++) CrewDay(patchy, one, scene, world, 20 + d, cd);
+  CHECK(patchy.daysReadingAsACrew == 15);         // slid, not wiped
+
+  // Who is talking decides what you are called. The same people in the same
+  // valley are always called the same thing; a different part of town calls
+  // them something else.
+  Standing stewards;
+  stewards.with[static_cast<int>(Faction::Stewardship)] = 0.8;
+  Crew a, b;
+  for (int d = 0; d <= cd.daysBeforeTheyNameYou; d++) {
+    CrewDay(a, real, scene, world, d, cd);
+    CrewDay(b, real, stewards, world, d, cd);
+  }
+  CHECK(!a.name.empty() && !b.name.empty());
+  CHECK(a.name != b.name);
+
+  // Stable across replays, and independent of the order bonds happen to sit
+  // in -- they are rebuilt from the world seed daily and only the bond is
+  // career state, so a reload must not rename you.
+  std::vector<PartnerBond> reversed = {{"Dev", 0.7, {}}, {"Margo", 0.9, {}}};
+  Crew again;
+  for (int d = 0; d <= cd.daysBeforeTheyNameYou; d++)
+    CrewDay(again, reversed, scene, world, d, cd);
+  CHECK(again.name == a.name);
+
+  // A different valley calls them something else.
+  Crew elsewhere;
+  const Rng other = Rng::FromSeed("crew-2");
+  for (int d = 0; d <= cd.daysBeforeTheyNameYou; d++)
+    CrewDay(elsewhere, real, scene, other, d, cd);
+  CHECK(!elsewhere.name.empty());
+
+  // And if nobody rates you, you still get a name -- being called something
+  // is the point. It is just not a kind one.
+  Standing nobody;
+  Crew unrated;
+  for (int d = 0; d <= cd.daysBeforeTheyNameYou; d++)
+    CrewDay(unrated, real, nobody, world, d, cd);
+  CHECK(!unrated.name.empty());
+  CHECK(unrated.name != a.name);
+
+  // It reaches the legacy, which is where a career is read.
+  PlayerState player;
+  player.day = 4000;
+  player.bonds = real;
+  player.standing = scene;
+  player.crew = a;
+  const Legacy legacy = TallyCareer(player, "Wren", 11);
+  CHECK(legacy.crewName == a.name);
+  CHECK(LegacyText(legacy).find("They called them " + a.name + ".") !=
+        std::string::npos);
+
+  // And a career nobody ever named says nothing rather than saying blank.
+  PlayerState loner;
+  loner.day = 4000;
+  CHECK(LegacyText(TallyCareer(loner, "Ash", 11)).find("They called them") ==
+        std::string::npos);
+}
+
+// v16 -> v17. Old saves must load, and must not arrive pre-named.
+static void TestTheCrewNameMigrates() {
+  PlayerState player;
+  player.bonds = {{"Margo", 0.9, {}}, {"Dev", 0.7, {}}};
+  player.standing.with[static_cast<int>(Faction::Scene)] = 0.8;
+  const Rng world = Rng::FromSeed("crew-save");
+  for (int d = 0; d <= CrewDials{}.daysBeforeTheyNameYou; d++)
+    CrewDay(player.crew, player.bonds, player.standing, world, d);
+  CHECK(!player.crew.name.empty());
+
+  SaveGame save;
+  save.player = player;
+  save.seed = "crew-save";
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.crew.name == player.crew.name);
+  CHECK(back.player.crew.membersWhenNamed == 3);
+
+  std::string v16 = SerializeSave(save);
+  DropSaveLine(v16, "crew.name=");
+  DropSaveLine(v16, "crew.namedon=");
+  DropSaveLine(v16, "crew.days=");
+  DropSaveLine(v16, "crew.members=");
+  SetSaveVersion(v16, 16);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v16, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  // No name, which is the true answer rather than a lossy one: the town had
+  // not said it because the system did not exist. The bonds that earn one
+  // are already saved, so the career starts its month from today.
+  CHECK(old.player.crew.name.empty());
+  CHECK(old.player.crew.daysReadingAsACrew == 0);
+  CHECK(old.player.bonds.size() == player.bonds.size());
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+
+  // An unnamed crew must round-trip as present-and-empty, or a fresh save
+  // would look like an unmigrated one on the next load.
+  SaveGame fresh;
+  fresh.seed = "nobody";
+  SaveGame freshBack;
+  CHECK(DeserializeSave(SerializeSave(fresh), freshBack) == LoadResult::Ok);
+  CHECK(freshBack.player.crew.name.empty());
+}
+
 static void TestSandbagsAreSpecific() {
   // A crag's sandbags are famous and deliberate, not a dice roll — and they
   // are rare enough to matter when you hit one.
@@ -6507,6 +6658,8 @@ int main() {
   TestTheBookHasSomethingAtTheTopOfACareer();
   TestTheDirtbagYear();
   TestTheDirtbagYearMigrates();
+  TestTheTownNamesYourCrew();
+  TestTheCrewNameMigrates();
   TestSandbagsAreSpecific();
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();

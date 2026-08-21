@@ -177,6 +177,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.van = ToSim(In.Van);
 	Out.owed = In.Owed;
 	Out.job = ToSim(In.Job);
+	Out.crew = ToSim(In.Crew);
 	Out.standing = ToSim(In.Standing);
 	Out.kit = ToSim(In.Kit);
 	Out.sponsor = ToSim(In.Sponsor);
@@ -229,6 +230,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Van = FromSim(In.van);
 	Out.Owed = In.owed;
 	Out.Job = FromSim(In.job);
+	Out.Crew = FromSim(In.crew);
 	Out.Standing = FromSim(In.standing);
 	Out.Kit = FromSim(In.kit);
 	Out.Sponsor = FromSim(In.sponsor);
@@ -466,6 +468,26 @@ dirtbag::Job ToSim(const FDirtbagJob& In)
 	Out.daysSinceSalary = In.DaysSinceSalary;
 	Out.dirtbagYears = In.DirtbagYears;
 	Out.longestStreak = In.LongestStreak;
+	return Out;
+}
+
+FDirtbagCrew FromSim(const dirtbag::Crew& In)
+{
+	FDirtbagCrew Out;
+	Out.Name = FString(In.name.c_str());
+	Out.NamedOnDay = In.namedOnDay;
+	Out.DaysReadingAsACrew = In.daysReadingAsACrew;
+	Out.MembersWhenNamed = In.membersWhenNamed;
+	return Out;
+}
+
+dirtbag::Crew ToSim(const FDirtbagCrew& In)
+{
+	dirtbag::Crew Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.namedOnDay = In.NamedOnDay;
+	Out.daysReadingAsACrew = In.DaysReadingAsACrew;
+	Out.membersWhenNamed = In.MembersWhenNamed;
 	return Out;
 }
 

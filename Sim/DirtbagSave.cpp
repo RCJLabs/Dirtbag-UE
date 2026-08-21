@@ -198,6 +198,18 @@ void MigrateV15ToV16(SaveFields& fields) {
   fields["job.longeststreak"] = "0";
 }
 
+// v16 -> v17: the crew. An old save has no name, which is the correct
+// answer rather than a lossy one -- the town had not said it yet because
+// the system did not exist. The bonds that earn one are already saved, so
+// an existing career starts its month from today and gets named on the
+// far side of it, exactly as a new one would.
+void MigrateV16ToV17(SaveFields& fields) {
+  fields["crew.name"] = "";
+  fields["crew.namedon"] = "0";
+  fields["crew.days"] = "0";
+  fields["crew.members"] = "0";
+}
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -219,7 +231,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9,
       &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12,
       &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15,
-      &MigrateV15ToV16};
+      &MigrateV15ToV16, &MigrateV16ToV17};
   return kMigrations;
 }
 
@@ -352,6 +364,15 @@ std::string SerializeSave(const SaveGame& save) {
       << "\n";
   out << "job.dirtbagyears=" << IntToStr(save.player.job.dirtbagYears) << "\n";
   out << "job.longeststreak=" << IntToStr(save.player.job.longestStreak)
+      << "\n";
+  // The crew name is authored -- one of a fixed set in DirtbagCrew.cpp, all
+  // plain ASCII with no '=' or newline -- so it needs no escaping, the same
+  // way the seed does not.
+  out << "crew.name=" << save.player.crew.name << "\n";
+  out << "crew.namedon=" << IntToStr(save.player.crew.namedOnDay) << "\n";
+  out << "crew.days=" << IntToStr(save.player.crew.daysReadingAsACrew)
+      << "\n";
+  out << "crew.members=" << IntToStr(save.player.crew.membersWhenNamed)
       << "\n";
   out << "standing.closed=" << IntToStr(save.player.standing.closedDays)
       << "\n";
@@ -501,7 +522,16 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       !ParseInt(fields, "job.weeks", save.player.job.weeksSalaried) ||
       !ParseInt(fields, "job.sincesalary", save.player.job.daysSinceSalary) ||
       !ParseInt(fields, "job.dirtbagyears", save.player.job.dirtbagYears) ||
-      !ParseInt(fields, "job.longeststreak", save.player.job.longestStreak)) {
+      !ParseInt(fields, "job.longeststreak", save.player.job.longestStreak) ||
+      !ParseInt(fields, "crew.namedon", save.player.crew.namedOnDay) ||
+      !ParseInt(fields, "crew.days", save.player.crew.daysReadingAsACrew) ||
+      !ParseInt(fields, "crew.members", save.player.crew.membersWhenNamed) ||
+      // Required rather than optional even though empty is the common
+      // value: a missing key means an unmigrated save, and silently
+      // leaving the name blank would look exactly like a career the town
+      // has not named yet. `line.substr(eq + 1)` yields "" for "crew.name=",
+      // so an unnamed crew round-trips as present-and-empty.
+      !ParseString(fields, "crew.name", save.player.crew.name)) {
     return LoadResult::BadFormat;
   }
   save.player.job.salaried = salaried != 0;

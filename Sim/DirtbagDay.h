@@ -11,6 +11,7 @@
 
 #include "DirtbagAge.h"
 #include "DirtbagCore.h"
+#include "DirtbagCrew.h"
 #include "DirtbagDog.h"
 #include "DirtbagFactions.h"
 #include "DirtbagGear.h"
@@ -177,6 +178,10 @@ struct PlayerState {
 
   // Work, and whether it owns you.
   Job job;
+
+  // What the town calls the people you keep turning up with. Not yours to
+  // choose and not yours to change -- see DirtbagCrew.h.
+  Crew crew;
 
   // Where you stand with the scene, and whether the crag is still open.
   Standing standing;

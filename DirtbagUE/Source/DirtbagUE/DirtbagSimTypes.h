@@ -10,6 +10,7 @@
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
+#include "DirtbagCrew.h"
 #include "DirtbagDay.h"
 #include "DirtbagFactions.h"
 #include "DirtbagJobs.h"
@@ -655,6 +656,28 @@ struct FDirtbagJob
 	int32 LongestStreak = 0;
 };
 
+/** What the town calls the people you keep turning up with. Not yours to
+ *  pick and not yours to change — see Sim/DirtbagCrew.h. */
+USTRUCT(BlueprintType)
+struct FDirtbagCrew
+{
+	GENERATED_BODY()
+
+	/** Empty until they say it. Once said, it never changes. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crew")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crew")
+	int32 NamedOnDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crew")
+	int32 DaysReadingAsACrew = 0;
+
+	/** How many it was on the day it stuck — them, and you. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crew")
+	int32 MembersWhenNamed = 0;
+};
+
 /** A gig on the board: hours, money, and whether the van has to go. */
 USTRUCT(BlueprintType)
 struct FDirtbagOddJob
@@ -716,6 +739,9 @@ struct FDirtbagPlayerState
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
 	FDirtbagJob Job;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crew")
+	FDirtbagCrew Crew;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Standing")
 	FDirtbagStanding Standing;
@@ -982,6 +1008,8 @@ namespace DirtbagConvert
 	dirtbag::Standing ToSim(const FDirtbagStanding& In);
 	FDirtbagJob FromSim(const dirtbag::Job& In);
 	dirtbag::Job ToSim(const FDirtbagJob& In);
+	FDirtbagCrew FromSim(const dirtbag::Crew& In);
+	dirtbag::Crew ToSim(const FDirtbagCrew& In);
 	FDirtbagOddJob FromSim(const dirtbag::OddJob& In);
 
 	dirtbag::Weather ToSim(const FDirtbagWeather& In);

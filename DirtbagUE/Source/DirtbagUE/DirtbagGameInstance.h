@@ -538,6 +538,16 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
 	FString DirtbagYearNews;
 
+	/** "They call you the trail crew." Empty until the town says it — which
+	 *  takes two people you actually climb with, for a month. You do not
+	 *  pick this and you cannot change it. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Crew")
+	FString CrewLine() const;
+
+	/** Said once, on the morning the name lands. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crew")
+	FString CrewNews;
+
 	/** Nine to five, five days a week. The hours are the point, not the
 	 *  money — and in midwinter the light is gone before you clock off.
 	 *
