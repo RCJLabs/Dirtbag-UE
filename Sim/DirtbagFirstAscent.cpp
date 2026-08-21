@@ -84,6 +84,13 @@ void CreditFirstAscent(PlayerState& player, const ProjectMemory& memory) {
   DidFirstAscent(player.standing, goodStyle);
 }
 
+bool ClaimFirstAscent(PlayerState& player, ProjectMemory& memory,
+                      const CragLine& line, const std::string& name) {
+  if (!NameFirstAscent(memory, line, name)) return false;
+  CreditFirstAscent(player, memory);
+  return true;
+}
+
 std::string FirstAscentLine(const ProjectMemory& memory,
                             const std::string& by) {
   if (!memory.firstAscent || memory.givenName.empty()) {

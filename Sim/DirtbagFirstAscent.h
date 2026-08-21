@@ -84,7 +84,22 @@ bool NameFirstAscent(ProjectMemory& memory, const CragLine& line,
 // Tell the scene. Kept separate from NameFirstAscent so that naming stays a
 // pure operation on the ledger — this is the part that has opinions, and it
 // reads the style off the ledger rather than being told.
+//
+// Do not call this from an engine or a probe. Call ClaimFirstAscent, which
+// calls both: this one sat written and uncalled from the day it landed, so
+// every first ascent in the game gave the valley no opinion of you at all.
 void CreditFirstAscent(PlayerState& player, const ProjectMemory& memory);
+
+// Name it *and* tell the scene. The whole verb, and the one an outside
+// caller should use.
+//
+// NameFirstAscent alone is the ledger half. Splitting it that way was right
+// — naming stays pure and testable — but it left a second half nobody was
+// obliged to call, and nobody did: `CreditFirstAscent` had no caller
+// anywhere in the game. The split is kept and this is the seam, so that
+// forgetting is no longer one of the options.
+bool ClaimFirstAscent(PlayerState& player, ProjectMemory& memory,
+                      const CragLine& line, const std::string& name);
 
 // The line as the book will print it after the ascent, including who did it
 // and what it really went at.

@@ -31,6 +31,7 @@ namespace dirtbag {
 // comes into the shade mid-afternoon; that shade line is the window.
 enum class Aspect { North, East, South, West };
 
+// unwired-ok: a formatter, and no screen prints an aspect yet
 const char* AspectName(Aspect a);
 
 // Every number a designer might turn, with its reason.
@@ -93,7 +94,7 @@ struct ConditionsDials {
   // window at midday is a window you cannot have if you are at work.
   double seasonSwingF = 20.0;
   int warmestDay = 200;    // day 1 is midwinter-ish; the peak is high summer
-  int daysPerYear = 365;
+  int daysPerYear = 365;   // mirrors AgeDials; see the note there
   double coldestHour = 3.0;     // when the low lands
   double hottestHour = 15.0;    // when the high lands
 
@@ -165,6 +166,7 @@ double LastLightHour(int day, const ConditionsDials& dials = ConditionsDials{});
 double SeasonalCentreF(int day, const ConditionsDials& dials = ConditionsDials{});
 
 // What the season is called, for anything that wants to say it.
+// unwired-ok: a formatter, and no screen prints a season yet
 const char* SeasonName(int day, const ConditionsDials& dials = ConditionsDials{});
 
 // Deterministic per world-seed and day, on its own named rng stream so

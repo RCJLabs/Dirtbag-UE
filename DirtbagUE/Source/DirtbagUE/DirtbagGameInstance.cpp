@@ -78,11 +78,72 @@ void UDirtbagGameInstance::Sleep()
 	bWorkedToday = false;
 	DogWorry.Reset();
 	VanNews.Reset();
+	SponsorNews.Reset();
 	// Yesterday's first ascent stops being news. It is in the book now,
 	// which is where a thing you did goes once it stops being a moment.
 	LastAscentLine.Reset();
 
 	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
+
+	// The salary owns its days whether or not you wanted them, and this is
+	// where a day begins — SleepToNextDay ends by resetting the DayState to
+	// the wake hour, so the new day starts here and the job takes it here.
+	//
+	// Until now the engine could ask SalariedToday() and had no way to work
+	// one: the salaried-job trap, a named Phase 3 mechanic, existed only in
+	// the probe. Doing it at dawn rather than offering it as an action is
+	// the entire design — nine to five means the clock arrives at the far
+	// side of the day having skipped everything the day was for, and a trap
+	// you can decline is not a trap.
+	if (SalariedToday())
+	{
+		WorkSalariedDay();
+	}
+
+	// The sponsor's side of the bargain. Both halves ran nowhere before
+	// this: the stipend was never paid, so the $640-a-month title tier paid
+	// $0, and the review was never run — not by the engine and not even by
+	// the probe — so no rung was ever won or lost by anybody.
+	//
+	// Monthly rather than daily, because a stipend is a monthly thing and
+	// because the offer check is already monthly. Day 1 is excluded: they
+	// do not pay you for the day you signed.
+	if (Player.Sponsor.Tier != EDirtbagSponsorTier::None &&
+	    Player.Day > 1 && Player.Day % 30 == 1)
+	{
+		const double Paid = dirtbag::MonthlyStipend(
+		    static_cast<dirtbag::SponsorTier>(Player.Sponsor.Tier));
+		if (Paid > 0.0)
+		{
+			dirtbag::PlayerState Wallet = DirtbagConvert::ToSim(Player);
+			dirtbag::Pay(Wallet, Paid);
+			Player.Cash = Wallet.cash;
+			Player.Owed = Wallet.owed;
+			SponsorNews = FString::Printf(TEXT("%s paid: $%.0f."),
+			                              *SponsorLine(), Paid);
+		}
+	}
+
+	// And once a year they look at what you have actually done. Being hurt
+	// pauses that clock rather than running it, which is why the day count
+	// this reads had to become saved state.
+	if (Player.Sponsor.Tier != EDirtbagSponsorTier::None &&
+	    Player.Day > 1 && Player.Day % 365 == 1)
+	{
+		dirtbag::Sponsorship Deal = DirtbagConvert::ToSim(Player.Sponsor);
+		const EDirtbagSponsorTier Was = Player.Sponsor.Tier;
+		const dirtbag::SponsorTier Now = dirtbag::ReviewSeason(
+		    Deal, GetCareer().HardestSendGrade, Deal.daysHurtThisSeason);
+		Deal.daysHurtThisSeason = 0;
+		Player.Sponsor = DirtbagConvert::FromSim(Deal);
+
+		SponsorNews =
+		    static_cast<EDirtbagSponsorTier>(Now) < Was
+		        ? FString::Printf(TEXT("They stopped returning calls. %s"),
+		                          *SponsorLine())
+		        : FString::Printf(TEXT("They are keeping you on. %s"),
+		                          *SponsorLine());
+	}
 
 	// And whether anybody put it together while you slept. This lives in
 	// Sleep rather than being a call the day loop remembers, because five
@@ -552,6 +613,13 @@ FString UDirtbagGameInstance::SessionAdviceText() const
 
 // --- Gear and the van --------------------------------------------------------
 
+double UDirtbagGameInstance::ShoeCostInGrades() const
+{
+	// Edging, because that is the hold dead rubber punishes hardest and so
+	// the number a player would actually notice.
+	return dirtbag::ShoePenalty(DirtbagConvert::ToSim(Player.Shoes), true);
+}
+
 FString UDirtbagGameInstance::ShoeLine() const
 {
 	return FString(UTF8_TO_TCHAR(
@@ -807,6 +875,18 @@ bool UDirtbagGameInstance::SalariedToday() const
 	                              Player.Day);
 }
 
+void UDirtbagGameInstance::WorkSalariedDay()
+{
+	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
+	dirtbag::WorkSalariedDay(SimPlayer, SimDay);
+	Player = DirtbagConvert::FromSim(SimPlayer);
+	Day = DirtbagConvert::FromSim(SimDay);
+
+	// The dog spent the day in the van, same as it does for a shift.
+	bWorkedToday = true;
+}
+
 // --- The body ----------------------------------------------------------------
 
 FString UDirtbagGameInstance::InjuryLine() const
@@ -819,6 +899,11 @@ FString UDirtbagGameInstance::LoadLine() const
 {
 	return UTF8_TO_TCHAR(
 	    dirtbag::LoadText(DirtbagConvert::ToSim(Player.Climber)).c_str());
+}
+
+int32 UDirtbagGameInstance::LoadWarning() const
+{
+	return dirtbag::LoadWarning(DirtbagConvert::ToSim(Player.Climber));
 }
 
 bool UDirtbagGameInstance::IsHurt() const
@@ -881,6 +966,12 @@ bool UDirtbagGameInstance::IsGymMember() const
 	return dirtbag::IsGymMember(DirtbagConvert::ToSim(Player.Kit));
 }
 
+FString UDirtbagGameInstance::PadOfferLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::PadOfferText(DirtbagConvert::ToSim(Player.Kit)).c_str());
+}
+
 FString UDirtbagGameInstance::KitLine() const
 {
 	return UTF8_TO_TCHAR(
@@ -911,7 +1002,11 @@ bool UDirtbagGameInstance::ResoleShoes()
 {
 	dirtbag::Shoes S = DirtbagConvert::ToSim(Player.Shoes);
 	double Cash = Player.Cash;
-	if (!dirtbag::Resole(S, Cash)) return false;
+	// The bottom sponsorship rung is a shoe deal and nothing else, so this
+	// is the only place it can ever be worth anything.
+	const bool bSponsored =
+	    dirtbag::CoversShoes(DirtbagConvert::ToSim(Player.Sponsor));
+	if (!dirtbag::Resole(S, Cash, bSponsored)) return false;
 	Player.Shoes = DirtbagConvert::FromSim(S);
 	Player.Cash = Cash;
 	return true;
@@ -921,7 +1016,9 @@ bool UDirtbagGameInstance::BuyNewShoes()
 {
 	dirtbag::Shoes S = DirtbagConvert::ToSim(Player.Shoes);
 	double Cash = Player.Cash;
-	if (!dirtbag::BuyNewShoes(S, Cash)) return false;
+	const bool bSponsored =
+	    dirtbag::CoversShoes(DirtbagConvert::ToSim(Player.Sponsor));
+	if (!dirtbag::BuyNewShoes(S, Cash, bSponsored)) return false;
 	Player.Shoes = DirtbagConvert::FromSim(S);
 	Player.Cash = Cash;
 	return true;
@@ -1002,6 +1099,21 @@ int32 UDirtbagGameInstance::DriveVan(double Hours)
 
 	const int Broke = dirtbag::DriveVan(V, World, Player.Day, Hours, AirF);
 	Player.Van = DirtbagConvert::FromSim(V);
+
+	// And the pump. Every drive in the game comes through here, which is
+	// why the charge lives here rather than at each travel spot: fuel was
+	// written, measured at $918-$1,224 a season, and billed to nobody,
+	// because the one caller who could have charged it did not have to.
+	//
+	// Charged rather than refused. You cannot decline to have burned the
+	// fuel you already burned, so a skint player arrives at the crag owing
+	// for the drive, the same way the rent works.
+	const double Fuel = dirtbag::FuelFor(Hours);
+	dirtbag::PlayerState Wallet = DirtbagConvert::ToSim(Player);
+	dirtbag::Charge(Wallet, Fuel);
+	Player.Cash = Wallet.cash;
+	Player.Owed = Wallet.owed;
+	LastDriveFuel = Fuel;
 
 	if (Broke >= 0)
 	{
@@ -1125,6 +1237,7 @@ FString UDirtbagGameInstance::SitAtTheFire(double Hours)
 	Rest(Hours);
 
 	std::vector<dirtbag::Partner> Lot = LotToday();
+	double Lift = 0.0;
 	for (dirtbag::Partner& P : Lot)
 	{
 		// Rapport is per day, so an hour is a fraction of one — you cannot
@@ -1132,8 +1245,17 @@ FString UDirtbagGameInstance::SitAtTheFire(double Hours)
 		dirtbag::PartnerDials Dials;
 		P.rapport = FMath::Min(
 		    1.0, P.rapport + Dials.rapportPerDay * (Hours / 8.0));
+
+		// The best of them, not the sum. Summing would make crowding the
+		// fire a strategy, and it is not one — an evening is lifted by the
+		// person who lifts it, not by a headcount.
+		Lift = FMath::Max(Lift, dirtbag::PsycheFrom(P, Dials));
 	}
 	StoreBonds(Lot);
+
+	// Paid for the hours you actually sat, on the same fraction rapport uses.
+	Player.Climber.Psyche =
+	    FMath::Min(1.0, Player.Climber.Psyche + Lift * (Hours / 8.0));
 
 	// Which voice you hear is picked by the clock, not by engine randomness:
 	// sitting an hour longer should change the subject, and reloading the
@@ -1168,10 +1290,17 @@ double UDirtbagGameInstance::AskForBeta(int32 BoardIndex, FString& OutWho)
 	// best — Trish is delighted to help and cannot.
 	double Best = 0.0;
 	dirtbag::ProjectMemory SimLedger = DirtbagConvert::ToSim(*Ledger);
+	const dirtbag::Standing SimStanding = DirtbagConvert::ToSim(Player.Standing);
 	for (const dirtbag::Partner& P : Lot)
 	{
+		// What you are to their crowd decides how much of the sequence they
+		// bother to spell out. This is the first thing standing has ever
+		// bought at the wall rather than on a screen — BetaMultiplierFor was
+		// written, tested, and reachable from nothing.
 		dirtbag::ProjectMemory Trial = SimLedger;
-		const double Gained = dirtbag::ShareBeta(P, SimLine, Trial);
+		const double Gained = dirtbag::ShareBeta(
+		    P, SimLine, Trial,
+		    dirtbag::BetaMultiplierFor(SimStanding, P.name));
 		if (Gained > Best)
 		{
 			Best = Gained;
@@ -1280,10 +1409,20 @@ bool UDirtbagGameInstance::NameFirstAscent(int32 BoardIndex,
 	SimLine.firstAscentBy = TCHAR_TO_UTF8(*Line.FirstAscentBy);
 	dirtbag::ProjectMemory SimLedger = DirtbagConvert::ToSim(*Ledger);
 
-	if (!dirtbag::NameFirstAscent(SimLedger, SimLine, TCHAR_TO_UTF8(*Name)))
+	// ClaimFirstAscent, not NameFirstAscent: naming is the ledger half, and
+	// on its own it leaves the valley with no opinion about what you just
+	// did. Doing a line nobody had done is the loudest thing a climber can
+	// do here and it was worth exactly nothing to any faction.
+	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
+	if (!dirtbag::ClaimFirstAscent(SimPlayer, SimLedger, SimLine,
+	                               TCHAR_TO_UTF8(*Name)))
 	{
 		return false;
 	}
+	// Only the standing comes back. The ledger is written through the
+	// pointer below, and round-tripping the whole player here would undo
+	// anything the rest of this frame had already changed.
+	Player.Standing = DirtbagConvert::FromSim(SimPlayer.standing);
 	*Ledger = DirtbagConvert::FromSim(SimLedger);
 
 	// The book is loaded and stale by one line. EnsureCrag would fix it on

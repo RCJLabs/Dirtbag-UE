@@ -44,16 +44,45 @@ struct KitDials {
   double padCost = 260.0;
   int padsThatMatter = 2;
 
+  // The most foam can ever do for you, 0..1. Deliberately under 1.0.
+  //
+  // At 1.0 a second pad put padding at exactly 1.0, exposure at exactly 0,
+  // and head training at exactly zero — permanently, since head never
+  // declines either. Measured: +0.00 head in eleven of twelve seasons. The
+  // trade read "about one send a year in exchange for every point of head
+  // you will ever have", which is a switch rather than a decision.
+  //
+  // Below 1.0 it is a trade again, and it is also just true: a well-padded
+  // highball is still a highball. You can cover the landing and you cannot
+  // make the ground stop being down there.
+  //
+  // 0.85 is the knee, swept across twelve seasons of a player who buys the
+  // second pad. Head over a year: 1.00 -> +0.01, 0.90 -> +0.41,
+  // **0.85 -> +0.58**, 0.80 -> +0.78, 0.75 -> +0.99. Sends hold at a median
+  // of 5.0 all the way down to 0.85 and then fall off a cliff to 3.5, so
+  // anything below this buys head by making the pad not worth owning, which
+  // is not a trade, it is the same switch pointing the other way.
+  //
+  // At 0.85 a two-pad season trains about a third of the head a one-pad
+  // season does (+0.58 against +1.78) and keeps every send. That is the
+  // shape it should have been all along.
+  double mostFoamCanDo = 0.85;
+
   // What climbing unpadded costs, in grade units, at the top of a line.
   // Sized against deadShoeGradePenalty (1.1): being scared is a real
   // handicap and never the whole story. It scales with height, so the first
   // moves are free and the last ones are not — which is where a boulderer
   // actually backs off, and why the pad is worth its price.
+  // Mirrored into SessionDials, which is where the resolver reads them
+  // from; these are the owning copies. Same arrangement as GearDials for
+  // shoes and SportDials for the runout — share the function, mirror the
+  // constant — and TestTheMirroredDialsStillAgree pins the pair, because
+  // until it did, both of these were tunable here with no effect anywhere.
   double noPadGradePenalty = 0.9;
 
   // Below this fraction of the way up, the ground is close enough that no
   // amount of foam is the point. Nobody has ever been gripped on move one.
-  double groundedFraction = 0.35;
+  double padGroundedFraction = 0.35;
 
   // --- The hangboard ----------------------------------------------------
   // Eighty-five dollars of plywood and a screw gun. It is the cheap answer
@@ -129,5 +158,15 @@ double PaddingFrom(const Kit& kit, const KitDials& dials = KitDials{});
 
 // What the kit is worth saying out loud, in the game's register.
 std::string KitText(const Kit& kit);
+
+// What the pad you do not own would do for you, and what it would cost you
+// that is not money. Empty once you have the pads that matter — the third
+// is borrowed from whoever is at the Lot.
+//
+// The second half of that sentence is the point. The pad is the single
+// purchase measured to move a season most, and its price in head was
+// invisible: a player found out months later that they had stopped getting
+// braver, with nothing ever having said so.
+std::string PadOfferText(const Kit& kit, const KitDials& dials = KitDials{});
 
 }  // namespace dirtbag

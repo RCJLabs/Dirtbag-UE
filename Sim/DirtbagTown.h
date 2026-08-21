@@ -37,6 +37,7 @@ enum class Service {
   Work,        // somewhere that hires by the shift
 };
 
+// unwired-ok: a formatter; VenueText is what the HUD prints
 const char* ServiceName(Service s);
 
 struct Venue {

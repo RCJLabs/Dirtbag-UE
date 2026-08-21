@@ -33,6 +33,9 @@ namespace dirtbag {
 struct AgeDials {
   // You turn up at the Lot at 24 with a van and no plan.
   double startAge = 24.0;
+  // Mirrors ConditionsDials. If these two ever disagree the game runs a
+  // birthday and a solstice on different calendars, and the only symptom
+  // would be seasons slowly sliding against ages over a long career.
   int daysPerYear = 365;
 
   // --- Where each skill turns ------------------------------------------
@@ -45,8 +48,13 @@ struct AgeDials {
   double powerPeak = 28.0;
   double fingersPeak = 34.0;
   double endurancePeak = 38.0;
-  double techniquePeak = 999.0;
-  double headPeak = 999.0;
+  // There is deliberately no techniquePeak or headPeak. Two used to sit
+  // here at a sentinel 999.0, read by nothing — AgeDay simply does not
+  // touch those two skills, and says so where it does not. A dial nobody
+  // reads is worse than no dial: it advertises a tuning that does not
+  // exist, and somebody would eventually move one and wonder why nothing
+  // happened. If head should ever decline, that is a design change with a
+  // measurement behind it, not a number to twiddle.
 
   // Two different true things, and both are needed.
   //

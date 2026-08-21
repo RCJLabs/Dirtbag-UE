@@ -249,6 +249,18 @@ struct FDirtbagSessionState
 	 *  and climbs toward the top, which is where a boulderer backs off. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	double Padding = 1.0;
+
+	/** What is left of the rubber, copied off the career when the session
+	 *  starts. 0 new .. 1 dead.
+	 *
+	 *  This used to be mirror-skipped on the grounds that Blueprint can
+	 *  read Player.Shoes.Wear instead — true, and beside the point. The
+	 *  engine round-trips the whole DayState through ToSim/FromSim a dozen
+	 *  times a day, so a skipped field is not merely absent from Blueprint,
+	 *  it is *erased from the sim* on the next call. Shoe wear arrived at
+	 *  every attempt as 0.0, and dead rubber cost nothing in the game. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double ShoeWear = 0.0;
 };
 
 USTRUCT(BlueprintType)
@@ -550,6 +562,17 @@ struct FDirtbagSponsorship
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
 	int32 SeasonsWithoutProgress = 0;
+
+	/** Days spent hurt since the last review, which the review reads to
+	 *  decide whether a flat season was failure or a torn pulley.
+	 *
+	 *  Unlike the obligation counters this cannot be mirror-skipped: the
+	 *  sim increments it every night inside SleepToNextDay, and the engine
+	 *  reaches that through a ToSim/FromSim round trip, so a mirror that
+	 *  dropped it would throw the increment away every single night and the
+	 *  injury pause would never once fire. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
+	int32 DaysHurtThisSeason = 0;
 };
 
 /** What you own that buys you climbing. */

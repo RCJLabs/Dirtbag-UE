@@ -114,6 +114,10 @@ struct SessionDials {
   // and never the whole story. It scales with how far up you are, so the
   // first moves are free - nobody has ever been scared on move one - and
   // the last ones are not, which is exactly where a boulderer backs off.
+  // Mirrors KitDials so the resolver and the shop agree; the numbers live
+  // there. The fourth such pair, and the only one that was not written down
+  // as one — which is how both of KitDials' copies came to be read by
+  // nothing at all.
   double noPadGradePenalty = 0.9;
   double padGroundedFraction = 0.35;
 
@@ -155,6 +159,18 @@ struct SessionDials {
 // to decide whether an attempt was hard enough to train anything. Two copies
 // of this formula would drift, and the drift would be invisible.
 double SkillToGrade(double skill, const SessionDials& dials = SessionDials{});
+
+// How much consequence this move carries, in grade units, before any nerve
+// discounts it: the runout above the last bolt, or the ground under an
+// unpadded boulder. Zero on move one of anything and zero on a well-padded
+// line, which is the point — it is a measure of what you are committing to,
+// not of how hard the move is.
+//
+// The single source of that question. The resolver prices a scary move with
+// it and the day loop trains head off it, and two copies of "how bold was
+// that" would drift exactly the way two copies of SkillToGrade would.
+double ExposureAt(const Route& route, int index, double padding,
+                  const SessionDials& dials = SessionDials{});
 
 // What this climber can do on this route's kind of holds, in grades —
 // the ground-up read, before pump, execution, or luck get a say.

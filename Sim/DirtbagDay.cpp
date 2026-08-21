@@ -144,14 +144,15 @@ Climber ClimberForSession(const PlayerState& player, const DayState& day,
   return c;
 }
 
-void StartGymSession(PlayerState& player, DayState& day, const DayDials& dials) {
+void StartGymSession(PlayerState& player, DayState& day, const KitDials& kit,
+                     const DayDials& dials) {
   day.session = StartSession(ClimberForSession(player, day, dials));
   // Whatever is on your feet comes with you. Shoes live on the career
   // rather than the body, so the session has to be handed them.
   day.session.shoeWear = player.shoes.wear;
   // What you dragged up the hill. GoToTheGym overrides this afterwards,
   // because indoors the landing is somebody else's problem.
-  day.session.padding = PaddingFrom(player.kit, KitDials{});
+  day.session.padding = PaddingFrom(player.kit, kit);
   day.atGym = true;
 }
 
@@ -159,7 +160,7 @@ bool GoToTheGym(PlayerState& player, DayState& day, const KitDials& kit,
                 const DayDials& dials) {
   if (!IsGymMember(player.kit)) return false;
   PassHours(day, kit.gymTravelHours, dials);
-  StartGymSession(player, day, dials);
+  StartGymSession(player, day, kit, dials);
   // Full mats, every time. This is what you are actually paying for on the
   // days the weather has already decided for you.
   day.session.padding = 1.0;
@@ -281,6 +282,22 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
        dials.trainingRate * dials.enduranceMileageRate *
            static_cast<double>(result.timeline.size()) *
            headroom(s.endurance));
+
+  // And head, on the boldest thing you committed to rather than the hardest.
+  // Falling counts: this reads the highpoint reached, not whether it went,
+  // because a fall from above the bolt teaches the lesson at least as well
+  // as sticking the move did. Head was read by the resolver, by the sport
+  // runout, and by the age model that calls it one of two skills that never
+  // decline, and until now nothing in the game trained it at all — a whole
+  // axis frozen at whatever the climber was born with.
+  const int reachedIndex =
+      std::min(result.highpoint, static_cast<int>(route.moves.size()) - 1);
+  double boldest = 0.0;
+  for (int i = 0; i <= reachedIndex; i++) {
+    boldest = std::max(boldest, ExposureAt(route, i, day.session.padding));
+  }
+  Gain(player.climber.skills.head,
+       dials.headExposureRate * boldest * headroom(s.head));
 }
 
 void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
@@ -319,6 +336,12 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // per-day tick to be written and left uncalled — anything that counts
   // down now counts down here, where a night is.
   FactionDay(player.standing, worldRng, player.day);
+
+  // A day spent hurt is a day the sponsor is not allowed to hold against
+  // you, and the counting of it is a per-night tick like everything else
+  // here. Fourth rule-of-thumb application: anything that counts, counts
+  // here, where a night is.
+  if (IsHurt(player.climber)) player.sponsor.daysHurtThisSeason++;
 
   player.day += 1;
   // Bills land on their morning, every billsEveryDays-th day after day 1.

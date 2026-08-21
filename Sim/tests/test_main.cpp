@@ -760,6 +760,456 @@ static void TestTheBookGetsWrittenInto() {
   CHECK(other.displayName.empty());
 }
 
+static void TestTheLoadWarningAgreesWithItself() {
+  BodyDials d;
+  // The colour and the sentence are two readings of one fact. If they can
+  // drift, the HUD can say "everything aches" in the calm colour.
+  const auto Band = [&](double load) {
+    Climber c;
+    c.load = load;
+    return LoadWarning(c, d);
+  };
+  const auto Says = [&](double load) {
+    Climber c;
+    c.load = load;
+    return LoadText(c, d);
+  };
+
+  CHECK(Band(0.0) == 0);
+  CHECK(Says(0.0) == "fresh");
+  CHECK(Band(25.0) == 0);
+  CHECK(Says(25.0) == "warmed into the season");
+
+  // The quiet band ends exactly where the sentence stops being reassuring.
+  CHECK(Band(39.9) == 0);
+  CHECK(Band(40.0) == 1);
+  CHECK(Says(40.0) == "carrying a load");
+
+  // And the loud band starts exactly at the dial, not near it.
+  CHECK(Band(d.injuryThreshold - 0.1) == 1);
+  CHECK(Band(d.injuryThreshold) == 2);
+  CHECK(Says(d.injuryThreshold).find("warning") != std::string::npos);
+  CHECK(Band(100.0) == 2);
+
+  // Nobody is warned about an injury they cannot yet get, and everybody who
+  // can get one has been. This is the property the HUD actually relies on.
+  for (double load = 0.0; load <= 120.0; load += 0.5) {
+    Climber c;
+    c.load = load;
+    const bool bAtRisk = load >= d.injuryThreshold;
+    CHECK((LoadWarning(c, d) == 2) == bAtRisk);
+  }
+
+  // Moving the dial moves both together — the whole reason this is not two
+  // hardcoded numbers in two files.
+  BodyDials moved;
+  moved.injuryThreshold = 80.0;
+  Climber c;
+  c.load = 70.0;
+  CHECK(LoadWarning(c, d) == 2);
+  CHECK(LoadWarning(c, moved) == 1);
+  CHECK(LoadText(c, moved) == "carrying a load");
+}
+
+static void TestHeadTrainsOnWhatYouCommitTo() {
+  const SessionDials sd;
+
+  // A boulder, so the ground is the question.
+  const Rng headWorld = Rng::FromSeed("head-world");
+  Route boulder = BuildRoute(headWorld, "the highball", 4, 4, RouteType::Power,
+                             Discipline::Boulder);
+  const int last = static_cast<int>(boulder.moves.size()) - 1;
+
+  // Nobody has ever been gripped on move one.
+  CHECK(ExposureAt(boulder, 0, 0.0, sd) == 0.0);
+  // High on bare ground is the whole point.
+  CHECK(ExposureAt(boulder, last, 0.0, sd) > 0.0);
+  // And pads are exactly what buys it away.
+  CHECK(ExposureAt(boulder, last, 1.0, sd) == 0.0);
+  CHECK(ExposureAt(boulder, last, 0.5, sd) <
+        ExposureAt(boulder, last, 0.0, sd));
+  CHECK(ExposureAt(boulder, last, 0.5, sd) > 0.0);
+  // It climbs as you do, rather than switching on.
+  CHECK(ExposureAt(boulder, last, 0.0, sd) >
+        ExposureAt(boulder, last / 2, 0.0, sd));
+
+  // On a rope, pads are not the question and must not answer it: a fully
+  // padded climber is still runout above the bolt. This is the escape hatch
+  // that stops head being unreachable for anyone who owns two pads — the
+  // cave is where a safe boulderer gets their head back.
+  Route pitch = BuildRoute(headWorld, "the cave pitch", 4, 4,
+                           RouteType::Endurance, Discipline::Sport);
+  bool sawRunoutUnderFullPads = false;
+  for (int i = 0; i < static_cast<int>(pitch.moves.size()); i++) {
+    if (OnTheRope(pitch, i) && ExposureAt(pitch, i, 1.0, sd) > 0.0) {
+      sawRunoutUnderFullPads = true;
+    }
+  }
+  CHECK(sawRunoutUnderFullPads);
+
+  // And the training. Same climber, same route, same burn — one on bare
+  // ground and one behind pads.
+  const auto SeasonOfHead = [&](double padding) {
+    PlayerState p;
+    p.climber.skills.power = p.climber.skills.fingers =
+        p.climber.skills.technique = p.climber.skills.endurance =
+            p.climber.skills.head = 50.0;
+    DayState d = WakeUp(p);
+    d.session.padding = padding;
+    const Rng world = headWorld;
+    Rng burns = Rng::FromSeed("head-burns");
+    for (int burn = 0; burn < 60; burn++) {
+      AttemptInput in;
+      in.climber = p.climber;
+      in.route = boulder;
+      in.padding = padding;
+      in.beta = 1.0;
+      in.warmth = 1.0;
+      AttemptResult r = ResolveAttempt(burns, in);
+      // Force the burn to have reached the top, so the two runs differ in
+      // padding and in nothing else.
+      r.highpoint = last;
+      ApplyAttemptToDay(p, d, boulder, r, world);
+    }
+    return p.climber.skills.head - 50.0;
+  };
+
+  const double bold = SeasonOfHead(0.0);
+  const double safe = SeasonOfHead(1.0);
+  CHECK(bold > 0.0);      // committing is what teaches it
+  CHECK(safe == 0.0);     // and pads are what buys the lesson away
+  CHECK(bold > safe);
+}
+
+static void TestClaimingIsNamingPlusTellingTheScene() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  const CragLine project = *OpenProjects(crag)[0];
+
+  // NameFirstAscent alone is the ledger half and leaves the valley with no
+  // opinion at all. That is correct and it is also exactly how the credit
+  // came to sit uncalled: two halves, one of them optional.
+  PlayerState quiet;
+  ProjectMemory qm = NewProjectLedger(project);
+  qm.sent = true;
+  qm.firstSendStyle = Style::Onsight;
+  const Standing before = quiet.standing;
+  CHECK(NameFirstAscent(qm, project, "Ledger Only"));
+  for (int i = 0; i < kFactionCount; i++) {
+    CHECK(quiet.standing.with[i] == before.with[i]);
+  }
+
+  // ClaimFirstAscent is the whole verb.
+  PlayerState loud;
+  ProjectMemory lm = NewProjectLedger(project);
+  lm.sent = true;
+  lm.firstSendStyle = Style::Onsight;
+  CHECK(ClaimFirstAscent(loud, lm, project, "Bouncin"));
+  CHECK(lm.givenName == "Bouncin");
+  CHECK(lm.firstAscent);
+  bool moved = false;
+  for (int i = 0; i < kFactionCount; i++) {
+    if (loud.standing.with[i] != before.with[i]) moved = true;
+  }
+  CHECK(moved);   // doing a line nobody had done is worth an opinion
+
+  // A refused naming credits nothing — no half-claims.
+  PlayerState nope;
+  ProjectMemory nm = NewProjectLedger(project);
+  CHECK(!ClaimFirstAscent(nope, nm, project, "Not Yours"));
+  CHECK(!nm.firstAscent);
+  for (int i = 0; i < kFactionCount; i++) {
+    CHECK(nope.standing.with[i] == before.with[i]);
+  }
+
+  // Style still reaches the scene through the claim: a new line is a new
+  // line to Development whoever you are, but ground-up and first go is what
+  // the old guard actually care about. Reading that off the ledger rather
+  // than being told is the point of the split.
+  PlayerState sieged;
+  ProjectMemory sm = NewProjectLedger(project);
+  sm.sent = true;
+  sm.firstSendStyle = Style::Redpoint;
+  CHECK(ClaimFirstAscent(sieged, sm, project, "Eventually"));
+  const int dev = static_cast<int>(Faction::Development);
+  const int old = static_cast<int>(Faction::OldGuard);
+  CHECK(loud.standing.with[dev] == sieged.standing.with[dev]);
+  CHECK(loud.standing.with[old] > sieged.standing.with[old]);
+}
+
+static void TestAShoeDealActuallyBuysShoes() {
+  GearDials g;
+
+  // No deal: you pay.
+  Shoes worn;
+  worn.wear = 0.9;
+  double cash = 500.0;
+  CHECK(Resole(worn, cash, false, g));
+  CHECK(cash < 500.0);
+
+  // The bottom rung is a shoe deal and nothing else. Before this was wired
+  // it was "free shoes, and they want nothing" and it gave you nothing.
+  Sponsorship deal;
+  deal.tier = SponsorTier::Shoes;
+  CHECK(CoversShoes(deal));
+
+  Shoes worn2;
+  worn2.wear = 0.9;
+  double free = 500.0;
+  CHECK(Resole(worn2, free, CoversShoes(deal), g));
+  CHECK(free == 500.0);          // they are paying
+  CHECK(worn2.resoles == 1);     // and you still got the resole
+
+  // New pairs too, and a broke climber is not broke any more.
+  Shoes dead;
+  dead.wear = 1.0;
+  dead.resoles = 99;
+  double nothing = 0.0;
+  CHECK(!BuyNewShoes(dead, nothing, false, g));
+  CHECK(BuyNewShoes(dead, nothing, CoversShoes(deal), g));
+  CHECK(nothing == 0.0);
+  CHECK(dead.wear == 0.0);
+
+  // Every tier that covers shoes covers them; None does not.
+  Sponsorship none;
+  CHECK(!CoversShoes(none));
+}
+
+static void TestASponsorGetsPaidAndReviewed() {
+  // The nightly count, which is the state the review reads. Written in
+  // SleepToNextDay because that is where nights are, and saved because a
+  // reload must not launder a season spent injured into a season spent
+  // slacking.
+  PlayerState hurt;
+  hurt.sponsor.tier = SponsorTier::Gear;
+  hurt.climber.injury.active = true;
+  hurt.climber.injury.daysLeft = 40;
+  hurt.climber.injury.severity = 0.5;
+  const Rng world = Rng::FromSeed("sponsor-nights");
+  DayState d = WakeUp(hurt);
+  for (int night = 0; night < 40; night++) SleepToNextDay(hurt, d, world);
+  CHECK(hurt.sponsor.daysHurtThisSeason > 0);
+
+  PlayerState fine;
+  fine.sponsor.tier = SponsorTier::Gear;
+  DayState fd = WakeUp(fine);
+  for (int night = 0; night < 40; night++) SleepToNextDay(fine, fd, world);
+  CHECK(fine.sponsor.daysHurtThisSeason == 0);
+
+  // And it survives the disk, which is the only reason it is saved state
+  // rather than a counter on the game instance.
+  SaveGame save;
+  save.player = hurt;
+  save.seed = "sponsor";
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.sponsor.daysHurtThisSeason ==
+        hurt.sponsor.daysHurtThisSeason);
+
+  // A v14 save has no such field, and zero is not an approximation there:
+  // ReviewSeason was called by nothing at all, in the engine or the probe,
+  // so nobody with a v14 career had ever been looked at.
+  //
+  // The fixture is derived from this build's own writer rather than typed
+  // out: drop the line v14 could not have had and put the version back.
+  // A hand-typed fixture tests what I believed v14 looked like, which is
+  // the thing most likely to be wrong.
+  std::string v14 = SerializeSave(save);
+  const std::size_t at = v14.find("sponsor.hurtdays=");
+  CHECK(at != std::string::npos);
+  v14.erase(at, v14.find('\n', at) + 1 - at);
+  CHECK(v14.find("sponsor.hurtdays") == std::string::npos);
+  const std::size_t vat = v14.find("version=15\n");
+  CHECK(vat != std::string::npos);
+  v14.replace(vat, std::string("version=15\n").size(), "version=14\n");
+
+  SaveGame old;
+  CHECK(DeserializeSave(v14, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);              // arrives upgraded
+  CHECK(old.player.sponsor.daysHurtThisSeason == 0);
+  CHECK(old.player.sponsor.tier == hurt.sponsor.tier);   // and intact
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+
+  // The review itself. Two flat seasons drop a rung...
+  SponsorDials sp;
+  Sponsorship deal;
+  deal.tier = SponsorTier::Title;
+  deal.gradeAtLastReview = 8;
+  for (int season = 0; season < sp.seasonsOfNothingBeforeDropped; season++) {
+    ReviewSeason(deal, 8, 0, sp);
+  }
+  CHECK(deal.tier == SponsorTier::Gear);
+
+  // ...unless you were hurt for them, which is the whole reason the day
+  // count had to become real state.
+  Sponsorship injured;
+  injured.tier = SponsorTier::Title;
+  injured.gradeAtLastReview = 8;
+  for (int season = 0; season < sp.seasonsOfNothingBeforeDropped; season++) {
+    ReviewSeason(injured, 8, sp.injuryDaysThatPauseReview, sp);
+  }
+  CHECK(injured.tier == SponsorTier::Title);
+
+  // And progress keeps you regardless.
+  Sponsorship climbing;
+  climbing.tier = SponsorTier::Title;
+  climbing.gradeAtLastReview = 8;
+  for (int season = 1; season <= 4; season++) {
+    ReviewSeason(climbing, 8 + season, 0, sp);
+  }
+  CHECK(climbing.tier == SponsorTier::Title);
+  CHECK(climbing.seasonsHeld == 4);
+
+  // The stipend is the other half that ran nowhere. Every rung that is
+  // supposed to pay, pays.
+  CHECK(MonthlyStipend(SponsorTier::None, sp) == 0.0);
+  CHECK(MonthlyStipend(SponsorTier::Shoes, sp) == 0.0);
+  CHECK(MonthlyStipend(SponsorTier::Gear, sp) > 0.0);
+  CHECK(MonthlyStipend(SponsorTier::Title, sp) >
+        MonthlyStipend(SponsorTier::Gear, sp));
+}
+
+static void TestStandingBuysBetaAndPeopleLiftYou() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  const CragLine easy = crag.lines[0];
+
+  Partner mate;
+  mate.name = "Dev";
+  mate.climbs = true;
+  mate.rapport = 0.8;
+  // Strong enough that KnowsLine says yes about the crag's easiest line,
+  // so this test is about generosity rather than about competence.
+  mate.climber.skills = {80, 80, 80, 80, 80};
+
+  // Generosity scales what they spell out.
+  const auto Handover = [&](double generosity) {
+    ProjectMemory m = NewProjectLedger(easy);
+    return ShareBeta(mate, easy, m, generosity);
+  };
+  const double plain = Handover(1.0);
+  CHECK(plain > 0.0);
+  CHECK(Handover(1.25) > plain);      // somebody who likes you talks
+  CHECK(Handover(0.75) < plain);      // somebody who does not says "it goes left"
+
+  // The default overload is exactly generosity 1.0, so every existing
+  // caller and every golden vector is untouched by the new one.
+  ProjectMemory a = NewProjectLedger(easy);
+  ProjectMemory b = NewProjectLedger(easy);
+  CHECK(ShareBeta(mate, easy, a) == ShareBeta(mate, easy, b, 1.0));
+  CHECK(a.beta == b.beta);
+
+  // It scales the share, never the ceiling. However generous they are,
+  // beta stops at fully wired and never goes backwards.
+  ProjectMemory wired = NewProjectLedger(easy);
+  for (int i = 0; i < 200; i++) ShareBeta(mate, easy, wired, 100.0);
+  CHECK(wired.beta <= 1.0);
+  CHECK(wired.beta > 0.9);
+  const double settled = wired.beta;
+  CHECK(ShareBeta(mate, easy, wired, 100.0) >= 0.0);
+  CHECK(wired.beta >= settled);
+
+  // A hostile crowd never hands you negative beta.
+  ProjectMemory grudging = NewProjectLedger(easy);
+  CHECK(ShareBeta(mate, easy, grudging, -5.0) == 0.0);
+  CHECK(grudging.beta == 0.0);
+
+  // And the multiplier itself moves with standing, in the right direction.
+  Standing liked;
+  Standing disliked;
+  const Faction theirs = FactionOf("Dev");
+  liked.with[static_cast<int>(theirs)] = 1.0;
+  disliked.with[static_cast<int>(theirs)] = -1.0;
+  CHECK(BetaMultiplierFor(liked, "Dev") > 1.0);
+  CHECK(BetaMultiplierFor(disliked, "Dev") < 1.0);
+  CHECK(BetaMultiplierFor(Standing{}, "Dev") == 1.0);
+
+  // Psyche: the people at the fire are worth something, and a climber is
+  // worth more than somebody who only ever watches.
+  PartnerDials pd;
+  Partner watcher = mate;
+  watcher.climbs = false;
+  CHECK(PsycheFrom(mate, pd) > PsycheFrom(watcher, pd));
+  CHECK(PsycheFrom(watcher, pd) > 0.0);   // even they are worth something
+
+  // A stranger lifts nothing; rapport is what does it.
+  Partner stranger = mate;
+  stranger.rapport = 0.0;
+  CHECK(PsycheFrom(stranger, pd) == 0.0);
+}
+
+static void TestTheMirroredDialsStillAgree() {
+  // Three numbers live in two dial structs each, and every one of them says
+  // so in a comment: "Mirrors GearDials", "Mirrors SportDials", "Mirrors
+  // BodyDials". That arrangement is deliberate — it keeps DirtbagSession
+  // from having to include half the project to price a move — and it is
+  // exactly the shape this repo keeps writing rules against, because a
+  // comment is not a guard.
+  //
+  // Nothing would fail if one of these moved. The shop would quote a price
+  // for dead rubber that the wall did not charge, the guidebook would
+  // describe a runout the resolver did not price, and the physio would
+  // disagree with the climbing about what an injury costs. All silently.
+  const SessionDials sd;
+  const GearDials gd;
+  const SportDials pd;
+  const BodyDials bd;
+
+  CHECK(sd.deadShoeGradePenalty == gd.deadShoeGradePenalty);
+  CHECK(sd.shoeBiteOnGoodHolds == gd.deadShoeBiteOnGoodHolds);
+  CHECK(sd.runoutGradePenalty == pd.runoutGradePenalty);
+  CHECK(sd.injuryGradePenalty == bd.injuryGradePenalty);
+
+  // The fourth pair, and the only one nobody had written down as one. Both
+  // of KitDials' copies were read by nothing anywhere — the resolver has
+  // always used the SessionDials ones — so the pad could be retuned at the
+  // shop with no effect at the wall, in silence.
+  const KitDials kd;
+  CHECK(sd.noPadGradePenalty == kd.noPadGradePenalty);
+  CHECK(sd.padGroundedFraction == kd.padGroundedFraction);
+
+  // And a fifth pair the checker found that I did not know about: how long
+  // a year is, held separately by the age model and the season model. Let
+  // those drift and the game runs a birthday and a solstice on different
+  // calendars — a career's ages sliding against its seasons, with no
+  // symptom sharp enough to notice until somebody is 40 in high summer
+  // twice running.
+  const AgeDials ad;
+  const ConditionsDials cd2;
+  CHECK(ad.daysPerYear == cd2.daysPerYear);
+
+  // And the shoe formula is now genuinely one formula rather than two that
+  // happened to agree. Whatever the shop quotes is what the wall charges,
+  // at every wear and on both kinds of hold.
+  for (double wear = 0.0; wear <= 1.0; wear += 0.05) {
+    Shoes s;
+    s.wear = wear;
+    for (int edging = 0; edging < 2; edging++) {
+      CHECK(ShoePenalty(s, edging == 1, gd) ==
+            ShoePenaltyFor(wear, edging == 1, sd.deadShoeGradePenalty,
+                           sd.shoeBiteOnGoodHolds));
+    }
+  }
+
+  // Squared, not linear: a slightly worn shoe is fine and a dead one is a
+  // different sport. Half-worn costs a quarter, not a half.
+  CHECK(ShoePenaltyFor(0.0, true, gd.deadShoeGradePenalty,
+                       gd.deadShoeBiteOnGoodHolds) == 0.0);
+  const double half = ShoePenaltyFor(0.5, true, gd.deadShoeGradePenalty,
+                                     gd.deadShoeBiteOnGoodHolds);
+  const double dead = ShoePenaltyFor(1.0, true, gd.deadShoeGradePenalty,
+                                     gd.deadShoeBiteOnGoodHolds);
+  CHECK(half < dead * 0.3);
+  CHECK(dead == gd.deadShoeGradePenalty);
+
+  // Edging holds punish dead rubber hardest, which is what pushes a worn
+  // pair onto slopers long before it stops you.
+  CHECK(ShoePenaltyFor(1.0, false, gd.deadShoeGradePenalty,
+                       gd.deadShoeBiteOnGoodHolds) < dead);
+
+  // Wear past dead is still dead rather than worse than dead.
+  CHECK(ShoePenaltyFor(4.0, true, gd.deadShoeGradePenalty,
+                       gd.deadShoeBiteOnGoodHolds) == dead);
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -1850,16 +2300,16 @@ static void TestResoleOrReplace() {
 
   // A resole is most of the performance for a third of the price.
   CHECK(CanResole(s, g));
-  CHECK(Resole(s, cash, g));
+  CHECK(Resole(s, cash, false, g));
   CHECK(s.wear < 0.9);
   CHECK(s.wear > 0.0);            // and never quite new again
   CHECK(cash == 500.0 - g.resoleCost);
 
   // But the uppers only take so many.
   s.wear = 0.9;
-  CHECK(Resole(s, cash, g));
+  CHECK(Resole(s, cash, false, g));
   CHECK(!CanResole(s, g));
-  CHECK(!Resole(s, cash, g));
+  CHECK(!Resole(s, cash, false, g));
 
   // The warning only appears once this pair is worn again — a freshly
   // resoled shoe with no resoles left says nothing, because there is
@@ -1870,7 +2320,7 @@ static void TestResoleOrReplace() {
 
   // At which point it is a new pair or nothing.
   const double before = cash;
-  CHECK(BuyNewShoes(s, cash, g));
+  CHECK(BuyNewShoes(s, cash, false, g));
   CHECK(s.wear == 0.0);
   CHECK(s.resoles == 0);
   CHECK(s.pairsOwned == 2);
@@ -1880,8 +2330,8 @@ static void TestResoleOrReplace() {
   double empty = 10.0;
   Shoes poor;
   poor.wear = 0.95;
-  CHECK(!Resole(poor, empty, g));
-  CHECK(!BuyNewShoes(poor, empty, g));
+  CHECK(!Resole(poor, empty, false, g));
+  CHECK(!BuyNewShoes(poor, empty, false, g));
   CHECK(poor.wear == 0.95);       // and nothing happened
   CHECK(empty == 10.0);
 
@@ -5007,12 +5457,57 @@ static void TestTheKitIsBoughtOrItIsNot() {
   CHECK(one > 0.0 && one < 1.0);
   CHECK(PaddingFrom(Kit{.pads = 0}, d) == 0.0);
 
-  // The second is the purchase, and it is the one that tops it out.
+  // The second is the purchase, and it is the one that tops it out —
+  // at mostFoamCanDo rather than at 1.0. Foam never gets all the way there:
+  // a well-padded highball is still a highball, and at exactly 1.0 the pad
+  // stopped being a trade and became a switch, erasing head training
+  // outright and forever.
   cash = 900.0;
   CHECK(BuyPad(kit, cash, d));
-  CHECK(PaddingFrom(kit, d) == 1.0);
+  CHECK(PaddingFrom(kit, d) == d.mostFoamCanDo);
+  CHECK(PaddingFrom(kit, d) < 1.0);
   CHECK(BuyPad(kit, cash, d));
-  CHECK(PaddingFrom(kit, d) == 1.0);    // and no further, borrow the third
+  CHECK(PaddingFrom(kit, d) == d.mostFoamCanDo);  // no further; borrow a third
+
+  // And the thing that guarantees the trade survives: there is exposure
+  // left at the top of a boulder even fully padded, so a two-pad career
+  // still trains head — slower than a bare-ground one, never zero.
+  const Rng padWorld = Rng::FromSeed("pad-world");
+  const Route highball = BuildRoute(padWorld, "the highball", 4, 4,
+                                    RouteType::Power, Discipline::Boulder);
+  const int top = static_cast<int>(highball.moves.size()) - 1;
+  CHECK(ExposureAt(highball, top, PaddingFrom(kit, d)) > 0.0);
+  CHECK(ExposureAt(highball, top, PaddingFrom(Kit{}, d)) >
+        ExposureAt(highball, top, PaddingFrom(kit, d)));
+}
+
+static void TestThePadSaysWhatItCosts() {
+  KitDials d;
+
+  // You arrive with one, so the offer is live from day one.
+  const std::string offer = PadOfferText(Kit{}, d);
+  CHECK(!offer.empty());
+  CHECK(offer.find("260") != std::string::npos);        // the money
+  CHECK(offer.find("brave") != std::string::npos);      // and the other price
+
+  // Once you own the pads that matter there is nothing to sell you. The
+  // third is borrowed from whoever is at the Lot.
+  Kit padded;
+  padded.pads = d.padsThatMatter;
+  CHECK(PadOfferText(padded, d).empty());
+  padded.pads = 9;
+  CHECK(PadOfferText(padded, d).empty());
+
+  // And a player with none is still offered one.
+  Kit none;
+  none.pads = 0;
+  CHECK(!PadOfferText(none, d).empty());
+
+  // The price it names is the price it charges.
+  Kit buying;
+  double cash = d.padCost;
+  CHECK(BuyPad(buying, cash, d));
+  CHECK(cash == 0.0);
 }
 
 static void TestTheMembershipRunsOut() {
@@ -5104,7 +5599,7 @@ static void TestTheHangboardIsTheBrokeAnswer() {
   PlayerState climber;
   climber.climber.skills = {50, 50, 50, 50, 50};
   DayState climbDay = WakeUp(climber, dd);
-  StartGymSession(climber, climbDay, dd);
+  StartGymSession(climber, climbDay, KitDials{}, dd);
   Rng world = Rng::FromStream("board", Stream::Worldgen);
   const Route hard = BuildRoute(world, "Plastic", 7, 6, RouteType::Crimp,
                                 Discipline::Boulder);
@@ -5466,6 +5961,14 @@ int main() {
   TestNamingIsEarnedAndExact();
   TestTheBookRecordsWhatItReallyWent();
   TestTheBookGetsWrittenInto();
+  TestTheLoadWarningAgreesWithItself();
+  TestHeadTrainsOnWhatYouCommitTo();
+  TestClaimingIsNamingPlusTellingTheScene();
+  TestAShoeDealActuallyBuysShoes();
+  TestASponsorGetsPaidAndReviewed();
+  TestStandingBuysBetaAndPeopleLiftYou();
+  TestTheMirroredDialsStillAgree();
+  TestThePadSaysWhatItCosts();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

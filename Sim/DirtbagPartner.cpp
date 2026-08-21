@@ -103,13 +103,20 @@ bool KnowsLine(const Partner& partner, const CragLine& line) {
 
 double ShareBeta(const Partner& partner, const CragLine& line,
                  ProjectMemory& memory, const PartnerDials& dials) {
+  return ShareBeta(partner, line, memory, 1.0, dials);
+}
+
+double ShareBeta(const Partner& partner, const CragLine& line,
+                 ProjectMemory& memory, double generosity,
+                 const PartnerDials& dials) {
   if (!KnowsLine(partner, line)) {
     return 0.0;
   }
-  const double share =
-      dials.betaShareAtNoRapport +
-      (dials.betaShareAtFullRapport - dials.betaShareAtNoRapport) *
-          partner.rapport;
+  const double share = Clamp01(
+      (dials.betaShareAtNoRapport +
+       (dials.betaShareAtFullRapport - dials.betaShareAtNoRapport) *
+           partner.rapport) *
+      std::max(0.0, generosity));
   // They can only give you what they have, and only the part you are
   // missing. Beta never goes backwards.
   const double gained = (1.0 - memory.beta) * share;

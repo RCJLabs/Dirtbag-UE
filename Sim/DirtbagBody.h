@@ -168,4 +168,13 @@ std::string InjuryText(const Climber& climber);
 // "fresh", "carrying a load", "you are running on fumes"
 std::string LoadText(const Climber& climber, const BodyDials& dials = BodyDials{});
 
+// How loudly the load line should be said: 0 nothing worth saying, 1 worth
+// noticing, 2 the warning before an injury.
+//
+// It exists so the HUD can colour the line without re-deriving the bands
+// from a number. `injuryThreshold` is a dial; a presentation layer holding
+// its own copy of "when does this start to matter" is how a warning ends up
+// going amber two seasons after the dial moved.
+int LoadWarning(const Climber& climber, const BodyDials& dials = BodyDials{});
+
 }  // namespace dirtbag

@@ -61,6 +61,32 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	DrawBar(TEXT("HUNGER"), Game->Day.Hunger / 100.0, X, Y, 210.f, 9.f,
 	        FLinearColor(0.70f, 0.60f, 0.35f, 1.f));
 
+	// The body, directly under the two bars it belongs with. Both of these
+	// stay quiet until they are saying something: an injury line only exists
+	// while you are hurt, and load says nothing at all until it starts to
+	// matter. A HUD that prints "fresh" every frame for a season teaches you
+	// to stop reading the line that will one day say otherwise.
+	if (Game->IsHurt())
+	{
+		Y += 20.f;
+		DrawText(Game->InjuryLine(), FLinearColor(0.85f, 0.35f, 0.30f, 1.f), X,
+		         Y, GEngine->GetSmallFont(), 1.f);
+	}
+	const int32 Warning = Game->LoadWarning();
+	if (Warning > 0)
+	{
+		Y += 20.f;
+		// Amber at "carrying a load", red at the warning — the point at
+		// which the injury roll starts happening at all. Measured over
+		// twelve seasons, a climber who backs off here sends 38 against 24
+		// and spends 55 days hurt against 1,467, so this is the most
+		// valuable sentence on the screen and it is coloured like it.
+		DrawText(Game->LoadLine(),
+		         Warning >= 2 ? FLinearColor(0.85f, 0.35f, 0.30f, 1.f)
+		                      : FLinearColor(0.90f, 0.75f, 0.30f, 1.f),
+		         X, Y, GEngine->GetSmallFont(), 1.f);
+	}
+
 	// Conditions, under the bars. Outdoors this is the line the day is
 	// planned around, so it is coloured by how good it actually is rather
 	// than left as flat text you stop reading.
@@ -112,6 +138,20 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		         Y, GEngine->GetSmallFont(), 1.f);
 	}
 
+	// Where you stand, when there is anything to stand on. StandingText is
+	// already silent below +/-0.3, so this draws only when the valley has an
+	// opinion — and a shut crag is red, because it changes what today can
+	// be rather than merely how it feels.
+	const FString Standing = Game->StandingLine();
+	if (!Standing.IsEmpty())
+	{
+		Y += 20.f;
+		DrawText(Standing,
+		         Game->CragIsOpen() ? kDim
+		                            : FLinearColor(0.85f, 0.35f, 0.30f, 1.f),
+		         X, Y, GEngine->GetSmallFont(), 1.f);
+	}
+
 	// What the Lot did while you were not looking. Gold, like the naming
 	// prompt, because losing a line and getting one are the same size of
 	// event from opposite ends.
@@ -119,6 +159,26 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	{
 		Y += 22.f;
 		DrawText(Game->LotNews, FLinearColor(0.85f, 0.55f, 0.35f, 1.f), X, Y,
+		         GEngine->GetMediumFont(), 1.f);
+	}
+
+	// The sponsor's news: the month's money, or the yearly verdict. Same
+	// treatment as the Lot's, because it arrives the same way — overnight,
+	// already decided.
+	if (!Game->SponsorNews.IsEmpty())
+	{
+		Y += 22.f;
+		DrawText(Game->SponsorNews, FLinearColor(0.85f, 0.55f, 0.35f, 1.f), X,
+		         Y, GEngine->GetMediumFont(), 1.f);
+	}
+
+	// And what came out about you. Same size and colour as the Lot's news
+	// because it arrives the same way — overnight, already true, and about
+	// something you did rather than something you are choosing.
+	if (!Game->EthicsNews.IsEmpty())
+	{
+		Y += 22.f;
+		DrawText(Game->EthicsNews, FLinearColor(0.85f, 0.55f, 0.35f, 1.f), X, Y,
 		         GEngine->GetMediumFont(), 1.f);
 	}
 
@@ -144,6 +204,24 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		DrawText(Game->LastAscentLine, FLinearColor(0.95f, 0.85f, 0.40f, 1.f),
 		         X, Y, GEngine->GetMediumFont(), 1.f);
 	}
+
+	// The slow numbers, bottom left, small and dim — age, the kit in the van,
+	// and a sponsor if there is one. None of these change in a day and none
+	// of them are a decision you make on this screen, so they sit out of the
+	// eyeline rather than competing with the body and the weather. Sponsor
+	// says "nobody is calling" when there is no deal, which is true and not
+	// worth a line, so it only appears once somebody is.
+	FString Slow = Game->AgeLine();
+	const FString Kit = Game->KitLine();
+	if (!Kit.IsEmpty())
+	{
+		Slow += TEXT("      ") + Kit;
+	}
+	if (Game->Player.Sponsor.Tier != EDirtbagSponsorTier::None)
+	{
+		Slow += TEXT("      ") + Game->SponsorLine();
+	}
+	DrawText(Slow, kDim, X, H - 56.f, GEngine->GetSmallFont(), 1.f);
 
 	// The career, small, bottom left — it is a slow number and reads like one.
 	DrawText(Game->GetCareerLine(), kDim, X, H - 38.f, GEngine->GetSmallFont(),

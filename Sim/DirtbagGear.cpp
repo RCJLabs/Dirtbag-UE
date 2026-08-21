@@ -14,22 +14,29 @@ void WearShoes(Shoes& shoes, int moves, int grade, const GearDials& dials) {
       1.0, shoes.wear + (static_cast<double>(moves) / dials.shoeLifeMoves) * hard);
 }
 
-double ShoePenalty(const Shoes& shoes, bool edgingHold,
-                   const GearDials& dials) {
+double ShoePenaltyFor(double wear, bool edgingHold, double deadPenalty,
+                      double biteOnGoodHolds) {
   // Squared like skin, for the same reason: a slightly worn shoe is fine
   // and a dead one is a different sport.
-  const double gone = Clamp01(shoes.wear);
-  return dials.deadShoeGradePenalty * gone * gone *
-         (edgingHold ? 1.0 : dials.deadShoeBiteOnGoodHolds);
+  const double gone = Clamp01(wear);
+  return deadPenalty * gone * gone * (edgingHold ? 1.0 : biteOnGoodHolds);
+}
+
+double ShoePenalty(const Shoes& shoes, bool edgingHold,
+                   const GearDials& dials) {
+  return ShoePenaltyFor(shoes.wear, edgingHold, dials.deadShoeGradePenalty,
+                        dials.deadShoeBiteOnGoodHolds);
 }
 
 bool CanResole(const Shoes& shoes, const GearDials& dials) {
   return shoes.resoles < dials.resolesPerPair;
 }
 
-bool Resole(Shoes& shoes, double& cash, const GearDials& dials) {
-  if (!CanResole(shoes, dials) || cash < dials.resoleCost) return false;
-  cash -= dials.resoleCost;
+bool Resole(Shoes& shoes, double& cash, bool sponsored,
+            const GearDials& dials) {
+  const double price = sponsored ? 0.0 : dials.resoleCost;
+  if (!CanResole(shoes, dials) || cash < price) return false;
+  cash -= price;
   shoes.resoles++;
   // Most of the performance back, and never quite new: each resole leaves a
   // little more of the shoe behind.
@@ -37,9 +44,11 @@ bool Resole(Shoes& shoes, double& cash, const GearDials& dials) {
   return true;
 }
 
-bool BuyNewShoes(Shoes& shoes, double& cash, const GearDials& dials) {
-  if (cash < dials.newShoeCost) return false;
-  cash -= dials.newShoeCost;
+bool BuyNewShoes(Shoes& shoes, double& cash, bool sponsored,
+                 const GearDials& dials) {
+  const double price = sponsored ? 0.0 : dials.newShoeCost;
+  if (cash < price) return false;
+  cash -= price;
   shoes.wear = 0.0;
   shoes.resoles = 0;
   shoes.pairsOwned++;

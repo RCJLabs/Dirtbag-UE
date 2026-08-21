@@ -160,6 +160,39 @@ int main(int argc, char** argv) {
   // Phase 3 gate: every other source of money competes with climbing, and
   // this one arrives because of it — at the price of the good days.
   const bool takesDeals = argc > 5 && std::string(argv[5]) == "sponsored";
+  // "saver" is `kitted` that will actually work for the thing it wants.
+  //
+  // Every other policy works only when nearly broke -- cash below $120 --
+  // which is a thermostat, and a thermostat never saves up. That is why the
+  // second crash pad measured as unreachable: not because the economy
+  // forbids it, but because no simulated player has ever tried to buy it.
+  // Since seventy days of work a year cost no sends, working *toward*
+  // something should be close to free, and whether it is is exactly what
+  // Phase 3's restated criterion 2 asks.
+  const bool savesUp = argc > 5 && std::string(argv[5]) == "saver";
+
+  // Arg 6 overrides skin regen per night (shipped: 1.5, so nine points of
+  // skin is six nights). This is not a balance proposal — it is the knob
+  // that answers the one question five measurements have left standing:
+  // *if skin stops being the binding constraint, what binds next?* If the
+  // answer is "the weather", then no money mechanic can ever close Phase
+  // 3's gate and the gate is what has to move. If the answer is "nothing",
+  // then skin was the whole wall and lifting it is a real option.
+  const double skinRegen = argc > 6 ? std::atof(argv[6]) : -1.0;
+  // Arg 7 overrides the pads you start with (shipped: 1 of the 2 that
+  // matter, so padding 0.5). The knob exists because head trains on
+  // exposure, and pads are the thing that buys exposure away — 0 pads and 2
+  // pads are the bold and the safe season, and the gap between them is the
+  // whole mechanic.
+  const int startingPads = argc > 7 ? std::atoi(argv[7]) : -1;
+  // Arg 8: never buy or resole shoes. Dead rubber has never once been felt
+  // in the actual game -- ToSim dropped shoeWear, so every attempt resolved
+  // on new shoes -- so before calling that fixed it is worth knowing what
+  // the thing nobody has felt is actually worth.
+  const bool neverBuysRubber = argc > 8 && std::string(argv[8]) == "norubber";
+  // Arg 9 overrides the most foam can ever do, for finding a cap at which
+  // the pad is a trade rather than a switch.
+  const double foamCap = argc > 9 ? std::atof(argv[9]) : -1.0;
 
   const Rng world = Rng::FromSeed(seed);
   const Crag crag = RoadsideCrag(world);
@@ -168,7 +201,22 @@ int main(int argc, char** argv) {
   if (kept) {
     dd.billsAmount = 0.0;
     dd.mealCost = 0.0;
+    // And a float, which the control was missing for five measurements.
+    //
+    // `kept` was meant to be "a player for whom money is not a question".
+    // It was not. Zeroing the bills also removed every reason to work, so
+    // the kept player earned nothing, ended every year on about $2, and
+    // could never buy shoes -- ending on 0.89 wear against a working
+    // player's 0.30. Since dead rubber is worth roughly 3.7 sends against
+    // 1.0, that one omission accounts for the whole of the anomaly the
+    // first Phase 3 note recorded and could not explain: "fewer sends than
+    // the player paying rent".
+    //
+    // A control that removes the costs *and* the income is not a control
+    // for "does money pressure climbing". It is a control for being broke.
+    // The float itself is applied where the player exists, below.
   }
+  if (skinRegen > 0.0) dd.skinRegenPerNight = skinRegen;
   FirstAscentDials fd;
   DogDials dog;
 
@@ -176,6 +224,12 @@ int main(int argc, char** argv) {
   player.climber.skills.power = player.climber.skills.fingers =
       player.climber.skills.technique = player.climber.skills.endurance =
           player.climber.skills.head = 50.0;
+
+  if (startingPads >= 0) player.kit.pads = startingPads;
+  // The kept control's float. See the note where its dials are zeroed:
+  // without this it is a control for being broke rather than for being
+  // free of money, and it could never afford shoes.
+  if (kept) player.cash = 10000.0;
 
   if (takeTheSalary) TakeSalariedJob(player);
 
@@ -245,6 +299,17 @@ int main(int argc, char** argv) {
       const double paid = MonthlyStipend(player.sponsor.tier, sp);
       if (paid > 0.0) { Pay(player, paid); t.sponsorPay += paid; }
     }
+
+    // And once a year they decide whether to keep you. ReviewSeason was
+    // called by nothing anywhere until today — engine or probe — so no
+    // career, played or simulated, had ever been reviewed. Matches the
+    // engine, which does this from Sleep on the same cadence.
+    if (player.sponsor.tier != SponsorTier::None && player.day > 1 &&
+        player.day % 365 == 1) {
+      ReviewSeason(player.sponsor, SummarizeCareer(player).hardestSendGrade,
+                   player.sponsor.daysHurtThisSeason, sp);
+      player.sponsor.daysHurtThisSeason = 0;
+    }
     if (player.sponsor.tier != SponsorTier::None) t.sponsoredDays++;
 
     // Shopping, before the day gets spent. A dirtbag buys in this order:
@@ -252,7 +317,8 @@ int main(int argc, char** argv) {
     // winter — and never so deep that the bills go unpaid, because being
     // behind is worse than being unequipped.
     KitDials kd;
-    if (buysKit) {
+    if (foamCap > 0.0) kd.mostFoamCanDo = foamCap;
+    if (buysKit || savesUp) {
       const double float_ = 150.0;   // never spend the last of it
       if (!player.kit.hangboard && player.cash > kd.hangboardCost + float_) {
         if (BuyHangboard(player.kit, player.cash, kd)) t.spentKit += kd.hangboardCost;
@@ -287,6 +353,13 @@ int main(int argc, char** argv) {
       // Otherwise: rent comes first. Below a float, take a gig off the
       // board — the best-paying one you can actually do.
       needMoney = !kept && (player.cash < 120.0 || player.owed > 0.0);
+      // A saver also works on any day they are short of the pad, which is
+      // the only thing in the game worth saving for. Once it is bought they
+      // go back to the thermostat -- nobody keeps working for its own sake.
+      if (savesUp && player.kit.pads < kd.padsThatMatter &&
+          player.cash < kd.padCost + 150.0) {
+        needMoney = true;
+      }
       if (needMoney) {
         const std::vector<OddJob> board = OddJobBoard(world, player.day, jd);
         const OddJob* best = nullptr;
@@ -475,7 +548,7 @@ int main(int argc, char** argv) {
       // window's worth of burns, in the dark, in December.
       const double dusk = LastLightHour(player.day, cd);
 
-      StartGymSession(player, today, dd);
+      StartGymSession(player, today, kd, dd);
       const Climber body = ClimberForSession(player, today, dd);
       const CragLine* line = PickLine(crag, body, player);
       if (line) {
@@ -525,7 +598,13 @@ int main(int argc, char** argv) {
           if (r.sent) {
             t.sends++;
             if (CanName(*line, mem)) {
-              NameFirstAscent(mem, *line, "Line " + std::to_string(player.day));
+              // ClaimFirstAscent, not NameFirstAscent: the probe had the
+              // same half-a-verb bug the engine did, so every simulated
+              // first ascent was worth no opinion to any faction — and
+              // standing is what earns a sponsor, so the probe has been
+              // measuring a career the Lot never noticed.
+              ClaimFirstAscent(player, mem, *line,
+                               "Line " + std::to_string(player.day));
               t.firstAscents++;
               note += (note.empty() ? "" : " + ");
               note += "FIRST ASCENT of " + line->description;
@@ -539,14 +618,15 @@ int main(int argc, char** argv) {
 
     // Rubber: resole while the uppers hold, replace when they do not.
     GearDials gd;
-    if (player.shoes.wear > gd.noticeablyWorn) {
+    if (!neverBuysRubber && player.shoes.wear > gd.noticeablyWorn) {
       const double before = player.cash;
+      const bool shod = CoversShoes(player.sponsor);
       if (CanResole(player.shoes, gd)) {
-        if (Resole(player.shoes, player.cash, gd)) {
+        if (Resole(player.shoes, player.cash, shod, gd)) {
           t.resoles++;
           t.spentShoes += before - player.cash;
         }
-      } else if (BuyNewShoes(player.shoes, player.cash, gd)) {
+      } else if (BuyNewShoes(player.shoes, player.cash, shod, gd)) {
         t.newPairs++;
         t.spentShoes += before - player.cash;
       }
@@ -635,14 +715,18 @@ int main(int argc, char** argv) {
   // to the format, and the table came out with silently empty columns.
   printf("HEAD\tseed\tpolicy\trest\tcash\tlow\tsends\tFAs\tdays\tburns"
          "\tgrade\tstew\tclosures\tshut\twork%%\tbroke\tstarved"
-         "\tmissed\tgym\tboard\tinjuries\thurt\tpeakload\tphysio\tsponsor$\ttheirdays\n");
+         "\tmissed\tgym\tboard\tinjuries\thurt\tpeakload\tphysio\tsponsor$"
+         "\ttheirdays\tskinregen\tpower\tfingers\ttechnique\tendurance"
+         "\thead\tallround\tshoewear\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
-         "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d\n",
+         "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
+         "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
          : kept           ? "kept"
          : buysKit        ? "kitted"
+         : savesUp        ? "saver"
          : takesDeals     ? "sponsored"
                           : "greedy",
          restUntilSkin, player.cash, t.cashLow, t.sends, t.firstAscents,
@@ -651,7 +735,24 @@ int main(int argc, char** argv) {
          t.closures, t.closedDays, 100.0 * t.daysWorked / DAYS, t.brokeDays,
          t.starvedNights, t.missedWindows, t.gymDays, t.boardDays,
          t.injuries, t.hurtDays, t.peakLoad, t.physioSessions,
-         t.sponsorPay, t.obligationDays);
+         t.sponsorPay, t.obligationDays, dd.skinRegenPerNight,
+         player.climber.skills.power, player.climber.skills.fingers,
+         player.climber.skills.technique, player.climber.skills.endurance,
+         player.climber.skills.head,
+         // `grade` above is SkillToGrade(power) and has been since this
+         // probe was written, which under-reports a season: power is the
+         // *slowest* growing skill, gaining +2.4 in a year where fingers
+         // gain +7.6. Read off power a year of climbing looks worth a third
+         // of a grade; across all five it is worth about half. `allround`
+         // is the five-skill mean and is the honest headline. `grade` is
+         // left alone so the older notes stay comparable to their own
+         // numbers.
+         SkillToGrade((player.climber.skills.power +
+                       player.climber.skills.fingers +
+                       player.climber.skills.technique +
+                       player.climber.skills.endurance +
+                       player.climber.skills.head) / 5.0),
+         player.shoes.wear);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

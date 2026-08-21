@@ -79,6 +79,30 @@ def converters():
     return out
 
 
+def to_sim_converters():
+    """[(SimType, out_var, body, line)] for each ToSim in the converter file.
+
+    The mirrored question, and the one that was going unasked: FromSim is
+    checked for every sim field it *reads*, and ToSim was checked for
+    nothing at all. Deleting one line of a ToSim -- the engine-to-sim half
+    of a field -- passed every checker and every test in the repo, while
+    throwing away a value the sim writes every night.
+    """
+    text = io.open(CONV, encoding="utf-8").read()
+    out = []
+    for m in re.finditer(
+            r"dirtbag::(\w+)\s+ToSim\s*\(\s*const\s+F\w+\s*&\s*\w+\s*\)\s*\{",
+            text):
+        body = text[m.end():matching_brace(text, m.end() - 1)]
+        line = text[:m.start()].count("\n") + 1
+        # The local being filled in, found by its declaration rather than
+        # assumed to be called Out.
+        decl = re.search(r"dirtbag::" + re.escape(m.group(1)) + r"\s+(\w+)\s*;",
+                         body)
+        out.append((m.group(1), decl.group(1) if decl else "Out", body, line))
+    return out
+
+
 def main():
     structs = sim_structs()
     problems = []
@@ -98,10 +122,30 @@ def main():
                 "drops it. Carry it, or say why with `// mirror-skip: %s`."
                 % (CONV, line, sim_type, param, field, field))
 
+    for sim_type, out_var, body, line in to_sim_converters():
+        if sim_type not in structs:
+            continue
+        skipped = set(re.findall(r"//\s*mirror-skip:\s*(\w+)", body))
+        written = set(re.findall(
+            r"\b" + re.escape(out_var) + r"\.(\w+)\s*(?:=|\.|\[)", body))
+        # A field filled by a helper -- push_back, resize, assign -- counts.
+        written |= set(re.findall(
+            r"\b" + re.escape(out_var) + r"\.(\w+)\s*\.", body))
+        for field in structs[sim_type]:
+            checked += 1
+            if field in written or field in skipped:
+                continue
+            problems.append(
+                "%s:%d  ToSim(-> dirtbag::%s) never fills `%s.%s` - the sim "
+                "gets a default. Fill it, or say why with "
+                "`// mirror-skip: %s`."
+                % (CONV, line, sim_type, out_var, field, field))
+
     for p in problems:
         print("  " + p)
     print("checked %d sim fields across %d converters; problems: %d"
-          % (checked, len(converters()), len(problems)))
+          % (checked, len(converters()) + len(to_sim_converters()),
+             len(problems)))
     return 1 if problems else 0
 
 

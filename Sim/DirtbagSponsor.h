@@ -43,6 +43,7 @@ enum class SponsorTier {
 };
 constexpr int kSponsorTierCount = 4;
 
+// unwired-ok: a formatter; SponsorText is what the HUD prints
 const char* SponsorTierName(SponsorTier tier);
 
 struct SponsorDials {
@@ -105,6 +106,12 @@ struct Sponsorship {
   int seasonsWithoutProgress = 0;
   int obligationsMetThisSeason = 0;
   int obligationsMissedThisSeason = 0;
+
+  // Days spent hurt since the last review. ReviewSeason reads this to
+  // decide whether a season without progress was failure or a torn pulley,
+  // so it has to survive a reload or the answer changes depending on when
+  // you last quit the game.
+  int daysHurtThisSeason = 0;
 };
 
 // What they would offer somebody with this record right now. `firstAscents`

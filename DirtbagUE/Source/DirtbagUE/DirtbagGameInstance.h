@@ -328,6 +328,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
 	FString ShoeLine() const;
 
+	/** What the rubber is costing you right now, in grades on edging holds.
+	 *  0 on a new pair.
+	 *
+	 *  Worth showing because it is worth a lot and has never been visible:
+	 *  measured over ten seasons, a climber who never replaces their shoes
+	 *  sends 1.0 against 3.7 on the same burns, for about $9 of the year's
+	 *  cash. The cheapest thing in the game that matters. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gear")
+	double ShoeCostInGrades() const;
+
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
 	bool ResoleShoes();
 
@@ -492,6 +502,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Work")
 	bool SalariedToday() const;
 
+	/** Work it. Called from Sleep on any day the salary owns, not offered
+	 *  as an action — a trap you can decline is not a trap. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
+	void WorkSalariedDay();
+
 	// --- The body --------------------------------------------------------
 
 	/** "a pulley in the ring finger — 3 weeks, if you are sensible", or
@@ -505,6 +520,12 @@ public:
 	 *  does not, and spends 55 days hurt against 1,467. */
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
 	FString LoadLine() const;
+
+	/** How loudly to say it: 0 nothing worth saying, 1 worth noticing, 2 the
+	 *  warning before an injury. The bands are the sim's, so the colour and
+	 *  the sentence can never disagree. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
+	int32 LoadWarning() const;
 
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
 	bool IsHurt() const;
@@ -543,6 +564,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Kit")
 	FString KitLine() const;
 
+	/** "A second pad, $260. Better landings, and one less reason to be
+	 *  brave." Empty once you own the pads that matter.
+	 *
+	 *  The pad is the purchase measured to move a season most, and its
+	 *  price in head was invisible — a player found out months later that
+	 *  they had stopped getting braver, with nothing having said so. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Kit")
+	FString PadOfferLine() const;
+
 	/** A day on plastic. False if you are not a member — the gym is the one
 	 *  place in this game that checks. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
@@ -577,10 +607,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
 	bool ReplaceVanPart();
 
-	/** Drive somewhere: wears the van and may break it. Returns the part
-	 *  that went, or -1. Called by the travel spot. */
+	/** Drive somewhere: wears the van, charges the fuel, and may break it.
+	 *  Returns the part that went, or -1. Called by the travel spot.
+	 *
+	 *  Every drive in the game comes through here. That is deliberate: fuel
+	 *  is the only cost that goes up the more you climb, and the way it came
+	 *  to be free was that each travel spot could have charged it and none
+	 *  had to. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
 	int32 DriveVan(double Hours);
+
+	/** What the last drive cost at the pump. Read by the travel spot so the
+	 *  toast can say it — a cost the player never sees is a cost that feels
+	 *  like a bug. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
+	double LastDriveFuel = 0.0;
 
 	/** Set when something let go on a drive. Cleared at lights out. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
@@ -622,6 +663,13 @@ public:
 	 *  wake up and everyone already knows. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Ethics")
 	FString EthicsNews;
+
+	/** What the sponsor did overnight: the month's money, or the once-a-year
+	 *  verdict on whether they are keeping you. Empty on any night neither
+	 *  happened. Not saved — it is news, and news is for the morning it
+	 *  arrives. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
+	FString SponsorNews;
 
 	// --- The Lot ---------------------------------------------------------
 

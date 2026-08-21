@@ -1,6 +1,7 @@
 #include "DirtbagSession.h"
 
 #include "DirtbagBody.h"
+#include "DirtbagGear.h"
 #include "DirtbagSport.h"
 
 #include <algorithm>
@@ -92,9 +93,9 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
   const bool edging = move.hold == HoldType::Crimp ||
                       move.hold == HoldType::Pocket ||
                       move.hold == HoldType::Pinch;
-  const double rubberGone = Clamp01(input.shoeWear);
-  effective -= dials.deadShoeGradePenalty * rubberGone * rubberGone *
-               (edging ? 1.0 : dials.shoeBiteOnGoodHolds);
+  effective -= ShoePenaltyFor(input.shoeWear, edging,
+                              dials.deadShoeGradePenalty,
+                              dials.shoeBiteOnGoodHolds);
   if (move.crux) {
     // The crux is where the head shows up — commitment, not strength.
     effective += (c.skills.head - 50.0) / 100.0;
@@ -112,28 +113,9 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
   // What you would hit, which is a different question on a rope than on a
   // pad. Both are paid out of head — a bold climber is still bolder — but
   // they are not the same fear and they must not both apply.
-  const int moves = static_cast<int>(input.route.moves.size());
   const double nerve = Clamp01(0.5 + (c.skills.head - 50.0) / 100.0);
-  if (OnTheRope(input.route, index)) {
-    // Above the first bolt the ground is not the question any more. The
-    // crash-pad penalty has to *stop* here or it follows a roped climber
-    // thirty metres up a pitch and punishes them for having no foam under
-    // a route nobody would put foam under.
-    effective -= dials.runoutGradePenalty * RunoutAt(input.route, index) *
-                 (1.0 - 0.5 * nerve);
-  } else if (moves > 0) {
-    // The landing. Bare ground costs nothing low down — nobody has ever
-    // been gripped on move one — and climbs toward the top, which is why a
-    // pad is worth its price exactly where a boulderer is trying hardest.
-    // This still applies to the first moves of a pitch, below the first
-    // bolt, which is exactly where it should.
-    const double up = static_cast<double>(index + 1) / static_cast<double>(moves);
-    const double exposed =
-        Clamp01((up - dials.padGroundedFraction) /
-                std::max(0.001, 1.0 - dials.padGroundedFraction));
-    effective -= dials.noPadGradePenalty * (1.0 - Clamp01(input.padding)) *
-                 exposed * (1.0 - 0.5 * nerve);
-  }
+  effective -= ExposureAt(input.route, index, input.padding, dials) *
+               (1.0 - 0.5 * nerve);
 
   // Pump spends ability, in grade units — felt only where margins are thin.
   effective -= dials.pumpGradePenalty * (pump / 100.0);
@@ -141,6 +123,32 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
 }
 
 }  // namespace
+
+double ExposureAt(const Route& route, int index, double padding,
+                  const SessionDials& dials) {
+  // What you would hit, which is a different question on a rope than on a
+  // pad. Both are paid out of head — a bold climber is still bolder — but
+  // they are not the same fear and they must not both apply.
+  if (OnTheRope(route, index)) {
+    // Above the first bolt the ground is not the question any more. The
+    // crash-pad penalty has to *stop* here or it follows a roped climber
+    // thirty metres up a pitch and punishes them for having no foam under
+    // a route nobody would put foam under.
+    return dials.runoutGradePenalty * RunoutAt(route, index);
+  }
+  const int moves = static_cast<int>(route.moves.size());
+  if (moves <= 0) return 0.0;
+
+  // The landing. Bare ground costs nothing low down — nobody has ever been
+  // gripped on move one — and climbs toward the top, which is why a pad is
+  // worth its price exactly where a boulderer is trying hardest. This still
+  // applies to the first moves of a pitch, below the first bolt, which is
+  // exactly where it should.
+  const double up = static_cast<double>(index + 1) / static_cast<double>(moves);
+  const double exposed = Clamp01((up - dials.padGroundedFraction) /
+                                 std::max(0.001, 1.0 - dials.padGroundedFraction));
+  return dials.noPadGradePenalty * (1.0 - Clamp01(padding)) * exposed;
+}
 
 double SkillToGrade(double skill, const SessionDials& dials) {
   return skill / 100.0 * dials.skillGradeSpan + dials.skillGradeFloor;
