@@ -169,4 +169,12 @@ std::string LoadText(const Climber& climber, const BodyDials& dials) {
   return "you are running on fumes and you know it";
 }
 
+int LoadWarning(const Climber& climber, const BodyDials& dials) {
+  // The bands are LoadText's, deliberately: the colour and the sentence are
+  // two readings of one fact and must never disagree.
+  if (climber.load < 40.0) return 0;
+  if (climber.load < dials.injuryThreshold) return 1;
+  return 2;
+}
+
 }  // namespace dirtbag

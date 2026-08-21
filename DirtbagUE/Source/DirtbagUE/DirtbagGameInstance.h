@@ -506,6 +506,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
 	FString LoadLine() const;
 
+	/** How loudly to say it: 0 nothing worth saying, 1 worth noticing, 2 the
+	 *  warning before an injury. The bands are the sim's, so the colour and
+	 *  the sentence can never disagree. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
+	int32 LoadWarning() const;
+
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
 	bool IsHurt() const;
 

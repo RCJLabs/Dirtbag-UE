@@ -107,30 +107,39 @@ the first time. Clipping costs pump — more from a bad stance.
 
 ---
 
-## 3. Check what the new keys and lines say  ·  ~10 min
+## 3. The HUD  ·  nothing to do  ·  ~0 min
+
+**This section used to ask you to drop seven Blueprint nodes on the HUD. It
+was wrong — there is no HUD Blueprint.** `ADirtbagHUD::DrawHUD` is C++ and
+draws straight to the canvas, so all seven lines are wired in code and will
+be there when you load. Nothing to build.
+
+What you should see, and when:
+
+| line | appears |
+|---|---|
+| injury | only while you are hurt — red |
+| load | only from "carrying a load" up. Amber, then **red at the warning** |
+| standing | only when the valley has an opinion. Red when the crag is shut |
+| ethics news | the morning it comes out |
+| age · kit · sponsor | bottom left, small. Sponsor only once somebody calls |
+
+Everything else in the corner is unchanged.
+
+> **`Load Line` is the one to actually read.** It is the warning before an
+> injury, and measured over twelve seasons a climber who stops training at
+> it sends **38 against 24** and spends **55 days hurt against 1,467**. The
+> red band starts exactly at the load where the injury roll begins to happen
+> at all — below it the chance is flat zero, so amber genuinely means safe.
+
+**Career Epitaph is deliberately not on the HUD.** It is the line you get
+when a career ends, not a thing to read every frame.
 
 At a **crag or cave** wall, unchanged:
 
-- **C** — clean. Works at the cave now too (it did not before today).
+- **C** — clean. Works at the cave now too.
 - **B** — beta.
 - **E** — climb.
-
-New Blueprint nodes worth dropping on the HUD while you are in there. All on
-the **DirtbagGameInstance** unless noted:
-
-| node | says |
-|---|---|
-| `Age Line` | "31 — still going up" |
-| `Load Line` | "everything aches; this is the warning" |
-| `Injury Line` | "a pulley in the ring finger — 3 weeks, if you are sensible" |
-| `Kit Line` | "one pad, a board in the van, and the gym until the month runs out" |
-| `Standing Line` | "the crag is closed. The signs went up on the gate." |
-| `Sponsor Line` | "free shoes, and they want nothing" |
-| `Career Epitaph` | the whole career in one line |
-
-**`Load Line` is the one to actually wire.** It is the warning before an
-injury, and measured over twelve seasons a climber who stops training at it
-sends **38 against 24** and spends **55 days hurt against 1,467**.
 
 ---
 

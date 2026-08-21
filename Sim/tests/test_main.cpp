@@ -760,6 +760,57 @@ static void TestTheBookGetsWrittenInto() {
   CHECK(other.displayName.empty());
 }
 
+static void TestTheLoadWarningAgreesWithItself() {
+  BodyDials d;
+  // The colour and the sentence are two readings of one fact. If they can
+  // drift, the HUD can say "everything aches" in the calm colour.
+  const auto Band = [&](double load) {
+    Climber c;
+    c.load = load;
+    return LoadWarning(c, d);
+  };
+  const auto Says = [&](double load) {
+    Climber c;
+    c.load = load;
+    return LoadText(c, d);
+  };
+
+  CHECK(Band(0.0) == 0);
+  CHECK(Says(0.0) == "fresh");
+  CHECK(Band(25.0) == 0);
+  CHECK(Says(25.0) == "warmed into the season");
+
+  // The quiet band ends exactly where the sentence stops being reassuring.
+  CHECK(Band(39.9) == 0);
+  CHECK(Band(40.0) == 1);
+  CHECK(Says(40.0) == "carrying a load");
+
+  // And the loud band starts exactly at the dial, not near it.
+  CHECK(Band(d.injuryThreshold - 0.1) == 1);
+  CHECK(Band(d.injuryThreshold) == 2);
+  CHECK(Says(d.injuryThreshold).find("warning") != std::string::npos);
+  CHECK(Band(100.0) == 2);
+
+  // Nobody is warned about an injury they cannot yet get, and everybody who
+  // can get one has been. This is the property the HUD actually relies on.
+  for (double load = 0.0; load <= 120.0; load += 0.5) {
+    Climber c;
+    c.load = load;
+    const bool bAtRisk = load >= d.injuryThreshold;
+    CHECK((LoadWarning(c, d) == 2) == bAtRisk);
+  }
+
+  // Moving the dial moves both together — the whole reason this is not two
+  // hardcoded numbers in two files.
+  BodyDials moved;
+  moved.injuryThreshold = 80.0;
+  Climber c;
+  c.load = 70.0;
+  CHECK(LoadWarning(c, d) == 2);
+  CHECK(LoadWarning(c, moved) == 1);
+  CHECK(LoadText(c, moved) == "carrying a load");
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -5466,6 +5517,7 @@ int main() {
   TestNamingIsEarnedAndExact();
   TestTheBookRecordsWhatItReallyWent();
   TestTheBookGetsWrittenInto();
+  TestTheLoadWarningAgreesWithItself();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

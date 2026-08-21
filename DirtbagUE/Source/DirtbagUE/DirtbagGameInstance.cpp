@@ -821,6 +821,11 @@ FString UDirtbagGameInstance::LoadLine() const
 	    dirtbag::LoadText(DirtbagConvert::ToSim(Player.Climber)).c_str());
 }
 
+int32 UDirtbagGameInstance::LoadWarning() const
+{
+	return dirtbag::LoadWarning(DirtbagConvert::ToSim(Player.Climber));
+}
+
 bool UDirtbagGameInstance::IsHurt() const
 {
 	return Player.Climber.Injury.bActive;
