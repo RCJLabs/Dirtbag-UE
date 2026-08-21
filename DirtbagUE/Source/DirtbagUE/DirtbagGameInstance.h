@@ -492,6 +492,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Work")
 	bool SalariedToday() const;
 
+	/** Work it. Called from Sleep on any day the salary owns, not offered
+	 *  as an action — a trap you can decline is not a trap. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
+	void WorkSalariedDay();
+
 	// --- The body --------------------------------------------------------
 
 	/** "a pulley in the ring finger — 3 weeks, if you are sensible", or
@@ -583,10 +588,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
 	bool ReplaceVanPart();
 
-	/** Drive somewhere: wears the van and may break it. Returns the part
-	 *  that went, or -1. Called by the travel spot. */
+	/** Drive somewhere: wears the van, charges the fuel, and may break it.
+	 *  Returns the part that went, or -1. Called by the travel spot.
+	 *
+	 *  Every drive in the game comes through here. That is deliberate: fuel
+	 *  is the only cost that goes up the more you climb, and the way it came
+	 *  to be free was that each travel spot could have charged it and none
+	 *  had to. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Van")
 	int32 DriveVan(double Hours);
+
+	/** What the last drive cost at the pump. Read by the travel spot so the
+	 *  toast can say it — a cost the player never sees is a cost that feels
+	 *  like a bug. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
+	double LastDriveFuel = 0.0;
 
 	/** Set when something let go on a drive. Cleared at lights out. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")

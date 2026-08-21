@@ -84,6 +84,21 @@ void UDirtbagGameInstance::Sleep()
 
 	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
 
+	// The salary owns its days whether or not you wanted them, and this is
+	// where a day begins — SleepToNextDay ends by resetting the DayState to
+	// the wake hour, so the new day starts here and the job takes it here.
+	//
+	// Until now the engine could ask SalariedToday() and had no way to work
+	// one: the salaried-job trap, a named Phase 3 mechanic, existed only in
+	// the probe. Doing it at dawn rather than offering it as an action is
+	// the entire design — nine to five means the clock arrives at the far
+	// side of the day having skipped everything the day was for, and a trap
+	// you can decline is not a trap.
+	if (SalariedToday())
+	{
+		WorkSalariedDay();
+	}
+
 	// And whether anybody put it together while you slept. This lives in
 	// Sleep rather than being a call the day loop remembers, because five
 	// separate per-day ticks have now been written and left uncalled in this
@@ -807,6 +822,18 @@ bool UDirtbagGameInstance::SalariedToday() const
 	                              Player.Day);
 }
 
+void UDirtbagGameInstance::WorkSalariedDay()
+{
+	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
+	dirtbag::WorkSalariedDay(SimPlayer, SimDay);
+	Player = DirtbagConvert::FromSim(SimPlayer);
+	Day = DirtbagConvert::FromSim(SimDay);
+
+	// The dog spent the day in the van, same as it does for a shift.
+	bWorkedToday = true;
+}
+
 // --- The body ----------------------------------------------------------------
 
 FString UDirtbagGameInstance::InjuryLine() const
@@ -1013,6 +1040,21 @@ int32 UDirtbagGameInstance::DriveVan(double Hours)
 
 	const int Broke = dirtbag::DriveVan(V, World, Player.Day, Hours, AirF);
 	Player.Van = DirtbagConvert::FromSim(V);
+
+	// And the pump. Every drive in the game comes through here, which is
+	// why the charge lives here rather than at each travel spot: fuel was
+	// written, measured at $918-$1,224 a season, and billed to nobody,
+	// because the one caller who could have charged it did not have to.
+	//
+	// Charged rather than refused. You cannot decline to have burned the
+	// fuel you already burned, so a skint player arrives at the crag owing
+	// for the drive, the same way the rent works.
+	const double Fuel = dirtbag::FuelFor(Hours);
+	dirtbag::PlayerState Wallet = DirtbagConvert::ToSim(Player);
+	dirtbag::Charge(Wallet, Fuel);
+	Player.Cash = Wallet.cash;
+	Player.Owed = Wallet.owed;
+	LastDriveFuel = Fuel;
 
 	if (Broke >= 0)
 	{

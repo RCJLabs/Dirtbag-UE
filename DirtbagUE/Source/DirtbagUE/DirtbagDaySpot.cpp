@@ -385,7 +385,8 @@ void ADirtbagDaySpot::ArriveFromDrive()
 		                                         FLinearColor::Black, false,
 		                                         false);
 	}
-	Say(FString::Printf(TEXT("Drove to %s. %.0f minutes gone."), *TravelName,
-	                    TravelHours * 60.0),
+	Say(FString::Printf(TEXT("Drove to %s. %.0f minutes and $%.0f gone."),
+	                    *TravelName, TravelHours * 60.0,
+	                    Game->LastDriveFuel),
 	    FColor::Silver);
 }

@@ -120,8 +120,6 @@ int DriveVan(Van& van, const Rng& worldRng, int day, double hours,
 bool VanRuns(const Van& van);
 
 // What that drive costs at the pump.
-// unwired-ok: NOT WIRED -- driving is free in the actual game. Tracked in
-// notes/engine-bridge-gaps.md
 double FuelFor(double hours, const VanDials& dials = VanDials{});
 
 // The three ways out. Each returns false if it cannot be done — bodging can

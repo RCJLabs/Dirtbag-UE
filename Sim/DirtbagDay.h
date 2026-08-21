@@ -229,8 +229,6 @@ bool WorkOddJob(PlayerState& player, DayState& day, const OddJob& job,
 
 // Do the day the salary owns. Pays a fifth of the week, takes the middle of
 // it, and the middle of the day is when the rock is in condition.
-// unwired-ok: NOT WIRED -- the salaried-job trap is unreachable from the
-// engine. Tracked in notes/engine-bridge-gaps.md
 void WorkSalariedDay(PlayerState& player, DayState& day,
                      const JobDials& jobs = JobDials{},
                      const DayDials& dials = DayDials{});

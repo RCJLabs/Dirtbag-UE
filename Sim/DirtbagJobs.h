@@ -78,14 +78,17 @@ struct Job {
 bool SalariedToday(const Job& job, int day, const JobDials& dials = JobDials{});
 
 // Does the salary have you during this hour?
-// unwired-ok: NOT WIRED -- reached only through WorkSalariedDay. Tracked
-// in notes/engine-bridge-gaps.md
+//
+// unwired-ok: unreachable by construction rather than by omission. The
+// engine works the salaried day at dawn, which fast-forwards the clock to
+// the far side of the shift, so by the time anybody could ask this the
+// answer is always no. Kept because a game that lets you *start* a day
+// before work -- rather than waking on the far side of it -- would need it
+// back, and that is a real design option rather than a settled one.
 bool SalaryOwnsHour(const Job& job, int day, double hour,
                     const JobDials& dials = JobDials{});
 
 // What a week of it pays.
-// unwired-ok: NOT WIRED -- reached only through WorkSalariedDay. Tracked
-// in notes/engine-bridge-gaps.md
 double SalaryDayPay(const JobDials& dials = JobDials{});
 
 // unwired-ok: a formatter, and the board draws its own rows
