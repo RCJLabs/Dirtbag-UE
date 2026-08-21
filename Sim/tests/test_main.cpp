@@ -1248,6 +1248,70 @@ static void TestTheBestBelayerIsTheMostPatientOne() {
   CHECK(BestBelayer(nobody, sd) == nullptr);
 }
 
+static void TestTheSunTerraceIsTheWinterCrag() {
+  const Rng world = Rng::FromSeed("crag-1");
+  const Crag terrace = SunTerrace(world);
+  const Crag cave = ShadedCave(world);
+  const Crag roadside = RoadsideCrag(world);
+
+  CHECK(terrace.aspect == Aspect::South);
+  CHECK(!terrace.lines.empty());
+  CHECK(OpenProjects(terrace).size() == 2u);
+
+  // Boulders, unlike the cave. Winter is bouldering season and the terrace
+  // is the reason why.
+  for (const CragLine& l : terrace.lines) {
+    CHECK(l.route.discipline == Discipline::Boulder);
+    CHECK(!NeedsABelayer(l.route));
+  }
+
+  // Sparser and harder than Roadside — it is not somewhere you go instead,
+  // it is somewhere you go when Roadside has stopped being hard enough.
+  CHECK(terrace.lines.size() < roadside.lines.size());
+  int hardestTerrace = -1, hardestRoadside = -1;
+  for (const CragLine& l : terrace.lines)
+    hardestTerrace = std::max(hardestTerrace, l.route.grade);
+  for (const CragLine& l : roadside.lines)
+    hardestRoadside = std::max(hardestRoadside, l.route.grade);
+  CHECK(hardestTerrace > hardestRoadside);
+
+  // Its own rock. Three crags in one valley must not share a line.
+  for (const CragLine& a : terrace.lines) {
+    for (const CragLine& b : cave.lines) CHECK(a.route.name != b.route.name);
+    for (const CragLine& b : roadside.lines) CHECK(a.route.name != b.route.name);
+  }
+
+  // And the claim the whole crag is built on, checked rather than asserted:
+  // in midwinter a south face gives more days than a north one, and in high
+  // summer it gives exactly as many -- because the summer window lands
+  // before the sun is on any face at all.
+  ConditionsDials cd;
+  const auto DaysWithAWindow = [&](Aspect a, int from, int to) {
+    int n = 0;
+    for (int day = from; day <= to; day++) {
+      if (FindPrimeWindow(GenerateWeather(world, day, cd), a, cd).exists) n++;
+    }
+    return n;
+  };
+  CHECK(DaysWithAWindow(Aspect::South, 1, 60) >
+        DaysWithAWindow(Aspect::North, 1, 60));
+  CHECK(DaysWithAWindow(Aspect::South, 170, 230) ==
+        DaysWithAWindow(Aspect::North, 170, 230));
+
+  // The midday winter window is the crag's whole identity: a window you
+  // cannot have if you are at work.
+  double sum = 0.0;
+  int n = 0;
+  for (int day = 1; day <= 60; day++) {
+    const PrimeWindow w =
+        FindPrimeWindow(GenerateWeather(world, day, cd), Aspect::South, cd);
+    if (w.exists) { sum += w.peakHour; n++; }
+  }
+  CHECK(n > 0);
+  CHECK(sum / n > 12.0);   // after noon
+  CHECK(sum / n < 16.0);   // and long before the light goes
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -6008,6 +6072,7 @@ int main() {
   TestTheMirroredDialsStillAgree();
   TestThePadSaysWhatItCosts();
   TestTheBestBelayerIsTheMostPatientOne();
+  TestTheSunTerraceIsTheWinterCrag();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

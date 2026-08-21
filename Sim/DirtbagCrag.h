@@ -80,6 +80,25 @@ Crag RoadsideCrag(const Rng& worldRng);
 // climbing there is.
 Crag ShadedCave(const Rng& worldRng);
 
+// The valley's third crag: a south-facing boulder terrace, high and cold,
+// and the only rock here that is genuinely better in January than in June.
+//
+// Its identity came out of a measurement rather than folklore. Across a
+// year, aspect does almost nothing in summer — North, South and West give
+// an identical 25 days at an identical 0.880 friction, because the summer
+// window lands at 5:30am before the sun is on any face. It does a great
+// deal in winter: South gets 42 days against North's 28, in a window less
+// than half as long, landing at about 1:45pm.
+//
+// Those winter windows land at about 1:45pm, which is where a job bites.
+// Stated precisely, because the punchier version is false: over the first
+// ninety days a salaried climber can reach 22 of the terrace's 63 windows
+// and 13 of the cave's 48 — so the terrace is *not* harder to climb around
+// a job than the cave. What it is, is where a job costs you the most: **41
+// windows lost against the cave's 35**, the largest number of good days in
+// the valley that a nine-to-five takes off you.
+Crag SunTerrace(const Rng& worldRng);
+
 // Lines at or under this grade, in book order — what a guidebook page shows.
 // unwired-ok: the guidebook page's filter; there is no guidebook screen
 std::vector<const CragLine*> LinesUpTo(const Crag& crag, int grade);

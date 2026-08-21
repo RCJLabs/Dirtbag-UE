@@ -101,6 +101,30 @@ get a rest stance partway, the rope sim is live.
 
 ---
 
+## 2d. The Sun Terrace · ~10 min · new
+
+Same two jobs as the cave, one venue along.
+
+1. **Travel spot**: duplicate one, `Kind=Travel`, `Travel Name=the terrace`,
+   `Travel Hours=0.9`, **`Arrive At = Terrace`**, `Travel Target` set in the
+   level. **And the pair back**, as before.
+2. **Walls**: duplicate crag walls, **`Venue = Terrace`**. Board indices
+   from the generated book:
+
+| Board Index | line | grade | why |
+|---|---|---|---|
+| **2** | One O'Clock Sun | V5 | the classic, three stars |
+| **7** | Day Off Work | V8 | at the top of what you can do |
+| **11** | *the prow above the terrace* | V10 | an open project |
+
+**It is a winter crag.** In midwinter it has more windows than anywhere else
+(42 against the cave's 28) and they land at about **1:45pm** — so if you
+test it in summer it will look like a worse Roadside, which is correct and
+not a bug. Sleep to a winter day, or start a save on day 1, if you want to
+see what it is for.
+
+---
+
 ## 3. Play a fortnight · ~45 min · **this is the actual goal**
 
 Fourteen days, no reloading. Wake, read the forecast, decide, sleep. Let it

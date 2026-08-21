@@ -204,8 +204,12 @@ void UDirtbagGameInstance::EnsureCrag()
 	// The venue decides which rock. Arriving at the cave with Roadside still
 	// loaded would serve boulder lines at a rope crag and compute the window
 	// for the wrong aspect -- east-facing shade on a north-facing wall.
-	const EDirtbagVenue Want =
-	    Venue == EDirtbagVenue::Cave ? EDirtbagVenue::Cave : EDirtbagVenue::Crag;
+	// Which rock. Written as a switch rather than a chain of ternaries so
+	// that a fourth venue cannot quietly fall through to Roadside the way a
+	// `== Cave ? Cave : Crag` test would have.
+	EDirtbagVenue Want = EDirtbagVenue::Crag;
+	if (Venue == EDirtbagVenue::Cave) Want = EDirtbagVenue::Cave;
+	else if (Venue == EDirtbagVenue::Terrace) Want = EDirtbagVenue::Terrace;
 	if (bCragLoaded && LoadedCrag == Want)
 	{
 		return;
@@ -213,7 +217,9 @@ void UDirtbagGameInstance::EnsureCrag()
 	LoadedCrag = Want;
 	Crag = Want == EDirtbagVenue::Cave
 	           ? UDirtbagSimLibrary::ShadedCave(Seed)
-	           : UDirtbagSimLibrary::RoadsideCrag(Seed);
+	           : Want == EDirtbagVenue::Terrace
+	                 ? UDirtbagSimLibrary::SunTerrace(Seed)
+	                 : UDirtbagSimLibrary::RoadsideCrag(Seed);
 	bCragLoaded = true;
 
 	// Seed a ledger for every unclimbed line, at the filth it is actually

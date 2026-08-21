@@ -73,7 +73,13 @@ enum class EDirtbagVenue : uint8
 	 *  hill. Outdoors like the Crag in every respect that matters -- the
 	 *  window, the guidebook, cleaning, beta -- and different only in which
 	 *  rock it loads and which way that rock faces. */
-	Cave
+	Cave,
+	/** The Sun Terrace: south-facing boulders, high and cold. The winter
+	 *  crag -- 42 days in midwinter against the Cave's 28 -- in a window
+	 *  half as long, landing at about 1:45pm. Which makes it the venue a
+	 *  job costs you the most at: 41 winter windows lost to a nine-to-five
+	 *  against the Cave's 35. */
+	Terrace
 };
 
 /** Is this venue rock rather than plastic? Everything outdoors shares the

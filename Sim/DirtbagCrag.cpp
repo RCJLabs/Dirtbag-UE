@@ -95,6 +95,69 @@ const ProjectEntry kProjects[] = {
 constexpr int kProjectCount =
     static_cast<int>(sizeof(kProjects) / sizeof(kProjects[0]));
 
+
+// --- The Sun Terrace ---------------------------------------------------------
+//
+// The winter crag, and the measurement is what made it south-facing rather
+// than the folklore. Sweeping all four aspects across a year (see
+// notes/phase4-crag3.md): in **high summer North, South and West are
+// literally identical** — 25 days, 0.880 friction, a 1.34h window at 5:30am
+// — because the summer window lands before the sun is on any face at all.
+// Aspect only does anything in **winter**, and there it does a lot: South
+// gets **42 days against North's 28**, at the price of a window less than
+// half as long (1.30h against 3.06h) landing at about **1:45pm**.
+//
+// That last number is the crag's identity, stated carefully. A winter
+// window at 1:45pm is a window a nine-to-five sits on top of — but not
+// exclusively, and the tempting version of this claim is false: a salaried
+// climber reaches 22 of the terrace's 63 windows over the first ninety days
+// against 13 of the cave's 48, so this is not the crag you *cannot* climb
+// around a job.
+//
+// It is the crag where a job costs you the most. 41 windows lost against
+// the cave's 35 — the most good days in the valley a nine-to-five takes off
+// you — because it has the most winter days to lose and they land in the
+// middle of them.
+//
+// So: fewer lines than Roadside, harder, and sparse. It is not somewhere you
+// go instead of Roadside; it is somewhere you go in January, or when
+// Roadside has stopped being hard enough, and it asks what your job is
+// worth to you.
+const BookEntry kTerrace[] = {
+    // The approach boulders, done cold with numb fingers before the sun
+    // comes round.
+    {"Frozen Fingers",        3, 3, RouteType::Crimp,      1},
+    {"Numb",                  4, 4, RouteType::Technical,  1},
+
+    // The terrace proper. South-facing granite, and in condition for about
+    // ninety minutes in the middle of a January day.
+    {"One O'Clock Sun",       5, 5, RouteType::Crimp,      3},   // the classic
+    {"Thermals Off",          6, 6, RouteType::Power,      2},
+    {"The Sit Start",         6, 7, RouteType::Power,      1},   // stiff for the grade
+    {"Chalk On Ice",          7, 7, RouteType::Technical,  2},
+    {"Sending Temps",         8, 8, RouteType::Crimp,      3},
+    {"Day Off Work",          8, 8, RouteType::Endurance,  2},
+
+    // The high boulders at the back, which nobody gets to in a lunch hour.
+    {"Short Days",            9, 9, RouteType::Power,      2},
+    {"The Last Hour",        10, 10, RouteType::Crimp,     3},
+    {"Headtorch Walk-Out",   11, 11, RouteType::Dyno,      2},
+};
+constexpr int kTerraceCount =
+    static_cast<int>(sizeof(kTerrace) / sizeof(kTerrace[0]));
+
+// Two, and both hard. A crag this far up the hill does not have easy
+// unclimbed lines lying around — anything soft was done years ago by
+// somebody with a lunch break.
+const ProjectEntry kTerraceProjects[] = {
+    // The obvious one, and the reason people come up here with a camera.
+    {"the prow above the terrace",            10, RouteType::Power},
+    // Everyone has tried the first move. Nobody has done the second.
+    {"the two-move problem under the block",  12, RouteType::Crimp},
+};
+constexpr int kTerraceProjectCount =
+    static_cast<int>(sizeof(kTerraceProjects) / sizeof(kTerraceProjects[0]));
+
 // The rope crag. Grades read on the YDS ladder through SportGradeName —
 // index 5 is 5.11a, 7 is 5.12a, 9 is 5.13a — and the spread is shaped the
 // way a real sport cave is rather than the way a boulder field is: far
@@ -184,6 +247,51 @@ Crag RoadsideCrag(const Rng& worldRng) {
     line.route = BuildRoute(worldRng, e.description, e.guess, trueGrade, e.type,
                             Discipline::Boulder);
     line.stars = 0;  // unclimbed lines have no stars; nobody can vouch yet
+    line.isProject = true;
+    line.description = e.description;
+    crag.lines.push_back(line);
+  }
+  return crag;
+}
+
+Crag SunTerrace(const Rng& worldRng) {
+  Crag crag;
+  crag.name = "the Sun Terrace";
+  crag.aspect = Aspect::South;
+  // Further than the cave, and up rather than along. Nothing reads this
+  // yet — see notes/engine-bridge-gaps.md — but the level's travel spot
+  // should match it.
+  crag.approachHours = 0.9;
+
+  // Its own stream, for the same narrow reason the cave has one: name
+  // collisions stay different rock, and the projects draw from a stream
+  // that is genuinely stateful.
+  const Rng terraceRng = worldRng.Derive("sun-terrace");
+
+  crag.lines.reserve(kTerraceCount + kTerraceProjectCount);
+  for (int i = 0; i < kTerraceCount; i++) {
+    const BookEntry& e = kTerrace[i];
+    CragLine line;
+    line.route = BuildRoute(terraceRng, e.name, e.grade, e.trueGrade, e.type,
+                            Discipline::Boulder);
+    line.stars = e.stars;
+    line.isProject = false;
+    line.firstAscentBy = "unknown";
+    crag.lines.push_back(line);
+  }
+
+  Rng projectRng = terraceRng.Derive("terrace-projects");
+  for (int i = 0; i < kTerraceProjectCount; i++) {
+    const ProjectEntry& e = kTerraceProjects[i];
+    CragLine line;
+    // Same guess-and-drift as everywhere else: the book's grade for a line
+    // nobody has done is an opinion, and finding out is the payoff.
+    const double roll = projectRng.NextDouble();
+    const int drift = roll < 0.25 ? -1 : (roll < 0.6 ? 0 : (roll < 0.9 ? 1 : 2));
+    const int trueGrade = std::max(0, e.guess + drift);
+    line.route = BuildRoute(terraceRng, e.description, e.guess, trueGrade,
+                            e.type, Discipline::Boulder);
+    line.stars = 0;
     line.isProject = true;
     line.description = e.description;
     crag.lines.push_back(line);

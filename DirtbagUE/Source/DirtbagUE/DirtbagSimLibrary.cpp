@@ -521,6 +521,12 @@ bool UDirtbagSimLibrary::NeedsABelayer(const FDirtbagRoute& Route)
 	return dirtbag::NeedsABelayer(DirtbagConvert::ToSim(Route));
 }
 
+FDirtbagCrag UDirtbagSimLibrary::SunTerrace(const FString& Seed)
+{
+	return DirtbagConvert::FromSim(
+	    dirtbag::SunTerrace(dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed))));
+}
+
 FDirtbagCrag UDirtbagSimLibrary::ShadedCave(const FString& Seed)
 {
 	// FromSeed, exactly as RoadsideCrag does — the two crags have to be

@@ -1,3 +1,12 @@
+> **Correction, 2026-08-21.** The claim below that north-facing makes this
+> the only summer rock is **false as measured**, and its own next clause is
+> why: the summer window lands at about 5:30am, before the sun is on any
+> face, so North, South and West all give an identical 25 days at an
+> identical 0.880 friction. Aspect only bites in winter, where south beats
+> north 42 days to 28. The Cave is still the only rope crag and still costs
+> a belayer — that is plenty — but it is not the summer crag. See
+> `notes/phase4-crag3.md`.
+
 # The Shaded Cave, and the belayer
 
 Two halves of the same problem. After building the whole sport system there
