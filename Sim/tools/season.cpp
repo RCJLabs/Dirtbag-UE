@@ -190,6 +190,9 @@ int main(int argc, char** argv) {
   // on new shoes -- so before calling that fixed it is worth knowing what
   // the thing nobody has felt is actually worth.
   const bool neverBuysRubber = argc > 8 && std::string(argv[8]) == "norubber";
+  // Arg 9 overrides the most foam can ever do, for finding a cap at which
+  // the pad is a trade rather than a switch.
+  const double foamCap = argc > 9 ? std::atof(argv[9]) : -1.0;
 
   const Rng world = Rng::FromSeed(seed);
   const Crag crag = RoadsideCrag(world);
@@ -314,6 +317,7 @@ int main(int argc, char** argv) {
     // winter — and never so deep that the bills go unpaid, because being
     // behind is worse than being unequipped.
     KitDials kd;
+    if (foamCap > 0.0) kd.mostFoamCanDo = foamCap;
     if (buysKit || savesUp) {
       const double float_ = 150.0;   // never spend the last of it
       if (!player.kit.hangboard && player.cash > kd.hangboardCost + float_) {
@@ -544,7 +548,7 @@ int main(int argc, char** argv) {
       // window's worth of burns, in the dark, in December.
       const double dusk = LastLightHour(player.day, cd);
 
-      StartGymSession(player, today, dd);
+      StartGymSession(player, today, kd, dd);
       const Climber body = ClimberForSession(player, today, dd);
       const CragLine* line = PickLine(crag, body, player);
       if (line) {

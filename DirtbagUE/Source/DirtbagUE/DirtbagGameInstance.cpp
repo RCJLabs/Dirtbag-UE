@@ -966,6 +966,12 @@ bool UDirtbagGameInstance::IsGymMember() const
 	return dirtbag::IsGymMember(DirtbagConvert::ToSim(Player.Kit));
 }
 
+FString UDirtbagGameInstance::PadOfferLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::PadOfferText(DirtbagConvert::ToSim(Player.Kit)).c_str());
+}
+
 FString UDirtbagGameInstance::KitLine() const
 {
 	return UTF8_TO_TCHAR(

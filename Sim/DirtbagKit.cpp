@@ -45,7 +45,17 @@ bool IsGymMember(const Kit& kit) { return kit.membershipDaysLeft > 0; }
 
 double PaddingFrom(const Kit& kit, const KitDials& dials) {
   const int matter = std::max(1, dials.padsThatMatter);
-  return Clamp01(static_cast<double>(kit.pads) / static_cast<double>(matter));
+  return std::min(
+      Clamp01(dials.mostFoamCanDo),
+      Clamp01(static_cast<double>(kit.pads) / static_cast<double>(matter)));
+}
+
+std::string PadOfferText(const Kit& kit, const KitDials& dials) {
+  if (kit.pads >= std::max(1, dials.padsThatMatter)) return std::string();
+  std::string out = "A second pad, $";
+  out += std::to_string(static_cast<int>(dials.padCost));
+  out += ". Better landings, and one less reason to be brave.";
+  return out;
 }
 
 std::string KitText(const Kit& kit) {

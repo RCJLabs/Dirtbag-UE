@@ -5457,12 +5457,57 @@ static void TestTheKitIsBoughtOrItIsNot() {
   CHECK(one > 0.0 && one < 1.0);
   CHECK(PaddingFrom(Kit{.pads = 0}, d) == 0.0);
 
-  // The second is the purchase, and it is the one that tops it out.
+  // The second is the purchase, and it is the one that tops it out —
+  // at mostFoamCanDo rather than at 1.0. Foam never gets all the way there:
+  // a well-padded highball is still a highball, and at exactly 1.0 the pad
+  // stopped being a trade and became a switch, erasing head training
+  // outright and forever.
   cash = 900.0;
   CHECK(BuyPad(kit, cash, d));
-  CHECK(PaddingFrom(kit, d) == 1.0);
+  CHECK(PaddingFrom(kit, d) == d.mostFoamCanDo);
+  CHECK(PaddingFrom(kit, d) < 1.0);
   CHECK(BuyPad(kit, cash, d));
-  CHECK(PaddingFrom(kit, d) == 1.0);    // and no further, borrow the third
+  CHECK(PaddingFrom(kit, d) == d.mostFoamCanDo);  // no further; borrow a third
+
+  // And the thing that guarantees the trade survives: there is exposure
+  // left at the top of a boulder even fully padded, so a two-pad career
+  // still trains head — slower than a bare-ground one, never zero.
+  const Rng padWorld = Rng::FromSeed("pad-world");
+  const Route highball = BuildRoute(padWorld, "the highball", 4, 4,
+                                    RouteType::Power, Discipline::Boulder);
+  const int top = static_cast<int>(highball.moves.size()) - 1;
+  CHECK(ExposureAt(highball, top, PaddingFrom(kit, d)) > 0.0);
+  CHECK(ExposureAt(highball, top, PaddingFrom(Kit{}, d)) >
+        ExposureAt(highball, top, PaddingFrom(kit, d)));
+}
+
+static void TestThePadSaysWhatItCosts() {
+  KitDials d;
+
+  // You arrive with one, so the offer is live from day one.
+  const std::string offer = PadOfferText(Kit{}, d);
+  CHECK(!offer.empty());
+  CHECK(offer.find("260") != std::string::npos);        // the money
+  CHECK(offer.find("brave") != std::string::npos);      // and the other price
+
+  // Once you own the pads that matter there is nothing to sell you. The
+  // third is borrowed from whoever is at the Lot.
+  Kit padded;
+  padded.pads = d.padsThatMatter;
+  CHECK(PadOfferText(padded, d).empty());
+  padded.pads = 9;
+  CHECK(PadOfferText(padded, d).empty());
+
+  // And a player with none is still offered one.
+  Kit none;
+  none.pads = 0;
+  CHECK(!PadOfferText(none, d).empty());
+
+  // The price it names is the price it charges.
+  Kit buying;
+  double cash = d.padCost;
+  CHECK(BuyPad(buying, cash, d));
+  CHECK(cash == 0.0);
 }
 
 static void TestTheMembershipRunsOut() {
@@ -5554,7 +5599,7 @@ static void TestTheHangboardIsTheBrokeAnswer() {
   PlayerState climber;
   climber.climber.skills = {50, 50, 50, 50, 50};
   DayState climbDay = WakeUp(climber, dd);
-  StartGymSession(climber, climbDay, dd);
+  StartGymSession(climber, climbDay, KitDials{}, dd);
   Rng world = Rng::FromStream("board", Stream::Worldgen);
   const Route hard = BuildRoute(world, "Plastic", 7, 6, RouteType::Crimp,
                                 Discipline::Boulder);
@@ -5923,6 +5968,7 @@ int main() {
   TestASponsorGetsPaidAndReviewed();
   TestStandingBuysBetaAndPeopleLiftYou();
   TestTheMirroredDialsStillAgree();
+  TestThePadSaysWhatItCosts();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

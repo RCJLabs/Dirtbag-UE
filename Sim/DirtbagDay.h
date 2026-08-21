@@ -243,7 +243,11 @@ Climber ClimberForSession(const PlayerState& player, const DayState& day,
                           const DayDials& dials = DayDials{});
 
 // Pull on: seeds the day's SessionState from the current climber.
+// `kit` is a parameter rather than a `KitDials{}` built inside, because
+// what the pads under you are worth is a tunable and it was not reachable
+// from any caller.
 void StartGymSession(PlayerState& player, DayState& day,
+                     const KitDials& kit = KitDials{},
                      const DayDials& dials = DayDials{});
 
 // A day on plastic. The only climbing that ignores the weather, and the

@@ -564,6 +564,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Kit")
 	FString KitLine() const;
 
+	/** "A second pad, $260. Better landings, and one less reason to be
+	 *  brave." Empty once you own the pads that matter.
+	 *
+	 *  The pad is the purchase measured to move a season most, and its
+	 *  price in head was invisible — a player found out months later that
+	 *  they had stopped getting braver, with nothing having said so. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Kit")
+	FString PadOfferLine() const;
+
 	/** A day on plastic. False if you are not a member — the gym is the one
 	 *  place in this game that checks. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")

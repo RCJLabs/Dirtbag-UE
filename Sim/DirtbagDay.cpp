@@ -144,14 +144,15 @@ Climber ClimberForSession(const PlayerState& player, const DayState& day,
   return c;
 }
 
-void StartGymSession(PlayerState& player, DayState& day, const DayDials& dials) {
+void StartGymSession(PlayerState& player, DayState& day, const KitDials& kit,
+                     const DayDials& dials) {
   day.session = StartSession(ClimberForSession(player, day, dials));
   // Whatever is on your feet comes with you. Shoes live on the career
   // rather than the body, so the session has to be handed them.
   day.session.shoeWear = player.shoes.wear;
   // What you dragged up the hill. GoToTheGym overrides this afterwards,
   // because indoors the landing is somebody else's problem.
-  day.session.padding = PaddingFrom(player.kit, KitDials{});
+  day.session.padding = PaddingFrom(player.kit, kit);
   day.atGym = true;
 }
 
@@ -159,7 +160,7 @@ bool GoToTheGym(PlayerState& player, DayState& day, const KitDials& kit,
                 const DayDials& dials) {
   if (!IsGymMember(player.kit)) return false;
   PassHours(day, kit.gymTravelHours, dials);
-  StartGymSession(player, day, dials);
+  StartGymSession(player, day, kit, dials);
   // Full mats, every time. This is what you are actually paying for on the
   // days the weather has already decided for you.
   day.session.padding = 1.0;

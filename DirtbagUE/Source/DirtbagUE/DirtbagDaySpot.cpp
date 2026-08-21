@@ -82,6 +82,13 @@ FString ADirtbagDaySpot::PromptText() const
 		// Say what it is costing you once it is costing you anything. Dead
 		// rubber is the cheapest real handicap in the game and the only one
 		// the player had no way to see.
+		// Say what is on offer before it is bought, not after.
+		const FString Pad = Game->PadOfferLine();
+		if (Game->Player.Shoes.Wear < 0.3 && !Pad.IsEmpty())
+		{
+			return FString::Printf(TEXT("%s  (E)  -  $%.0f"), *Pad,
+			                       Game->Player.Cash);
+		}
 		const double Grades = Game->ShoeCostInGrades();
 		return Grades >= 0.05
 		    ? FString::Printf(
@@ -234,6 +241,26 @@ void ADirtbagDaySpot::OnInteract()
 	{
 		if (Game->Player.Shoes.Wear < 0.3)
 		{
+			// Rubber is fine, so the shop's other business. The pad is the
+			// purchase measured to move a season most and it was reachable
+			// only from a Blueprint call before this.
+			const FString Pad = Game->PadOfferLine();
+			if (!Pad.IsEmpty())
+			{
+				if (Game->BuyCrashPad())
+				{
+					Say(FString::Printf(
+					        TEXT("Second pad in the van.  $%.0f left."),
+					        Game->Player.Cash),
+					    FColor::Green, 6.f);
+				}
+				else
+				{
+					Say(FString::Printf(TEXT("%s  Not today."), *Pad),
+					    FColor::Orange, 6.f);
+				}
+				break;
+			}
 			Say(TEXT("Your shoes are fine. Keep your money."), FColor::Silver);
 			break;
 		}
