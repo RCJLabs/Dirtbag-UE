@@ -79,6 +79,8 @@ void UDirtbagGameInstance::Sleep()
 	DogWorry.Reset();
 	VanNews.Reset();
 	SponsorNews.Reset();
+	// Whoever stood at the bottom of the rope yesterday is fresh again.
+	RopedBurnsToday = 0;
 	// Yesterday's first ascent stops being news. It is in the book now,
 	// which is where a thing you did goes once it stops being a moment.
 	LastAscentLine.Reset();
@@ -202,8 +204,12 @@ void UDirtbagGameInstance::EnsureCrag()
 	// The venue decides which rock. Arriving at the cave with Roadside still
 	// loaded would serve boulder lines at a rope crag and compute the window
 	// for the wrong aspect -- east-facing shade on a north-facing wall.
-	const EDirtbagVenue Want =
-	    Venue == EDirtbagVenue::Cave ? EDirtbagVenue::Cave : EDirtbagVenue::Crag;
+	// Which rock. Written as a switch rather than a chain of ternaries so
+	// that a fourth venue cannot quietly fall through to Roadside the way a
+	// `== Cave ? Cave : Crag` test would have.
+	EDirtbagVenue Want = EDirtbagVenue::Crag;
+	if (Venue == EDirtbagVenue::Cave) Want = EDirtbagVenue::Cave;
+	else if (Venue == EDirtbagVenue::Terrace) Want = EDirtbagVenue::Terrace;
 	if (bCragLoaded && LoadedCrag == Want)
 	{
 		return;
@@ -211,7 +217,9 @@ void UDirtbagGameInstance::EnsureCrag()
 	LoadedCrag = Want;
 	Crag = Want == EDirtbagVenue::Cave
 	           ? UDirtbagSimLibrary::ShadedCave(Seed)
-	           : UDirtbagSimLibrary::RoadsideCrag(Seed);
+	           : Want == EDirtbagVenue::Terrace
+	                 ? UDirtbagSimLibrary::SunTerrace(Seed)
+	                 : UDirtbagSimLibrary::RoadsideCrag(Seed);
 	bCragLoaded = true;
 
 	// Seed a ledger for every unclimbed line, at the filth it is actually
@@ -290,6 +298,25 @@ FDirtbagCragLine UDirtbagGameInstance::GetCragLineAt(EDirtbagVenue AtVenue,
 	Venue = Standing;
 	EnsureCrag();
 	return Line;
+}
+
+double UDirtbagGameInstance::ApproachHoursFor(EDirtbagVenue AtVenue)
+{
+	if (!IsOutdoors(AtVenue))
+	{
+		return -1.0;   // no rock, no approach; the spot's own number stands
+	}
+	// Same save-and-restore as GetCragLineAt, and for the same reason: a
+	// travel spot asks about the far end of the drive while the player is
+	// still standing at this one, and leaving the wrong crag loaded would
+	// point CragAspect at rock the player is nowhere near.
+	const EDirtbagVenue Standing = Venue;
+	Venue = AtVenue;
+	EnsureCrag();
+	const double Hours = Crag.ApproachHours;
+	Venue = Standing;
+	EnsureCrag();
+	return Hours;
 }
 
 FDirtbagCragLine UDirtbagGameInstance::GetCragLine(int32 Index)
@@ -1203,6 +1230,51 @@ void UDirtbagGameInstance::StoreBonds(
 	{
 		Player.Bonds.Add(DirtbagConvert::FromSim(B));
 	}
+}
+
+// --- The rope ----------------------------------------------------------------
+
+FString UDirtbagGameInstance::BelayLine() const
+{
+	const std::vector<dirtbag::Partner> Lot =
+	    const_cast<UDirtbagGameInstance*>(this)->LotToday();
+	return UTF8_TO_TCHAR(
+	    dirtbag::BelayText(dirtbag::BestBelayer(Lot)).c_str());
+}
+
+bool UDirtbagGameInstance::HasABelayer() const
+{
+	const std::vector<dirtbag::Partner> Lot =
+	    const_cast<UDirtbagGameInstance*>(this)->LotToday();
+	return dirtbag::BestBelayer(Lot) != nullptr;
+}
+
+int32 UDirtbagGameInstance::BurnsHeldToday() const
+{
+	const std::vector<dirtbag::Partner> Lot =
+	    const_cast<UDirtbagGameInstance*>(this)->LotToday();
+	const dirtbag::Partner* Who = dirtbag::BestBelayer(Lot);
+	return Who ? dirtbag::BurnsTheyWillHold(*Who) : 0;
+}
+
+bool UDirtbagGameInstance::CanTieIn() const
+{
+	return RopedBurnsToday < BurnsHeldToday();
+}
+
+FString UDirtbagGameInstance::RopeRefusal() const
+{
+	if (!HasABelayer())
+	{
+		// The sim owns how this reads; a null belayer is exactly the case
+		// BelayText was written for.
+		return BelayLine();
+	}
+	if (!CanTieIn())
+	{
+		return TEXT("They have been down there long enough. Tomorrow.");
+	}
+	return FString();
 }
 
 TArray<FDirtbagPartner> UDirtbagGameInstance::GetLot()

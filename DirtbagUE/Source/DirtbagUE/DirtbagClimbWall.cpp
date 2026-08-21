@@ -80,6 +80,8 @@ ADirtbagClimbWall::ADirtbagClimbWall()
 
 	Climber = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Climber"));
 	Climber->SetupAttachment(Root);
+	// Facing the rock, like the camera. See ClimberYaw.
+	Climber->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
 	Climber->SetVisibility(false);
 	Climber->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
@@ -94,6 +96,14 @@ ADirtbagClimbWall::ADirtbagClimbWall()
 void ADirtbagClimbWall::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
+
+	// Applied here rather than only in the constructor: a wall already
+	// placed in the level has its component transform serialized, so a new
+	// constructor default would never reach it. This runs on every
+	// construction, so existing walls face the right way the moment the
+	// level reloads.
+	Climber->SetRelativeRotation(FRotator(0.f, ClimberYaw, 0.f));
+
 	HoldMarkers->ClearInstances();
 	if (HoldMarkerMesh && HoldLine)
 	{
@@ -198,6 +208,20 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 	          *UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder),
 	          *Book, *UDirtbagSimLibrary::ReadRouteText(Read)),
 	      FColor::Cyan, 5.f, kToastPrompt);
+
+	// Who is holding the rope, on a line that needs one. This is the first
+	// thing in the game rapport buys that nothing else can, so it is said at
+	// the moment it matters rather than left to be discovered by pressing E.
+	if (Game && UDirtbagSimLibrary::NeedsABelayer(Route))
+	{
+		const int32 Left = Game->BurnsHeldToday() - Game->RopedBurnsToday;
+		Toast(Game->CanTieIn()
+		          ? FString::Printf(TEXT("%s  (%d %s left)"), *Game->BelayLine(),
+		                            Left, Left == 1 ? TEXT("burn") : TEXT("burns"))
+		          : Game->RopeRefusal(),
+		      Game->CanTieIn() ? FColor::Cyan : FColor::Orange, 5.f,
+		      kToastResult);
+	}
 
 	// And where the body is, which is the half a player cannot see. Only
 	// once a session is under way — before that everyone is cold and
@@ -319,6 +343,20 @@ void ADirtbagClimbWall::StartAttempt()
 		return;
 	}
 
+	// No partner, no pitch. A boulder needs nobody; a bolted line needs
+	// somebody at the bottom of it, and how long they will stand there is
+	// rapport. Refused here rather than at the toast, because a rule you can
+	// walk past by pressing E again is not a rule.
+	if (Game && UDirtbagSimLibrary::NeedsABelayer(Route) && !Game->CanTieIn())
+	{
+		Toast(Game->RopeRefusal(), FColor::Orange, 5.f);
+		return;
+	}
+	if (Game && UDirtbagSimLibrary::NeedsABelayer(Route))
+	{
+		Game->RopedBurnsToday++;
+	}
+
 	bLiveSession = bInteractive;
 	if (Game)
 	{
@@ -371,6 +409,10 @@ void ADirtbagClimbWall::StartAttempt()
 	}
 
 	Climber->SetWorldLocation(HoldLocation(0));
+	// Location is set every move and rotation never was, which is the whole
+	// bug. Set it once here too, so a wall spawned at runtime — which never
+	// sees OnConstruction — cannot climb backwards either.
+	Climber->SetRelativeRotation(FRotator(0.f, ClimberYaw, 0.f));
 	Climber->SetVisibility(true);
 
 	const int32 AttemptNo =

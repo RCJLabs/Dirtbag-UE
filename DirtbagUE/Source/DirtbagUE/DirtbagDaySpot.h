@@ -66,7 +66,13 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
 	FString TravelName = TEXT("the gym");
 
-	/** Hours the drive eats. The van is not fast and the crag is not close. */
+	/** Hours the drive eats, used **only when the far end has no rock** —
+	 *  the gym, the town. Outdoors the guidebook owns the number and this is
+	 *  ignored, because `Crag::approachHours` says the same thing and used
+	 *  to be read by nobody: two copies of one fact, and the one that
+	 *  counted was whichever got typed into the level.
+	 *
+	 *  See DriveHours(). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
 	double TravelHours = 0.5;
 
@@ -108,6 +114,14 @@ private:
 
 	void OnInteract();
 	void BeginDrive();
+
+	/** What this drive actually costs. The guidebook's approach when the
+	 *  far end is rock, this spot's TravelHours when it is not.
+	 *
+	 *  One number, one place. Roadside is half an hour, the Cave forty
+	 *  minutes, the Terrace nearly an hour, and none of that depends any
+	 *  more on somebody remembering to type it into the details panel. */
+	double DriveHours() const;
 	void ArriveFromDrive();
 	FString PromptText() const;
 

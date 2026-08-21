@@ -1210,6 +1210,135 @@ static void TestTheMirroredDialsStillAgree() {
                        gd.deadShoeBiteOnGoodHolds) == dead);
 }
 
+static void TestTheBestBelayerIsTheMostPatientOne() {
+  SportDials sd;
+  // The engine picks one person off the Lot and shows their name and their
+  // burn budget at the wall, so "best" has to mean "will stand there
+  // longest" rather than anything else. Nothing pinned that: the existing
+  // belay tests check nobody, a non-climber, and one person at a time.
+  Partner stranger;
+  stranger.name = "Ray";
+  stranger.climbs = true;
+  stranger.rapport = 0.0;
+
+  Partner mate = stranger;
+  mate.name = "Margo";
+  mate.rapport = 1.0;
+
+  Partner neighbour = stranger;
+  neighbour.name = "Trish";
+  neighbour.climbs = false;      // delighted to help, and cannot
+
+  const std::vector<Partner> lot = {neighbour, stranger, mate};
+  const Partner* best = BestBelayer(lot, sd);
+  CHECK(best != nullptr);
+  CHECK(best->name == "Margo");
+  CHECK(BurnsTheyWillHold(*best, sd) == BurnsTheyWillHold(mate, sd));
+  CHECK(BelayText(best, sd).find("Margo") != std::string::npos);
+
+  // Order must not decide it. Same Lot, other way round.
+  const std::vector<Partner> reversed = {mate, stranger, neighbour};
+  const Partner* again = BestBelayer(reversed, sd);
+  CHECK(again != nullptr);
+  CHECK(again->name == "Margo");
+
+  // And a Lot of people who will not tie in is the same as an empty one,
+  // which is what stops the wall offering a rope nobody is holding.
+  const std::vector<Partner> nobody = {neighbour, neighbour};
+  CHECK(BestBelayer(nobody, sd) == nullptr);
+}
+
+static void TestEachCragCostsSomethingDifferentToReach() {
+  const Rng world = Rng::FromSeed("crag-1");
+  const Crag roadside = RoadsideCrag(world);
+  const Crag cave = ShadedCave(world);
+  const Crag terrace = SunTerrace(world);
+
+  // Every crag says how far it is, and until today nothing read it -- the
+  // travel spot in the level carried a hand-typed number meaning the same
+  // thing, so the guidebook and the game could disagree and the level won.
+  // Now the engine asks the book, which makes these numbers load-bearing
+  // rather than decorative.
+  CHECK(roadside.approachHours > 0.0);
+  CHECK(cave.approachHours > roadside.approachHours);
+  CHECK(terrace.approachHours > cave.approachHours);
+
+  // And they have to be far enough apart to feel like different decisions.
+  // Ten minutes between two crags is not a choice, it is a rounding error.
+  CHECK(cave.approachHours - roadside.approachHours >= 0.15);
+  CHECK(terrace.approachHours - cave.approachHours >= 0.15);
+
+  // Nothing is so far that a day out is impossible: there and back has to
+  // leave a session in the shortest day of the year.
+  ConditionsDials cd;
+  const double shortest = DaylightHours(1, cd);
+  CHECK(shortest > 2.0 * terrace.approachHours + 2.0);
+}
+
+static void TestTheSunTerraceIsTheWinterCrag() {
+  const Rng world = Rng::FromSeed("crag-1");
+  const Crag terrace = SunTerrace(world);
+  const Crag cave = ShadedCave(world);
+  const Crag roadside = RoadsideCrag(world);
+
+  CHECK(terrace.aspect == Aspect::South);
+  CHECK(!terrace.lines.empty());
+  CHECK(OpenProjects(terrace).size() == 2u);
+
+  // Boulders, unlike the cave. Winter is bouldering season and the terrace
+  // is the reason why.
+  for (const CragLine& l : terrace.lines) {
+    CHECK(l.route.discipline == Discipline::Boulder);
+    CHECK(!NeedsABelayer(l.route));
+  }
+
+  // Sparser and harder than Roadside — it is not somewhere you go instead,
+  // it is somewhere you go when Roadside has stopped being hard enough.
+  CHECK(terrace.lines.size() < roadside.lines.size());
+  int hardestTerrace = -1, hardestRoadside = -1;
+  for (const CragLine& l : terrace.lines)
+    hardestTerrace = std::max(hardestTerrace, l.route.grade);
+  for (const CragLine& l : roadside.lines)
+    hardestRoadside = std::max(hardestRoadside, l.route.grade);
+  CHECK(hardestTerrace > hardestRoadside);
+
+  // Its own rock. Three crags in one valley must not share a line.
+  for (const CragLine& a : terrace.lines) {
+    for (const CragLine& b : cave.lines) CHECK(a.route.name != b.route.name);
+    for (const CragLine& b : roadside.lines) CHECK(a.route.name != b.route.name);
+  }
+
+  // And the claim the whole crag is built on, checked rather than asserted:
+  // in midwinter a south face gives more days than a north one, and in high
+  // summer it gives exactly as many -- because the summer window lands
+  // before the sun is on any face at all.
+  ConditionsDials cd;
+  const auto DaysWithAWindow = [&](Aspect a, int from, int to) {
+    int n = 0;
+    for (int day = from; day <= to; day++) {
+      if (FindPrimeWindow(GenerateWeather(world, day, cd), a, cd).exists) n++;
+    }
+    return n;
+  };
+  CHECK(DaysWithAWindow(Aspect::South, 1, 60) >
+        DaysWithAWindow(Aspect::North, 1, 60));
+  CHECK(DaysWithAWindow(Aspect::South, 170, 230) ==
+        DaysWithAWindow(Aspect::North, 170, 230));
+
+  // The midday winter window is the crag's whole identity: a window you
+  // cannot have if you are at work.
+  double sum = 0.0;
+  int n = 0;
+  for (int day = 1; day <= 60; day++) {
+    const PrimeWindow w =
+        FindPrimeWindow(GenerateWeather(world, day, cd), Aspect::South, cd);
+    if (w.exists) { sum += w.peakHour; n++; }
+  }
+  CHECK(n > 0);
+  CHECK(sum / n > 12.0);   // after noon
+  CHECK(sum / n < 16.0);   // and long before the light goes
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -5969,6 +6098,9 @@ int main() {
   TestStandingBuysBetaAndPeopleLiftYou();
   TestTheMirroredDialsStillAgree();
   TestThePadSaysWhatItCosts();
+  TestTheBestBelayerIsTheMostPatientOne();
+  TestTheSunTerraceIsTheWinterCrag();
+  TestEachCragCostsSomethingDifferentToReach();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

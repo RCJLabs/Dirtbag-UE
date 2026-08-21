@@ -73,7 +73,13 @@ enum class EDirtbagVenue : uint8
 	 *  hill. Outdoors like the Crag in every respect that matters -- the
 	 *  window, the guidebook, cleaning, beta -- and different only in which
 	 *  rock it loads and which way that rock faces. */
-	Cave
+	Cave,
+	/** The Sun Terrace: south-facing boulders, high and cold. The winter
+	 *  crag -- 42 days in midwinter against the Cave's 28 -- in a window
+	 *  half as long, landing at about 1:45pm. Which makes it the venue a
+	 *  job costs you the most at: 41 winter windows lost to a nine-to-five
+	 *  against the Cave's 35. */
+	Terrace
 };
 
 /** Is this venue rock rather than plastic? Everything outdoors shares the
@@ -236,6 +242,20 @@ public:
 	 *  while the player is still standing at Roadside. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
 	FDirtbagCragLine GetCragLineAt(EDirtbagVenue AtVenue, int32 Index);
+
+	/** How long it takes to get to this venue's rock, in hours, from the
+	 *  guidebook rather than from the level.
+	 *
+	 *  `Crag::approachHours` was set by all three crags (0.5, 0.7, 0.9) and
+	 *  read by nothing, while the travel spot carried a hand-typed number
+	 *  that meant the same thing. Two copies of one fact, and the level's
+	 *  was the one that counted — so the cave's forty minutes up the hill
+	 *  was true only if somebody remembered to type it.
+	 *
+	 *  Returns a negative number indoors, where there is no rock and the
+	 *  spot's own Travel Hours is the right answer. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Crag")
+	double ApproachHoursFor(EDirtbagVenue AtVenue);
 
 	/** How many things there are to climb where you are standing. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
@@ -738,6 +758,44 @@ private:
 
 	/** Today's Lot, with the career's bonds folded in. */
 	std::vector<dirtbag::Partner> LotToday();
+
+public:
+	// --- The rope ---------------------------------------------------------
+	// No partner, no pitch. A boulder needs nobody; a bolted line needs
+	// somebody willing to stand at the bottom of it, and how long they will
+	// stand there is rapport. The first thing in the game rapport buys that
+	// nothing else can.
+
+	/** "Margo will hold your rope all afternoon" / "nobody is going up there
+	 *  with you today". Always answers, even on a boulder — the wall decides
+	 *  whether the answer matters. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Rope")
+	FString BelayLine() const;
+
+	/** Is anybody at the Lot willing today? */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Rope")
+	bool HasABelayer() const;
+
+	/** How many burns they are good for. A stranger gives you a couple;
+	 *  somebody who has known you a season gives you the day. 0 with nobody. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Rope")
+	int32 BurnsHeldToday() const;
+
+	/** Roped burns taken today, against that budget. Reset at lights out —
+	 *  their patience comes back with the morning, like everything else. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rope")
+	int32 RopedBurnsToday = 0;
+
+	/** Can you tie in right now? False with nobody there, and false once
+	 *  you have used up what they were good for. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Rope")
+	bool CanTieIn() const;
+
+	/** Why not, in the game's voice. Empty when you can. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Rope")
+	FString RopeRefusal() const;
+
+private:
 
 	/** Write rapport and claims back into the career. */
 	void StoreBonds(const std::vector<dirtbag::Partner>& Lot);

@@ -63,11 +63,11 @@ sim functions and an entire discipline.
 2. On the copy, set:
    - **Kind** = `Travel`
    - **Travel Name** = `the cave`
-   - **Travel Hours** = `0.7` — **this is the only place the approach
-     exists.** `Crag::approachHours` is set to 0.7 in the sim and read by
-     nothing, so if you leave this at 0.5 the cave is exactly as cheap to
-     reach as the roadside boulders and the whole "forty minutes up the hill"
-     idea is gone.
+   - **Travel Hours** — leave it alone. **Outdoors this field is now
+     ignored.** The guidebook owns the approach (Roadside 0.5, the Cave 0.7,
+     the Terrace 0.9) and the spot asks it, so a crag can no longer be forty
+     minutes away in the book and half an hour away in the level. The field
+     still applies to the gym and the town, where there is no rock.
    - **Arrive At** = `Cave`
 3. **Travel Target** — this is `EditInstanceOnly`, so set it in the level, not
    on a Blueprint. Point it at wherever you want to stand at the cave.
@@ -98,6 +98,31 @@ the point of it.
 Walk up to index 8. The approach toast should name the route and the grade.
 Press **E**. If the pump bar climbs faster than it does on a boulder and you
 get a rest stance partway, the rope sim is live.
+
+---
+
+## 2d. The Sun Terrace · ~10 min · new
+
+Same two jobs as the cave, one venue along.
+
+1. **Travel spot**: duplicate one, `Kind=Travel`, `Travel Name=the terrace`,
+   **`Arrive At = Terrace`**, `Travel Target` set in the level. **And the
+   pair back**, as before. Travel Hours is ignored outdoors — the guidebook
+   says 0.9 and the spot asks it.
+2. **Walls**: duplicate crag walls, **`Venue = Terrace`**. Board indices
+   from the generated book:
+
+| Board Index | line | grade | why |
+|---|---|---|---|
+| **2** | One O'Clock Sun | V5 | the classic, three stars |
+| **7** | Day Off Work | V8 | at the top of what you can do |
+| **11** | *the prow above the terrace* | V10 | an open project |
+
+**It is a winter crag.** In midwinter it has more windows than anywhere else
+(42 against the cave's 28) and they land at about **1:45pm** — so if you
+test it in summer it will look like a worse Roadside, which is correct and
+not a bug. Sleep to a winter day, or start a save on day 1, if you want to
+see what it is for.
 
 ---
 
@@ -168,11 +193,6 @@ In priority order. "Annoying", "didn't notice", "felt good" are all useful.
 - **Shoes as a real decision.** They are currently cheap enough to be
   reflexive — resole cheap and slightly worse against new and dear would make
   them a second live choice. Not built; your call whether it is worth one.
-- **`Crag::approachHours` is read by nothing.** Both crags set it and no
-  code anywhere uses it, so the approach is entirely a level-design number on
-  the Travel spot. Either wire it (the drive should cost what the guidebook
-  says it costs) or delete it. Small, and I did not want to change what the
-  cave costs to reach on the same day you first place it.
 - **A social policy for the probe.** `ShareBeta` and `PsycheFrom` are wired
   into the game and not modelled in the season probe, so its numbers ignore
   what partners are worth. Fixing that means deciding what a simulated player

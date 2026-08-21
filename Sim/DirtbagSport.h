@@ -130,21 +130,15 @@ bool OnTheRope(const Route& route, int moveIndex,
 
 // Will this person tie in with you today? Non-climbers never will, and
 // nobody belays a stranger's redpoint burns all afternoon.
-// unwired-ok: NOT WIRED -- no partner, no pitch is unenforceable in game.
-// Tracked in notes/engine-bridge-gaps.md
 bool WillBelay(const Partner& partner, const SportDials& dials = SportDials{});
 
 // How many burns they are good for. A stranger gives you a couple; somebody
 // who knows you gives you the day.
-// unwired-ok: NOT WIRED -- see WillBelay. Tracked in
-// notes/engine-bridge-gaps.md
 int BurnsTheyWillHold(const Partner& partner,
                       const SportDials& dials = SportDials{});
 
 // The best belayer among the people at the Lot today, or null if you are
 // climbing alone — in which case the rope stays in the van.
-// unwired-ok: NOT WIRED -- see WillBelay. Tracked in
-// notes/engine-bridge-gaps.md
 const Partner* BestBelayer(const std::vector<Partner>& lot,
                            const SportDials& dials = SportDials{});
 
@@ -153,8 +147,6 @@ bool NeedsABelayer(const Route& route);
 
 // "Margo will hold your rope all afternoon" / "nobody is going up there
 // with you today"
-// unwired-ok: NOT WIRED -- see WillBelay. Tracked in
-// notes/engine-bridge-gaps.md
 std::string BelayText(const Partner* belayer, const SportDials& dials = SportDials{});
 
 // "bolt 4, and the next one is a long way up"

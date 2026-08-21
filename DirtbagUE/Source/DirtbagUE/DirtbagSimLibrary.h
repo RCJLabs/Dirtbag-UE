@@ -358,6 +358,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
 	static FDirtbagCrag RoadsideCrag(const FString& WorldSeed);
 
+	/** The Sun Terrace: south-facing boulders, the winter crag. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static FDirtbagCrag SunTerrace(const FString& WorldSeed);
+
 	/** "Diesel  V5  ***" / "project, the arete left of Diesel — ..." */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
 	static FString GuidebookLine(const FDirtbagCragLine& Line);
