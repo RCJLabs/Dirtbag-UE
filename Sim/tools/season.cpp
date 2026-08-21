@@ -160,6 +160,16 @@ int main(int argc, char** argv) {
   // Phase 3 gate: every other source of money competes with climbing, and
   // this one arrives because of it — at the price of the good days.
   const bool takesDeals = argc > 5 && std::string(argv[5]) == "sponsored";
+  // "saver" is `kitted` that will actually work for the thing it wants.
+  //
+  // Every other policy works only when nearly broke -- cash below $120 --
+  // which is a thermostat, and a thermostat never saves up. That is why the
+  // second crash pad measured as unreachable: not because the economy
+  // forbids it, but because no simulated player has ever tried to buy it.
+  // Since seventy days of work a year cost no sends, working *toward*
+  // something should be close to free, and whether it is is exactly what
+  // Phase 3's restated criterion 2 asks.
+  const bool savesUp = argc > 5 && std::string(argv[5]) == "saver";
 
   // Arg 6 overrides skin regen per night (shipped: 1.5, so nine points of
   // skin is six nights). This is not a balance proposal — it is the knob
@@ -304,7 +314,7 @@ int main(int argc, char** argv) {
     // winter — and never so deep that the bills go unpaid, because being
     // behind is worse than being unequipped.
     KitDials kd;
-    if (buysKit) {
+    if (buysKit || savesUp) {
       const double float_ = 150.0;   // never spend the last of it
       if (!player.kit.hangboard && player.cash > kd.hangboardCost + float_) {
         if (BuyHangboard(player.kit, player.cash, kd)) t.spentKit += kd.hangboardCost;
@@ -339,6 +349,13 @@ int main(int argc, char** argv) {
       // Otherwise: rent comes first. Below a float, take a gig off the
       // board — the best-paying one you can actually do.
       needMoney = !kept && (player.cash < 120.0 || player.owed > 0.0);
+      // A saver also works on any day they are short of the pad, which is
+      // the only thing in the game worth saving for. Once it is bought they
+      // go back to the thermostat -- nobody keeps working for its own sake.
+      if (savesUp && player.kit.pads < kd.padsThatMatter &&
+          player.cash < kd.padCost + 150.0) {
+        needMoney = true;
+      }
       if (needMoney) {
         const std::vector<OddJob> board = OddJobBoard(world, player.day, jd);
         const OddJob* best = nullptr;
@@ -705,6 +722,7 @@ int main(int argc, char** argv) {
          : mindReputation ? "careful"
          : kept           ? "kept"
          : buysKit        ? "kitted"
+         : savesUp        ? "saver"
          : takesDeals     ? "sponsored"
                           : "greedy",
          restUntilSkin, player.cash, t.cashLow, t.sends, t.firstAscents,

@@ -62,16 +62,64 @@ Three criteria, each measurable rather than felt:
 shoes, by a wide margin, across ten seeds with no losses.
 
 **2. At least one purchase that matters is affordable but not automatic.** —
-**Fails.** The pad is the one item measured to matter most and a whole year
-of a kit-buying policy spends **$235 and never reaches its $260**. Shoes sit
-at the other end: cheap enough to be reflexive rather than chosen. A wall and
-a reflex are both the absence of a decision.
+**Passes.** Corrected within the hour, and the correction is the more useful
+half.
+
+It first measured as a fail: a whole year of the kit-buying policy spends
+$235 and never reaches the pad's $260. But that policy — like every other one
+in the probe — works **only when nearly broke**, `cash < 120`. That is a
+thermostat, and a thermostat never saves up. The pad was not unreachable; **no
+simulated player had ever tried to buy it.**
+
+The same shape of mistake the first Phase 3 note named and did not finish
+chasing: *"every policy in it works whenever cash runs low; a thermostat
+cannot tell you how cold it is outside."* That was written about the *income*
+side. The *spending* side had it too, and nobody looked.
+
+A `saver` policy that works on any day it is short of the pad, twelve seeds:
+
+| | sends (median / trimmed mean) | days out | days worked | head |
+|---|---|---|---|---|
+| greedy | 4.5 / 3.2 | 181 | 19.5% | +1.85 |
+| saver | **5.0 / 4.3** | **168** | **21.1%** | **+0.01** |
+
+Wins 7, ties 2, loses 3. So the pad costs **six extra working days a year and
+thirteen climbing days**, and returns about a send. That is a decision with a
+price, which is what the criterion asks for.
+
+*(The untrimmed mean is 5.8 against 3.5, inflated by one seed that returned
+23. The median and trimmed mean are the honest numbers and are quoted first.)*
+
+Shoes remain at the other end — cheap enough to be reflexive rather than
+chosen — but one live decision is what the criterion requires.
 
 **3. The trade is legible while you are choosing.** — **Partly.** The shop
 now says what dead rubber is costing you in grades. The pad's cost is not
 surfaced anywhere, and it now has a real one: pads buy sends and cost head,
 because head only trains on exposure you have not padded away
 (`notes/phase4-head.md`).
+
+## The real problem the same run found
+
+The pad's price in head is not a cost. It is an **erasure**.
+
+`padsThatMatter = 2`, so a second pad puts padding at exactly 1.0, which puts
+`ExposureAt` at exactly 0, which puts head training at **+0.00 — in eleven of
+twelve seeds**. And head never declines, so it is not "slower progress", it is
+*no further head for the rest of that career*.
+
+So the trade reads: **about one send a year, in exchange for every point of
+head you will ever have.** That is a switch, not a decision. Nobody weighing
+it would find it interesting; they would find out afterwards.
+
+The cave is the designed escape hatch — above the first bolt the runout takes
+over and pads stop being the question — and it is not placed in the level yet,
+and a boulderer may never walk up there anyway.
+
+**Capping padding below 1.0** so that even a well-padded highball keeps a
+trickle of exposure would make the trade proportionate. That is a design call
+about whether foam ever fully removes fear, not a dial pass, and it is not
+made here.
 
 ## What this makes the next work
 
