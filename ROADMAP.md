@@ -39,17 +39,21 @@ Everything the phase needs is built, in the editor, and building green. All thre
 > **→ `notes/NEXT-AT-THE-DESK.md` is the full ordered list for a session at
 > the desk.** Everything below is still true; that file sequences it.
 >
-> **OUTSTANDING — Evan, at the desk:** build the first-ascent naming widget
-> (`notes/phase2-naming-widget.md`, ~20 min of UMG). It is the only thing
-> standing between the code and the phase's headline gate, *"a new player
-> names their own first ascent"* — the whole pipeline is live and tested,
-> but nothing can type a name without it. Nothing else is blocked on it,
-> and it must not get quietly dropped.
+> **The naming widget is built and the gate is passed** — 2026-08-21, in a
+> real game: *the slab right of the pull-off*, seed `gym-1`, day 8, named
+> **Bouncin** at V3. Building it exposed one bug on the far side of the
+> naming (`notes/phase2-book-writeback.md`): the ascent reached the ledger
+> and never the guidebook, the wall or the screen, so the name was correct
+> everywhere except where a player could see it.
+>
+> **Still outstanding at the desk:** place the Shaded Cave, wire the seven
+> new HUD lines (`Load Line` first), and play a fortnight. See
+> `notes/NEXT-AT-THE-DESK.md`.
 
 Roadside Crag outdoors (Megascans rock, prime-conditions window staged as moving light/shade), the Lot with campfire and two named neighbors, the dog, ~25 named routes + 3 open project lines (clean → work → send → name), 3 partners with their own careers.
 **Done when:** a full season plays; a new player names their own first ascent inside 6 hours; the window mechanic demonstrably changes when players choose to burn attempts.
 
-Named scope is complete: crag and guidebook, the conditions window, the Lot with two neighbours and three partners with careers, the dog, 25 named lines, 5 open projects, and the first-ascent pipeline. Of the three gates, the window one is **measured and passed** (`notes/phase2-window.md`), and a season now plays end to end headless with a clean save round-trip (`notes/phase2-season-probe.md`). The other two need a person: naming a first ascent is blocked on the widget above, and "a full season plays" means a human playing one. Marker advanced at Evan's direction; the debt is recorded here rather than quietly marked done.
+Named scope is complete: crag and guidebook, the conditions window, the Lot with two neighbours and three partners with careers, the dog, 25 named lines, 5 open projects, and the first-ascent pipeline. Of the three gates, two are now passed: the window one **measured** (`notes/phase2-window.md`), and **a new player names their own first ascent** — done in a real game on 2026-08-21, seed `gym-1`, day 8, well inside the six hours the gate asks for. A season also plays end to end headless with a clean save round-trip (`notes/phase2-season-probe.md`); the remaining gate, "a full season plays", means a human playing one. Marker advanced at Evan's direction; the debt is recorded here rather than quietly marked done.
 
 ## Phase 3 — Town & Career   **<<< CURRENT MILESTONE**
 
