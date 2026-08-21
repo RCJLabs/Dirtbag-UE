@@ -36,11 +36,25 @@ struct PartnerBond {
 };
 
 struct PartnerDials {
-  // How fast a partner's grade creeps, in skill points per day. At 0.03 a
-  // season moves somebody about a third of a grade — the same glacial pace
-  // the player lives at, because a Lot where everyone outpaces you is a
-  // different and worse game.
-  double skillPerDay = 0.03;
+  // How fast a partner's grade creeps, in skill points per day, so that
+  // a season moves somebody about a third of a grade — the same glacial
+  // pace the player lives at, because a Lot where everyone outpaces you is
+  // a different and worse game.
+  //
+  // The arithmetic, written out, because it was wrong for a long time at a
+  // value whose comment claimed this exact sentence: a season is 365 days,
+  // a grade is 100/14 = 7.14 skill points, so a third of a grade a season
+  // is 2.38 points, which is 0.0065 a day. **It was 0.03** — 1.53 grades a
+  // season, four and a half times its own documented intent.
+  double skillPerDay = 0.0065;
+
+  // And a ceiling, because there was none. Skills are documented 0..100
+  // and partners are the only climbers in the game with no age model, so
+  // the creep above ran unbounded: measured over thirty years, **Dev
+  // reached power 382.5** and Trish — the one who is delighted to help and
+  // cannot — reached 237.6. They did not merely out-climb the player, they
+  // left the scale. A strong local plateaus; they do not ascend forever.
+  double ceiling = 100.0;
 
   // Rapport per day spent climbing together, and what it decays to when you
   // stop turning up. People remember you, but not forever.

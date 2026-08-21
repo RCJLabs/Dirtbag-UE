@@ -48,6 +48,7 @@ struct Tally {
   int mealsEaten = 0, dogMeals = 0, brokeDays = 0, starvedNights = 0;
   double cashLow = 1e9, cashHigh = -1e9;
   int linesLostToTheLot = 0;
+  double peakAllround = 0.0;   // the best this body ever was
   std::vector<std::string> lotNames;   // what they called them
   std::vector<LineTally> perLine;
   double earned = 0.0, spentFood = 0.0, spentDog = 0.0, spentBills = 0.0;
@@ -172,6 +173,16 @@ int main(int argc, char** argv) {
   // something should be close to free, and whether it is is exactly what
   // Phase 3's restated criterion 2 asks.
   const bool savesUp = argc > 5 && std::string(argv[5]) == "saver";
+  // "projector" cleans a line properly before pulling on it, instead of
+  // stopping the moment it is merely workable.
+  //
+  // Measured, on Roadside's open projects at skill 65: workable (0.55) with
+  // no beta sends the V8 arete **0.0%** of the time; clean and wired it
+  // sends **66.8%**. The whole difference between "impossible" and "two
+  // thirds" is the projecting loop the game is built around, and no probe
+  // policy had ever run it -- so ninety years of careers concluded the
+  // valley was exhausted when it was only unbrushed.
+  const bool projects = argc > 5 && std::string(argv[5]) == "projector";
 
   // Arg 6 overrides skin regen per night (shipped: 1.5, so nine points of
   // skin is six nights). This is not a balance proposal — it is the knob
@@ -578,8 +589,13 @@ int main(int argc, char** argv) {
         ProjectMemory& mem = LedgerFor(player, *line);
 
         // Clean it if it needs it — the cost that comes before any chance.
-        while (!IsWorkable(mem, fd) && today.hour < win.endHour &&
-               today.hour < dusk)
+        //
+        // A projector keeps brushing past workable. Everyone else stops at
+        // the minimum, which on a project is the difference between a 0%
+        // line and a 67% one, and is why the valley looked used up.
+        const double brushUntil = projects ? 0.98 : 0.0;
+        while ((!IsWorkable(mem, fd) || mem.cleanliness < brushUntil) &&
+               today.hour < win.endHour && today.hour < dusk)
           CleanLine(player, today, mem, 0.5, fd, dd);
 
         // Conditions where the clock actually is, not where the window was.
@@ -755,6 +771,13 @@ int main(int argc, char** argv) {
     }
     peakGradeEver = std::max(peakGradeEver,
                              SkillToGrade(player.climber.skills.power));
+    {
+      const Skills& s = player.climber.skills;
+      t.peakAllround = std::max(
+          t.peakAllround,
+          SkillToGrade((s.power + s.fingers + s.technique + s.endurance +
+                        s.head) / 5.0));
+    }
 
     // The one thing that ends a career. Never a command: the game offers,
     // and this policy always takes it, because a probe that declines would
@@ -819,6 +842,7 @@ int main(int argc, char** argv) {
       for (const std::string& s : t.lotNames) printf("    %s\n", s.c_str());
       printf("\n");
     }
+    printf("PEAK\t%.2f\tbest allround the player ever was\n", t.peakAllround);
     printf("GUIDEBOOK\t%d\tlives\t%d\tyours\t%d\ttheirs\n", lives,
            lineCount, static_cast<int>(t.lotNames.size()));
   }
@@ -843,6 +867,7 @@ int main(int argc, char** argv) {
          : kept           ? "kept"
          : buysKit        ? "kitted"
          : savesUp        ? "saver"
+         : projects       ? "projector"
          : takesDeals     ? "sponsored"
                           : "greedy",
          restUntilSkin, player.cash, t.cashLow, t.sends, t.firstAscents,
