@@ -48,6 +48,7 @@ struct Tally {
   int mealsEaten = 0, dogMeals = 0, brokeDays = 0, starvedNights = 0;
   double cashLow = 1e9, cashHigh = -1e9;
   int linesLostToTheLot = 0;
+  std::vector<std::string> lotNames;   // what they called them
   std::vector<LineTally> perLine;
   double earned = 0.0, spentFood = 0.0, spentDog = 0.0, spentBills = 0.0;
   double spentShoes = 0.0;
@@ -201,6 +202,11 @@ int main(int argc, char** argv) {
   // one lifetime. Phase 4's gate is a career playing end to end, and this
   // is the only way to look at one without living it.
   const bool multiLife = argc > 10 && std::string(argv[10]) == "careers";
+  // Arg 11 overrides how often somebody at the Lot takes an open line. The
+  // dial's own comment says "the player should usually get the chance if
+  // they commit" -- which was intuition, never measured, and measurable
+  // only once the Lot's claims actually reached the book.
+  const double lotChance = argc > 11 ? std::atof(argv[11]) : -1.0;
 
   const Rng world = Rng::FromSeed(seed);
   // Not const: across generations the book has to be written into, or the
@@ -658,13 +664,28 @@ int main(int argc, char** argv) {
       std::vector<std::string> taken = lotTaken;
       for (const ProjectMemory& m : player.projects)
         if (m.firstAscent) taken.push_back(m.routeName);
-      const int got = PartnerTakesFirstAscent(world, p, crag, taken, player.day);
+      PartnerDials lotDials;
+      if (lotChance >= 0.0) lotDials.firstAscentChancePerDay = lotChance;
+      // Everything claimed, plus everything the player is visibly on.
+      std::vector<std::string> offLimits = taken;
+      for (const std::string& s : SpokenFor(player.projects)) {
+        offLimits.push_back(s);
+      }
+      const int got = PartnerTakesFirstAscent(world, p, crag, offLimits,
+                                              player.day, lotDials);
       if (got >= 0) {
         lotTaken.push_back(crag.lines[got].route.name);
         p.firstAscents.push_back(crag.lines[got].route.name);
+        // Into the book, or the line stays an open project with nobody's
+        // name on it and the player can still claim the first ascent of
+        // something Dev did last spring. Ninety years of this probe had the
+        // Lot take five lines and the guidebook show none of them.
+        TheyPutUpTheLine(crag.lines[got], p.name);
         t.linesLostToTheLot++;
+        t.lotNames.push_back(DisplayName(crag.lines[got]) + " (" + p.name + ")");
         note += (note.empty() ? "" : " + ");
-        note += p.name + " got " + crag.lines[got].description;
+        note += p.name + " got " + crag.lines[got].description + ", calling it " +
+                DisplayName(crag.lines[got]);
       }
     }
     player.bonds = BondsFrom(lot);
@@ -791,7 +812,15 @@ int main(int argc, char** argv) {
       }
       printf("\n");
     }
-    printf("GUIDEBOOK\t%d\tlives\t%d\tnamed lines\n", lives, lineCount);
+    // And the lines that are not yours. A guidebook with only your own
+    // name in it is a diary.
+    if (!t.lotNames.empty()) {
+      printf("and, by the people who were also there:\n");
+      for (const std::string& s : t.lotNames) printf("    %s\n", s.c_str());
+      printf("\n");
+    }
+    printf("GUIDEBOOK\t%d\tlives\t%d\tyours\t%d\ttheirs\n", lives,
+           lineCount, static_cast<int>(t.lotNames.size()));
   }
 
   // One machine-readable line, always. Comparing two policies across

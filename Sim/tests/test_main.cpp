@@ -1407,6 +1407,98 @@ static void TestTheValleyRemembersAcrossGenerations() {
   CHECK(after->displayName == "Old Money");
 }
 
+static void TestTheLotPutsUpLinesAndNamesThem() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  CragLine* project = nullptr;
+  for (CragLine& l : crag.lines) if (l.isProject) { project = &l; break; }
+  CHECK(project != nullptr);
+
+  // They name it, sign it, and it stops being a project.
+  CHECK(TheyPutUpTheLine(*project, "Dev"));
+  CHECK(!project->displayName.empty());
+  CHECK(project->firstAscentBy == "Dev");
+  CHECK(!project->isProject);
+  CHECK(project->route.grade == project->route.trueGrade);
+
+  // And the player cannot then claim the first ascent of it, which is the
+  // whole reason this had to reach the book: the Lot has taken lines since
+  // it was built, into its own list only, so a line Dev did last spring was
+  // still an open project with nobody's name on it.
+  ProjectMemory late = NewProjectLedger(*project);
+  late.sent = true;
+  CHECK(!CanName(*project, late));
+
+  // Nobody takes it twice, and nobody takes a line already signed.
+  CHECK(!TheyPutUpTheLine(*project, "Margo"));
+  CHECK(project->firstAscentBy == "Dev");
+
+  // Names are deterministic, and differ by who and by which.
+  CragLine other;
+  other.route.name = "the other arete";
+  other.isProject = true;
+  CHECK(NameTheirLine("Dev", *project) == NameTheirLine("Dev", *project));
+  CHECK(NameTheirLine("Dev", *project) != NameTheirLine("Dev", other));
+  bool anyoneDiffers = false;
+  for (const char* who : {"Margo", "Ray", "Trish", "Bo"}) {
+    if (NameTheirLine(who, *project) != NameTheirLine("Dev", *project)) {
+      anyoneDiffers = true;
+    }
+  }
+  CHECK(anyoneDiffers);
+
+  // SpokenFor: anything you have pulled on, cleaned, or already put up.
+  std::vector<ProjectMemory> ledgers;
+  ProjectMemory touched;
+  touched.routeName = "the arete left of Diesel";
+  touched.attempts = 1;
+  ProjectMemory brushed;
+  brushed.routeName = "the low traverse into Chalk Ghost";
+  brushed.cleanliness = 0.9;
+  ProjectMemory untouched;
+  untouched.routeName = "the blank wall behind the parking";
+  // A virgin project, not a default ledger: ProjectMemory defaults to
+  // cleanliness 1.0 because an established line is clean, and only a
+  // project's ledger ever starts filthy. Getting this wrong the first time
+  // is what turned brushedEnoughToBeYours from a bare 0.2 into a dial.
+  untouched.cleanliness = FirstAscentDials{}.virginCleanliness;
+  ledgers = {touched, brushed, untouched};
+  const std::vector<std::string> mine = SpokenFor(ledgers);
+  CHECK(mine.size() == 2u);
+  CHECK(std::find(mine.begin(), mine.end(), touched.routeName) != mine.end());
+  CHECK(std::find(mine.begin(), mine.end(), brushed.routeName) != mine.end());
+  CHECK(std::find(mine.begin(), mine.end(), untouched.routeName) == mine.end());
+
+  // And the property that makes commitment mean something: over a whole
+  // career of rolls, a line you are visibly on is never taken. A per-day
+  // roll converges on certainty however small it is -- measured, at 1 in
+  // 2000 per partner per day the Lot still took 27 of 30 open lines -- so
+  // this cannot be a dial, it has to be a rule.
+  Crag fresh = RoadsideCrag(Rng::FromSeed("crag-1"));
+  Partner dev;
+  dev.name = "Dev";
+  dev.climbs = true;
+  dev.ambition = 1.0;
+  dev.climber.skills = {95, 95, 95, 95, 95};
+  const Rng world = Rng::FromSeed("lot-etiquette");
+
+  std::string yours;
+  for (const CragLine& l : fresh.lines) if (l.isProject) { yours = l.route.name; break; }
+  CHECK(!yours.empty());
+  const std::vector<std::string> onIt = {yours};
+  for (int day = 1; day <= 10950; day++) {
+    const int got = PartnerTakesFirstAscent(world, dev, fresh, onIt, day);
+    if (got >= 0) CHECK(fresh.lines[got].route.name != yours);
+  }
+
+  // But a project nobody can lose is not a project: leave it alone for a
+  // career and somebody takes it.
+  bool everTaken = false;
+  for (int day = 1; day <= 10950 && !everTaken; day++) {
+    if (PartnerTakesFirstAscent(world, dev, fresh, {}, day) >= 0) everTaken = true;
+  }
+  CHECK(everTaken);
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -6198,6 +6290,7 @@ int main() {
   TestTheSunTerraceIsTheWinterCrag();
   TestEachCragCostsSomethingDifferentToReach();
   TestTheValleyRemembersAcrossGenerations();
+  TestTheLotPutsUpLinesAndNamesThem();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

@@ -108,11 +108,68 @@ the options are real ones:
 
 - **More projects**, or projects that regenerate — a valley with five
   unclimbed lines is exhausted in one career.
-- **The Lot should put up lines too**, so the book fills with names that are
-  not yours. `AdvanceTheLot` already takes lines; those claims do not become
-  guidebook entries.
+- ~~**The Lot should put up lines too**~~ — **done, and it found a third
+  bug.** See below.
 - **Accept it**, and make a career the unit of play rather than a dynasty —
   in which case the gate should say so.
+
+## 4. The Lot's ascents never reached the book either
+
+`PartnerTakesFirstAscent` has recorded claims since the Lot was built — into
+the partner's own list, and nowhere else. The crag never learned. So a line
+Dev put up last spring stayed an open project with nobody's name on it, and
+**the player could still walk up and take its first ascent.** Ninety years:
+the Lot took five lines and the guidebook showed none of them.
+
+`TheyPutUpTheLine` names it in their voice, signs it, and takes it out of
+the projects. Keyed on the *name* rather than the Partner, because partners
+are rebuilt from the world seed daily and only `PartnerBond` is saved — so
+replaying the bonds' route keys is what puts the Lot's ascents back on the
+page after a reload, the same shape as the legacy replay above.
+
+### And then the Lot took everything
+
+With the claims actually landing, ninety years gave **the player zero first
+ascents and the Lot all five.** That was not the wiring over-correcting. It
+is what the Lot has always done; the book ignoring it was the only reason
+the player ever got one.
+
+The dial is `firstAscentChancePerDay = 0.02`, and its comment says *"the
+player should usually get the chance if they commit"*. Measured across six
+thirty-year careers:
+
+| chance/day | player's lines | the Lot's |
+|---|---|---|
+| 0.02 (shipped) | **0** | 30 |
+| 0.01 | 0 | 30 |
+| 0.005 | 0 | 30 |
+| 0.002 | 1 | 29 |
+| 0.0005 | 3 | 27 |
+
+**A per-day roll over a thirty-year career converges on certainty however
+small it is.** At one in two thousand the Lot still took 27 of 30. The
+dial's stated intent is not reachable by making the number smaller.
+
+It is reachable by making commitment mean something. Nobody at the Lot takes
+a line somebody is visibly working — that etiquette is real, and it is the
+only version where a project is worth committing to. `SpokenFor` covers
+anything you have pulled on, brushed, or already put up.
+
+| | player's lines | the Lot's |
+|---|---|---|
+| 0.02 | 2 | 15 |
+| 0.01 | 2 | 15 |
+| 0.005 | 2 | 15 |
+
+**Identical at every dial value**, which is the sign it is a rule rather
+than a tuning. You keep what you commit to and lose what you ignore.
+
+> A dial got a name out of this too. The brush threshold started as a bare
+> `> 0.2` and a test caught that `ProjectMemory::cleanliness` defaults to
+> **1.0** — an established line is clean — so the rule called every route in
+> the book "spoken for" when asked about one. It is only ever asked about
+> projects, so the shipped behaviour was right and the rule was fragile.
+> `brushedEnoughToBeYours` says which it is.
 
 ## What the probe now supports
 

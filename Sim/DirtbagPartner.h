@@ -64,6 +64,18 @@ struct PartnerDials {
   // never — a project nobody can lose is not a project.
   double firstAscentChancePerDay = 0.02;
 
+  // Cleanliness above which a project counts as visibly somebody's. A
+  // virgin line starts at 0.05 (FirstAscentDials::virginCleanliness), so
+  // anything past this means a person has stood there with a wire brush,
+  // which is the most public way there is of saying you are on it.
+  //
+  // Only meaningful for projects, and only ever consulted for projects:
+  // an established line's ledger starts at 1.0 because everybody climbs it,
+  // so this rule would call every route in the book "spoken for" if it were
+  // ever asked about one. A test asked, which is how the number got a name
+  // instead of being a bare 0.2 in a condition.
+  double brushedEnoughToBeYours = 0.2;
+
   // How far above a line's true grade a partner has to be before they will
   // commit to it at all. They are not projecting at their limit for months;
   // that is the player's job.
@@ -124,14 +136,60 @@ double PsycheFrom(const Partner& partner,
 void SpendDayWith(Partner& partner, bool together,
                   const PartnerDials& dials = PartnerDials{});
 
+// Lines nobody at the Lot will touch: already claimed, or **visibly being
+// worked by the player**.
+//
+// The second half is etiquette and it is also load-bearing. A per-day roll
+// over a thirty-year career converges on certainty however small it is --
+// measured, at a chance of 1 in 2000 per partner per day the Lot still took
+// 27 of 30 open lines across six careers, and at the shipped 0.02 it took
+// all of them, every time. The dial's stated intent, "the player should
+// usually get the chance if they commit", is not reachable by making the
+// number smaller. It is reachable by making commitment mean something.
+//
+// So: you keep what you are working on and you lose what you ignore, which
+// is both how it actually goes and the only version where a project is
+// worth committing to.
+// Takes the ledgers rather than the PlayerState: DirtbagDay.h includes this
+// header, so depending on it back would be a cycle, and the ledgers are the
+// only part this needs.
+std::vector<std::string> SpokenFor(const std::vector<ProjectMemory>& projects,
+                                   const PartnerDials& dials = PartnerDials{});
+
 // Whether this partner takes an open line today, and which. Returns the
 // index into crag.lines, or -1. Rolls on its own named stream, so partners
 // getting on with their lives cannot shift the player's attempts.
 int PartnerTakesFirstAscent(const Rng& worldRng, const Partner& partner,
                             const Crag& crag,
-                            const std::vector<std::string>& alreadyTaken,
+                            const std::vector<std::string>& spokenFor,
                             int day,
                             const PartnerDials& dials = PartnerDials{});
+
+// What they called the line they put up.
+//
+// Deterministic on (who, which line), so the guidebook says the same thing
+// every time it is read and across a save. Not random and not sequential:
+// two people are never handed the same name for the same rock, and the same
+// person always calls the same line the same thing.
+std::string NameTheirLine(const std::string& who, const CragLine& line);
+
+// Somebody at the Lot put it up. Names it in their voice, puts their name on
+// it, and takes it out of the projects.
+//
+// This is the half that was missing. `PartnerTakesFirstAscent` has recorded
+// claims since the Lot was built, but only into the partner's own list — the
+// book never learned, so the line stayed an open project with nobody's name
+// on it and **the player could still walk up and claim the first ascent of
+// something Dev did last spring**. Measured over ninety years: the Lot took
+// five lines and the guidebook showed none of them.
+//
+// Returns false if the line was not theirs to take.
+//
+// Keyed on the name rather than the whole Partner because that is the only
+// part that survives: partners are rebuilt from the world seed every day
+// and only `PartnerBond` is saved. Replaying a bond's route keys through
+// this is what puts the Lot's ascents back on the page after a reload.
+bool TheyPutUpTheLine(CragLine& line, const std::string& who);
 
 // Fold a career's remembered bonds into today's people, and back out again.
 // The split is the point: everything derived stays derived.

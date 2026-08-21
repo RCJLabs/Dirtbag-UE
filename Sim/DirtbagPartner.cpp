@@ -141,9 +141,24 @@ void SpendDayWith(Partner& partner, bool together, const PartnerDials& dials) {
   }
 }
 
+std::vector<std::string> SpokenFor(const std::vector<ProjectMemory>& projects,
+                                   const PartnerDials& dials) {
+  std::vector<std::string> out;
+  for (const ProjectMemory& m : projects) {
+    // Anything you have pulled on, anything you have already put up, and
+    // anything you have brushed -- taking a wire brush to a line is the
+    // most public way there is of saying you are on it.
+    if (m.attempts > 0 || m.firstAscent ||
+        m.cleanliness > dials.brushedEnoughToBeYours) {
+      out.push_back(m.routeName);
+    }
+  }
+  return out;
+}
+
 int PartnerTakesFirstAscent(const Rng& worldRng, const Partner& partner,
                             const Crag& crag,
-                            const std::vector<std::string>& alreadyTaken,
+                            const std::vector<std::string>& spokenFor,
                             int day, const PartnerDials& dials) {
   if (!partner.climbs) {
     return -1;
@@ -157,9 +172,9 @@ int PartnerTakesFirstAscent(const Rng& worldRng, const Partner& partner,
     if (!line.isProject) {
       continue;
     }
-    if (std::find(alreadyTaken.begin(), alreadyTaken.end(),
-                  line.route.name) != alreadyTaken.end()) {
-      continue;   // somebody already has it, including possibly the player
+    if (std::find(spokenFor.begin(), spokenFor.end(), line.route.name) !=
+        spokenFor.end()) {
+      continue;   // claimed, or somebody is visibly on it
     }
     // They commit only to lines comfortably inside their level. Nobody at
     // the Lot is projecting at their limit for months; that is the player's
@@ -173,6 +188,45 @@ int PartnerTakesFirstAscent(const Rng& worldRng, const Partner& partner,
     }
   }
   return -1;
+}
+
+namespace {
+
+// Names in the register the crag already speaks: wry, local, and mostly
+// about the day rather than the rock. Deliberately none of them heroic —
+// people who put up lines at a roadside boulder field name them after what
+// went wrong on the walk in.
+const char* const kTheirNames[] = {
+    "Local Knowledge",     "Rest Day",           "The Long Way Round",
+    "Beta Spray",          "Closing Time",       "Third Time Lucky",
+    "Van Life",            "Somebody's Project", "The Wrong Shoes",
+    "Grit Under the Nails", "Down at Heel",      "Two Pads and a Prayer",
+    "Not My Grade",        "The Short Straw",    "Borrowed Chalk",
+    "Last Orders",         "Cold Enough",        "The Other Arete",
+};
+constexpr int kTheirNameCount =
+    static_cast<int>(sizeof(kTheirNames) / sizeof(kTheirNames[0]));
+
+}  // namespace
+
+std::string NameTheirLine(const std::string& who, const CragLine& line) {
+  // Hashed off both, through the project's own seed hash so this behaves
+  // like everything else that has to be stable: same person, same rock,
+  // same name, forever, and no engine randomness anywhere near it.
+  const std::size_t h = HashSeedString(who + "|" + line.route.name);
+  return kTheirNames[h % static_cast<std::size_t>(kTheirNameCount)];
+}
+
+bool TheyPutUpTheLine(CragLine& line, const std::string& who) {
+  if (!line.isProject || !line.firstAscentBy.empty()) return false;
+  if (who.empty()) return false;
+
+  line.displayName = NameTheirLine(who, line);
+  line.firstAscentBy = who;
+  line.isProject = false;
+  // They know what it went at, the same way the player would.
+  line.route.grade = line.route.trueGrade;
+  return true;
 }
 
 void ApplyBonds(std::vector<Partner>& lot,

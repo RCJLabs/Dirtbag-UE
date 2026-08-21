@@ -265,6 +265,7 @@ void UDirtbagGameInstance::EnsureCrag()
 	// a tie, and it cannot: a line a predecessor named is no longer an open
 	// project, so CanName refuses it.
 	UDirtbagSimLibrary::WriteLegaciesIntoTheBook(Crag, Legacies);
+	UDirtbagSimLibrary::WriteTheLotIntoTheBook(Crag, Player);
 	UDirtbagSimLibrary::WriteIntoTheBook(Crag, Player, AscentSignature());
 
 	// The guidebook owns which way its rock faces. Keeping a second copy of
@@ -1396,18 +1397,17 @@ void UDirtbagGameInstance::AdvanceTheLot()
 {
 	const dirtbag::Rng World = dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed));
 	EnsureCrag();
-	const dirtbag::Crag SimCrag = dirtbag::RoadsideCrag(World);
+	dirtbag::Crag SimCrag = dirtbag::RoadsideCrag(World);
 
 	// Everything anybody has already claimed, the player included: a line
 	// you have done is not still lying around for Dev to take.
-	std::vector<std::string> Taken;
-	for (const FDirtbagProjectMemory& M : Player.Projects)
-	{
-		if (M.bFirstAscent)
-		{
-			Taken.push_back(TCHAR_TO_UTF8(*M.RouteName));
-		}
-	}
+	// Claimed, or visibly being worked. The second half is what stops the
+	// Lot taking every project in the valley: a per-day roll over a
+	// thirty-year career converges on certainty however small the dial is,
+	// so commitment has to protect a line structurally rather than
+	// probabilistically.
+	const std::vector<std::string> Taken =
+	    dirtbag::SpokenFor(DirtbagConvert::ToSim(Player).projects);
 	std::vector<dirtbag::Partner> Lot = LotToday();
 	for (const dirtbag::Partner& P : Lot)
 	{
@@ -1429,7 +1429,12 @@ void UDirtbagGameInstance::AdvanceTheLot()
 		{
 			continue;
 		}
-		const dirtbag::CragLine& Got = SimCrag.lines[Line];
+		// Write it into the book, which is the half that was missing: the
+		// claim used to go only into the partner's own list, so the line
+		// stayed an open project and the player could still walk up and
+		// take the first ascent of something Dev did last spring.
+		dirtbag::CragLine& Got = SimCrag.lines[Line];
+		dirtbag::TheyPutUpTheLine(Got, P);
 		P.firstAscents.push_back(Got.route.name);
 		Taken.push_back(Got.route.name);
 
@@ -1441,9 +1446,11 @@ void UDirtbagGameInstance::AdvanceTheLot()
 		{
 			LotNews += TEXT("   ");
 		}
-		LotNews += FString::Printf(TEXT("%s got %s."),
-		                           UTF8_TO_TCHAR(P.name.c_str()),
-		                           UTF8_TO_TCHAR(Got.description.c_str()));
+		LotNews += FString::Printf(
+		    TEXT("%s got %s. They are calling it %s."),
+		    UTF8_TO_TCHAR(P.name.c_str()),
+		    UTF8_TO_TCHAR(Got.description.c_str()),
+		    UTF8_TO_TCHAR(dirtbag::DisplayName(Got).c_str()));
 	}
 	StoreBonds(Lot);
 	bClimbedToday = false;

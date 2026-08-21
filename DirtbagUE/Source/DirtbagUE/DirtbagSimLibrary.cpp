@@ -664,6 +664,38 @@ void UDirtbagSimLibrary::WriteLegaciesIntoTheBook(
 	}
 }
 
+void UDirtbagSimLibrary::WriteTheLotIntoTheBook(
+    FDirtbagCrag& Book, const FDirtbagPlayerState& Player)
+{
+	for (const FDirtbagPartnerBond& Bond : Player.Bonds)
+	{
+		for (const FString& Key : Bond.FirstAscents)
+		{
+			for (FDirtbagCragLine& Line : Book.Lines)
+			{
+				if (Line.Route.Name != Key)
+				{
+					continue;
+				}
+				dirtbag::CragLine Sim;
+				Sim.route.name = TCHAR_TO_UTF8(*Line.Route.Name);
+				Sim.route.grade = Line.Route.Grade;
+				Sim.route.trueGrade = Line.Route.TrueGrade;
+				Sim.isProject = Line.bIsProject;
+				Sim.firstAscentBy = TCHAR_TO_UTF8(*Line.FirstAscentBy);
+				if (!dirtbag::TheyPutUpTheLine(Sim, TCHAR_TO_UTF8(*Bond.Name)))
+				{
+					continue;
+				}
+				Line.DisplayName = UTF8_TO_TCHAR(dirtbag::DisplayName(Sim).c_str());
+				Line.FirstAscentBy = UTF8_TO_TCHAR(Sim.firstAscentBy.c_str());
+				Line.bIsProject = Sim.isProject;
+				Line.Route.Grade = Sim.route.grade;
+			}
+		}
+	}
+}
+
 void UDirtbagSimLibrary::WriteIntoTheBook(FDirtbagCrag& Book,
                                           const FDirtbagPlayerState& Player,
                                           const FString& By)

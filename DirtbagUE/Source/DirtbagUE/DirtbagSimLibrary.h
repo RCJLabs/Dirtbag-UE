@@ -386,4 +386,14 @@ public:
 	 *  TArray of a namespaced type is a UHT error. */
 	static void WriteLegaciesIntoTheBook(
 	    FDirtbagCrag& Book, const std::vector<dirtbag::Legacy>& Legacies);
+
+	/** What the Lot has put up, replayed from the saved bonds.
+	 *
+	 *  Partners are rebuilt from the world seed every day and thrown away;
+	 *  only PartnerBond survives, and it carries the route keys. Without
+	 *  this the crag forgets every ascent the Lot ever made the moment the
+	 *  day ends. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static void WriteTheLotIntoTheBook(UPARAM(ref) FDirtbagCrag& Book,
+	                                   const FDirtbagPlayerState& Player);
 };
