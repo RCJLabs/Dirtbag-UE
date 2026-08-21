@@ -78,8 +78,19 @@ void UDirtbagGameInstance::Sleep()
 	bWorkedToday = false;
 	DogWorry.Reset();
 	VanNews.Reset();
+	// Yesterday's first ascent stops being news. It is in the book now,
+	// which is where a thing you did goes once it stops being a moment.
+	LastAscentLine.Reset();
 
 	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
+
+	// And whether anybody put it together while you slept. This lives in
+	// Sleep rather than being a call the day loop remembers, because five
+	// separate per-day ticks have now been written and left uncalled in this
+	// project — KitDay, the body roll, FactionDay, the legacy save path.
+	// Anything that happens overnight happens here.
+	EthicsNews = DoesAnybodyFindOutToday();
+
 	SaveNow();
 }
 
@@ -175,6 +186,12 @@ void UDirtbagGameInstance::EnsureCrag()
 			    DirtbagConvert::FromSim(dirtbag::NewProjectLedger(SimLine)));
 		}
 	}
+
+	// Put the player's own ascents back on the page. Nothing about the crag
+	// is saved — it is regenerated from the world seed every time the venue
+	// changes — so without this a line you named reverts to a nameless
+	// project the moment you walk to the cave and back.
+	UDirtbagSimLibrary::WriteIntoTheBook(Crag, Player, AscentSignature());
 
 	// The guidebook owns which way its rock faces. Keeping a second copy of
 	// that on the game instance is how a crag ends up climbing in one
@@ -428,6 +445,11 @@ FString UDirtbagGameInstance::ConditionsLine() const
 
 // --- First ascents -----------------------------------------------------------
 
+FString UDirtbagGameInstance::AscentSignature() const
+{
+	return ClimberName.IsEmpty() ? FString(TEXT("you")) : ClimberName;
+}
+
 FDirtbagProjectMemory* UDirtbagGameInstance::LedgerFor(int32 BoardIndex)
 {
 	// Cleaning and naming only happen while you are standing at the wall,
@@ -534,6 +556,77 @@ FString UDirtbagGameInstance::ShoeLine() const
 {
 	return FString(UTF8_TO_TCHAR(
 	    dirtbag::ShoeText(DirtbagConvert::ToSim(Player.Shoes)).c_str()));
+}
+
+// --- Ethics ------------------------------------------------------------------
+
+void UDirtbagGameInstance::DoSomethingYouWouldNotAdmitTo(
+    EDirtbagEthicalAct Act, const FString& OnRoute)
+{
+	Player.Secrets.Add(DirtbagConvert::FromSim(dirtbag::Commit(
+	    static_cast<dirtbag::EthicalAct>(Act), TCHAR_TO_UTF8(*OnRoute),
+	    Player.Day)));
+}
+
+double UDirtbagGameInstance::HowWatchedYouAre() const
+{
+	return dirtbag::VisibilityFrom(
+	    DirtbagConvert::ToSim(Player.Standing),
+	    static_cast<dirtbag::SponsorTier>(Player.Sponsor.Tier));
+}
+
+int32 UDirtbagGameInstance::ThingsNobodyKnows() const
+{
+	int32 N = 0;
+	for (const FDirtbagSecret& S : Player.Secrets)
+	{
+		if (!S.bKnown) N++;
+	}
+	return N;
+}
+
+FString UDirtbagGameInstance::DoesAnybodyFindOutToday()
+{
+	std::vector<dirtbag::Secret> Secrets;
+	Secrets.reserve(Player.Secrets.Num());
+	for (const FDirtbagSecret& S : Player.Secrets)
+	{
+		Secrets.push_back(DirtbagConvert::ToSim(S));
+	}
+
+	const int Found = dirtbag::SomebodyFindsOut(
+	    Secrets, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day,
+	    HowWatchedYouAre());
+	if (Found < 0)
+	{
+		return FString();
+	}
+
+	dirtbag::Standing SimStanding = DirtbagConvert::ToSim(Player.Standing);
+	double Psyche = Player.Climber.Psyche;
+	dirtbag::ItComesOut(Secrets[Found], SimStanding, Psyche);
+	Player.Standing = DirtbagConvert::FromSim(SimStanding);
+	Player.Climber.Psyche = Psyche;
+
+	// The ascent goes with it, when the lie was about what happened rather
+	// than about the rock. This is what gives the whole system teeth: your
+	// hardest send vanishing cascades straight into a sponsor's next review.
+	if (dirtbag::StripsTheAscent(Secrets[Found].act))
+	{
+		const FString Key = UTF8_TO_TCHAR(Secrets[Found].routeKey.c_str());
+		for (FDirtbagProjectMemory& M : Player.Projects)
+		{
+			if (M.RouteName == Key)
+			{
+				M.bSent = false;
+				M.bFirstAscent = false;
+			}
+		}
+	}
+
+	Player.Secrets[Found] = DirtbagConvert::FromSim(Secrets[Found]);
+	return UTF8_TO_TCHAR(
+	    dirtbag::EthicsText(Secrets[Found], Player.Day).c_str());
 }
 
 // --- Sponsorship -------------------------------------------------------------
@@ -1193,6 +1286,15 @@ bool UDirtbagGameInstance::NameFirstAscent(int32 BoardIndex,
 	}
 	*Ledger = DirtbagConvert::FromSim(SimLedger);
 
+	// The book is loaded and stale by one line. EnsureCrag would fix it on
+	// the next venue change, which is far too late: the player is standing
+	// in front of the thing they just named.
+	UDirtbagSimLibrary::WriteIntoTheBook(Crag, Player, AscentSignature());
+
+	// Say it back. Naming was silent until now — the widget closed and
+	// nothing in the world acknowledged that the line was yours.
+	LastAscentLine = FirstAscentLine(BoardIndex);
+
 	bNamingPending = false;
 
 	// A first ascent is the one thing in this game worth writing down the
@@ -1208,8 +1310,10 @@ FString UDirtbagGameInstance::FirstAscentLine(int32 BoardIndex)
 	{
 		return FString();
 	}
+	const FString By = AscentSignature();
 	return FString(UTF8_TO_TCHAR(
-	    dirtbag::FirstAscentLine(DirtbagConvert::ToSim(*Ledger), "you")
+	    dirtbag::FirstAscentLine(DirtbagConvert::ToSim(*Ledger),
+	                             TCHAR_TO_UTF8(*By))
 	        .c_str()));
 }
 

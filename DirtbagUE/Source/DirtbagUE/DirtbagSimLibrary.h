@@ -361,4 +361,17 @@ public:
 	/** "Diesel  V5  ***" / "project, the arete left of Diesel — ..." */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
 	static FString GuidebookLine(const FDirtbagCragLine& Line);
+
+	/** Write what the player has done back into the book: given names, who
+	 *  did the first ascent, and the grade the line turned out to be.
+	 *
+	 *  The crag is generated from the world seed and none of it is saved, so
+	 *  an ascent lives only in the player's ledger. Without this the page
+	 *  never changes and a named line reads as an unclimbed project forever.
+	 *  Idempotent — run it over a freshly built book and again the moment a
+	 *  line is named. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static void WriteIntoTheBook(UPARAM(ref) FDirtbagCrag& Book,
+	                             const FDirtbagPlayerState& Player,
+	                             const FString& By);
 };

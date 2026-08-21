@@ -130,6 +130,7 @@ void ADirtbagClimbWall::BeginPlay()
 		    WorldSeed, RouteName, Grade, TrueGrade, RouteType,
 		    EDirtbagDiscipline::Boulder);
 	}
+	RefreshBookName();
 	SimRoute = DirtbagConvert::ToSim(Route);
 	Session = UDirtbagSimLibrary::StartSession(ClimberStats);
 	Memory = FDirtbagProjectMemory();
@@ -157,6 +158,11 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 	{
 		Game->SetVenue(Venue);
 	}
+
+	// The book may have changed since BeginPlay — a line named yesterday is
+	// called something else today, and the page now carries the grade it
+	// really went at rather than the guess.
+	RefreshBookName();
 
 	// Read the line from the ground before touching it — the sim's judgement
 	// against the guidebook grade, so a sandbag still looks reasonable here.
@@ -681,6 +687,29 @@ void ADirtbagClimbWall::UpdateHud()
 		S.Pump = Move.PumpAfter;
 		S.Odds = Phase == EPhase::AtStance ? Move.Odds : -1.0;
 	}
+}
+
+void ADirtbagClimbWall::RefreshBookName()
+{
+	// Indoors there is no book — a gym board is a ladder that resets, and
+	// asking the crag for a line here is what once handed a gym wall a
+	// boulder problem off the wrong rock.
+	if (!Game || !IsOutdoors(Venue))
+	{
+		return;
+	}
+	const FDirtbagCragLine Line = Game->GetCragLineAt(Venue, BoardIndex);
+	if (Line.Route.Name.IsEmpty())
+	{
+		return;
+	}
+	if (!Line.DisplayName.IsEmpty())
+	{
+		RouteName = Line.DisplayName;
+	}
+	// A first ascent replaces the book's guess with what it really went at,
+	// so the number on screen moves with the name.
+	Grade = Line.Route.Grade;
 }
 
 void ADirtbagClimbWall::PlayAnim(UAnimSequence* Anim, bool bLoop)

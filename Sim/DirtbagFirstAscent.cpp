@@ -101,6 +101,23 @@ std::string FirstAscentLine(const ProjectMemory& memory,
   return out;
 }
 
+bool WriteIntoTheBook(CragLine& line, const ProjectMemory& memory,
+                      const std::string& by) {
+  if (!memory.firstAscent || memory.givenName.empty()) return false;
+  if (memory.routeName != line.route.name) return false;   // wrong line
+
+  line.displayName = memory.givenName;
+  line.firstAscentBy = by;
+  // Not a project any more. This is also what stops the naming being
+  // offered a second time: CanName wants an open project, and after this
+  // there isn't one.
+  line.isProject = false;
+  // The book's grade was a guess and it said so. The ascent made it a fact,
+  // and the fact is what the page prints from here on.
+  line.route.grade = memory.confirmedGrade;
+  return true;
+}
+
 void WeatherProjects(PlayerState& player, const FirstAscentDials& dials) {
   for (ProjectMemory& m : player.projects) {
     // Only lines that were dirty to begin with go back to being dirty; a

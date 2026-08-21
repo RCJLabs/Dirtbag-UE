@@ -91,6 +91,19 @@ void CreditFirstAscent(PlayerState& player, const ProjectMemory& memory);
 std::string FirstAscentLine(const ProjectMemory& memory,
                             const std::string& by);
 
+// Write the ledger back into the book.
+//
+// The crag is generated from the world seed and none of it is saved, so a
+// first ascent lives only in ProjectMemory. Without this the page never
+// changes: the line stays an unclimbed project called "the arete left of
+// Diesel" forever, no matter what you did on it or what you called it.
+//
+// Returns true if the line changed. Idempotent, and safe on a book nobody
+// has touched — call it every time the crag is built and again the moment a
+// line is named.
+bool WriteIntoTheBook(CragLine& line, const ProjectMemory& memory,
+                      const std::string& by);
+
 // Overnight upkeep for every project ledger: rock re-dirties slowly.
 //
 // Call this alongside SleepToNextDay, not from inside it: this layer sits

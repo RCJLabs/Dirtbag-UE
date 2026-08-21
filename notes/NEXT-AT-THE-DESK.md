@@ -11,7 +11,14 @@ Detail lives in the per-feature notes; this is the running order.
 
 1. **Close Unreal and Visual Studio completely.**
 2. **GitHub Desktop → Fetch origin → Pull.** Top commit should be
-   *"Wire the Shaded Cave as a venue you can actually stand at"*.
+   *"Fix a UHT parameter shadow, and check for it"* or later.
+
+> Three UHT errors were found and fixed on 2026-08-20 — BlueprintReadWrite
+> on a private member, a TArray of a sim type inside a UCLASS, and a
+> parameter shadowing a UPROPERTY. All three are now checked by
+> `tools/check-engine-defs.py`. UHT runs before the compiler and nothing in
+> the container reaches that stage, so this class of mistake is found on
+> your machine and then turned into a rule.
 3. **Delete** `C:\Dev\DirtbagUE\Dirtbag-UE\DirtbagUE\Binaries`.
 4. Double-click `DirtbagUE.uproject` → **Yes** to rebuild. 2–5 minutes.
 
@@ -66,6 +73,9 @@ tested; nothing can type a name without it.
    the Branch's False pin.
 6. **`Set Input Mode UI Only`** + `Set Show Mouse Cursor`. Skip this and you
    will see the box and be unable to type in it. Everyone misses it.
+   `Set Show Mouse Cursor` is a *variable on PlayerController*, not a
+   function — drag it off the `Get Player Controller` pin or it won't
+   show up in the search at all.
 
 **Test it fast:** wall at **Board Index 25** (*the slab right of the
 pull-off*, V3), `Venue = Crag`, press **C** four times to clean, then climb.

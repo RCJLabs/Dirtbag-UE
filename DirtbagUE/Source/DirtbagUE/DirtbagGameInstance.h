@@ -297,6 +297,13 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|FirstAscent")
 	FString NamingLineText;
 
+	/** "Bouncin  V4  FA you" — the line as the book will print it, set the
+	 *  moment a name is given and carried for the rest of the day. Not
+	 *  saved: it is an acknowledgement, and the ascent itself lives in the
+	 *  ledger. Empty when nothing has been named today. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|FirstAscent")
+	FString LastAscentLine;
+
 	/** Raised by the wall when a line nobody had done goes. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	void OfferNaming(int32 BoardIndex);
@@ -326,6 +333,38 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gear")
 	bool BuyNewShoes();
+
+	// --- Ethics ----------------------------------------------------------
+	// An ethical shortcut is not a transaction, it is a secret with a fuse.
+	// You take the benefit now and carry a thing that can come out — and
+	// the more people are watching you, the more likely it is that somebody
+	// noticed. Success is what exposes you.
+
+	/** Do it. Records only that it happened; the caller applies whatever
+	 *  the act buys, because the benefit differs per act and belongs where
+	 *  it is felt. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Ethics")
+	void DoSomethingYouWouldNotAdmitTo(EDirtbagEthicalAct Act,
+	                                   const FString& OnRoute);
+
+	/** How closely you are watched, 0..1 — Scene standing plus what a
+	 *  sponsor has made of you. This is the number that decides how long
+	 *  you get away with it. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Ethics")
+	double HowWatchedYouAre() const;
+
+	/** How many things you are carrying that nobody knows about. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Ethics")
+	int32 ThingsNobodyKnows() const;
+
+	/** Roll for the day. Returns the line to show when something surfaces,
+	 *  empty otherwise — "Everyone knows you chipped a hold on Chalk Ghost
+	 *  now. It was nine years ago. It does not matter that it was."
+	 *
+	 *  Called from Sleep, so a secret comes out the way a player meets one:
+	 *  by waking up to it. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Ethics")
+	FString DoesAnybodyFindOutToday();
 
 	// --- Sponsorship -----------------------------------------------------
 	// The only money in the game that arrives because you climbed rather
@@ -577,6 +616,13 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dog")
 	FString DogWorry;
 
+	/** What came out overnight, if anything did. Set by Sleep and cleared
+	 *  by the next one, exactly like DogWorry and VanNews — a secret should
+	 *  reach the player the way it reaches a real climber, which is that you
+	 *  wake up and everyone already knows. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Ethics")
+	FString EthicsNews;
+
 	// --- The Lot ---------------------------------------------------------
 
 	/** The Lot's people as they are today: strength derived from seed and
@@ -637,6 +683,10 @@ private:
 	/** The ledger for a line, created filthy the first time a virgin line is
 	 *  touched. Returns null only when there is nothing at that index. */
 	FDirtbagProjectMemory* LedgerFor(int32 BoardIndex);
+
+	/** Who signs an ascent. A climber who has not named themselves is still
+	 *  allowed to do first ascents; the book calls them "you" and means it. */
+	FString AscentSignature() const;
 
 	/** Today's Lot, with the career's bonds folded in. */
 	std::vector<dirtbag::Partner> LotToday();

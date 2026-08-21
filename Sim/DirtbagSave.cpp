@@ -174,6 +174,10 @@ void MigrateV12ToV13(SaveFields& fields) {
   fields["sponsor.stale"] = "0";
 }
 
+// v13 → v14: what you did that nobody saw. A v13 career carried nothing,
+// which is the honest answer and the common one.
+void MigrateV13ToV14(SaveFields& fields) { fields["secrets"] = "0"; }
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -194,7 +198,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5,
       &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9,
       &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12,
-      &MigrateV12ToV13};
+      &MigrateV12ToV13, &MigrateV13ToV14};
   return kMigrations;
 }
 
@@ -275,6 +279,18 @@ std::string SerializeSave(const SaveGame& save) {
       out << fk << "style=" << IntToStr(static_cast<int>(n.style)) << "\n";
       out << fk << "disc=" << IntToStr(static_cast<int>(n.discipline)) << "\n";
     }
+  }
+
+  out << "secrets=" << IntToStr(static_cast<int>(save.player.secrets.size()))
+      << "\n";
+  for (size_t i = 0; i < save.player.secrets.size(); i++) {
+    const Secret& s = save.player.secrets[i];
+    const std::string k = "secret." + IntToStr(static_cast<int>(i)) + ".";
+    out << k << "act=" << IntToStr(static_cast<int>(s.act)) << "\n";
+    out << k << "route=" << s.routeKey << "\n";
+    out << k << "done=" << IntToStr(s.dayDone) << "\n";
+    out << k << "known=" << (s.known ? "1" : "0") << "\n";
+    out << k << "found=" << IntToStr(s.dayFound) << "\n";
   }
 
   out << "sponsor.tier="
@@ -458,6 +474,28 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     return LoadResult::BadFormat;
   }
   save.player.job.salaried = salaried != 0;
+  int secretCount = 0;
+  if (!ParseInt(fields, "secrets", secretCount)) return LoadResult::BadFormat;
+  for (int i = 0; i < secretCount; i++) {
+    const std::string k = "secret." + IntToStr(i) + ".";
+    Secret s;
+    int act = 0, known = 0;
+    if (!ParseInt(fields, k + "act", act) ||
+        !ParseInt(fields, k + "done", s.dayDone) ||
+        !ParseInt(fields, k + "known", known) ||
+        !ParseInt(fields, k + "found", s.dayFound)) {
+      return LoadResult::BadFormat;
+    }
+    // A staged photo is not on a line, so an empty route key is correct.
+    ParseString(fields, k + "route", s.routeKey);
+    // Clamped rather than trusted, like every other enum out of a save.
+    s.act = (act >= 0 && act < kEthicalActCount)
+                ? static_cast<EthicalAct>(act)
+                : EthicalAct::ChippedAHold;
+    s.known = known != 0;
+    save.player.secrets.push_back(s);
+  }
+
   int sponsorTier = 0;
   if (!ParseInt(fields, "sponsor.tier", sponsorTier) ||
       !ParseInt(fields, "sponsor.seasons", save.player.sponsor.seasonsHeld) ||
