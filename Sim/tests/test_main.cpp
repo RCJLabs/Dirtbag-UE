@@ -1068,6 +1068,74 @@ static void TestASponsorGetsPaidAndReviewed() {
         MonthlyStipend(SponsorTier::Gear, sp));
 }
 
+static void TestStandingBuysBetaAndPeopleLiftYou() {
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  const CragLine easy = crag.lines[0];
+
+  Partner mate;
+  mate.name = "Dev";
+  mate.climbs = true;
+  mate.rapport = 0.8;
+  // Strong enough that KnowsLine says yes about the crag's easiest line,
+  // so this test is about generosity rather than about competence.
+  mate.climber.skills = {80, 80, 80, 80, 80};
+
+  // Generosity scales what they spell out.
+  const auto Handover = [&](double generosity) {
+    ProjectMemory m = NewProjectLedger(easy);
+    return ShareBeta(mate, easy, m, generosity);
+  };
+  const double plain = Handover(1.0);
+  CHECK(plain > 0.0);
+  CHECK(Handover(1.25) > plain);      // somebody who likes you talks
+  CHECK(Handover(0.75) < plain);      // somebody who does not says "it goes left"
+
+  // The default overload is exactly generosity 1.0, so every existing
+  // caller and every golden vector is untouched by the new one.
+  ProjectMemory a = NewProjectLedger(easy);
+  ProjectMemory b = NewProjectLedger(easy);
+  CHECK(ShareBeta(mate, easy, a) == ShareBeta(mate, easy, b, 1.0));
+  CHECK(a.beta == b.beta);
+
+  // It scales the share, never the ceiling. However generous they are,
+  // beta stops at fully wired and never goes backwards.
+  ProjectMemory wired = NewProjectLedger(easy);
+  for (int i = 0; i < 200; i++) ShareBeta(mate, easy, wired, 100.0);
+  CHECK(wired.beta <= 1.0);
+  CHECK(wired.beta > 0.9);
+  const double settled = wired.beta;
+  CHECK(ShareBeta(mate, easy, wired, 100.0) >= 0.0);
+  CHECK(wired.beta >= settled);
+
+  // A hostile crowd never hands you negative beta.
+  ProjectMemory grudging = NewProjectLedger(easy);
+  CHECK(ShareBeta(mate, easy, grudging, -5.0) == 0.0);
+  CHECK(grudging.beta == 0.0);
+
+  // And the multiplier itself moves with standing, in the right direction.
+  Standing liked;
+  Standing disliked;
+  const Faction theirs = FactionOf("Dev");
+  liked.with[static_cast<int>(theirs)] = 1.0;
+  disliked.with[static_cast<int>(theirs)] = -1.0;
+  CHECK(BetaMultiplierFor(liked, "Dev") > 1.0);
+  CHECK(BetaMultiplierFor(disliked, "Dev") < 1.0);
+  CHECK(BetaMultiplierFor(Standing{}, "Dev") == 1.0);
+
+  // Psyche: the people at the fire are worth something, and a climber is
+  // worth more than somebody who only ever watches.
+  PartnerDials pd;
+  Partner watcher = mate;
+  watcher.climbs = false;
+  CHECK(PsycheFrom(mate, pd) > PsycheFrom(watcher, pd));
+  CHECK(PsycheFrom(watcher, pd) > 0.0);   // even they are worth something
+
+  // A stranger lifts nothing; rapport is what does it.
+  Partner stranger = mate;
+  stranger.rapport = 0.0;
+  CHECK(PsycheFrom(stranger, pd) == 0.0);
+}
+
 static void TestRockGoesBackToTheWeather() {
   PlayerState player;
   ProjectMemory dirty;
@@ -5779,6 +5847,7 @@ int main() {
   TestClaimingIsNamingPlusTellingTheScene();
   TestAShoeDealActuallyBuysShoes();
   TestASponsorGetsPaidAndReviewed();
+  TestStandingBuysBetaAndPeopleLiftYou();
   TestRockGoesBackToTheWeather();
   TestFirstAscentsAreACareer();
   TestTheWholeArc();

@@ -249,6 +249,18 @@ struct FDirtbagSessionState
 	 *  and climbs toward the top, which is where a boulderer backs off. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	double Padding = 1.0;
+
+	/** What is left of the rubber, copied off the career when the session
+	 *  starts. 0 new .. 1 dead.
+	 *
+	 *  This used to be mirror-skipped on the grounds that Blueprint can
+	 *  read Player.Shoes.Wear instead — true, and beside the point. The
+	 *  engine round-trips the whole DayState through ToSim/FromSim a dozen
+	 *  times a day, so a skipped field is not merely absent from Blueprint,
+	 *  it is *erased from the sim* on the next call. Shoe wear arrived at
+	 *  every attempt as 0.0, and dead rubber cost nothing in the game. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double ShoeWear = 0.0;
 };
 
 USTRUCT(BlueprintType)

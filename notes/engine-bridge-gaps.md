@@ -85,6 +85,14 @@ must not launder a season spent injured into a season spent slacking.
 > rather than the career" line in the sponsorship changelog was describing
 > code that had never run outside a unit test.
 
+**`PsycheFrom` / `BetaMultiplierFor`** — the Lot is worth something now.
+Standing scales what a partner spells out for you (a new `generosity`
+argument on `ShareBeta`, which scales the share and never the ceiling), and
+sitting at the fire lifts psyche by **the best of the people there, not the
+sum** — summing would make crowding the fire a strategy, and an evening is
+lifted by the person who lifts it, not by a headcount. `FactionOf` came back
+with them: it was only ever unreachable because its one caller was.
+
 ## A hole in the tooling, found by trying to break it
 
 `check-mirror-coverage.py` checks that every sim field is read by its
@@ -98,8 +106,23 @@ trip — so a mirror that dropped it on the way *in* would throw the increment
 away every single night and the injury pause would never once fire. Exactly
 the class of silent bug this project keeps finding, one layer down.
 
-**Not fixed here.** Making the checker symmetric will flag every derived
-field a `ToSim` legitimately drops, and triaging those is its own pass.
+**Fixed, and it caught an eleventh on its first run.** The symmetric check
+turned out to flag only three fields, not the flood I expected — and one of
+them was real:
+
+**`SessionState::shoeWear` never survived the bridge.** `StartGymSession`
+copies the rubber off the career into the session, and the very next
+`ToSim(Day)` — of which the engine does a dozen a day — put it back to 0.0.
+So every attempt in the game resolved with **brand-new shoes**, and the
+whole gear-wear economy, resoles and all, cost the player nothing at the
+wall.
+
+The old `mirror-skip` on it read: *"Blueprint reads it from
+Player.Shoes.Wear."* That was true and it was the wrong question. A skipped
+field is not merely absent from Blueprint — on a struct the engine
+round-trips, it is **erased from the sim on the next call**. Worth keeping
+as the shape of the mistake: a justification that answers *does anyone
+display this* when the question was *does anyone lose this*.
 
 ## The rule this leaves behind
 

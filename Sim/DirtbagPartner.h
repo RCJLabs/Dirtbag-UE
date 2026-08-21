@@ -104,9 +104,18 @@ double ShareBeta(const Partner& partner, const CragLine& line,
                  ProjectMemory& memory,
                  const PartnerDials& dials = PartnerDials{});
 
+// The same, adjusted for who you are to them. `generosity` scales how much
+// of the sequence they bother to spell out — somebody who likes you talks
+// you through the crux, somebody who does not says "it goes left".
+//
+// It scales the share, never the ceiling: beta still stops at fully wired
+// and still only covers the part you were missing, so a well-liked climber
+// learns a line faster and never learns more of it than there is.
+double ShareBeta(const Partner& partner, const CragLine& line,
+                 ProjectMemory& memory, double generosity,
+                 const PartnerDials& dials = PartnerDials{});
+
 // What climbing with this person does to your head, added to psyche.
-// unwired-ok: NOT WIRED -- a partner lifts no psyche in game. Tracked in
-// notes/engine-bridge-gaps.md
 double PsycheFrom(const Partner& partner,
                   const PartnerDials& dials = PartnerDials{});
 

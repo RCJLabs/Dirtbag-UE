@@ -1224,6 +1224,7 @@ FString UDirtbagGameInstance::SitAtTheFire(double Hours)
 	Rest(Hours);
 
 	std::vector<dirtbag::Partner> Lot = LotToday();
+	double Lift = 0.0;
 	for (dirtbag::Partner& P : Lot)
 	{
 		// Rapport is per day, so an hour is a fraction of one — you cannot
@@ -1231,8 +1232,17 @@ FString UDirtbagGameInstance::SitAtTheFire(double Hours)
 		dirtbag::PartnerDials Dials;
 		P.rapport = FMath::Min(
 		    1.0, P.rapport + Dials.rapportPerDay * (Hours / 8.0));
+
+		// The best of them, not the sum. Summing would make crowding the
+		// fire a strategy, and it is not one — an evening is lifted by the
+		// person who lifts it, not by a headcount.
+		Lift = FMath::Max(Lift, dirtbag::PsycheFrom(P, Dials));
 	}
 	StoreBonds(Lot);
+
+	// Paid for the hours you actually sat, on the same fraction rapport uses.
+	Player.Climber.Psyche =
+	    FMath::Min(1.0, Player.Climber.Psyche + Lift * (Hours / 8.0));
 
 	// Which voice you hear is picked by the clock, not by engine randomness:
 	// sitting an hour longer should change the subject, and reloading the
@@ -1267,10 +1277,17 @@ double UDirtbagGameInstance::AskForBeta(int32 BoardIndex, FString& OutWho)
 	// best — Trish is delighted to help and cannot.
 	double Best = 0.0;
 	dirtbag::ProjectMemory SimLedger = DirtbagConvert::ToSim(*Ledger);
+	const dirtbag::Standing SimStanding = DirtbagConvert::ToSim(Player.Standing);
 	for (const dirtbag::Partner& P : Lot)
 	{
+		// What you are to their crowd decides how much of the sequence they
+		// bother to spell out. This is the first thing standing has ever
+		// bought at the wall rather than on a screen — BetaMultiplierFor was
+		// written, tested, and reachable from nothing.
 		dirtbag::ProjectMemory Trial = SimLedger;
-		const double Gained = dirtbag::ShareBeta(P, SimLine, Trial);
+		const double Gained = dirtbag::ShareBeta(
+		    P, SimLine, Trial,
+		    dirtbag::BetaMultiplierFor(SimStanding, P.name));
 		if (Gained > Best)
 		{
 			Best = Gained;

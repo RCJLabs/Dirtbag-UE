@@ -66,6 +66,7 @@ dirtbag::SessionState ToSim(const FDirtbagSessionState& In)
 	Out.psyche = In.Psyche;
 	Out.attemptsMade = In.AttemptsMade;
 	Out.padding = In.Padding;
+	Out.shoeWear = In.ShoeWear;
 	return Out;
 }
 
@@ -138,9 +139,7 @@ FDirtbagAttemptResult FromSim(const dirtbag::AttemptResult& In)
 FDirtbagSessionState FromSim(const dirtbag::SessionState& In)
 {
 	FDirtbagSessionState Out;
-	// mirror-skip: shoeWear -- the session takes a copy of the rubber when it
-	// starts, so Blueprint reads it from Player.Shoes.Wear, which is the one
-	// that is still true after the shoes are resoled mid-day.
+	Out.ShoeWear = In.shoeWear;
 	Out.SkinLeft = In.skinLeft;
 	Out.Warmth = In.warmth;
 	Out.Psyche = In.psyche;
@@ -391,6 +390,10 @@ FDirtbagSponsorship FromSim(const dirtbag::Sponsorship& In)
 dirtbag::Sponsorship ToSim(const FDirtbagSponsorship& In)
 {
 	dirtbag::Sponsorship Out;
+	// mirror-skip: obligationsMetThisSeason -- within-season bookkeeping the
+	// review clears rather than reads, and the mirror does not carry it in
+	// either direction, so there is nothing on the engine side to fill from.
+	// mirror-skip: obligationsMissedThisSeason -- same.
 	Out.tier = static_cast<dirtbag::SponsorTier>(In.Tier);
 	Out.seasonsHeld = In.SeasonsHeld;
 	Out.daysHurtThisSeason = In.DaysHurtThisSeason;
