@@ -158,33 +158,84 @@ yours to name whenever you come back.
 
 ## 3. Show the widget when a line goes
 
-The game raises a flag; something has to notice it. The cheapest place is
-the level blueprint.
+The game raises a flag (`b Naming Pending`); something has to notice it and
+put the widget on screen.
 
-**Blueprints** (toolbar) → **Open Level Blueprint**.
+### 3a. Finding somewhere to put the graph
 
-1. Right-click in the graph → **Event Tick**.
-2. From Tick, drag → **Get Game Instance** → **Cast To
-   DirtbagGameInstance**.
-3. From the cast pin, drag → **Get b Naming Pending** → plug into a
-   **Branch**.
-4. You need this to fire once, not every frame. Right-click → **Do Once**,
-   and put it between the Branch's **True** pin and what comes next.
-5. From **Do Once**, drag → **Create Widget**. Set its **Class** to
-   `WBP_NameFirstAscent`.
-6. From Create Widget's return pin, drag → **Add to Viewport**.
-7. Also from **Do Once**, before or after: **Get Player Controller** → **Set
-   Show Mouse Cursor** = `true`, and **Set Input Mode UI Only** (target the
-   player controller, In Widget Focus = your created widget). Otherwise you
-   can see the box but not type in it — this is the step everyone misses.
-8. Reset the **Do Once** so a second first ascent also prompts: from the
-   Branch's **False** pin, drag → the **Do Once** node's **Reset** pin.
+The level blueprint is the cheapest host, but **where it lives moved between
+UE 5.x versions**, so try these in order:
 
-**Compile** and **Save**.
+1. **Main level-editor toolbar** — look for a **Blueprints** dropdown (a
+   blue blueprint icon, usually right of the *Add*/*Create* button) →
+   **Open Level Blueprint**.
+2. **Not there?** The toolbar collapses when the window is narrow. Look for
+   a **»** or **⋯** overflow at the *right-hand end* of the toolbar and open
+   that; the Blueprints dropdown will be inside.
+3. **Still not there?** Widen the editor window and look again — collapsing
+   is width-driven.
 
-> If you would rather not use the level blueprint, the same graph works in
-> any always-present actor's blueprint. The level blueprint is just the one
-> that already exists.
+**If you cannot find it at all, do not hunt.** The graph below works
+unchanged in *any* actor that is always in the level. The level blueprint is
+just the one that already exists. Good alternatives, in order of preference:
+
+- Your **player character blueprint** (the third-person template's
+  `BP_ThirdPersonCharacter` or whatever yours is called) — open it, use its
+  **Event Graph**, and everything below is identical.
+- Any **Dirtbag Day Spot** blueprint you have made. If yours are placed as
+  the raw C++ class rather than blueprints, right-click the C++ class in the
+  Content Browser → **Create Blueprint class based on…**, and place that
+  instead.
+
+> **Why any of them work.** The graph only asks the game instance a question
+> once a frame. It does not care who asks. The level blueprint is convenient,
+> not required.
+
+### 3b. The graph
+
+1. Right-click in empty graph space → **Event Tick**. (In a character
+   blueprint it may already be there.)
+2. Right-click in empty graph space again → **Get Game Instance**. Place it
+   somewhere below Tick.
+
+   > Same pure-node rule as §2: `Get Game Instance` has **no execution
+   > pins**, so it cannot be dragged off Tick's white pin and will not show
+   > up if you try. Place it on its own.
+
+3. Drag off **Event Tick's** white exec pin → **Cast To
+   DirtbagGameInstance**. Connect **Get Game Instance's** blue return into
+   that cast's **Object** pin.
+4. From the cast's **As Dirtbag Game Instance** pin, drag → **Get b Naming
+   Pending**.
+5. Drag off the cast's **then** exec pin → **Branch**. Plug **b Naming
+   Pending** into the Branch's **Condition**.
+6. This must fire once, not sixty times a second. Right-click → **Do Once**.
+   Connect the Branch's **True** pin → **Do Once's** exec input.
+7. Drag off **Do Once's** *Completed* pin → **Create Widget**. On the node,
+   set **Class** to `WBP_NameFirstAscent`. Its **Owning Player** can be left
+   empty.
+8. From **Create Widget's** **Return Value**, drag → **Add to Viewport**.
+9. **The step everyone misses.** Still on that chain, after Add to Viewport:
+   - Right-click → **Get Player Controller** (index 0).
+   - From it → **Set Show Mouse Cursor**, tick the box `true`.
+   - From it → **Set Input Mode UI Only**. Set its **In Widget to Focus** to
+     the **Return Value** of Create Widget — drag the same wire from step 8.
+
+   Skip this and the box appears, looks fine, and you cannot type into it.
+
+10. So a *second* first ascent also prompts: drag from the Branch's
+    **False** pin → the **Do Once** node's **Reset** input pin.
+
+**Compile** (top left) and **Save**.
+
+### 3c. Sanity check before you play
+
+- Does the Branch's True path end at **Add to Viewport**?
+- Is **Class** on Create Widget actually set (it is easy to leave `None`)?
+- Is the Do Once **Reset** wired from Branch **False**?
+
+If Create Widget's Class is `None` the graph compiles clean and nothing ever
+appears — which looks exactly like the flag never being raised.
 
 ---
 
