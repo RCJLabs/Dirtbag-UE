@@ -51,6 +51,18 @@ struct JobDials {
   // You do not walk into it off the street, and you cannot walk out of it
   // on a whim without burning something.
   double salaryQuitPsycheCost = 0.1;
+
+  // A Dirtbag Year: three hundred and sixty-five days in a row without
+  // taking the job that owns your hours. Odd jobs do not break it and are
+  // not supposed to -- the board is how a dirtbag eats, and a year spent
+  // hauling trail and setting at the gym is the most dirtbag year there is.
+  // What breaks it is signing for the nine-to-five.
+  //
+  // 365 rather than a season because the point is that you got through a
+  // *winter* on it. A season-length version would be handed to anyone who
+  // arrives in spring and leaves before the money runs out, which is a
+  // holiday.
+  int dirtbagYearDays = 365;
 };
 
 struct OddJob {
@@ -71,7 +83,29 @@ struct Job {
   bool salaried = false;
   int daysWorked = 0;      // lifetime, for the career line
   int weeksSalaried = 0;
+
+  // The counterweight to the salaried trap. The trap costs you the hours
+  // the day was for and pays in money -- and until now the only thing
+  // refusing it bought was the absence of a cost, which is not something a
+  // player can feel. This is the thing you have instead.
+  int daysSinceSalary = 0;      // the streak running now
+  int dirtbagYears = 0;         // how many whole ones you have banked
+  int longestStreak = 0;        // in days, including the one in progress
 };
+
+// A day passes without the nine-to-five. Returns true on the day a year
+// completes -- the caller's cue to say so, once.
+bool DirtbagDay(Job& job, const JobDials& dials = JobDials{});
+
+// You signed. Whatever the streak was, it is over -- not paused. Returns
+// what it cost you, in days, so the game can be honest about it at the
+// moment of signing rather than in a summary nobody reads.
+int BreakTheStreak(Job& job);
+
+// "Two Dirtbag Years. 118 days into a third." Empty until there is
+// something to say, which is the first whole year -- a streak of eleven
+// days is not an achievement, it is a fortnight.
+std::string DirtbagYearText(const Job& job, const JobDials& dials = JobDials{});
 
 // Is today one of the days the salary owns? Monday to Friday, counting from
 // day 1, because the rock does not care what day it is and the job does.

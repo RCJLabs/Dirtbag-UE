@@ -88,6 +88,12 @@ struct Legacy {
   bool cragOpenAtTheEnd = true;
   std::string nemesis;          // the one that never went
   int nemesisAttempts = 0;
+
+  // Whole years lived without the nine-to-five, and the longest unbroken
+  // run in days. Both, because they answer different questions: how many
+  // times you did it, and whether the one you did not finish was close.
+  int dirtbagYears = 0;
+  int longestDirtbagStreak = 0;
 };
 
 // Should the game start being honest about stopping? Never a command.

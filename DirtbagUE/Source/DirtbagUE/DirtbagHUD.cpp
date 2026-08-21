@@ -221,7 +221,24 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	{
 		Slow += TEXT("      ") + Game->SponsorLine();
 	}
+	// Years nobody owned. The slowest number on the screen — it moves once a
+	// year — and silent until the first whole one, because a streak of
+	// eleven days is a fortnight rather than a record.
+	const FString Years = Game->DirtbagYearLine();
+	if (!Years.IsEmpty())
+	{
+		Slow += TEXT("      ") + Years;
+	}
 	DrawText(Slow, kDim, X, H - 56.f, GEngine->GetSmallFont(), 1.f);
+
+	// And the morning it lands, said once, up where news goes rather than
+	// down here with the slow numbers. A year is not a slow number on the
+	// day it completes.
+	if (!Game->DirtbagYearNews.IsEmpty())
+	{
+		DrawText(Game->DirtbagYearNews, FLinearColor(0.95f, 0.90f, 0.70f, 1.f),
+		         X, H - 76.f, GEngine->GetMediumFont(), 1.f);
+	}
 
 	// The career, small, bottom left — it is a slow number and reads like one.
 	DrawText(Game->GetCareerLine(), kDim, X, H - 38.f, GEngine->GetSmallFont(),

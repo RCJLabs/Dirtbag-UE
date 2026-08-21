@@ -45,6 +45,34 @@ static int g_checks = 0;
     }                                                                  \
   } while (0)
 
+// --- old-save fixtures -------------------------------------------------------
+//
+// Migration tests build their fixture from this build's own writer and then
+// take away what the old version could not have had. That is the right shape
+// -- a hand-typed fixture tests what somebody believed v14 looked like -- but
+// the first version of it hard-coded the string "version=15", so the next
+// save bump made `find` return npos and `replace` threw out of the whole
+// harness rather than failing a check. These derive the version instead, so
+// a bump is a one-line change in the fixture and never a crash.
+
+// Remove the whole line carrying `key`. A field the old version never had.
+static void DropSaveLine(std::string& save, const char* key) {
+  const std::size_t at = save.find(key);
+  CHECK(at != std::string::npos);
+  if (at == std::string::npos) return;
+  save.erase(at, save.find('\n', at) + 1 - at);
+  CHECK(save.find(key) == std::string::npos);
+}
+
+// Relabel a save written by this build as an older one.
+static void SetSaveVersion(std::string& save, int version) {
+  const std::string now = "version=" + std::to_string(kSaveVersion) + "\n";
+  const std::size_t at = save.find(now);
+  CHECK(at != std::string::npos);
+  if (at == std::string::npos) return;
+  save.replace(at, now.size(), "version=" + std::to_string(version) + "\n");
+}
+
 // --- Conditions ---------------------------------------------------------------
 
 static void TestWeatherDeterminism() {
@@ -457,6 +485,115 @@ static void TestTheBookHasSomethingAtTheTopOfACareer() {
   for (const CragLine* p : OpenProjects(one)) got.push_back(p->route.trueGrade);
   const std::vector<int> want = {3, 4, 8, 8, 10, 7};
   CHECK(got == want);
+}
+
+static void TestTheDirtbagYear() {
+  JobDials jd;
+  Job job;
+
+  // A year is a year. Not a season -- the point is that you got through a
+  // winter without signing, and a season-length version is a holiday.
+  CHECK(jd.dirtbagYearDays == 365);
+
+  // Nothing to say until there is something to say. Eleven days is a
+  // fortnight, not an achievement.
+  for (int d = 0; d < jd.dirtbagYearDays - 1; d++) CHECK(!DirtbagDay(job, jd));
+  CHECK(job.dirtbagYears == 0);
+  CHECK(DirtbagYearText(job, jd).empty());
+
+  // And then the day it lands, exactly once.
+  CHECK(DirtbagDay(job, jd));
+  CHECK(job.dirtbagYears == 1);
+  CHECK(!DirtbagDay(job, jd));
+  CHECK(job.dirtbagYears == 1);
+  CHECK(DirtbagYearText(job, jd) == "A Dirtbag Year.  One day into another.");
+
+  // The counter keeps running: three years is three years, not one year
+  // restarted twice.
+  for (int d = 0; d < jd.dirtbagYearDays; d++) DirtbagDay(job, jd);
+  CHECK(job.dirtbagYears == 2);
+  CHECK(job.daysSinceSalary == 2 * jd.dirtbagYearDays + 1);
+  CHECK(DirtbagYearText(job, jd) == "2 Dirtbag Years.  One day into another.");
+
+  // Odd jobs do not break it and must not: the board is how a dirtbag eats,
+  // and a year of hauling trail is the most dirtbag year there is. Only the
+  // nine-to-five counts, and it counts from the signature.
+  PlayerState hauler;
+  for (int d = 0; d < 40; d++) DirtbagDay(hauler.job);
+  CHECK(hauler.job.daysSinceSalary == 40);
+  TakeSalariedJob(hauler);
+  CHECK(hauler.job.daysSinceSalary == 0);
+  CHECK(hauler.job.longestStreak == 40);   // what you did stands
+
+  // A day you hold the job is not a day of the streak, weekend or not. A
+  // version that only skipped working days would take five years to earn
+  // one, because the salary owns Saturday too.
+  Job employed;
+  employed.salaried = true;
+  for (int d = 0; d < 400; d++) CHECK(!DirtbagDay(employed, jd));
+  CHECK(employed.daysSinceSalary == 0);
+  CHECK(employed.dirtbagYears == 0);
+
+  // Banked years survive the job. It takes the one you were in the middle
+  // of, not the ones you finished.
+  Job veteran;
+  for (int d = 0; d < 2 * jd.dirtbagYearDays + 100; d++) DirtbagDay(veteran, jd);
+  CHECK(veteran.dirtbagYears == 2);
+  const int lost = BreakTheStreak(veteran);
+  CHECK(lost == 2 * jd.dirtbagYearDays + 100);
+  CHECK(veteran.dirtbagYears == 2);
+  CHECK(veteran.longestStreak == 2 * jd.dirtbagYearDays + 100);
+  CHECK(DirtbagYearText(veteran, jd) == "2 Dirtbag Years.");
+
+  // It reaches the one place a career is actually read.
+  PlayerState lifer;
+  lifer.day = 4000;
+  for (int d = 0; d < 3 * jd.dirtbagYearDays; d++) DirtbagDay(lifer.job, jd);
+  const Legacy legacy = TallyCareer(lifer, "Wren", 11);
+  CHECK(legacy.dirtbagYears == 3);
+  CHECK(legacy.longestDirtbagStreak == 3 * jd.dirtbagYearDays);
+  CHECK(LegacyText(legacy).find("3 Dirtbag Years.") != std::string::npos);
+
+  // And a career that took the job says nothing, rather than saying zero.
+  PlayerState sellout;
+  sellout.day = 4000;
+  TakeSalariedJob(sellout);
+  CHECK(LegacyText(TallyCareer(sellout, "Ash", 11)).find("Dirtbag Year") ==
+        std::string::npos);
+}
+
+// v15 -> v16. Old saves must load, and must not be handed a year they may
+// never have lived.
+static void TestTheDirtbagYearMigrates() {
+  PlayerState player;
+  for (int d = 0; d < 500; d++) DirtbagDay(player.job);
+  SaveGame save;
+  save.player = player;
+  save.seed = "dirtbag-year";
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.job.dirtbagYears == 1);
+  CHECK(back.player.job.daysSinceSalary == 500);
+  CHECK(back.player.job.longestStreak == 500);
+
+  std::string v15 = SerializeSave(save);
+  DropSaveLine(v15, "job.sincesalary=");
+  DropSaveLine(v15, "job.dirtbagyears=");
+  DropSaveLine(v15, "job.longeststreak=");
+  SetSaveVersion(v15, 15);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v15, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  // Zero, not a guess. The file does not say whether the streak was
+  // running, and awarding a year that was never lived would put a line in
+  // somebody's legacy that never happened.
+  CHECK(old.player.job.dirtbagYears == 0);
+  CHECK(old.player.job.daysSinceSalary == 0);
+  // The rest of the career is untouched.
+  CHECK(old.seed == save.seed);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
 }
 
 static void TestSandbagsAreSpecific() {
@@ -1069,13 +1206,13 @@ static void TestASponsorGetsPaidAndReviewed() {
   // A hand-typed fixture tests what I believed v14 looked like, which is
   // the thing most likely to be wrong.
   std::string v14 = SerializeSave(save);
-  const std::size_t at = v14.find("sponsor.hurtdays=");
-  CHECK(at != std::string::npos);
-  v14.erase(at, v14.find('\n', at) + 1 - at);
-  CHECK(v14.find("sponsor.hurtdays") == std::string::npos);
-  const std::size_t vat = v14.find("version=15\n");
-  CHECK(vat != std::string::npos);
-  v14.replace(vat, std::string("version=15\n").size(), "version=14\n");
+  DropSaveLine(v14, "sponsor.hurtdays=");
+  // And everything added since, or the fixture claims to be v14 while
+  // carrying fields v14 could not have written.
+  DropSaveLine(v14, "job.sincesalary=");
+  DropSaveLine(v14, "job.dirtbagyears=");
+  DropSaveLine(v14, "job.longeststreak=");
+  SetSaveVersion(v14, 14);
 
   SaveGame old;
   CHECK(DeserializeSave(v14, old) == LoadResult::Ok);
@@ -6368,6 +6505,8 @@ int main() {
   TestCragIsNotALadder();
   TestCragHasProjectsAndTheyAreOpen();
   TestTheBookHasSomethingAtTheTopOfACareer();
+  TestTheDirtbagYear();
+  TestTheDirtbagYearMigrates();
   TestSandbagsAreSpecific();
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();

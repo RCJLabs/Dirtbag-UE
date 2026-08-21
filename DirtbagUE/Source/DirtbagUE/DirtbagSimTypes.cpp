@@ -451,6 +451,9 @@ FDirtbagJob FromSim(const dirtbag::Job& In)
 	Out.bSalaried = In.salaried;
 	Out.DaysWorked = In.daysWorked;
 	Out.WeeksSalaried = In.weeksSalaried;
+	Out.DaysSinceSalary = In.daysSinceSalary;
+	Out.DirtbagYears = In.dirtbagYears;
+	Out.LongestStreak = In.longestStreak;
 	return Out;
 }
 
@@ -460,6 +463,9 @@ dirtbag::Job ToSim(const FDirtbagJob& In)
 	Out.salaried = In.bSalaried;
 	Out.daysWorked = In.DaysWorked;
 	Out.weeksSalaried = In.WeeksSalaried;
+	Out.daysSinceSalary = In.DaysSinceSalary;
+	Out.dirtbagYears = In.DirtbagYears;
+	Out.longestStreak = In.LongestStreak;
 	return Out;
 }
 

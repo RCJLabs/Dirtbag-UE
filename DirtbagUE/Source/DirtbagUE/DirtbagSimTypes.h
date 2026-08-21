@@ -640,6 +640,19 @@ struct FDirtbagJob
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
 	int32 WeeksSalaried = 0;
+
+	/** Days into the streak running now. Broken by signing for the
+	 *  nine-to-five, never by an odd job. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	int32 DaysSinceSalary = 0;
+
+	/** Whole years lived without a boss. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	int32 DirtbagYears = 0;
+
+	/** The longest unbroken run, in days, including one in progress. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	int32 LongestStreak = 0;
 };
 
 /** A gig on the board: hours, money, and whether the van has to go. */

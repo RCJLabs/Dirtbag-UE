@@ -84,8 +84,25 @@ void UDirtbagGameInstance::Sleep()
 	// Yesterday's first ascent stops being news. It is in the book now,
 	// which is where a thing you did goes once it stops being a moment.
 	LastAscentLine.Reset();
+	DirtbagYearNews.Reset();
+
+	// SleepToNextDay ticks the streak, so a year completing is visible as
+	// the count going up across the call. Reading the count rather than
+	// plumbing a return value through the Blueprint library keeps the news
+	// here, where every other piece of overnight news already lives.
+	const int32 YearsBefore = Player.Job.DirtbagYears;
 
 	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
+
+	if (Player.Job.DirtbagYears > YearsBefore)
+	{
+		DirtbagYearNews =
+		    Player.Job.DirtbagYears == 1
+		        ? TEXT("A year today, and nobody has owned an hour of it.")
+		        : FString::Printf(
+		              TEXT("%d Dirtbag Years. Still nobody's."),
+		              Player.Job.DirtbagYears);
+	}
 
 	// The salary owns its days whether or not you wanted them, and this is
 	// where a day begins — SleepToNextDay ends by resetting the DayState to
@@ -914,11 +931,20 @@ bool UDirtbagGameInstance::TakeOddJob(const FDirtbagOddJob& Job)
 	return true;
 }
 
-void UDirtbagGameInstance::TakeSalariedJob()
+FString UDirtbagGameInstance::DirtbagYearLine() const
+{
+	return FString(dirtbag::DirtbagYearText(DirtbagConvert::ToSim(Player.Job))
+	                   .c_str());
+}
+
+int32 UDirtbagGameInstance::TakeSalariedJob()
 {
 	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
+	// Read before, because TakeSalariedJob is what zeroes it.
+	const int32 Lost = SimPlayer.job.daysSinceSalary;
 	dirtbag::TakeSalariedJob(SimPlayer);
 	Player = DirtbagConvert::FromSim(SimPlayer);
+	return Lost;
 }
 
 void UDirtbagGameInstance::QuitSalariedJob()

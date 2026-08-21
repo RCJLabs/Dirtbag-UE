@@ -79,7 +79,12 @@ void WorkSalariedDay(PlayerState& player, DayState& day, const JobDials& jobs,
   player.job.daysWorked++;
 }
 
-void TakeSalariedJob(PlayerState& player) { player.job.salaried = true; }
+void TakeSalariedJob(PlayerState& player) {
+  // The streak dies at the signature, not at the first shift. You knew what
+  // you were doing when you shook hands.
+  BreakTheStreak(player.job);
+  player.job.salaried = true;
+}
 
 void QuitSalariedJob(PlayerState& player, const JobDials& jobs) {
   if (!player.job.salaried) return;
@@ -323,6 +328,12 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // A day older. Nothing is subtracted before the relevant peak, so a
   // twenty-four-year-old is not quietly being taxed from day one.
   AgeDay(player.climber, player.day);
+
+  // And a day nearer a Dirtbag Year, if nobody owns your hours. Counted at
+  // the same place as ageing because it is the same kind of fact: something
+  // that happens to you for getting through another day rather than
+  // something you did.
+  DirtbagDay(player.job);
 
   // The month runs down like everything else that runs out. Without this
   // the probe reported 365 days of membership bought with a single $75,

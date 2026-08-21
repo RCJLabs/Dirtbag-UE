@@ -88,4 +88,46 @@ const char* JobText(const Job& job) {
                       : "no job, and no boss";
 }
 
+bool DirtbagDay(Job& job, const JobDials& dials) {
+  // A day under the salary is not a day of the streak. Note this asks
+  // whether you *hold* the job rather than whether today was a working day:
+  // a salaried weekend is still the job's weekend, and a year that pauses
+  // every Saturday would take five years to earn.
+  if (job.salaried) return false;
+
+  job.daysSinceSalary++;
+  job.longestStreak = std::max(job.longestStreak, job.daysSinceSalary);
+
+  // Banked on the day it completes, and the counter keeps running -- three
+  // years is three years, not one year restarted twice.
+  const int period = std::max(1, dials.dirtbagYearDays);
+  if (job.daysSinceSalary % period != 0) return false;
+  job.dirtbagYears++;
+  return true;
+}
+
+int BreakTheStreak(Job& job) {
+  const int lost = job.daysSinceSalary;
+  job.daysSinceSalary = 0;
+  // longestStreak survives, and dirtbagYears survives. You did those. The
+  // job takes the year you were in the middle of, not the ones you finished.
+  return lost;
+}
+
+std::string DirtbagYearText(const Job& job, const JobDials& dials) {
+  if (job.dirtbagYears <= 0) return std::string();
+
+  const int period = std::max(1, dials.dirtbagYearDays);
+  const int into = job.daysSinceSalary % period;
+
+  std::string out = job.dirtbagYears == 1
+                        ? "A Dirtbag Year."
+                        : std::to_string(job.dirtbagYears) + " Dirtbag Years.";
+  if (into > 0) {
+    out += into == 1 ? "  One day into another."
+                     : "  " + std::to_string(into) + " days into another.";
+  }
+  return out;
+}
+
 }  // namespace dirtbag

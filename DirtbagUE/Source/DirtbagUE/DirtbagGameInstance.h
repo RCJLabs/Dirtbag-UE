@@ -524,10 +524,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
 	bool TakeOddJob(const FDirtbagOddJob& Job);
 
+	/** "2 Dirtbag Years.  118 days into another." Empty until the first
+	 *  whole year — a streak of eleven days is a fortnight, not a record.
+	 *
+	 *  The counterweight to the salaried trap. The trap costs you the hours
+	 *  the day was for and pays in money; until this existed, the only
+	 *  thing refusing it bought was the absence of a cost, which is not
+	 *  something a player can feel. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Work")
+	FString DirtbagYearLine() const;
+
+	/** Said once, on the morning a year completes. Empty every other day. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	FString DirtbagYearNews;
+
 	/** Nine to five, five days a week. The hours are the point, not the
-	 *  money — and in midwinter the light is gone before you clock off. */
+	 *  money — and in midwinter the light is gone before you clock off.
+	 *
+	 *  Returns the days of streak this cost, so the game can be honest at
+	 *  the moment of signing rather than in a summary nobody reads. Zero if
+	 *  there was nothing to lose. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
-	void TakeSalariedJob();
+	int32 TakeSalariedJob();
 
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
 	void QuitSalariedJob();

@@ -185,6 +185,19 @@ void MigrateV13ToV14(SaveFields& fields) { fields["secrets"] = "0"; }
 // approximation, it is the truth: nobody has ever looked at them.
 void MigrateV14ToV15(SaveFields& fields) { fields["sponsor.hurtdays"] = "0"; }
 
+// v15 -> v16: the Dirtbag Year. An old save has no record of whether its
+// streak was running, and there is no honest way to reconstruct one -- a
+// climber who has never been salaried might be four hundred days in, and
+// the file does not say. So every old save starts its first streak today.
+// That loses history rather than inventing it, which is the right way round:
+// awarding somebody a year they may not have lived would put a line in their
+// legacy that never happened.
+void MigrateV15ToV16(SaveFields& fields) {
+  fields["job.sincesalary"] = "0";
+  fields["job.dirtbagyears"] = "0";
+  fields["job.longeststreak"] = "0";
+}
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -205,7 +218,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV1ToV2, &MigrateV2ToV3, &MigrateV3ToV4, &MigrateV4ToV5,
       &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9,
       &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12,
-      &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15};
+      &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15,
+      &MigrateV15ToV16};
   return kMigrations;
 }
 
@@ -334,6 +348,11 @@ std::string SerializeSave(const SaveGame& save) {
   out << "job.salaried=" << IntToStr(save.player.job.salaried ? 1 : 0) << "\n";
   out << "job.days=" << IntToStr(save.player.job.daysWorked) << "\n";
   out << "job.weeks=" << IntToStr(save.player.job.weeksSalaried) << "\n";
+  out << "job.sincesalary=" << IntToStr(save.player.job.daysSinceSalary)
+      << "\n";
+  out << "job.dirtbagyears=" << IntToStr(save.player.job.dirtbagYears) << "\n";
+  out << "job.longeststreak=" << IntToStr(save.player.job.longestStreak)
+      << "\n";
   out << "standing.closed=" << IntToStr(save.player.standing.closedDays)
       << "\n";
   out << "shoes.wear=" << NumToStr(save.player.shoes.wear) << "\n";
@@ -479,7 +498,10 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   int salaried = 0;
   if (!ParseInt(fields, "job.salaried", salaried) ||
       !ParseInt(fields, "job.days", save.player.job.daysWorked) ||
-      !ParseInt(fields, "job.weeks", save.player.job.weeksSalaried)) {
+      !ParseInt(fields, "job.weeks", save.player.job.weeksSalaried) ||
+      !ParseInt(fields, "job.sincesalary", save.player.job.daysSinceSalary) ||
+      !ParseInt(fields, "job.dirtbagyears", save.player.job.dirtbagYears) ||
+      !ParseInt(fields, "job.longeststreak", save.player.job.longestStreak)) {
     return LoadResult::BadFormat;
   }
   save.player.job.salaried = salaried != 0;

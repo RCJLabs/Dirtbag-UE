@@ -45,6 +45,8 @@ Legacy TallyCareer(const PlayerState& player, const std::string& name,
   out.totalAttempts = career.totalAttempts;
   out.nemesis = career.nemesis;
   out.nemesisAttempts = career.nemesisAttempts;
+  out.dirtbagYears = player.job.dirtbagYears;
+  out.longestDirtbagStreak = player.job.longestStreak;
 
   for (const ProjectMemory& m : player.projects) {
     if (!m.firstAscent) continue;
@@ -140,6 +142,15 @@ std::string LegacyText(const Legacy& legacy) {
     out += "One line that is yours now. ";
   } else if (fas > 1) {
     out += std::to_string(fas) + " lines that are yours now. ";
+  }
+
+  // Years nobody owned. Said before the nemesis and the retirement, because
+  // this is the part of the record that was a choice rather than a result --
+  // every one of these was a season somebody offered you money to stop.
+  if (legacy.dirtbagYears == 1) {
+    out += "A Dirtbag Year. ";
+  } else if (legacy.dirtbagYears > 1) {
+    out += std::to_string(legacy.dirtbagYears) + " Dirtbag Years. ";
   }
 
   // The one that never went is part of the record. Every career has one and
