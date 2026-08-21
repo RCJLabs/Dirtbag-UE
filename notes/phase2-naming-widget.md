@@ -139,6 +139,16 @@ That makes the prompt say *the arete left of Diesel* rather than nothing.
      > first ascent comes out with the wrong name, this is why.
 4. From **Name First Ascent**'s exec pin, drag → **Remove from Parent**.
    That closes the widget.
+5. **Give input back**, or the game is unplayable from here on. Section 3
+   puts the player controller into UI-only mode to let you type; nothing
+   undoes it, so without this you keep a mouse cursor and cannot move.
+   After **Remove from Parent**:
+   - Right-click → **Get Player Controller**.
+   - From it → **Set Input Mode Game Only** (target = that controller).
+   - From it → **Set Show Mouse Cursor**, box **unticked**.
+
+   > Both buttons need this. If only Confirm has it, walking away with
+   > *Later* leaves you stuck in exactly the same way.
 
 `Name First Ascent` returns a bool. You can ignore it, or branch on it to
 keep the widget open if the name was empty — it refuses an empty name.
@@ -147,7 +157,10 @@ keep the widget open if the name was empty — it refuses an empty name.
 
 `On Clicked (LaterButton)` → **Cast To DirtbagGameInstance** (fed from a
 **Get Game Instance** placed on empty space) → **Dismiss Naming** →
-**Remove from Parent**.
+**Remove from Parent** → **Set Input Mode Game Only** → **Set Show Mouse
+Cursor** (unticked), both targeting a **Get Player Controller**.
+
+The last two are not optional — see step 5 above.
 
 Nothing is lost by walking away: you did the first ascent, and it stays
 yours to name whenever you come back.
@@ -215,11 +228,18 @@ just the one that already exists. Good alternatives, in order of preference:
    set **Class** to `WBP_NameFirstAscent`. Its **Owning Player** can be left
    empty.
 8. From **Create Widget's** **Return Value**, drag → **Add to Viewport**.
-9. **The step everyone misses.** Still on that chain, after Add to Viewport:
-   - Right-click → **Get Player Controller** (index 0).
-   - From it → **Set Show Mouse Cursor**, tick the box `true`.
-   - From it → **Set Input Mode UI Only**. Set its **In Widget to Focus** to
-     the **Return Value** of Create Widget — drag the same wire from step 8.
+9. **The step everyone misses.** This is a *chain*, not two loose nodes —
+   both of these need their execute pins wired or they never run:
+   - Right-click → **Get Player Controller** (Player Index 0).
+   - Right-click → **Set Show Mouse Cursor**. Target = that controller, and
+     **tick the box** `true`.
+   - **Connect `Add to Viewport`'s `then` pin → `Set Show Mouse Cursor`'s
+     execute pin.** Setting the target alone leaves the node orphaned: it
+     sits there looking wired and never fires.
+   - Right-click → **Set Input Mode UI Only**. Target = the same controller.
+     Connect **`Set Show Mouse Cursor`'s `then` → its execute**.
+   - Set its **In Widget to Focus** to **Create Widget's Return Value** —
+     pull a second wire off the same pin that feeds Add to Viewport.
 
    Skip this and the box appears, looks fine, and you cannot type into it.
 
@@ -230,9 +250,16 @@ just the one that already exists. Good alternatives, in order of preference:
 
 ### 3c. Sanity check before you play
 
-- Does the Branch's True path end at **Add to Viewport**?
 - Is **Class** on Create Widget actually set (it is easy to leave `None`)?
-- Is the Do Once **Reset** wired from Branch **False**?
+- Is the Do Once **Reset** wired from Branch **False**? Without it the widget
+  appears for your *first* first ascent and never again.
+- Does the chain run all the way through — **Add to Viewport → Set Show
+  Mouse Cursor → Set Input Mode UI Only** — with every execute pin
+  connected? A node whose *target* is wired but whose *execute* is empty
+  looks finished and does nothing.
+- In the **widget**, do both buttons end with **Set Input Mode Game Only**
+  and **Set Show Mouse Cursor** unticked? Without those you can name one
+  route and then never move again.
 
 If Create Widget's Class is `None` the graph compiles clean and nothing ever
 appears — which looks exactly like the flag never being raised.
