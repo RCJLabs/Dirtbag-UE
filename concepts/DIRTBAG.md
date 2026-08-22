@@ -73,8 +73,18 @@ Ship order, each rung a coherent game:
 ## 7. Fab shopping list (verified 2026-08)
 
 **Exists — buy, don't build:**
-- **Climbing systems (as scaffolding):** [Procedural Climbing with Control Rig](https://www.fab.com/listings/9a460f95-7079-48b6-b38f-e17d764d4f34) — Full Body IK placement with *no canned animations*, the closest match to our model; [Climb and Vaulting Component V2](https://www.fab.com/listings/a32f69ab-aefd-4d38-869f-b5414364aca1) and Dynamic Ledge Climb System as animation-driven references; [Dragon IK Plugin](https://www.fab.com/listings/d3f8d256-d8d9-4d27-91c1-c61e55e984a6) as a general IK fallback.
-- **Rock/terrain:** Quixel Megascans — free for UE. Cliffs, boulders, canyon surfaces solved.
+- ~~**Climbing systems (as scaffolding):**~~ **OBSOLETE 2026-08-22 — do not
+  buy.** CLAUDE.md's core design call retired this whole category: *"no
+  physical climbing simulation, no hand-IK."* The climber interpolates along
+  a spline playing back six authored loops, and `ClimbingAnimationSet`
+  (already owned) covers them. The largest saving on this list, and it comes
+  from a decision rather than a purchase. Kept below for the record: [Procedural Climbing with Control Rig](https://www.fab.com/listings/9a460f95-7079-48b6-b38f-e17d764d4f34) — Full Body IK placement with *no canned animations*, the closest match to our model; [Climb and Vaulting Component V2](https://www.fab.com/listings/a32f69ab-aefd-4d38-869f-b5414364aca1) and Dynamic Ledge Climb System as animation-driven references; [Dragon IK Plugin](https://www.fab.com/listings/d3f8d256-d8d9-4d27-91c1-c61e55e984a6) as a general IK fallback.
+- **Rock/terrain:** Quixel Megascans. ⚠️ **"free for UE" is stale as of
+  2026-08-22** — free Megascans ended 31 December 2024, the library moved to
+  Fab, and assets are priced individually (a subset stays free; Megaplants
+  are free). Still the right choice for the rock and still worth buying, but
+  it is a line item now rather than a freebie. Cliffs, boulders, canyon
+  surfaces solved.
 - **Locomotion base:** Epic's free Game Animation Sample (motion matching, 500+ ground animations) for everything that isn't climbing.
 - **The dog:** [DOG on Fab](https://www.fab.com/listings/5a41c4ec-d50f-45e0-8384-c6dc905468c5) — 26 animations incl. sniff, howl, rest, sleep. The emotional register is purchasable.
 - **Town/vehicles:** small-town packs exist (Americana is a thinner category than European rural — budget shopping time); [City Sample Vehicles](https://www.fab.com/listings/2909157b-ddfa-4cef-a925-69dc2467021f) free for drivable bases; camper van models exist individually.
