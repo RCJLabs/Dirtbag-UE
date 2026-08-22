@@ -5,6 +5,8 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogDirtbagSave, Log, All);
+
 #include "DirtbagRng.h"
 
 namespace
@@ -417,6 +419,42 @@ EDirtbagLoadResult DirtbagSaveIO::LoadGameFromFile(
 		OutSeed = UTF8_TO_TCHAR(Save.seed.c_str());
 		OutPlayer = DirtbagConvert::FromSim(Save.player);
 		OutLegacies = Save.legacies;
+
+		// Say what the migration did, because nothing else ever does. The
+		// file on disk keeps its old version until the next SaveNow (the
+		// next sleep) -- deliberately, so a load can never corrupt the
+		// only copy -- and without this line the only way to learn that
+		// was to open the raw file, see "version=13", and reasonably
+		// conclude the migration never ran. It ran; the disk just has not
+		// heard yet. The pre-migration number is read off the file's own
+		// first line, since DeserializeSave hands the struct back already
+		// upgraded.
+		int32 FileVersion = 0;
+		FParse::Value(*Text, TEXT("version="), FileVersion);
+		if (FileVersion != dirtbag::kSaveVersion)
+		{
+			UE_LOG(LogDirtbagSave, Display,
+			       TEXT("Loaded '%s': file is v%d, migrated to v%d in "
+			            "memory. The file itself updates at the next "
+			            "sleep."),
+			       *Filename, FileVersion, dirtbag::kSaveVersion);
+		}
+		else
+		{
+			UE_LOG(LogDirtbagSave, Display,
+			       TEXT("Loaded '%s' (v%d, current)."), *Filename,
+			       FileVersion);
+		}
+	}
+	else
+	{
+		UE_LOG(LogDirtbagSave, Warning,
+		       TEXT("Save '%s' did not load (%s). Starting fresh; the file "
+		            "is left on disk untouched for post-mortems."),
+		       *Filename,
+		       Result == dirtbag::LoadResult::FutureVersion
+		           ? TEXT("from a newer build")
+		           : TEXT("bad format"));
 	}
 	return ToUEResult(Result);
 }
