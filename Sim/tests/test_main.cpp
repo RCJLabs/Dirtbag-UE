@@ -1039,25 +1039,32 @@ static void TestTheCampfireGame() {
   // never folds loses steadily; one who plays the read wins, and wins more
   // for knowing the table. Before the Lot folded, a stranger playing the
   // read made $14 a hand and the fire was an infinite cash machine.
-  const auto run = [&](double rapport, bool useRead) {
+  const auto run = [&](double rapport, bool useRead, double stake) {
     std::vector<Partner> tbl;
     for (const char* n : {"Margo", "Dev", "Trish"}) {
       Partner p; p.name = n; p.rapport = rapport; tbl.push_back(p);
     }
     double money = 100000.0, psy = 0.7;
-    for (int h = 0; h < 4000; h++) {
+    // Twenty thousand rather than four: the four-thousand run was not
+    // converged -- the same policy measured -$7.08 there and -$2.50 at
+    // forty thousand -- so every magnitude pinned below was pinned to a
+    // number still moving under it.
+    for (int h = 0; h < 20000; h++) {
       const CampfireHand hd = DealPoker(tbl, world, 9, h, cd);
       double worst = 0.0;
       for (double r : hd.reads) worst = std::max(worst, r);
-      PlayPoker(hd, money, psy, tbl, cd.maxStake,
-               useRead && hd.yours < worst, cd);
+      PlayPoker(hd, money, psy, tbl, stake, useRead && hd.yours < worst, cd);
       for (Partner& p : tbl) p.rapport = rapport;
     }
-    return (money - 100000.0) / 4000.0;
+    return (money - 100000.0) / 20000.0;
   };
-  const double passive = run(1.0, false);
-  const double stranger = run(0.0, true);
-  const double friendly = run(1.0, true);
+  // Measured at the middle notch, which is what a player actually sits
+  // down on. The ceiling gets its own checks below, because it is now a
+  // different question rather than a bigger version of the same one.
+  const double mid = StakeNotch(1, cd);
+  const double passive = run(1.0, false, mid);
+  const double stranger = run(0.0, true, mid);
+  const double friendly = run(1.0, true, mid);
   CHECK(stranger > passive);         // thinking beats not thinking
   CHECK(friendly > stranger);        // and knowing them beats thinking
 
@@ -1068,11 +1075,37 @@ static void TestTheCampfireGame() {
   // eyes. The bug this game actually had is a *magnitude* bug, so it takes
   // magnitudes to pin it.
   //
-  // Measured with the rule in place: passive -$5, stranger +$3, friend +$10.
-  // Measured with it removed: passive -$0, stranger +$14, friend +$27.
+  // Measured at the middle notch: passive -$5.00, stranger -$0.79,
+  // friend +$2.60.
   CHECK(passive < -2.0);             // inattention has a real price
-  CHECK(stranger < 6.0);             // and a stranger does not print money
-  CHECK(friendly < 15.0);            // nor does a friend
+  CHECK(stranger < 1.0);             // you cannot beat a table you cannot
+                                     // read -- which is what liar's dice
+                                     // has always said about strangers and
+                                     // what poker used to contradict
+  CHECK(friendly > 1.0);             // and knowing them is worth real money
+  CHECK(friendly < 6.0);             // but not a living
+
+  // The stake has to be a decision, and this is the check that says so.
+  //
+  // When the fire got a table the player could choose the stake for the
+  // first time, and measured immediately, the ceiling won at **every**
+  // rapport from stranger to friend -- +$3.35 a hand against +$0.01 at the
+  // ante with a stranger, and +$10.17 against +$1.13 with a friend. The
+  // Lot called a $40 shove exactly as often as a $5 nudge, so the stake
+  // scaled the winnings linearly and never flipped sign. A control whose
+  // only correct setting is "maximum" is a lever with one end.
+  //
+  // `shoveMakesThemFold` is what makes it a choice. Shove and they lay
+  // down, so you win the middle and nothing else; nudge and they call, so
+  // a good hand gets paid. Measured now: the ceiling is worse than the
+  // middle for the friend (+$1.83 against +$2.60) and worse again for the
+  // stranger (-$2.31 against -$0.79), because betting big into people you
+  // cannot read is how you lose money at a fire.
+  const double ceilFriend = run(1.0, true, StakeNotch(2, cd));
+  const double ceilStranger = run(0.0, true, StakeNotch(2, cd));
+  CHECK(ceilFriend < friendly);      // the ceiling does not dominate
+  CHECK(ceilStranger < stranger);    // and shoving blind is punished
+  CHECK(ceilFriend > 0.0);           // but it is not simply a trap either
 
   // A read is only ever words to the player. A number would make this
   // arithmetic; a sentence keeps it a person.
@@ -1195,6 +1228,64 @@ static void TestBlackjack() {
   CHECK(good > -6.5);
   CHECK(good > timid);
   CHECK(reckless < -20.0);   // never stopping is never a plan
+}
+
+// What is out tonight, and what you can put in. Both were the presentation
+// layer's business until the fire got a table; both are rules, so both get
+// a test.
+static void TestTheTable() {
+  CampfireDials cd;
+
+  // Every day has a game and every game comes round. Four copies of
+  // `day % 3` in the engine could disagree; one function cannot.
+  bool seen[kFiresideGameCount] = {false, false, false};
+  for (int day = 0; day < kFiresideGameCount; day++) {
+    const int which = static_cast<int>(WhatsOutTonight(day));
+    CHECK(which >= 0 && which < kFiresideGameCount);
+    seen[which] = true;
+  }
+  CHECK(seen[0] && seen[1] && seen[2]);
+
+  // An evening is one game, not a menu: the same day always answers the
+  // same, and tomorrow is a different one.
+  CHECK(WhatsOutTonight(97) == WhatsOutTonight(97));
+  CHECK(WhatsOutTonight(97) != WhatsOutTonight(98));
+
+  // A migrated save handing over a negative day must not index off the end
+  // of the switch it feeds -- C++ says -1 % 3 is -1.
+  for (int day = -8; day < 0; day++) {
+    const int which = static_cast<int>(WhatsOutTonight(day));
+    CHECK(which >= 0 && which < kFiresideGameCount);
+  }
+
+  // Every game is named, and the names are distinct -- a prompt that says
+  // the wrong game is worse than one that says nothing.
+  for (int g = 0; g < kFiresideGameCount; g++) {
+    const std::string name = GameName(static_cast<FiresideGame>(g));
+    CHECK(!name.empty());
+    for (int other = 0; other < g; other++) {
+      CHECK(name != GameName(static_cast<FiresideGame>(other)));
+    }
+  }
+
+  // The notches climb, and the top one is the ceiling itself. That last
+  // check is the one that matters: the engine's hand-typed 20.0 sat at half
+  // the ceiling and nothing said so, so "bet the maximum" quietly did not.
+  double last = -1.0;
+  for (int n = 0; n < kStakeNotches; n++) {
+    const double s = StakeNotch(n, cd);
+    CHECK(s > last);
+    CHECK(s >= 0.0 && s <= cd.maxStake);
+    last = s;
+  }
+  CHECK(StakeNotch(kStakeNotches - 1, cd) == cd.maxStake);
+
+  // And they follow the dial rather than a number typed beside it, so
+  // retuning the ceiling moves what the keys do.
+  CampfireDials rich;
+  rich.maxStake = 400.0;
+  CHECK(StakeNotch(kStakeNotches - 1, rich) == 400.0);
+  CHECK(StakeNotch(1, rich) > StakeNotch(1, cd));
 }
 
 static void TestTheTweak() {
@@ -7247,6 +7338,7 @@ int main() {
   TestTheCampfireGame();
   TestLiarsDice();
   TestBlackjack();
+  TestTheTable();
   TestSandbagsAreSpecific();
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();

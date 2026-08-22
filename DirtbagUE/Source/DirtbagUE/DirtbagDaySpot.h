@@ -93,10 +93,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Rest")
 	bool bWaitForWindow = true;
 
-	/** Fire only: what a hand puts on the table beyond the ante. Half the
-	 *  sim's ceiling by default — a beer-money game, not a shakedown. */
+	/** Fire only: which of the three stakes you sit down on — 0 is the
+	 *  ante, 2 is the sim's ceiling. 1/2/3 change it at the table.
+	 *
+	 *  This replaced a hand-typed `CardStake = 20.0`, which was a number
+	 *  beside a dial rather than a number from one: the sim's ceiling is
+	 *  40, so "the stake" was permanently half of it and there was no way
+	 *  to bet small on a bad hand — which removes the only decision poker
+	 *  has that is not folding. See dirtbag::StakeNotch. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Fire")
-	double CardStake = 20.0;
+	int32 StartingStakeNotch = 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
 	float FadeSeconds = 0.4f;
@@ -125,11 +131,33 @@ private:
 	 *  the blockout answer until the fire earns a widget. */
 	void OnCommit();
 	void OnBackDown();
-	/** The gear shop's dream counter: 1/2/3 name the dream, once. */
+	/** The gear shop's dream counter: 1/2/3 name the dream, once. At the
+	 *  fire the same three keys set the stake, which is the same question
+	 *  asked twice — how much of the float is this worth. */
 	void OnChoose1();
 	void OnChoose2();
 	void OnChoose3();
 	void ChooseDreamAt(EDirtbagDream Which);
+	/** Returns true if it handled the key, i.e. this is the fire. */
+	bool SetStakeNotch(int32 Notch);
+
+	/** One exit for every settled hand: record the sentence, add it to the
+	 *  evening's running total, clear the table. Three call sites used to
+	 *  each build their own toast, which is how the night's total came to
+	 *  be tracked by nobody. */
+	void SettleFireHand(const FString& Line);
+
+	/** Write the table into the game instance for the HUD to draw. Called
+	 *  on every change rather than every frame: hands re-deal
+	 *  deterministically from (day, number), so this can rebuild the whole
+	 *  table from three integers and never holds a stale copy of one. */
+	void RefreshFireTable();
+
+	/** Settle whatever is live, as if F had been pressed. Used when you
+	 *  walk away from the table mid-hand — every game here takes the ante
+	 *  at settlement rather than at the deal, so leaving used to be a free
+	 *  abort: deal, look, walk out, no cost. */
+	void SettleAndLeave();
 	void BeginDrive();
 
 	/** What this drive actually costs. The guidebook's approach when the
@@ -152,5 +180,17 @@ private:
 	bool bHandPending = false;
 	int32 HandNumber = 0;
 	int32 HandDay = 0;
+	/** Which stake notch is selected, and what the live hand is actually
+	 *  playing for. Two fields rather than one because they are allowed to
+	 *  differ: poker and liar's dice let you size the bet with the hand in
+	 *  front of you — that *is* the decision — while blackjack locks at the
+	 *  deal, because raising after you have seen your cards is not a game. */
+	int32 StakeNotch = 1;
+	double LiveStake = 0.0;
+	/** The evening, which nothing tracked before the table existed. You
+	 *  could lose two hundred dollars one $20 shrug at a time and never see
+	 *  a number that said so. */
+	int32 HandsSettled = 0;
+	double NightDelta = 0.0;
 	FTimerHandle DriveTimer;
 };

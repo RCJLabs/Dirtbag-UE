@@ -319,6 +319,98 @@ void ADirtbagHUD::DrawSession(UDirtbagGameInstance* Game, float W, float H)
 	}
 }
 
+void ADirtbagHUD::DrawFire(UDirtbagGameInstance* Game, float W, float H)
+{
+	const FDirtbagFireReadout& T = Game->FireReadout;
+	const float PanelW = 480.f;
+	const float X = (W - PanelW) * 0.5f;
+
+	// The panel grows with what is on it rather than reserving room for the
+	// biggest possible night: three reads at poker, one tell at dice, none
+	// at blackjack, and no result line until there has been a result.
+	const float Rows = 1.f + (T.Yours >= 0.0 ? 1.f : 0.f) +
+	                   (T.YoursLine.IsEmpty() ? 0.f : 1.f) +
+	                   (T.TableLine.IsEmpty() ? 0.f : 1.f) +
+	                   static_cast<float>(T.Reads.Num()) +
+	                   (T.LastLine.IsEmpty() ? 0.f : 1.f);
+	const float PanelH = 74.f + Rows * 22.f;
+	float Y = H - 110.f - PanelH;
+
+	DrawRect(kPanel, X - 18.f, Y - 14.f, PanelW + 36.f, PanelH);
+
+	// The heading says what game and what the evening has come to. The
+	// running total is up here with the name rather than buried at the
+	// bottom, because "down $140" is the fact that should decide whether
+	// there is a next hand.
+	FString Head = T.GameLine;
+	if (T.HandsTonight > 0)
+	{
+		Head += FString::Printf(TEXT("      %d hand%s tonight,  %+.0f"),
+		                        T.HandsTonight,
+		                        T.HandsTonight == 1 ? TEXT("") : TEXT("s"),
+		                        T.NightDelta);
+	}
+	DrawText(Head,
+	         T.HandsTonight > 0 && T.NightDelta < 0.0
+	             ? FLinearColor(0.85f, 0.55f, 0.40f, 1.f)
+	             : kInk,
+	         X, Y, GEngine->GetMediumFont(), 1.f);
+	Y += 30.f;
+
+	if (T.Yours >= 0.0)
+	{
+		// Poker's hand strength and blackjack's total against 21 are the
+		// same shape of fact -- how much have you got -- so they get the
+		// same bar, and it is the one thing on this table you see exactly.
+		DrawBar(TEXT("YOUR HAND"), T.Yours, X, Y, 260.f, 11.f,
+		        T.Yours > 1.0 ? FLinearColor(0.85f, 0.25f, 0.20f, 1.f)
+		                      : FLinearColor(0.60f, 0.70f, 0.85f, 1.f));
+		Y += 26.f;
+	}
+	if (!T.YoursLine.IsEmpty())
+	{
+		DrawText(T.YoursLine, kInk, X, Y, GEngine->GetMediumFont(), 1.f);
+		Y += 22.f;
+	}
+	if (!T.TableLine.IsEmpty())
+	{
+		DrawText(T.TableLine, kDim, X, Y, GEngine->GetSmallFont(), 1.f);
+		Y += 22.f;
+	}
+
+	// The reads, kept beside the decision they inform. This is the whole
+	// reason the fire needed a table: a read that has scrolled away is a
+	// read you did not get, and rapport is the skill these games are made
+	// of.
+	for (const FString& Read : T.Reads)
+	{
+		DrawText(Read, FLinearColor(0.80f, 0.78f, 0.70f, 1.f), X + 12.f, Y,
+		         GEngine->GetSmallFont(), 1.f);
+		Y += 22.f;
+	}
+
+	if (!T.LastLine.IsEmpty())
+	{
+		DrawText(FString::Printf(TEXT("%s  %+.0f"), *T.LastLine, T.LastDelta),
+		         T.LastDelta >= 0.0 ? FLinearColor(0.45f, 0.80f, 0.50f, 1.f)
+		                            : FLinearColor(0.85f, 0.45f, 0.35f, 1.f),
+		         X, Y, GEngine->GetSmallFont(), 1.f);
+		Y += 22.f;
+	}
+
+	// The verbs, named for tonight's game, and the stake. Both are always
+	// on screen: the grammar is two keys and it is not worth memorising.
+	const FString Verbs =
+	    T.bHandLive
+	        ? FString::Printf(TEXT("C  %s        F  %s"), *T.CommitVerb,
+	                          *T.BackVerb)
+	        : FString(TEXT("C  deal"));
+	DrawText(Verbs, kInk, X, Y + 6.f, GEngine->GetSmallFont(), 1.f);
+	DrawText(FString::Printf(TEXT("stake $%.0f   (1/2/3)"), T.Stake),
+	         T.StakeNotch >= 2 ? FLinearColor(0.90f, 0.75f, 0.30f, 1.f) : kDim,
+	         X + PanelW - 150.f, Y + 6.f, GEngine->GetSmallFont(), 1.f);
+}
+
 void ADirtbagHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -336,5 +428,11 @@ void ADirtbagHUD::DrawHUD()
 	if (Game->SessionReadout.bActive)
 	{
 		DrawSession(Game, W, H);
+	}
+	else if (Game->FireReadout.bActive)
+	{
+		// Never both. You are not at the fire while you are on the wall,
+		// and if a bug ever says you are, the wall is the one that matters.
+		DrawFire(Game, W, H);
 	}
 }

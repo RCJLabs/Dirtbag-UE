@@ -25,4 +25,8 @@ private:
 
 	void DrawNeeds(class UDirtbagGameInstance* Game, float H);
 	void DrawSession(class UDirtbagGameInstance* Game, float W, float H);
+	/** The fire's table. Sits where the session bar sits, because they are
+	 *  never both up: the two are the same slot in the player's attention,
+	 *  one for the wall and one for the evening. */
+	void DrawFire(class UDirtbagGameInstance* Game, float W, float H);
 };

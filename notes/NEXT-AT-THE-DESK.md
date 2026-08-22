@@ -57,29 +57,62 @@ Walk up to the shop:
   your name. Worn shoes still outrank the dream at the counter.
 - The HUD's saving-for line carries the same number everywhere else.
 
-## 4. The fire deals now · ~10 min to try
+## 4. The fire has a table now · ~10 min to try
 
-At the fire, **E still sits** (rapport, psyche, talk). New: the prompt
-names **what is out tonight** — cards, dice or blackjack, rotating with
-the day, because you join what is being played.
+At the fire, **E still sits** (rapport, psyche, talk). It refuses while
+you are holding a hand — *"Finish the hand first"* — because sitting
+passes hours and hours cross midnight, which would delete the hand.
 
-The grammar is two keys: **C commits, F backs down.**
+Walk into the fire's trigger and **a panel comes up** where the climbing
+session bar normally sits: tonight's game, your hand, the reads, the pot,
+the stake, and the two verbs. It stays there while you think. **This
+replaced the toasts**, which expired in twelve seconds and took the reads
+with them.
 
-- **Cards (poker)**: C deals — you see your hand as a number and *them*
-  as sentences ("Margo is not even looking at her cards"). C stays
-  ($20 on top of the $5 ante), F throws them in (ante only). The reads
-  sharpen with rapport: the better you know the Lot, the more the game
-  pays. Measured: never folding loses ~$5 a hand; reading friends wins
-  ~$10.
+The grammar is still two keys — **C commits, F backs down** — and now
+they are *named on screen* for whichever game is out.
+
+- **Cards (poker)**: C deals. Your hand is a **bar**; the Lot are
+  sentences ("Margo is not even looking at her cards"), listed under it
+  and kept there. C stays in, F throws them in (ante only).
 - **Dice (liar's dice)**: C deals — your five dice, somebody's bid, and
   what they looked like saying it. C calls the lie, F lets it go round.
-  You cannot read a stranger; you can read a friend.
-- **Blackjack**: C deals, C hits, F sticks and settles. Nobody in it but
-  you and the deck — the game for a climber who knows nobody yet. Played
-  well it costs the ante and nothing more.
+- **Blackjack**: C deals, C hits, F sticks and settles. The bar is your
+  total **against 21**, so it says how close to the edge you are. Nobody
+  in it but you and the deck.
 
-One known blockout edge: if you ever place a **second** fire spot,
-blackjack's live hand is shared between them. One fire per level for now.
+**New: 1/2/3 set the stake** — the ante, half the ceiling, the ceiling
+($5 / $20 / $40). Same three keys as the shop's dream counter, same
+question in both places. Poker and dice let you size the bet *after* you
+have seen the hand, because that is the decision; blackjack locks at the
+deal.
+
+The heading counts the evening: **how many hands and what you are up or
+down**, which nothing tracked before and which is the number that should
+decide whether there is a next hand.
+
+**Two things about the balance changed, and both are one dial if you
+disagree** (`notes/phase5-the-fire-table.md` has the tables):
+
+- Poker **pays about a quarter of what it did**. Betting the ceiling used
+  to be free money — it won at every rapport by a factor of ten, so
+  "press 3" was the whole strategy — and the Lot now folds harder against
+  a big raise. A friend playing the read goes from ~$10 a hand to ~$2.60.
+- **A stranger now loses money at poker** (~-$0.80) where it used to pay
+  ~+$3. Liar's dice already charged a stranger $7.69 for the same
+  ignorance; poker was contradicting its own table.
+
+Walking out of the trigger mid-hand now **folds** rather than being a free
+look, and toasts the result, since the table goes with you.
+
+**One thing to re-check in the details panel:** the fire spot's
+`CardStake` is gone, replaced by **`StartingStakeNotch`** (0/1/2, default
+1 — the old $20). Nothing needs re-placing; the default is the old
+behaviour.
+
+One known blockout edge, unchanged: if you ever place a **second** fire
+spot, blackjack's live hand is shared between them. One fire per level for
+now.
 
 ## 5. Place the Shaded Cave · ~30 min · **the one real build job**
 

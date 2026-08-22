@@ -78,6 +78,27 @@ struct CampfireDials {
   // when you bet big with the nuts.
   double theyStayAbove = 0.45;
 
+  // How much better a hand the table needs before it will match a *big*
+  // raise, on top of `theyStayAbove` and scaled by how much of the ceiling
+  // you shoved.
+  //
+  // Added when the fire got a table and the stake became something the
+  // player chooses (2026-08-22). Measured first, and the measurement was
+  // damning: with the threshold flat, the Lot called a $40 shove exactly as
+  // often as a $5 nudge, so the stake scaled the winnings **linearly and
+  // never flipped sign** -- +$3.35 a hand at the ceiling against +$0.01 at
+  // the ante, at every rapport from stranger to friend. A control whose
+  // only correct setting is "maximum" is not a decision, it is a lever with
+  // one end.
+  //
+  // The dial comment above already said what should happen -- *"a big raise
+  // into a weak table wins the antes and nothing else"* -- and it did not,
+  // because nothing read the size of the raise. Now it does: shove and they
+  // fold, so you win the middle and no more; nudge and they call, so a good
+  // hand gets paid. Downside is untouched either way, because losing costs
+  // what you put in whatever the table thought of it.
+  double shoveMakesThemFold = 0.30;
+
   // An evening of cards is worth about an eighth of a day of climbing
   // together, which is the honest exchange rate: it is company, not a rope.
   double rapportPerHand = 0.01;
@@ -222,5 +243,38 @@ CampfireResult Stand(BlackjackHand& hand, double& cash, double& psyche,
 // "Margo is not even looking at her cards." What a read looks like in
 // words, which is all the player should ever see of a number.
 std::string ReadText(double read);
+
+// --- What is out tonight -----------------------------------------------------
+//
+// You join what is being played rather than ordering off a menu, so which
+// game is out is a fact about the day rather than a choice the player
+// makes. That makes it a *rule*, and rules live here.
+//
+// It lived in the presentation layer until 2026-08-22, recomputed as
+// `day % 3` in four separate places -- the fire's prompt, the deal, the
+// commit and the back-down. Four copies of one rule is three chances for
+// two of them to disagree about which game they are settling, and the
+// engine has no test that could ever notice.
+enum class FiresideGame { Cards = 0, Dice = 1, Blackjack = 2 };
+constexpr int kFiresideGameCount = 3;
+
+FiresideGame WhatsOutTonight(int day);
+
+// "cards", "liar's dice", "blackjack". Lower case because it goes into the
+// middle of a sentence: "cards out tonight".
+const char* GameName(FiresideGame game);
+
+// --- What you put in ---------------------------------------------------------
+//
+// Three stakes, cheapest first: the ante, half the ceiling, the ceiling.
+// The engine used to carry one hand-typed 20.0 and no way to change it, so
+// a player could not bet small on a bad hand -- which removes the only
+// decision poker has that is not "fold".
+//
+// Derived from the dials rather than typed into the engine, so retuning
+// `maxStake` moves what the keys do instead of leaving the top notch
+// quietly below the ceiling it is meant to be.
+constexpr int kStakeNotches = 3;
+double StakeNotch(int notch, const CampfireDials& dials = CampfireDials{});
 
 }  // namespace dirtbag

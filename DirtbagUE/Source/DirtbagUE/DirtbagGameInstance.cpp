@@ -1090,6 +1090,23 @@ FString UDirtbagGameInstance::StandBlackjack(int32 HandNumber, double Stake)
 	return FString(Res.line.c_str());
 }
 
+EDirtbagFiresideGame UDirtbagGameInstance::WhatsOutTonight() const
+{
+	return static_cast<EDirtbagFiresideGame>(
+	    dirtbag::WhatsOutTonight(Player.Day));
+}
+
+FString UDirtbagGameInstance::FiresideGameName(EDirtbagFiresideGame Which) const
+{
+	return FString(
+	    dirtbag::GameName(static_cast<dirtbag::FiresideGame>(Which)));
+}
+
+double UDirtbagGameInstance::FireStake(int32 Notch) const
+{
+	return dirtbag::StakeNotch(Notch);
+}
+
 double UDirtbagGameInstance::DreamCost(EDirtbagDream Which) const
 {
 	return dirtbag::CostOf(static_cast<dirtbag::Dream>(Which));

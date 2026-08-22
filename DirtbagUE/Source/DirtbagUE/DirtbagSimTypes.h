@@ -746,6 +746,16 @@ struct FDirtbagBlackjack
 	int32 Draws = 0;
 };
 
+/** Which game is out at the fire tonight. See Sim/DirtbagCampfire.h — the
+ *  day decides, not the player, so this is read rather than set. */
+UENUM(BlueprintType)
+enum class EDirtbagFiresideGame : uint8
+{
+	Cards     UMETA(DisplayName = "Cards"),
+	Dice      UMETA(DisplayName = "Liar's dice"),
+	Blackjack UMETA(DisplayName = "Blackjack"),
+};
+
 /** What the money is for. See Sim/DirtbagDreams.h — the price is the
  *  buffer, not the number. */
 UENUM(BlueprintType)

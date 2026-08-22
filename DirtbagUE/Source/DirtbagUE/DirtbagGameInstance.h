@@ -55,6 +55,102 @@ struct FDirtbagSessionReadout
 };
 
 /**
+ * The fire's table, drawn.
+ *
+ * The three campfire games shipped riding on a toast that expires in twelve
+ * seconds, which was the campfire note's own stated plan — *"the toast is
+ * the whole table UI until an evening of play proves the fire earns a
+ * widget"* — and an evening of play proved it (Evan, 2026-08-22:
+ * *"definitely will need to improve the fire games"*).
+ *
+ * What a toast could not do: hold your hand on screen while you think about
+ * it, keep the reads beside the decision they inform, show a blackjack hand
+ * that takes four keypresses to finish without each press erasing the last,
+ * or tell you what the *evening* has cost — which is the number that makes
+ * the fire a decision and which nothing tracked at all.
+ *
+ * Same shape as FDirtbagSessionReadout above and for the same reason: the
+ * spot fills it, the HUD draws it, and a real widget later binds to the
+ * fields the canvas HUD already uses.
+ */
+USTRUCT(BlueprintType)
+struct FDirtbagFireReadout
+{
+	GENERATED_BODY()
+
+	/** You are at the fire. The table draws whenever this is true, hand or
+	 *  no hand — the point is that you can see what is on offer before you
+	 *  commit to it. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	bool bActive = false;
+
+	/** A hand is live and the verbs mean something. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	bool bHandLive = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	EDirtbagFiresideGame Tonight = EDirtbagFiresideGame::Cards;
+
+	/** "CARDS", "LIAR'S DICE", "BLACKJACK" — the table's heading. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FString GameLine;
+
+	/** Your hand as a fraction, for the bar: poker's strength, blackjack's
+	 *  total against 21. Negative when the game has no such thing (dice),
+	 *  which is how the HUD knows not to draw a bar for it. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	double Yours = -1.0;
+
+	/** "Under your cup:  3 5 5 1 6" / "You: 17, on three cards". The line
+	 *  that says what you are holding, in the game's own words. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FString YoursLine;
+
+	/** What the table is showing: the bid, the dealer's up card, the pot. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FString TableLine;
+
+	/** The reads and tells, one per line, kept on screen for as long as the
+	 *  decision they inform is. A read that has scrolled away is a read you
+	 *  did not get. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	TArray<FString> Reads;
+
+	/** What C does and what F does, named for tonight's game — "stay" and
+	 *  "throw them in" are not "call" and "let it go". */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FString CommitVerb;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FString BackVerb;
+
+	/** What you are putting in, and which of the three notches that is. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	double Stake = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	int32 StakeNotch = 1;
+
+	/** The last hand's sentence, and what it cost. Stays until the next
+	 *  deal rather than expiring, so the thing you are deciding about is
+	 *  still on screen while you decide. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FString LastLine;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	double LastDelta = 0.0;
+
+	/** How the evening is going: hands played and the running total. This
+	 *  is the number the toast could never show and the only one that turns
+	 *  a series of $20 shrugs into a decision about whether to stop. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	int32 HandsTonight = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	double NightDelta = 0.0;
+};
+
+/**
  * Where you are climbing. A gym has a thermostat and somebody else's brush;
  * a crag has a shade line, dirt, and lines nobody has done.
  *
@@ -115,6 +211,10 @@ public:
 	/** Live session readout for the HUD; the wall keeps this current. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	FDirtbagSessionReadout SessionReadout;
+
+	/** The fire's table; the fire spot keeps this current. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	FDirtbagFireReadout FireReadout;
 
 	/** True when the current Player came from disk rather than a fresh start. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
@@ -594,6 +694,23 @@ public:
 	/** The hand in progress — Hit and Stand both work on this. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
 	FDirtbagBlackjack LastBlackjack;
+
+	/** What is out tonight. The day decides — you join what is being played
+	 *  rather than ordering off a menu — so this is asked, never set. Lived
+	 *  in the fire spot as four separate `Day % 3` expressions until the
+	 *  table was built. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Campfire")
+	EDirtbagFiresideGame WhatsOutTonight() const;
+
+	/** "cards" / "liar's dice" / "blackjack", lower case for the middle of
+	 *  a sentence. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Campfire")
+	FString FiresideGameName(EDirtbagFiresideGame Which) const;
+
+	/** What notch 0, 1 or 2 puts on the table, from the campfire dials. The
+	 *  fire's 1/2/3 keys are these, so retuning `maxStake` moves them. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Campfire")
+	double FireStake(int32 Notch) const;
 
 	// --- Dreams -----------------------------------------------------------
 	// The thing the money is for. Measured (notes/dreams-what-money-is-worth

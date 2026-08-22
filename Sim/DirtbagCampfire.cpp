@@ -79,8 +79,16 @@ CampfireResult PlayPoker(const CampfireHand& hand, double& cash,
   double best = -1.0;
   std::size_t bestAt = 0;
   bool anyIn = false;
+  //
+  // What they need scales with what you shoved: the same hand that calls a
+  // nudge lays down against the ceiling.
+  const double demand =
+      std::min(0.99, dials.theyStayAbove +
+                         dials.shoveMakesThemFold *
+                             (dials.maxStake > 0.0 ? put / dials.maxStake
+                                                   : 0.0));
   for (std::size_t i = 0; i < hand.truth.size(); i++) {
-    if (hand.truth[i] < dials.theyStayAbove) continue;
+    if (hand.truth[i] < demand) continue;
     stayed++;
     anyIn = true;
     if (hand.truth[i] > best) { best = hand.truth[i]; bestAt = i; }
@@ -314,6 +322,40 @@ CampfireResult Stand(BlackjackHand& hand, double& cash, double& psyche,
     out.line = "The house had " + std::to_string(dealer) + ".";
   }
   return out;
+}
+
+FiresideGame WhatsOutTonight(int day) {
+  // Days are never negative in play, but a migrated save could hand one
+  // over and C++ says -1 % 3 is -1, which would index off the end of every
+  // switch below it.
+  const int d = ((day % kFiresideGameCount) + kFiresideGameCount) %
+                kFiresideGameCount;
+  return static_cast<FiresideGame>(d);
+}
+
+const char* GameName(FiresideGame game) {
+  switch (game) {
+    case FiresideGame::Cards:
+      return "cards";
+    case FiresideGame::Dice:
+      return "liar's dice";
+    default:
+      return "blackjack";
+  }
+}
+
+double StakeNotch(int notch, const CampfireDials& dials) {
+  switch (notch) {
+    case 0:
+      // The smallest thing you can put in beyond the beer.
+      return dials.ante;
+    case 1:
+      return dials.maxStake * 0.5;
+    default:
+      // The top notch is the ceiling itself rather than something near it,
+      // so a player who has chosen to bet the maximum actually has.
+      return dials.maxStake;
+  }
 }
 
 std::string ReadText(double read) {

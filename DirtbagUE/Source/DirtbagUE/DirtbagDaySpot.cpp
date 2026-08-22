@@ -148,12 +148,13 @@ FString ADirtbagDaySpot::PromptText() const
 			Who += P.Name;
 		}
 		// Which game is out tonight rotates with the day: you join what is
-		// being played, you do not order off a menu.
-		const TCHAR* Tonight[3] = {TEXT("cards"), TEXT("dice"),
-		                           TEXT("blackjack")};
+		// being played, you do not order off a menu. The rule lives in the
+		// sim -- this used to be the fourth hand-written copy of `% 3`,
+		// with its own separate list of names to get out of step.
 		return FString::Printf(
 		    TEXT("Sit at the fire?  (E)  -  %s.  %s out tonight (C).  %s"),
-		    *Who, Tonight[Game->Player.Day % 3], *Game->WaitAdvice());
+		    *Who, *Game->FiresideGameName(Game->WhatsOutTonight()),
+		    *Game->WaitAdvice());
 	}
 	case EDirtbagSpotKind::Rest:
 	{
@@ -182,6 +183,11 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 	}
 	bPlayerNear = true;
 	Say(PromptText(), FColor::Cyan);
+	if (Kind == EDirtbagSpotKind::Fire)
+	{
+		StakeNotch = FMath::Clamp(StartingStakeNotch, 0, 2);
+		RefreshFireTable();
+	}
 
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
 	{
@@ -213,6 +219,11 @@ void ADirtbagDaySpot::OnTriggerEnd(UPrimitiveComponent*, AActor* OtherActor,
 		return;
 	}
 	bPlayerNear = false;
+	// Standing up mid-hand is not a free look. Every game here takes the
+	// ante at settlement rather than at the deal, so walking away used to
+	// cost nothing at all: deal, read the table, leave.
+	SettleAndLeave();
+	RefreshFireTable();
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
 	{
 		DisableInput(PC);
@@ -372,6 +383,15 @@ void ADirtbagDaySpot::OnInteract()
 	}
 	case EDirtbagSpotKind::Fire:
 	{
+		// Not while you are holding cards. Sitting passes hours, hours can
+		// cross midnight, and a hand keyed on yesterday's day would simply
+		// stop existing -- unsettled, unpaid, and gone from the table with
+		// nothing said. Finish the hand first; that is what you would do.
+		if (bHandPending && HandDay == Game->Player.Day)
+		{
+			Say(TEXT("Finish the hand first."), FColor::Silver, 4.f);
+			return;
+		}
 		const double Until = Game->HoursUntilWindow();
 		const double Hours =
 		    (bWaitForWindow && Until > 0.0) ? Until : RestHours;
@@ -382,6 +402,10 @@ void ADirtbagDaySpot::OnInteract()
 		        : FString::Printf(TEXT("%.1f hours at the fire.  %s"), Hours,
 		                          *Heard),
 		    FColor::Yellow, 6.f);
+		// The hours may have crossed midnight into a different game and a
+		// clean evening, so the table is rebuilt rather than left saying
+		// what was out last night.
+		RefreshFireTable();
 		break;
 	}
 	case EDirtbagSpotKind::Rest:
@@ -440,6 +464,103 @@ double ADirtbagDaySpot::DriveHours() const
 	return TravelHours;
 }
 
+void ADirtbagDaySpot::RefreshFireTable()
+{
+	if (!Game)
+	{
+		return;
+	}
+	FDirtbagFireReadout& T = Game->FireReadout;
+	T.bActive = bPlayerNear && Kind == EDirtbagSpotKind::Fire;
+	if (!T.bActive)
+	{
+		T.bHandLive = false;
+		return;
+	}
+
+	const bool bSameEvening = HandDay == Game->Player.Day;
+	T.Tonight = Game->WhatsOutTonight();
+	T.GameLine = Game->FiresideGameName(T.Tonight).ToUpper();
+	T.StakeNotch = StakeNotch;
+	T.bHandLive = bHandPending && bSameEvening;
+	// The stake on show is the one that would actually be played: the live
+	// one while a hand is up, the selected one while you are deciding
+	// whether to deal. Showing the selected notch during a locked blackjack
+	// hand would be a lie about what is on the table.
+	T.Stake = T.bHandLive ? LiveStake : Game->FireStake(StakeNotch);
+	T.HandsTonight = bSameEvening ? HandsSettled : 0;
+	T.NightDelta = bSameEvening ? NightDelta : 0.0;
+	if (!bSameEvening)
+	{
+		// A new evening starts clean, including the last hand's sentence --
+		// what happened last night is not news at this fire.
+		T.LastLine.Reset();
+		T.LastDelta = 0.0;
+	}
+
+	T.Reads.Reset();
+	T.Yours = -1.0;
+	T.YoursLine.Reset();
+	T.TableLine.Reset();
+
+	switch (T.Tonight)
+	{
+	case EDirtbagFiresideGame::Cards:
+		T.CommitVerb = TEXT("stay in");
+		T.BackVerb = TEXT("throw them in");
+		if (T.bHandLive)
+		{
+			const FDirtbagCampfireHand H = Game->DealCampfireHand(HandNumber);
+			T.Yours = H.Yours;
+			T.TableLine = FString::Printf(TEXT("Pot $%.0f"), H.Pot);
+			for (const FDirtbagCampfireRead& R : H.Reads)
+			{
+				T.Reads.Add(R.Tell);
+			}
+		}
+		break;
+
+	case EDirtbagFiresideGame::Dice:
+		T.CommitVerb = TEXT("call it");
+		T.BackVerb = TEXT("let it go round");
+		if (T.bHandLive)
+		{
+			const FDirtbagLiarsDice R = Game->DealLiarsDice(HandNumber);
+			FString Cup;
+			for (int32 Pip : R.Yours)
+			{
+				Cup += FString::Printf(TEXT("  %d"), Pip);
+			}
+			T.YoursLine = FString::Printf(TEXT("Under your cup:%s"), *Cup);
+			T.TableLine = FString::Printf(TEXT("%s   (%d dice out, ones wild)"),
+			                              *R.Bid, R.DiceOnTable);
+			T.Reads.Add(R.Tell);
+		}
+		break;
+
+	default:
+		T.CommitVerb = TEXT("another card");
+		T.BackVerb = TEXT("stick");
+		if (T.bHandLive)
+		{
+			const FDirtbagBlackjack& BJ = Game->LastBlackjack;
+			// Against 21 rather than against nothing, so the bar says how
+			// close to the edge you are -- which is the entire question
+			// blackjack asks and the one a bare number makes you do
+			// arithmetic for.
+			T.Yours = static_cast<double>(BJ.Yours) / 21.0;
+			T.YoursLine =
+			    BJ.Draws > 0
+			        ? FString::Printf(TEXT("You: %d, on %d more"), BJ.Yours,
+			                          BJ.Draws)
+			        : FString::Printf(TEXT("You: %d"), BJ.Yours);
+			T.TableLine =
+			    FString::Printf(TEXT("The deck shows %d"), BJ.DealerShows);
+		}
+		break;
+	}
+}
+
 void ADirtbagDaySpot::OnCommit()
 {
 	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Fire)
@@ -455,85 +576,38 @@ void ADirtbagDaySpot::OnCommit()
 		HandDay = Game->Player.Day;
 		HandNumber = 0;
 		bHandPending = false;
+		HandsSettled = 0;
+		NightDelta = 0.0;
 	}
 
-	const int32 Tonight = Game->Player.Day % 3;
+	const EDirtbagFiresideGame Tonight = Game->WhatsOutTonight();
 	if (!bHandPending)
 	{
 		HandNumber++;
 		bHandPending = true;
-		switch (Tonight)
+		LiveStake = Game->FireStake(StakeNotch);
+		if (Tonight == EDirtbagFiresideGame::Blackjack)
 		{
-		case 0:   // cards
-		{
-			const FDirtbagCampfireHand Hand =
-			    Game->DealCampfireHand(HandNumber);
-			FString Reads;
-			for (const FDirtbagCampfireRead& R : Hand.Reads)
-			{
-				Reads += TEXT("\n") + R.Tell;
-			}
-			Say(FString::Printf(TEXT("Your hand: %.0f of 100.  Pot $%.0f.%s"
-			                         "\nStay (C, $%.0f more) or throw them "
-			                         "in (F)."),
-			                    Hand.Yours * 100.0, Hand.Pot, *Reads,
-			                    CardStake),
-			    FColor::White, 12.f);
-			break;
+			// Deal it, so the table has a hand to show. Poker and dice
+			// re-derive theirs; blackjack's is mutable state and lives on
+			// the game instance.
+			Game->DealBlackjack(HandNumber);
 		}
-		case 1:   // liar's dice
-		{
-			const FDirtbagLiarsDice R = Game->DealLiarsDice(HandNumber);
-			FString Cup;
-			for (int32 Pip : R.Yours)
-			{
-				Cup += FString::Printf(TEXT(" %d"), Pip);
-			}
-			Say(FString::Printf(TEXT("Under your cup:%s  (%d dice on the "
-			                         "table, ones wild)\n%s\n%s\nCall it "
-			                         "(C, $%.0f) or let it go round (F)."),
-			                    *Cup, R.DiceOnTable, *R.Bid, *R.Tell,
-			                    CardStake),
-			    FColor::White, 12.f);
-			break;
-		}
-		default:   // blackjack
-		{
-			const FDirtbagBlackjack H = Game->DealBlackjack(HandNumber);
-			Say(FString::Printf(TEXT("You: %d.  The deck shows %d.\nAnother "
-			                         "card (C) or stick (F, $%.0f down)."),
-			                    H.Yours, H.DealerShows, CardStake),
-			    FColor::White, 10.f);
-			break;
-		}
-		}
+		RefreshFireTable();
 		return;
 	}
 
 	// A hand is live: C commits.
 	switch (Tonight)
 	{
-	case 0:
-	{
-		const FString Line =
-		    Game->PlayCampfireHand(HandNumber, CardStake, false);
-		Say(FString::Printf(TEXT("%s  %+.0f.  $%.0f in the pocket.  "
-		                         "Again (C)?"),
-		                    *Line, Game->LastHandCash, Game->Player.Cash),
-		    Game->LastHandCash >= 0.0 ? FColor::Green : FColor::Orange, 8.f);
-		bHandPending = false;
+	case EDirtbagFiresideGame::Cards:
+		SettleFireHand(Game->PlayCampfireHand(HandNumber, LiveStake, false));
 		break;
-	}
-	case 1:
-	{
-		const FString Line = Game->PlayLiarsDice(HandNumber, CardStake, true);
-		Say(FString::Printf(TEXT("%s  %+.0f.  $%.0f in the pocket.  "
-		                         "Again (C)?"),
-		                    *Line, Game->LastHandCash, Game->Player.Cash),
-		    Game->LastHandCash >= 0.0 ? FColor::Green : FColor::Orange, 8.f);
-		bHandPending = false;
+
+	case EDirtbagFiresideGame::Dice:
+		SettleFireHand(Game->PlayLiarsDice(HandNumber, LiveStake, true));
 		break;
-	}
+
 	default:
 	{
 		// Blackjack's C is another card, not a settlement -- the hand
@@ -542,57 +616,118 @@ void ADirtbagDaySpot::OnCommit()
 		if (Game->LastBlackjack.bBust)
 		{
 			// Going over settles at once; there is nothing left to decide.
-			const FString Line =
-			    Game->StandBlackjack(HandNumber, CardStake);
-			Say(FString::Printf(TEXT("Drew %d.  %s  %+.0f.  $%.0f in the "
-			                         "pocket.  Again (C)?"),
-			                    Card, *Line, Game->LastHandCash,
-			                    Game->Player.Cash),
-			    FColor::Orange, 8.f);
-			bHandPending = false;
+			SettleFireHand(
+			    FString::Printf(TEXT("Drew %d.  %s"), Card,
+			                    *Game->StandBlackjack(HandNumber, LiveStake)));
 		}
 		else
 		{
-			Say(FString::Printf(TEXT("Drew %d.  You: %d.  Another (C) or "
-			                         "stick (F)?"),
-			                    Card, Game->LastBlackjack.Yours),
-			    FColor::White, 10.f);
+			RefreshFireTable();
 		}
 		break;
 	}
 	}
+}
+
+void ADirtbagDaySpot::SettleFireHand(const FString& Line)
+{
+	if (!Game)
+	{
+		return;
+	}
+	FDirtbagFireReadout& T = Game->FireReadout;
+	T.LastLine = Line;
+	T.LastDelta = Game->LastHandCash;
+	NightDelta += Game->LastHandCash;
+	HandsSettled++;
+	bHandPending = false;
+	RefreshFireTable();
 }
 
 void ADirtbagDaySpot::OnBackDown()
 {
-	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Fire ||
-	    !bHandPending || HandDay != Game->Player.Day)
+	if (!bPlayerNear)
 	{
 		return;
 	}
-	const int32 Tonight = Game->Player.Day % 3;
-	FString Line;
-	switch (Tonight)
-	{
-	case 0:
-		Line = Game->PlayCampfireHand(HandNumber, 0.0, true);
-		break;
-	case 1:
-		Line = Game->PlayLiarsDice(HandNumber, 0.0, false);
-		break;
-	default:
-		Line = Game->StandBlackjack(HandNumber, CardStake);
-		break;
-	}
-	Say(FString::Printf(TEXT("%s  %+.0f.  $%.0f in the pocket.  Again (C)?"),
-	                    *Line, Game->LastHandCash, Game->Player.Cash),
-	    Game->LastHandCash >= 0.0 ? FColor::Green : FColor::Orange, 8.f);
-	bHandPending = false;
+	SettleAndLeave();
 }
 
-void ADirtbagDaySpot::OnChoose1() { ChooseDreamAt(EDirtbagDream::Rig); }
-void ADirtbagDaySpot::OnChoose2() { ChooseDreamAt(EDirtbagDream::WarChest); }
-void ADirtbagDaySpot::OnChoose3() { ChooseDreamAt(EDirtbagDream::HomeBase); }
+void ADirtbagDaySpot::SettleAndLeave()
+{
+	if (!Game || Kind != EDirtbagSpotKind::Fire || !bHandPending ||
+	    HandDay != Game->Player.Day)
+	{
+		return;
+	}
+	// One body for both F and standing up, because they do the same thing
+	// to the hand. The difference is only who decided: pressing F is a
+	// decision, walking away is what a hand does when the person holding it
+	// stands up -- and every game here takes the ante at settlement rather
+	// than at the deal, so leaving used to be a free look at the table.
+	switch (Game->WhatsOutTonight())
+	{
+	case EDirtbagFiresideGame::Cards:
+		SettleFireHand(Game->PlayCampfireHand(HandNumber, 0.0, true));
+		break;
+	case EDirtbagFiresideGame::Dice:
+		SettleFireHand(Game->PlayLiarsDice(HandNumber, 0.0, false));
+		break;
+	default:
+		// Blackjack's F is not backing down, it is stopping -- a real
+		// settlement at the stake the hand was dealt for.
+		SettleFireHand(Game->StandBlackjack(HandNumber, LiveStake));
+		break;
+	}
+	// Walking away takes the table with it, so the sentence it just wrote
+	// would be drawn for no frames at all. That one case still needs a
+	// toast, which is exactly what a toast is for: news, after the fact,
+	// with nothing left to decide.
+	if (!bPlayerNear)
+	{
+		Say(FString::Printf(TEXT("%s  %+.0f."), *Game->FireReadout.LastLine,
+		                    Game->FireReadout.LastDelta),
+		    Game->FireReadout.LastDelta >= 0.0 ? FColor::Green : FColor::Orange,
+		    6.f);
+	}
+}
+
+bool ADirtbagDaySpot::SetStakeNotch(int32 Notch)
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Fire)
+	{
+		return false;
+	}
+	StakeNotch = FMath::Clamp(Notch, 0, 2);
+	// Poker and liar's dice size the bet with the hand in front of you --
+	// that is the decision the games are made of. Blackjack does not: the
+	// bet is placed before the cards, and raising once you can see them is
+	// not a game, so a live blackjack hand keeps the stake it was dealt
+	// for and the change applies to the next one.
+	if (bHandPending && HandDay == Game->Player.Day &&
+	    Game->WhatsOutTonight() != EDirtbagFiresideGame::Blackjack)
+	{
+		LiveStake = Game->FireStake(StakeNotch);
+	}
+	RefreshFireTable();
+	return true;
+}
+
+// The same three keys, and the same question in both places: how much of
+// the float is this worth. At the shop it buys a life; at the fire it buys
+// a hand.
+void ADirtbagDaySpot::OnChoose1()
+{
+	if (!SetStakeNotch(0)) { ChooseDreamAt(EDirtbagDream::Rig); }
+}
+void ADirtbagDaySpot::OnChoose2()
+{
+	if (!SetStakeNotch(1)) { ChooseDreamAt(EDirtbagDream::WarChest); }
+}
+void ADirtbagDaySpot::OnChoose3()
+{
+	if (!SetStakeNotch(2)) { ChooseDreamAt(EDirtbagDream::HomeBase); }
+}
 
 void ADirtbagDaySpot::ChooseDreamAt(EDirtbagDream Which)
 {
