@@ -47,4 +47,8 @@ echo "== engine includes reach what the engine names =="
 python3 tools/check-engine-includes.py
 
 echo
+echo "== FString never fed a std::string =="
+python3 tools/check-fstring.py
+
+echo
 echo "ALL CHECKS PASSED"

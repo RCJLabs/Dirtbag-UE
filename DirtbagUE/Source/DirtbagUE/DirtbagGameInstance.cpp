@@ -978,8 +978,9 @@ FDirtbagCampfireHand UDirtbagGameInstance::DealCampfireHand(int32 HandNumber)
 		// The name is put in front of the tell here rather than in the sim,
 		// because the sim has no business writing a sentence with somebody's
 		// name in it and the engine has to anyway.
-		R.Tell = FString::Printf(TEXT("%s %s."), *R.Who,
-		                         *FString(dirtbag::ReadText(Hand.reads[i])));
+		R.Tell = FString::Printf(
+		    TEXT("%s %s."), *R.Who,
+		    *FString(dirtbag::ReadText(Hand.reads[i]).c_str()));
 		Out.Reads.Add(R);
 	}
 	return Out;
@@ -1025,8 +1026,9 @@ FDirtbagLiarsDice UDirtbagGameInstance::DealLiarsDice(int32 RoundNumber)
 	{
 		Out.Bid = FString::Printf(TEXT("%s says there are %d %ds."),
 		                          *Out.Bidder, R.bidCount, R.bidFace);
-		Out.Tell = FString::Printf(TEXT("%s %s."), *Out.Bidder,
-		                           *FString(dirtbag::TellText(R.tell)));
+		Out.Tell = FString::Printf(
+		    TEXT("%s %s."), *Out.Bidder,
+		    *FString(dirtbag::TellText(R.tell).c_str()));
 	}
 	return Out;
 }
