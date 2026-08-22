@@ -626,6 +626,10 @@ void ADirtbagClimbWall::Tick(float DeltaSeconds)
 	MoveAlpha = FMath::Min(1.f, MoveAlpha + DeltaSeconds / FMath::Max(0.05f, Duration));
 	const float Eased = FMath::InterpEaseInOut(0.f, 1.f, MoveAlpha, 2.f);
 	Climber->SetWorldLocation(FMath::Lerp(MoveFrom, MoveTo, Eased));
+	// Re-derived as they travel: on a long traverse the line from the
+	// camera swings round, and a facing computed once at the first hold
+	// would be stale by the last one.
+	FaceTheRock();
 
 	if (MoveAlpha < 1.f)
 	{
