@@ -83,8 +83,10 @@ ADirtbagClimbWall::ADirtbagClimbWall()
 
 	Climber = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Climber"));
 	Climber->SetupAttachment(Root);
-	// Facing the rock, like the camera. See ClimberYaw.
-	Climber->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+	// Facing the rock, like the camera. One source of truth: the property,
+	// whose default the header sets before this body runs -- the previous
+	// hard-coded copy here is how a wrong guess got baked in twice.
+	Climber->SetRelativeRotation(FRotator(0.f, ClimberYaw, 0.f));
 	Climber->SetVisibility(false);
 	Climber->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 

@@ -128,10 +128,16 @@ protected:
 	 *  happened to be authored with and climbed with its back to the rock.
 	 *
 	 *  Exposed rather than hard-coded because it depends on the skeletal
-	 *  mesh's forward axis, which I cannot see from here. If your mannequin
-	 *  is authored facing -X rather than +X, this is +90 instead. */
+	 *  mesh's forward axis, which the container cannot see. It guessed -90
+	 *  and the screenshot said otherwise: unrotated, the mannequin faced
+	 *  the camera (+Y), so the mesh is authored facing +Y and -90 turned
+	 *  it side-on (+X) instead of into the rock (-Y). A quarter turn where
+	 *  it needed a half. 180 is the answer for this mesh; if a future
+	 *  climbing pack ships a mesh authored down +X, this becomes -90 --
+	 *  and it is live in the details panel, so the fix is a number field,
+	 *  never a rebuild. */
 	UPROPERTY(EditAnywhere, Category = "Dirtbag|Staging")
-	float ClimberYaw = -90.f;
+	float ClimberYaw = 180.f;
 
 	// --- Fallbacks -------------------------------------------------------
 	// Used only in levels with no game instance (isolated test maps). With
