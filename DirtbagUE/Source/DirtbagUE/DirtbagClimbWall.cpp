@@ -173,6 +173,18 @@ void ADirtbagClimbWall::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// The shot as placed, taken once and never taken again. Everything the
+	// camera does during a session moves it, so reading it a second time
+	// would read this actor's own output back as the author's intent.
+	if (SessionCamera && !bShotCaptured)
+	{
+		RestOffset = SessionCamera->GetRelativeLocation();
+		RestRotation = SessionCamera->GetRelativeRotation();
+		RestFov = SessionCamera->FieldOfView;
+		ShotLocal = RestOffset;
+		bShotCaptured = true;
+	}
+
 	Game = Cast<UDirtbagGameInstance>(GetGameInstance());
 	if (Game)
 	{
@@ -714,6 +726,10 @@ void ADirtbagClimbWall::Tick(float DeltaSeconds)
 	if (Phase != EPhase::Idle)
 	{
 		UpdateHud();
+		// After UpdateHud, deliberately: the shot reads the readout, and
+		// reading it before it was written for this frame would frame
+		// every move on the previous move's difficulty.
+		UpdateCamera(DeltaSeconds);
 	}
 
 	if (Phase != EPhase::Moving && Phase != EPhase::Falling)
@@ -817,10 +833,22 @@ void ADirtbagClimbWall::FinishAttempt()
 	{
 		const double SkinLeft =
 		    Game ? Game->Day.Session.SkinLeft : Session.SkinLeft;
-		Toast(FString::Printf(TEXT("Off at move %d of %d.  Skin left: %.1f"),
+		// The sentence leads and the numbers follow it. Phase 0's gate is
+		// that a watcher can tell how close that was *without reading a
+		// number*, and "off at move 9 of 12" is a number doing the work
+		// the staging is supposed to do. It stays -- a player who wants
+		// the count should have it -- but it stops being the first thing
+		// said, and what it says is now the sim's judgement rather than
+		// arithmetic the reader has to do.
+		const double Close = UDirtbagSimLibrary::HowClose(
+		    Current, Route.Moves.Num());
+		Toast(FString::Printf(TEXT("%s   (move %d of %d, skin %.1f)"),
+		                      *UDirtbagSimLibrary::HowCloseText(Close),
 		                      Current.Highpoint + 1, Route.Moves.Num(),
 		                      SkinLeft),
-		      FColor::Orange, 5.f);
+		      // A near miss reads warm and a nothing go reads grey, so the
+		      // colour carries it too for anybody not reading at all.
+		      Close >= 0.6 ? FColor::Yellow : FColor::Orange, 6.f);
 	}
 	GetWorldTimerManager().SetTimer(PhaseTimer, this,
 	                                &ADirtbagClimbWall::EndSession, EndPause,
@@ -830,6 +858,10 @@ void ADirtbagClimbWall::FinishAttempt()
 void ADirtbagClimbWall::EndSession()
 {
 	Climber->SetVisibility(false);
+	// Back to the shot as placed, so nothing an attempt did to the camera
+	// survives it and the next one starts from the author's framing rather
+	// than from wherever the last crux left it.
+	RestCamera();
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
 	{
 		if (APawn* Pawn = PC->GetPawn())
@@ -852,6 +884,104 @@ void ADirtbagClimbWall::EndSession()
 	// -- with the grade, the read, the belayer and how many burns are
 	// left, all of which changed while you were on the wall.
 	PushPrompt();
+}
+
+void ADirtbagClimbWall::RestCamera()
+{
+	if (!SessionCamera || !bShotCaptured)
+	{
+		return;
+	}
+	SessionCamera->SetRelativeLocation(RestOffset);
+	SessionCamera->SetRelativeRotation(RestRotation);
+	SessionCamera->SetFieldOfView(RestFov);
+	ShotLocal = RestOffset;
+	Tension = 0.f;
+	SwayTime = 0.f;
+}
+
+void ADirtbagClimbWall::UpdateCamera(float DeltaSeconds)
+{
+	if (!bCameraFollows || !SessionCamera || !Climber || !bShotCaptured ||
+	    Phase == EPhase::Idle)
+	{
+		// Idle leaves the placed shot exactly alone, so walking up to a
+		// wall looks like whatever Evan framed in the editor.
+		return;
+	}
+
+	// How hard the move in front of us is. Straight off the readout the HUD
+	// reads, so the shot and the bars can never disagree -- and so a
+	// watched attempt is framed like a driven one for free, because the
+	// readout already answers for both. Odds below zero means no move is
+	// pending (mid-move, or falling), and the framing holds where it was
+	// rather than snapping open halfway through a lunge.
+	const double Odds = Game ? Game->SessionReadout.Odds : -1.0;
+	if (Odds >= 0.0)
+	{
+		Tension = FMath::FInterpTo(Tension, static_cast<float>(1.0 - Odds),
+		                           DeltaSeconds, TensionEase);
+	}
+
+	// Out from the wall, and how far. Both come from the authored offset --
+	// the direction because the container cannot see which way this wall
+	// faces, and the distance because the shot Evan placed is the wide one.
+	FVector Out = RestOffset;
+	Out.Z = 0.f;
+	if (Out.IsNearlyZero())
+	{
+		// A camera placed directly above or below the root has no "out",
+		// and there is nothing here that could invent one.
+		return;
+	}
+	const float Wide = Out.Size();
+	Out.Normalize();
+
+	// Level with the climber and `Distance` out from the wall. The height
+	// lead is done by *aiming* rather than by rising: raise the camera as
+	// well and the two cancel, which is the version of this I wrote first.
+	const FVector Focus = Climber->GetComponentLocation();
+	const FVector Wanted =
+	    GetActorTransform().InverseTransformPosition(Focus) +
+	    Out * (Wide * (1.f - CameraTightenBy * Tension));
+
+	// Smoothed on our own value rather than on the camera's, because the
+	// camera's includes last frame's sway -- feeding that back in turns a
+	// sway into a drift, which is the other version of this I wrote first.
+	ShotLocal = FMath::VInterpTo(ShotLocal, Wanted, DeltaSeconds, CameraEase);
+
+	// Pump, said without a bar. Squared so it is invisible for the first
+	// half of a route and unmistakable at the top -- which is also how
+	// being pumped works. Two frequencies that do not divide into each
+	// other, because a clean sine reads as a machine rather than as
+	// somebody holding on.
+	const double Pump = Game ? Game->SessionReadout.Pump : 0.0;
+	const float Pumped =
+	    FMath::Clamp(static_cast<float>(Pump) / 100.f, 0.f, 1.f);
+	SwayTime += DeltaSeconds * PumpSwaySpeed;
+	const float Amount = PumpSway * Pumped * Pumped;
+	// Lateral to the *shot*, not to the actor. Swaying along the actor's Y
+	// would push the camera into and out of the wall on any wall whose
+	// camera is not placed along Y -- the same assumption about somebody
+	// else's level that cost two builds on the climber's facing.
+	const FVector Right = FVector::CrossProduct(FVector::UpVector, Out);
+	const FVector Sway = Right * (FMath::Sin(SwayTime) * Amount) +
+	                     FVector::UpVector *
+	                         (FMath::Sin(SwayTime * 1.37f) * Amount * 0.6f);
+
+	SessionCamera->SetRelativeLocation(ShotLocal + Sway);
+
+	// Aim a little above their hands, so the frame carries the rock they
+	// are going to rather than the rock they have done.
+	const FVector Look =
+	    (Focus + FVector(0.f, 0.f, CameraLead)) -
+	    SessionCamera->GetComponentLocation();
+	if (!Look.IsNearlyZero())
+	{
+		SessionCamera->SetWorldRotation(Look.Rotation());
+	}
+
+	SessionCamera->SetFieldOfView(RestFov - CameraNarrowBy * Tension);
 }
 
 void ADirtbagClimbWall::UpdateHud()

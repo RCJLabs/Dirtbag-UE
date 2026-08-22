@@ -207,6 +207,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
 	static FString ReadRouteText(EDirtbagRouteRead Read);
 
+	/** How close that attempt was, 0..1. See Sim/DirtbagSession.h — the
+	 *  sim decides, because two attempts that end at move 9 of 12 can be a
+	 *  heartbreak and a formality and the timeline knows which. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static double HowClose(const FDirtbagAttemptResult& Result,
+	                       int32 TotalMoves);
+
+	/** What that reads as. Never a number — the gate this exists for is
+	 *  about a watcher rather than a reader. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static FString HowCloseText(double Close);
+
 	/** What the project ledgers add up to — ability, hardest send, nemesis. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
 	static FDirtbagCareerSummary SummarizeCareer(const FDirtbagPlayerState& Player);

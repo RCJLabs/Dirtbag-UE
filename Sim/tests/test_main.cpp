@@ -1233,6 +1233,87 @@ static void TestBlackjack() {
 // What is out tonight, and what you can put in. Both were the presentation
 // layer's business until the fire got a table; both are rules, so both get
 // a test.
+// How close was that. Phase 5 item 3 made this a sim judgement rather than
+// something the camera was left to infer, so it gets tests like one.
+static void TestHowClose() {
+  CloseDials cd;
+
+  // Build an attempt that reached `high` of `total` and fell off a move of
+  // the given odds.
+  const auto attempt = [](int high, int total, double failedOdds) {
+    AttemptResult r;
+    r.sent = false;
+    r.highpoint = high;
+    for (int i = 0; i <= high && i < total; i++) {
+      MoveResult m;
+      m.index = i;
+      m.odds = (i == high) ? failedOdds : 0.9;
+      m.success = i < high;
+      r.timeline.push_back(m);
+    }
+    return r;
+  };
+
+  // A send is a send.
+  AttemptResult sent;
+  sent.sent = true;
+  sent.highpoint = 12;
+  CHECK(HowClose(sent, 12, cd) == 1.0);
+
+  // Nothing to be close to.
+  AttemptResult nothing;
+  CHECK(HowClose(nothing, 12, cd) == 0.0);   // empty timeline
+  CHECK(HowClose(attempt(4, 0, 0.9), 0, cd) == 0.0);  // a route of no moves
+
+  // Monotonic in how far you got, everything else pinned. This is the
+  // backbone and the one property that must never break.
+  double last = -1.0;
+  for (int high = 0; high < 12; high++) {
+    const double c = HowClose(attempt(high, 12, 0.8), 12, cd);
+    CHECK(c >= 0.0 && c <= 1.0);
+    CHECK(c > last);
+    last = c;
+  }
+
+  // The top is worth more than the bottom. Halfway up is well under half a
+  // send -- nine of twelve is most of a route and none of a tick, and a
+  // linear reading would call it 75% either way.
+  CHECK(HowClose(attempt(6, 12, 0.8), 12, cd) < 0.40);
+  CHECK(HowClose(attempt(11, 12, 0.8), 12, cd) > 0.70);
+
+  // Falling off a gimme is closer than falling off the crux from the same
+  // height. This is the whole reason the timeline is read at all: two
+  // attempts that end at move 9 of 12 are not the same attempt.
+  const double fluffedIt = HowClose(attempt(9, 12, 0.95), 12, cd);
+  const double cruxedIt = HowClose(attempt(9, 12, 0.10), 12, cd);
+  CHECK(fluffedIt > cruxedIt);
+  // And by a margin worth staging rather than a rounding difference --
+  // the magnitude lesson from the campfire, which orderings cannot see.
+  CHECK(fluffedIt - cruxedIt > 0.15);
+
+  // Never out of range, whatever the odds do.
+  for (int high = 0; high <= 12; high++) {
+    for (double odds : {0.0, 0.5, 1.0}) {
+      const double c = HowClose(attempt(high, 12, odds), 12, cd);
+      CHECK(c >= 0.0 && c <= 1.0);
+    }
+  }
+
+  // Six bands, all distinct, none of them empty, and none of them a
+  // number -- the gate is about a watcher rather than a reader.
+  const char* seen[6] = {HowCloseText(0.0),  HowCloseText(0.2),
+                         HowCloseText(0.45), HowCloseText(0.7),
+                         HowCloseText(0.9),  HowCloseText(1.0)};
+  for (int i = 0; i < 6; i++) {
+    CHECK(!std::string(seen[i]).empty());
+    CHECK(std::string(seen[i]).find_first_of("0123456789") ==
+          std::string::npos);
+    for (int j = 0; j < i; j++) {
+      CHECK(std::string(seen[i]) != std::string(seen[j]));
+    }
+  }
+}
+
 static void TestTheTable() {
   CampfireDials cd;
 
@@ -7339,6 +7420,7 @@ int main() {
   TestLiarsDice();
   TestBlackjack();
   TestTheTable();
+  TestHowClose();
   TestSandbagsAreSpecific();
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();

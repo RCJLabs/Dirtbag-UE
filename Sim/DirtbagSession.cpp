@@ -324,4 +324,41 @@ AttemptResult ResolveAttempt(Rng& rng, const AttemptInput& input,
   return FinishAttempt(la);
 }
 
+
+double HowClose(const AttemptResult& result, int totalMoves,
+                const CloseDials& dials) {
+  if (result.sent) return 1.0;
+  // A route with no moves cannot be got up or fallen off.
+  if (totalMoves <= 0) return 0.0;
+
+  const double progress =
+      std::min(1.0, static_cast<double>(result.highpoint) /
+                        static_cast<double>(totalMoves));
+  const double base = std::pow(progress, dials.topHeavy);
+
+  // What you fell off. The last entry in the timeline is the move that
+  // ended it -- unless the timeline is empty, which happens when the
+  // attempt never started, and then there is nothing to have been close
+  // to.
+  if (result.timeline.empty()) return 0.0;
+  const double failedOdds = result.timeline.back().odds;
+
+  // Falling off a gimme costs nothing; falling off a desperate move
+  // discounts the whole attempt by `blownIt` at the limit. Bounded to
+  // [0, 1] by construction: base is, and the factor runs 1 - blownIt to 1.
+  return base * (1.0 - dials.blownIt + dials.blownIt * failedOdds);
+}
+
+const char* HowCloseText(double close) {
+  // Six bands, and none of them a number. The point of the gate is that
+  // somebody watching over your shoulder knows what happened, and "you
+  // fell at move 9 of 12" is a thing you read rather than a thing you see.
+  if (close >= 0.999) return "Done.";
+  if (close >= 0.82) return "One move. That was the go.";
+  if (close >= 0.60) return "You had it up there.";
+  if (close >= 0.35) return "Got into it, and it got you back.";
+  if (close >= 0.12) return "A burn.";
+  return "Off early. Nothing learned but the first two moves.";
+}
+
 }  // namespace dirtbag

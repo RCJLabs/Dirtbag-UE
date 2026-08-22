@@ -343,6 +343,36 @@ FString UDirtbagSimLibrary::ReadRouteText(EDirtbagRouteRead Read)
 	return FString(dirtbag::ReadRouteText(static_cast<dirtbag::RouteRead>(Read)));
 }
 
+double UDirtbagSimLibrary::HowClose(const FDirtbagAttemptResult& Result,
+                                    int32 TotalMoves)
+{
+	// Every field carried across rather than only the three HowClose reads
+	// today. Filling in what a function currently happens to use is how a
+	// bridge quietly starts lying the day the function reads one more.
+	dirtbag::AttemptResult R;
+	R.sent = Result.bSent;
+	R.highpoint = Result.Highpoint;
+	R.style = static_cast<dirtbag::Style>(Result.Style);
+	R.skinCost = Result.SkinCost;
+	R.peakPump = Result.PeakPump;
+	R.timeline.reserve(static_cast<size_t>(Result.Timeline.Num()));
+	for (const FDirtbagMoveResult& M : Result.Timeline)
+	{
+		dirtbag::MoveResult Out;
+		Out.index = M.Index;
+		Out.odds = M.Odds;
+		Out.pumpAfter = M.PumpAfter;
+		Out.success = M.bSuccess;
+		R.timeline.push_back(Out);
+	}
+	return dirtbag::HowClose(R, TotalMoves);
+}
+
+FString UDirtbagSimLibrary::HowCloseText(double Close)
+{
+	return FString(dirtbag::HowCloseText(Close));
+}
+
 FDirtbagCareerSummary UDirtbagSimLibrary::SummarizeCareer(
     const FDirtbagPlayerState& Player)
 {

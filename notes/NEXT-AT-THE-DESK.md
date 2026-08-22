@@ -141,6 +141,42 @@ Two red messages you should never see unless a level is placed wrong —
 no Travel Target"* — now last thirty seconds and also go to the Output Log
 under **LogDirtbagSetup**, so a playtest cannot hide them from you.
 
+## 4c. The shot moves now · ~15 min, and it needs your eye
+
+The session camera used to be a tripod: placed once, never moved, so on
+any line taller than the frame **the climber climbed out of it.** It
+follows now, comes in on a hard move, and breathes with the pump.
+
+**Your placed camera is still the shot.** Its offset gives both the
+distance and the direction out from the wall, and everything new only
+moves *in* from there — so a wall you already framed should look the same
+until something gets hard. The approach shot is untouched entirely.
+
+Every number here is **a first guess by something that has never seen
+it.** They are all `EditAnywhere` under **Dirtbag|Shot**. In order:
+
+1. Walk up to a wall — the shot should be **exactly as you left it**.
+2. Press E on a tall line. The climber should stay in frame to the top,
+   with rock above their hands. Sitting too high or low in frame is
+   **CameraLead** (55).
+3. Watch a crux. The shot should come in and *settle*, not snap. Too much
+   movement: **CameraTightenBy** (0.32). Too sudden: **TensionEase** (1.8).
+4. Watch something long and pumpy to the top. Early it should be locked;
+   late it should not quite hold still. Nothing visible: raise
+   **PumpSway** (7). Seasick: lower it.
+5. If any of it is worse than the tripod: **bCameraFollows = false**. No
+   rebuild needed.
+
+Also: **a fall now says what it was** before it says where it was —
+*"You had it up there.  (move 9 of 12, skin 3.2)"* — because the sim
+finally has an opinion on how close an attempt was, rather than leaving
+you to work it out from a move index.
+
+**The gate for this one is not something I can pass.** It is Phase 0's,
+re-asked: *a watcher can tell how close an attempt was without reading a
+number.* Get somebody who is not you to watch an attempt with the HUD
+ignored and say whether that was close. If they can, item 3 is done.
+
 ## 5. Place the Shaded Cave · ~30 min · **the one real build job**
 
 Nothing about the rope, the runout, the clipping pump or the belayer is

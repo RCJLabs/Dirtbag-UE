@@ -193,6 +193,65 @@ protected:
 	// --- Staging dials (feel, not sim — sim dials live in Sim/) ---------
 
 	/** Seconds at a hold before a sure move; risk stretches it. */
+	// --- The shot -------------------------------------------------------
+	//
+	// Phase 5 item 3. The session camera was a component placed at a fixed
+	// relative offset and never touched again: a locked-off tripod for the
+	// whole attempt, so on any line taller than the frame **the climber
+	// simply left it** and the watcher spent the crux looking at rock.
+	//
+	// The rule learned the hard way from the facing bug: **the container
+	// cannot see the level, so it must not guess at it.** Nothing here
+	// invents an angle. The camera as Evan placed it *is* the wide shot --
+	// its authored offset gives both the distance and the direction out
+	// from the wall -- and everything below only moves in from there. Place
+	// the camera where the shot looks right and the defaults leave it
+	// alone.
+
+	/** Let the shot follow the climber and tighten on hard moves. Off puts
+	 *  the locked-off tripod back, exactly as it was. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Shot")
+	bool bCameraFollows = true;
+
+	/** How far the shot comes in on a desperate move, as a fraction of the
+	 *  distance you placed it at. A crux gets a closer shot; that is the
+	 *  oldest sentence in the language and it costs nothing to speak it. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Shot")
+	float CameraTightenBy = 0.32f;
+
+	/** And how much narrower the lens goes with it, in degrees off the
+	 *  authored FOV. Small on purpose: past about ten degrees it reads as a
+	 *  zoom rather than as tension. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Shot")
+	float CameraNarrowBy = 7.f;
+
+	/** Where the climber sits in frame, in centimetres below the shot's
+	 *  centre. Positive keeps rock above their hands — which is where they
+	 *  are going, and the half of the frame that says how much is left. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Shot")
+	float CameraLead = 55.f;
+
+	/** How fast the shot catches up, and how fast it reads a change of
+	 *  difficulty. The second is slower than the first on purpose: the
+	 *  framing should settle into a crux rather than snap to it. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Shot")
+	float CameraEase = 4.f;
+
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Shot")
+	float TensionEase = 1.8f;
+
+	/** How far the shot breathes at full pump, in centimetres.
+	 *
+	 *  This is the pump bar said without a bar: fresh, the camera is
+	 *  locked; pumped, it will not quite hold still. Scaled by the *square*
+	 *  of pump so it is invisible for the first half of a route and
+	 *  unmistakable at the top, which is also how being pumped works. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Shot")
+	float PumpSway = 7.f;
+
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Shot")
+	float PumpSwaySpeed = 1.7f;
+
 	UPROPERTY(EditAnywhere, Category = "Dirtbag|Staging")
 	float BaseHesitation = 0.4f;
 
@@ -256,6 +315,17 @@ private:
 	 *  other. See notes/phase5-toast-triage.md. */
 	void PushPrompt();
 
+	/** Drive the shot: follow the climber, tighten on a hard move, breathe
+	 *  with the pump. Reads the same FDirtbagSessionReadout the HUD reads,
+	 *  so the camera and the bars can never disagree about how hard this
+	 *  move is — and so a replayed attempt is framed exactly like a driven
+	 *  one, because the readout already answers for both. */
+	void UpdateCamera(float DeltaSeconds);
+
+	/** Put the shot back where it was placed. Called when a session ends,
+	 *  so nothing the camera did during an attempt survives it. */
+	void RestCamera();
+
 	void OnApproachBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 	                     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
 	                     bool bFromSweep, const FHitResult& SweepResult);
@@ -306,6 +376,31 @@ private:
 	float Charge = 0.0f;
 
 	EPhase Phase = EPhase::Idle;
+
+	/** The shot as authored, captured once at BeginPlay and never
+	 *  re-read.
+	 *
+	 *  Captured rather than recomputed because the camera moves during a
+	 *  session: re-reading its transform would feed the shot its own
+	 *  output and the authored framing would be gone by the second
+	 *  attempt. This is the same class of mistake as a fixed climber yaw,
+	 *  from the other end — there the container guessed a number it could
+	 *  not see, here it would have quietly overwritten one it could. */
+	FVector RestOffset = FVector::ZeroVector;
+	FRotator RestRotation = FRotator::ZeroRotator;
+	float RestFov = 90.f;
+	bool bShotCaptured = false;
+
+	/** 0 while the move is a gimme, 1 while it is desperate. Eased rather
+	 *  than set, so the framing settles into a crux. */
+	float Tension = 0.f;
+	float SwayTime = 0.f;
+
+	/** The shot's own smoothed position, in actor space. Kept here rather
+	 *  than read back off the camera because the camera also carries the
+	 *  pump sway, and smoothing towards a value that already contains last
+	 *  frame's sway turns the sway into a drift. */
+	FVector ShotLocal = FVector::ZeroVector;
 	int32 TimelineIndex = 0;
 	int32 HoldIndex = 0;
 	bool bReachLeft = false;

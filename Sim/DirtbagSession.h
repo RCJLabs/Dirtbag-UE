@@ -273,4 +273,47 @@ bool AttemptOver(const LiveAttempt& la);
 // Styles, skin and the sent flag — same accounting as the batch resolver.
 AttemptResult FinishAttempt(const LiveAttempt& la);
 
+// --- How close was that ------------------------------------------------------
+//
+// Phase 0's gate was **"a watcher can tell how close an attempt was without
+// reading a number"**, and it was signed off on a blockout wall with a debug
+// HUD -- which is to say it was proved by reading numbers. Phase 5 re-asks
+// it of a game rather than a prototype, and the first thing the re-asking
+// turned up is that *nothing in this project had ever decided what "close"
+// means*. The presentation was left to infer it from a pump bar and a move
+// index, which is the same as not having it: two attempts that end at move
+// 9 of 12 can be a heartbreak and a formality, and the timeline knows which.
+//
+// So it is a sim judgement, with dials and tests, and the staging reads it.
+// The rule from CLAUDE.md is exact about this: if it can be unit-tested, it
+// does not belong in the presentation layer.
+
+struct CloseDials {
+  // How much of "close" is simply how far you got.
+  //
+  // Above 1, so the top of a route is worth disproportionately more than
+  // the bottom -- which is true of climbing and false of arithmetic. Nine
+  // moves out of twelve is not three quarters of a send; it is most of a
+  // route and none of a tick, and the number should say so.
+  double topHeavy = 1.8;
+
+  // How much falling off something desperate discounts it.
+  //
+  // Getting eighty percent up and fluffing a jug is the closest thing to a
+  // send there is -- you had it. Getting eighty percent up and falling off
+  // the crux is a good go and everybody in the car park knows the
+  // difference. At 0 the two are identical; at 1 a fall off a zero-odds
+  // move counts for nothing at all.
+  double blownIt = 0.35;
+};
+
+// 0 = nowhere near it, 1 = done. `totalMoves` is the route's length, which
+// the result does not carry.
+double HowClose(const AttemptResult& result, int totalMoves,
+                const CloseDials& dials = CloseDials{});
+
+// What that reads as, in words, because the gate is about a watcher rather
+// than a reader. Never a number.
+const char* HowCloseText(double close);
+
 }  // namespace dirtbag
