@@ -210,6 +210,20 @@ void MigrateV16ToV17(SaveFields& fields) {
   fields["crew.members"] = "0";
 }
 
+// v17 -> v18: dreams, and the Rig flag on the van. An old career owns
+// nothing and is saving for nothing, which is exactly right -- there was
+// nothing to own or save for. `van.rig` is false for the same reason: the
+// van they have is the van they started with, whatever they have spent on
+// it, because a Rig is a van you bought rather than a van you maintained.
+void MigrateV17ToV18(SaveFields& fields) {
+  fields["dreams.rig"] = "0";
+  fields["dreams.warchest"] = "0";
+  fields["dreams.homebase"] = "0";
+  fields["dreams.working"] = "0";
+  fields["dreams.seasonoff"] = "0";
+  fields["van.rig"] = "0";
+}
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -231,7 +245,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9,
       &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12,
       &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15,
-      &MigrateV15ToV16, &MigrateV16ToV17};
+      &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18};
   return kMigrations;
 }
 
@@ -374,6 +388,16 @@ std::string SerializeSave(const SaveGame& save) {
       << "\n";
   out << "crew.members=" << IntToStr(save.player.crew.membersWhenNamed)
       << "\n";
+  out << "dreams.rig=" << IntToStr(save.player.dreams.has[0] ? 1 : 0) << "\n";
+  out << "dreams.warchest=" << IntToStr(save.player.dreams.has[1] ? 1 : 0)
+      << "\n";
+  out << "dreams.homebase=" << IntToStr(save.player.dreams.has[2] ? 1 : 0)
+      << "\n";
+  out << "dreams.working=" << IntToStr(static_cast<int>(save.player.dreams.working))
+      << "\n";
+  out << "dreams.seasonoff=" << IntToStr(save.player.dreams.seasonOffDaysLeft)
+      << "\n";
+  out << "van.rig=" << IntToStr(save.player.van.rig ? 1 : 0) << "\n";
   out << "standing.closed=" << IntToStr(save.player.standing.closedDays)
       << "\n";
   out << "shoes.wear=" << NumToStr(save.player.shoes.wear) << "\n";
@@ -517,6 +541,8 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   save.player.kit.hangboard = hangboard != 0;
 
   int salaried = 0;
+  int dreamRig = 0, dreamWarChest = 0, dreamHomeBase = 0, dreamWorking = 0;
+  int vanRig = 0;
   if (!ParseInt(fields, "job.salaried", salaried) ||
       !ParseInt(fields, "job.days", save.player.job.daysWorked) ||
       !ParseInt(fields, "job.weeks", save.player.job.weeksSalaried) ||
@@ -531,10 +557,27 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       // leaving the name blank would look exactly like a career the town
       // has not named yet. `line.substr(eq + 1)` yields "" for "crew.name=",
       // so an unnamed crew round-trips as present-and-empty.
-      !ParseString(fields, "crew.name", save.player.crew.name)) {
+      !ParseString(fields, "crew.name", save.player.crew.name) ||
+      !ParseInt(fields, "dreams.rig", dreamRig) ||
+      !ParseInt(fields, "dreams.warchest", dreamWarChest) ||
+      !ParseInt(fields, "dreams.homebase", dreamHomeBase) ||
+      !ParseInt(fields, "dreams.working", dreamWorking) ||
+      !ParseInt(fields, "dreams.seasonoff",
+                save.player.dreams.seasonOffDaysLeft) ||
+      !ParseInt(fields, "van.rig", vanRig)) {
     return LoadResult::BadFormat;
   }
   save.player.job.salaried = salaried != 0;
+  save.player.dreams.has[0] = dreamRig != 0;
+  save.player.dreams.has[1] = dreamWarChest != 0;
+  save.player.dreams.has[2] = dreamHomeBase != 0;
+  // Clamped rather than trusted, the same way the injury kind is: a
+  // hand-edited save must not be able to name a dream that does not exist.
+  save.player.dreams.working =
+      dreamWorking >= 0 && dreamWorking <= kDreamCount
+          ? static_cast<Dream>(dreamWorking)
+          : Dream::None;
+  save.player.van.rig = vanRig != 0;
   int secretCount = 0;
   if (!ParseInt(fields, "secrets", secretCount)) return LoadResult::BadFormat;
   for (int i = 0; i < secretCount; i++) {

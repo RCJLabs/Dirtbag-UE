@@ -22,7 +22,9 @@ int DriveVan(Van& van, const Rng& worldRng, int day, double hours,
   van.hoursDriven += hours;
 
   for (int i = 0; i < kVanPartCount; i++) {
-    double rate = hours / std::max(1.0, dials.lifeHours[i]);
+    const double life =
+        dials.lifeHours[i] * (van.rig ? dials.rigLifeMultiplier : 1.0);
+    double rate = hours / std::max(1.0, life);
     // The radiator is the one that cares what day it is. A warm afternoon
     // does more to it than a cool morning, which puts the gamble on exactly
     // the drives you were already unhappy about.

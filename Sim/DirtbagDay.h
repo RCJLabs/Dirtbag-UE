@@ -12,6 +12,7 @@
 #include "DirtbagAge.h"
 #include "DirtbagCore.h"
 #include "DirtbagCrew.h"
+#include "DirtbagDreams.h"
 #include "DirtbagDog.h"
 #include "DirtbagFactions.h"
 #include "DirtbagGear.h"
@@ -182,6 +183,10 @@ struct PlayerState {
   // What the town calls the people you keep turning up with. Not yours to
   // choose and not yours to change -- see DirtbagCrew.h.
   Crew crew;
+
+  // What the money is for. See DirtbagDreams.h -- the price is the buffer,
+  // not the number.
+  Dreams dreams;
 
   // Where you stand with the scene, and whether the crag is still open.
   Standing standing;

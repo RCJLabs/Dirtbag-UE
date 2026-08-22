@@ -747,6 +747,140 @@ static void TestTheCrewNameMigrates() {
   CHECK(freshBack.player.crew.name.empty());
 }
 
+static void TestDreamsCostTheBuffer() {
+  DreamDials dd;
+  Dreams dreams;
+  Van van;
+  double cash = 0.0;
+
+  // Nothing is free and nothing is nearly free. Every price sits well above
+  // the float that keeps a van healthy, which is the design: buying drops
+  // you back into the trap you climbed out of.
+  CHECK(CostOf(Dream::Rig, dd) >= 5000.0);
+  CHECK(CostOf(Dream::WarChest, dd) > CostOf(Dream::Rig, dd));
+  CHECK(CostOf(Dream::HomeBase, dd) > CostOf(Dream::WarChest, dd));
+  CHECK(CostOf(Dream::None, dd) == 0.0);
+
+  CHECK(!CanAfford(dreams, Dream::Rig, 10.0, dd));
+  CHECK(!BuyDream(dreams, van, cash, Dream::Rig, dd));
+  CHECK(DreamText(dreams).empty());
+
+  // The Rig. It takes the money and hands back a van that is new and stays
+  // newer -- but the cash is gone, which is the cost.
+  cash = CostOf(Dream::Rig, dd) + 40.0;
+  for (int p = 0; p < kVanPartCount; p++) van.parts[p].wear = 0.9;
+  dreams.working = Dream::Rig;
+  CHECK(BuyDream(dreams, van, cash, Dream::Rig, dd));
+  CHECK(cash == 40.0);                       // the buffer, spent
+  CHECK(van.rig);
+  for (int p = 0; p < kVanPartCount; p++) CHECK(van.parts[p].wear == 0.0);
+  CHECK(HasDream(dreams, Dream::Rig));
+  CHECK(dreams.working == Dream::None);      // no longer saving for it
+  CHECK(!BuyDream(dreams, van, cash, Dream::Rig, dd));   // and only once
+
+  // A Rig does not stop breaking, it breaks less. Same hours, same weather,
+  // against a van that is otherwise identical.
+  VanDials vd;
+  const Rng world = Rng::FromSeed("van-rig");
+  Van plain, posh;
+  posh.rig = true;
+  for (int d = 0; d < 300; d++) {
+    DriveVan(plain, world, d, 2.0, 60.0, vd);
+    DriveVan(posh, world, d, 2.0, 60.0, vd);
+  }
+  double plainWear = 0.0, poshWear = 0.0;
+  for (int p = 0; p < kVanPartCount; p++) {
+    plainWear += plain.parts[p].wear;
+    poshWear += posh.parts[p].wear;
+  }
+  CHECK(poshWear < plainWear);
+  CHECK(poshWear > 0.0);          // not solved, just slower
+
+  // The War Chest is a year you already bought, not a lump you spend down.
+  Dreams rich;
+  Van v2;
+  double money = CostOf(Dream::WarChest, dd);
+  CHECK(!NoNeedToWork(rich));
+  CHECK(BuyDream(rich, v2, money, Dream::WarChest, dd));
+  CHECK(money == 0.0);
+  CHECK(NoNeedToWork(rich));
+  CHECK(rich.seasonOffDaysLeft == dd.warChestDays);
+  double noCash = 0.0, noOwed = 0.0;
+  for (int d = 0; d < dd.warChestDays; d++) DreamDay(rich, noCash, noOwed, dd);
+  CHECK(!NoNeedToWork(rich));
+  CHECK(noOwed == 0.0);           // no address, no rent
+
+  // Home Base pays out every night and asks every morning.
+  Dreams housed;
+  Van v3;
+  double pot = CostOf(Dream::HomeBase, dd);
+  CHECK(SkinBonus(housed, dd) == 0.0);
+  CHECK(BuyDream(housed, v3, pot, Dream::HomeBase, dd));
+  CHECK(SkinBonus(housed, dd) > 0.0);
+  double wallet = 100.0, owed = 0.0;
+  DreamDay(housed, wallet, owed, dd);
+  CHECK(wallet == 100.0 - dd.homeBaseRentPerDay);
+  CHECK(owed == 0.0);
+  // And rent you cannot pay waits, like every other bill. An address you
+  // cannot afford is a debt with a door on it, not a repossession.
+  wallet = 5.0;
+  DreamDay(housed, wallet, owed, dd);
+  CHECK(wallet == 0.0);
+  CHECK(owed == dd.homeBaseRentPerDay - 5.0);
+
+  // The text says what you own and what is still running.
+  CHECK(DreamText(dreams) == "the Rig.");
+  CHECK(DreamText(rich) == "the War Chest.");
+  Dreams both = rich;
+  both.seasonOffDaysLeft = 212;
+  CHECK(DreamText(both) ==
+        "the War Chest.  212 days of the War Chest left.");
+}
+
+// v17 -> v18. Old careers own nothing, which is exactly right.
+static void TestDreamsMigrate() {
+  PlayerState player;
+  Van& van = player.van;
+  double cash = 60000.0;
+  CHECK(BuyDream(player.dreams, van, cash, Dream::Rig));
+  CHECK(BuyDream(player.dreams, van, cash, Dream::WarChest));
+  player.dreams.working = Dream::HomeBase;
+  player.cash = cash;
+
+  SaveGame save;
+  save.player = player;
+  save.seed = "dreams";
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(HasDream(back.player.dreams, Dream::Rig));
+  CHECK(HasDream(back.player.dreams, Dream::WarChest));
+  CHECK(!HasDream(back.player.dreams, Dream::HomeBase));
+  CHECK(back.player.dreams.working == Dream::HomeBase);
+  CHECK(back.player.dreams.seasonOffDaysLeft ==
+        player.dreams.seasonOffDaysLeft);
+  CHECK(back.player.van.rig);
+
+  std::string v17 = SerializeSave(save);
+  DropSaveLine(v17, "dreams.rig=");
+  DropSaveLine(v17, "dreams.warchest=");
+  DropSaveLine(v17, "dreams.homebase=");
+  DropSaveLine(v17, "dreams.working=");
+  DropSaveLine(v17, "dreams.seasonoff=");
+  DropSaveLine(v17, "van.rig=");
+  SetSaveVersion(v17, 17);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v17, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(!HasDream(old.player.dreams, Dream::Rig));
+  CHECK(old.player.dreams.working == Dream::None);
+  // A Rig is a van you bought, not a van you maintained, so an old career
+  // keeps whatever it has been driving.
+  CHECK(!old.player.van.rig);
+  CHECK(old.player.cash == player.cash);   // and the money is still theirs
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+}
+
 static void TestSandbagsAreSpecific() {
   // A crag's sandbags are famous and deliberate, not a dice roll — and they
   // are rare enough to matter when you hit one.
@@ -6660,6 +6794,8 @@ int main() {
   TestTheDirtbagYearMigrates();
   TestTheTownNamesYourCrew();
   TestTheCrewNameMigrates();
+  TestDreamsCostTheBuffer();
+  TestDreamsMigrate();
   TestSandbagsAreSpecific();
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();

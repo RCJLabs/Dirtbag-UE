@@ -12,6 +12,7 @@
 #include "DirtbagCrag.h"
 #include "DirtbagCrew.h"
 #include "DirtbagDay.h"
+#include "DirtbagDreams.h"
 #include "DirtbagFactions.h"
 #include "DirtbagJobs.h"
 #include "DirtbagBody.h"
@@ -374,6 +375,11 @@ struct FDirtbagVan
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
 	double HoursDriven = 0.0;
+
+	/** Whether this is the Rig — the van you saved for. Parts last longer;
+	 *  it does not stop breaking, it stops breaking so often. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Van")
+	bool bRig = false;
 };
 
 /** The stray, and then the dog. */
@@ -656,6 +662,41 @@ struct FDirtbagJob
 	int32 LongestStreak = 0;
 };
 
+/** What the money is for. See Sim/DirtbagDreams.h — the price is the
+ *  buffer, not the number. */
+UENUM(BlueprintType)
+enum class EDirtbagDream : uint8
+{
+	None     UMETA(DisplayName = "Nothing in particular"),
+	Rig      UMETA(DisplayName = "The Rig"),
+	WarChest UMETA(DisplayName = "The War Chest"),
+	HomeBase UMETA(DisplayName = "Home Base"),
+};
+
+USTRUCT(BlueprintType)
+struct FDirtbagDreams
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dreams")
+	bool bRig = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dreams")
+	bool bWarChest = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dreams")
+	bool bHomeBase = false;
+
+	/** What you have said you are saving for. Free to declare and free to
+	 *  change — declaring is not the commitment, buying is. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dreams")
+	EDirtbagDream Working = EDirtbagDream::None;
+
+	/** The War Chest, being lived. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dreams")
+	int32 SeasonOffDaysLeft = 0;
+};
+
 /** What the town calls the people you keep turning up with. Not yours to
  *  pick and not yours to change — see Sim/DirtbagCrew.h. */
 USTRUCT(BlueprintType)
@@ -742,6 +783,9 @@ struct FDirtbagPlayerState
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Crew")
 	FDirtbagCrew Crew;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dreams")
+	FDirtbagDreams Dreams;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Standing")
 	FDirtbagStanding Standing;
@@ -1010,6 +1054,8 @@ namespace DirtbagConvert
 	dirtbag::Job ToSim(const FDirtbagJob& In);
 	FDirtbagCrew FromSim(const dirtbag::Crew& In);
 	dirtbag::Crew ToSim(const FDirtbagCrew& In);
+	FDirtbagDreams FromSim(const dirtbag::Dreams& In);
+	dirtbag::Dreams ToSim(const FDirtbagDreams& In);
 	FDirtbagOddJob FromSim(const dirtbag::OddJob& In);
 
 	dirtbag::Weather ToSim(const FDirtbagWeather& In);

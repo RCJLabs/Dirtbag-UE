@@ -57,6 +57,7 @@ struct Tally {
   double spentVan = 0.0, spentFuel = 0.0, spentKit = 0.0;
   int gymDays = 0, boardDays = 0, memberDays = 0;
   int injuries = 0, hurtDays = 0, climbedHurtDays = 0, aggravations = 0;
+  int dreamsBought = 0;
   int physioSessions = 0;
   double spentPhysio = 0.0, loadSum = 0.0, peakLoad = 0.0;
   int dealsSigned = 0, sponsoredDays = 0, obligationDays = 0;
@@ -198,7 +199,8 @@ int main(int argc, char** argv) {
   // for", which is exactly the hole dreams are supposed to fill. Nobody has
   // ever measured what a career can accumulate, or what accumulating costs
   // in climbing, and a dream cannot be priced without both.
-  const bool hoards = argc > 5 && std::string(argv[5]) == "hoarder";
+  const bool hoards = (argc > 5 && std::string(argv[5]) == "hoarder") ||
+                      (argc > 5 && std::string(argv[5]) == "dreamer");
   const bool stakesClaims =
       (argc > 5 && std::string(argv[5]) == "stakeout") || hoards;
 
@@ -240,6 +242,10 @@ int main(int argc, char** argv) {
   // -- at zero this is stakeout, and every dollar above it is bought with
   // days that could have been climbing.
   const double savingsTarget = argc > 12 ? std::atof(argv[12]) : 20000.0;
+  // `dreamer` is `hoarder` that actually spends what it saved, the moment
+  // it can. The whole question the design rests on: does buying the thing
+  // hurt, or is a dream just a number going up?
+  const bool dreams = argc > 5 && std::string(argv[5]) == "dreamer";
 
   const Rng world = Rng::FromSeed(seed);
   // Not const: across generations the book has to be written into, or the
@@ -429,6 +435,9 @@ int main(int argc, char** argv) {
       // the only policy that ever turns a climbing day into a working day
       // for something other than rent, which is what a dream would do.
       if (hoards && player.cash < savingsTarget) needMoney = true;
+      // A dreamer never has to work while the War Chest is running. That is
+      // the whole of what it bought.
+      if (NoNeedToWork(player.dreams)) needMoney = false;
       if (needMoney) {
         const std::vector<OddJob> board = OddJobBoard(world, player.day, jd);
         const OddJob* best = nullptr;
@@ -772,6 +781,19 @@ int main(int argc, char** argv) {
       note += "ACCESS PULLED";
     }
 
+    // Buy the thing, the day it can be afforded. Cheapest first, so a
+    // career works through them in order rather than holding out for the
+    // expensive one -- which is the impatient version and the honest one.
+    if (dreams) {
+      const Dream order[3] = {Dream::Rig, Dream::WarChest, Dream::HomeBase};
+      for (Dream d : order) {
+        if (BuyDream(player.dreams, player.van, player.cash, d)) {
+          t.dreamsBought++;
+          break;   // one a day; they are not impulse buys
+        }
+      }
+    }
+
     DogDay(player.dog, !needMoney, dog);
     WeatherProjects(player, fd);
     if (today.hunger > dd.starvingHunger) t.starvedNights++;
@@ -918,6 +940,7 @@ int main(int argc, char** argv) {
          : kept           ? "kept"
          : buysKit        ? "kitted"
          : savesUp        ? "saver"
+         : dreams         ? "dreamer"
          : hoards         ? "hoarder"
          : stakesClaims   ? "stakeout"
          : projects       ? "projector"

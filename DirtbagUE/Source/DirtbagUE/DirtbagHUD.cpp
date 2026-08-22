@@ -126,6 +126,17 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		         X, Y, GEngine->GetSmallFont(), 1.f);
 	}
 
+	// And its opposite. Drawn in the same eyeline as the debt and the van,
+	// because it is the same question answered the other way: what does
+	// today need from you. Only the War Chest ever answers "nothing".
+	const FString Free = Game->FreeDayLine();
+	if (!Free.IsEmpty())
+	{
+		Y += 20.f;
+		DrawText(Free, FLinearColor(0.70f, 0.85f, 0.70f, 1.f), X, Y,
+		         GEngine->GetSmallFont(), 1.f);
+	}
+
 	// The dog sits with the conditions line, because on a warm day they are
 	// the same sentence.
 	if (Game->Player.Dog.bAdopted || Game->Player.Dog.Bond > 0.0)
@@ -235,6 +246,14 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	if (!Crew.IsEmpty())
 	{
 		Slow += TEXT("      ") + Crew;
+	}
+	// What the money was for. Sits with the slow numbers because owning one
+	// is a fact about your life rather than a thing happening today — but
+	// the War Chest counts down here, which is the one that moves.
+	const FString Dream = Game->DreamLine();
+	if (!Dream.IsEmpty())
+	{
+		Slow += TEXT("      ") + Dream;
 	}
 	DrawText(Slow, kDim, X, H - 56.f, GEngine->GetSmallFont(), 1.f);
 

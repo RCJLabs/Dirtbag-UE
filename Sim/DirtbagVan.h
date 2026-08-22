@@ -64,6 +64,11 @@ struct VanDials {
   double replaceCost[kVanPartCount] = {220.0, 190.0, 35.0, 95.0, 160.0, 850.0};
 
   // Hours under the van, per tier. A bodge is most of a morning.
+  // How much longer a proper van's parts last. Applied in DriveVan, so it
+  // is a slower burn rather than a repair -- the Rig does not stop breaking,
+  // it stops breaking so often.
+  double rigLifeMultiplier = 2.2;
+
   double bodgeHours = 4.0;
   double patchHours = 1.5;
   double replaceHours = 2.5;
@@ -108,6 +113,11 @@ struct VanPartState {
 struct Van {
   VanPartState parts[kVanPartCount];
   double hoursDriven = 0.0;
+
+  // Whether this is the Rig -- the van you saved for. Lives here rather
+  // than on Dreams because wear is applied in DriveVan, which has the van
+  // and nothing else. See DirtbagDreams.h for what it cost you.
+  bool rig = false;
 };
 
 // Drive somewhere. Wears everything a little, then rolls for failure on

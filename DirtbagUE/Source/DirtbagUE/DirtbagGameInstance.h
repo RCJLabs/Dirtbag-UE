@@ -538,6 +538,54 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
 	FString DirtbagYearNews;
 
+	// --- Dreams -----------------------------------------------------------
+	// The thing the money is for. Measured (notes/dreams-what-money-is-worth
+	// .md): saving costs no climbing at all — a career that banks hard climbs
+	// 970 days against 422 — so a dream priced only in money would be a timer.
+	// The price is the buffer. You spend the float that was keeping the van
+	// alive, and the reward arrives with a lean, fragile year attached.
+
+	/** What each dream costs. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Dreams")
+	double DreamCost(EDirtbagDream Which) const;
+
+	/** Its name, and what it is actually for. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Dreams")
+	FString DreamName(EDirtbagDream Which) const;
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Dreams")
+	FString DreamBlurb(EDirtbagDream Which) const;
+
+	/** Can you put the money down today? Says nothing about whether you
+	 *  should — and you almost never should, which is the point. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Dreams")
+	bool CanAffordDream(EDirtbagDream Which) const;
+
+	/** Say what you are saving for. Free, changeable, and it does nothing on
+	 *  its own — declaring is not the commitment. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Dreams")
+	void WorkTowards(EDirtbagDream Which);
+
+	/** Buy it. Takes the cash and hands back the thing. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Dreams")
+	bool BuyDream(EDirtbagDream Which);
+
+	/** "the Rig.  212 days of the War Chest left." Empty until you own one. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Dreams")
+	FString DreamLine() const;
+
+	/** Said once, on the day you buy one. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dreams")
+	FString DreamNews;
+
+	/** "Nothing needs doing today." The counterpart to the debt line, and
+	 *  the only thing in the game that says a day is entirely yours — the
+	 *  War Chest is a year of them, bought in advance. Empty otherwise,
+	 *  including when you merely happen to be flush: being able to afford
+	 *  today is not the same as not having to think about it. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Dreams")
+	FString FreeDayLine() const;
+
 	/** "They call you the trail crew." Empty until the town says it — which
 	 *  takes two people you actually climb with, for a month. You do not
 	 *  pick this and you cannot change it. */

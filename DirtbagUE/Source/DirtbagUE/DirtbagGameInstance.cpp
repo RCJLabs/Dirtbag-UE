@@ -86,6 +86,7 @@ void UDirtbagGameInstance::Sleep()
 	LastAscentLine.Reset();
 	DirtbagYearNews.Reset();
 	CrewNews.Reset();
+	DreamNews.Reset();
 	const bool bHadACrewName = !Player.Crew.Name.IsEmpty();
 
 	// SleepToNextDay ticks the streak, so a year completing is visible as
@@ -940,6 +941,70 @@ bool UDirtbagGameInstance::TakeOddJob(const FDirtbagOddJob& Job)
 	// A shift is a shift: the dog did not come to it either.
 	bWorkedToday = true;
 	return true;
+}
+
+double UDirtbagGameInstance::DreamCost(EDirtbagDream Which) const
+{
+	return dirtbag::CostOf(static_cast<dirtbag::Dream>(Which));
+}
+
+FString UDirtbagGameInstance::DreamName(EDirtbagDream Which) const
+{
+	return FString(dirtbag::DreamName(static_cast<dirtbag::Dream>(Which)));
+}
+
+FString UDirtbagGameInstance::DreamBlurb(EDirtbagDream Which) const
+{
+	return FString(dirtbag::DreamBlurb(static_cast<dirtbag::Dream>(Which)));
+}
+
+bool UDirtbagGameInstance::CanAffordDream(EDirtbagDream Which) const
+{
+	return dirtbag::CanAfford(DirtbagConvert::ToSim(Player.Dreams),
+	                          static_cast<dirtbag::Dream>(Which), Player.Cash);
+}
+
+void UDirtbagGameInstance::WorkTowards(EDirtbagDream Which)
+{
+	Player.Dreams.Working = Which;
+}
+
+bool UDirtbagGameInstance::BuyDream(EDirtbagDream Which)
+{
+	dirtbag::Dreams SimDreams = DirtbagConvert::ToSim(Player.Dreams);
+	dirtbag::Van SimVan = DirtbagConvert::ToSim(Player.Van);
+	double Cash = Player.Cash;
+	if (!dirtbag::BuyDream(SimDreams, SimVan, Cash,
+	                       static_cast<dirtbag::Dream>(Which)))
+	{
+		return false;
+	}
+	Player.Dreams = DirtbagConvert::FromSim(SimDreams);
+	Player.Van = DirtbagConvert::FromSim(SimVan);
+	Player.Cash = Cash;
+
+	// Said plainly, because this is the largest sum the player will ever
+	// hand over and the game should not be coy about what it just did to
+	// their float.
+	DreamNews = FString::Printf(
+	    TEXT("%s. And %d dollars left to your name."),
+	    *DreamName(Which), FMath::FloorToInt(Cash));
+	return true;
+}
+
+FString UDirtbagGameInstance::FreeDayLine() const
+{
+	if (!dirtbag::NoNeedToWork(DirtbagConvert::ToSim(Player.Dreams)))
+	{
+		return FString();
+	}
+	return TEXT("Nothing needs doing today.");
+}
+
+FString UDirtbagGameInstance::DreamLine() const
+{
+	return FString(dirtbag::DreamText(DirtbagConvert::ToSim(Player.Dreams))
+	                   .c_str());
 }
 
 FString UDirtbagGameInstance::CrewLine() const

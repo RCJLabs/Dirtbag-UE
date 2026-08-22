@@ -313,7 +313,8 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
     player.climber.psyche = day.session.psyche;
   }
   player.climber.skin =
-      std::min(dials.maxSkin, player.climber.skin + dials.skinRegenPerNight);
+      std::min(dials.maxSkin, player.climber.skin + dials.skinRegenPerNight +
+                                  SkinBonus(player.dreams));
   player.climber.psyche +=
       (dials.psycheBaseline - player.climber.psyche) * dials.psycheHomeRate;
 
@@ -338,6 +339,11 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // And a day of the town watching who gets out of the van. Same reason it
   // lives here: being called something is not an action you take.
   CrewDay(player.crew, player.bonds, player.standing, worldRng, player.day);
+
+  // Rent, and a bought year running down. Rent lands here with the other
+  // things that happen to you overnight rather than at the shop, because
+  // that is what rent does.
+  DreamDay(player.dreams, player.cash, player.owed);
 
   // The month runs down like everything else that runs out. Without this
   // the probe reported 365 days of membership bought with a single $75,

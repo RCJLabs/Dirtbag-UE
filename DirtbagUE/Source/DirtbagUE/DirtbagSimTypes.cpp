@@ -178,6 +178,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.owed = In.Owed;
 	Out.job = ToSim(In.Job);
 	Out.crew = ToSim(In.Crew);
+	Out.dreams = ToSim(In.Dreams);
 	Out.standing = ToSim(In.Standing);
 	Out.kit = ToSim(In.Kit);
 	Out.sponsor = ToSim(In.Sponsor);
@@ -231,6 +232,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Owed = In.owed;
 	Out.Job = FromSim(In.job);
 	Out.Crew = FromSim(In.crew);
+	Out.Dreams = FromSim(In.dreams);
 	Out.Standing = FromSim(In.standing);
 	Out.Kit = FromSim(In.kit);
 	Out.Sponsor = FromSim(In.sponsor);
@@ -471,6 +473,28 @@ dirtbag::Job ToSim(const FDirtbagJob& In)
 	return Out;
 }
 
+FDirtbagDreams FromSim(const dirtbag::Dreams& In)
+{
+	FDirtbagDreams Out;
+	Out.bRig = In.has[0];
+	Out.bWarChest = In.has[1];
+	Out.bHomeBase = In.has[2];
+	Out.Working = static_cast<EDirtbagDream>(In.working);
+	Out.SeasonOffDaysLeft = In.seasonOffDaysLeft;
+	return Out;
+}
+
+dirtbag::Dreams ToSim(const FDirtbagDreams& In)
+{
+	dirtbag::Dreams Out;
+	Out.has[0] = In.bRig;
+	Out.has[1] = In.bWarChest;
+	Out.has[2] = In.bHomeBase;
+	Out.working = static_cast<dirtbag::Dream>(In.Working);
+	Out.seasonOffDaysLeft = In.SeasonOffDaysLeft;
+	return Out;
+}
+
 FDirtbagCrew FromSim(const dirtbag::Crew& In)
 {
 	FDirtbagCrew Out;
@@ -616,6 +640,7 @@ FDirtbagVan FromSim(const dirtbag::Van& In)
 {
 	FDirtbagVan Out;
 	Out.HoursDriven = In.hoursDriven;
+	Out.bRig = In.rig;
 	Out.Parts.Reserve(dirtbag::kVanPartCount);
 	for (int i = 0; i < dirtbag::kVanPartCount; i++)
 	{
@@ -632,6 +657,7 @@ dirtbag::Van ToSim(const FDirtbagVan& In)
 {
 	dirtbag::Van Out;
 	Out.hoursDriven = In.HoursDriven;
+	Out.rig = In.bRig;
 	// A mirror arriving with the wrong number of parts would silently drop
 	// or invent damage, so only copy what is actually there.
 	const int32 n = FMath::Min(In.Parts.Num(), dirtbag::kVanPartCount);
