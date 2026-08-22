@@ -38,6 +38,9 @@ private:
 	 *  screen: there is nothing else happening. */
 	void DrawHandover(class UDirtbagGameInstance* Game, float W, float H);
 
+	/** The crag's page. */
+	void DrawGuidebook(class UDirtbagGameInstance* Game, float W, float H);
+
 	void DrawNeeds(class UDirtbagGameInstance* Game, float H);
 	void DrawSession(class UDirtbagGameInstance* Game, float W, float H);
 	/** The fire's table. Sits where the session bar sits, because they are

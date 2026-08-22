@@ -223,6 +223,25 @@ void ADirtbagClimbWall::BeginPlay()
 	    this, &ADirtbagClimbWall::OnApproachEnd);
 }
 
+void ADirtbagClimbWall::OnGuidebook()
+{
+	// Not while you are on the wall. Reading the book mid-attempt is not a
+	// thing, and the page would draw over a live session.
+	if (!Game || !bPlayerNear || Phase != EPhase::Idle)
+	{
+		return;
+	}
+	const bool bWas = Game->Guidebook.bActive;
+	const bool bNow = Game->ToggleGuidebook();
+	if (!bWas && !bNow)
+	{
+		Toast(TEXT("Plastic. The setter's tag is the whole of the book "
+		           "here."),
+		      FColor::Silver, 4.f);
+	}
+	PushPrompt();
+}
+
 void ADirtbagClimbWall::PushPrompt()
 {
 	if (!Game)
@@ -288,7 +307,7 @@ void ADirtbagClimbWall::PushPrompt()
 
 	FDirtbagPromptLine What;
 	What.Text = FString::Printf(
-	    TEXT("%s  %s%s — %s   (E to climb)"), *RouteName,
+	    TEXT("%s  %s%s — %s   (E to climb, G for the book)"), *RouteName,
 	    *UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder),
 	    *Book, *UDirtbagSimLibrary::ReadRouteText(Read));
 	// An unclimbed line is the one thing on this screen worth walking
@@ -369,6 +388,8 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 			                        &ADirtbagClimbWall::OnClean);
 			InputComponent->BindKey(EKeys::B, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnAskBeta);
+			InputComponent->BindKey(EKeys::G, IE_Pressed, this,
+			                        &ADirtbagClimbWall::OnGuidebook);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnHoldPressed);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Released, this,

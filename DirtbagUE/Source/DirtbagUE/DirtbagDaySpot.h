@@ -200,6 +200,15 @@ private:
 	 *  fix a wheel bearing. */
 	void OnRetire();
 
+	/** Open or close the crag's page. Bound on spots and on walls, which
+	 *  is everywhere you would want to read it — see
+	 *  notes/phase6-the-guidebook.md for why it is not a global key. */
+	void OnGuidebook();
+
+	/** While the book is open, 1/2/3 turn the page rather than naming a
+	 *  dream or sizing a stake. Returns true if the book took the key. */
+	bool TurnGuidebookPage(int32 Which);
+
 	/** Advance the handover: the epitaph, then the choice, then arrival. */
 	void StepHandover();
 

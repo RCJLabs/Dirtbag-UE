@@ -395,6 +395,10 @@ private:
 	 *  other. See notes/phase5-toast-triage.md. */
 	void PushPrompt();
 
+	/** Open or close the crag's page. The wall is where you actually reach
+	 *  for a guidebook — standing under something, deciding. */
+	void OnGuidebook();
+
 	/** Drive the shot: follow the climber, tighten on a hard move, breathe
 	 *  with the pump. Reads the same FDirtbagSessionReadout the HUD reads,
 	 *  so the camera and the bars can never disagree about how hard this

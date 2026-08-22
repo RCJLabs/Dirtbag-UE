@@ -112,6 +112,56 @@ void UDirtbagGameInstance::Sleep()
 
 	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
 
+	// The high-water mark, once a day.
+	//
+	// **This had never been written.** `PeakGradeEver` is read by
+	// TimeToThinkAboutIt -- the one opinion this game ever offers about
+	// stopping -- and set nowhere but the reset in RetireAndPassItOn, so it
+	// was a permanent 0.0 and the "two grades off your best" arm of that
+	// function could never fire. The whole retirement hint has been running
+	// on the injury arm alone, and the injury arm is fed
+	// ConsecutiveInjuries, which was never written either.
+	//
+	// Written-and-never-wired at a sixth layer, and the nastiest kind: not
+	// a dead feature, but a **live function silently answering from
+	// constants.** No checker in this project could see it -- they prove
+	// declarations are reachable, not that fields are ever assigned.
+	//
+	// Stored rather than derived because it is a historical maximum: you
+	// cannot recompute the best you ever were from the state of the body
+	// that is left. In ability-grade units, because that is what
+	// TimeToThinkAboutIt compares it against.
+	const double AbilityToday = GetCareer().AbilityGrade;
+	if (AbilityToday > PeakGradeEver)
+	{
+		PeakGradeEver = AbilityToday;
+	}
+
+	// And the streak of bodies giving up. Counted on the day an injury
+	// starts rather than every day you are hurt -- three injuries in a row
+	// is the signal, not one injury lasting three months.
+	const bool bHurtToday = IsHurt();
+	if (bHurtToday && !bWasHurtYesterday)
+	{
+		ConsecutiveInjuries++;
+	}
+	else if (!bHurtToday)
+	{
+		// Reset by a clean season, not by a clean day: healing from one
+		// injury must not wipe the count that says your body keeps
+		// breaking.
+		DaysSinceHurt++;
+		if (DaysSinceHurt >= 90)
+		{
+			ConsecutiveInjuries = 0;
+		}
+	}
+	if (bHurtToday)
+	{
+		DaysSinceHurt = 0;
+	}
+	bWasHurtYesterday = bHurtToday;
+
 	if (!bHadACrewName && !Player.Crew.Name.IsEmpty())
 	{
 		// Not "you are now called" — nobody announces a nickname to your
@@ -866,6 +916,148 @@ FString UDirtbagGameInstance::CareerEpitaph() const
 	    DirtbagConvert::ToSim(Player), TCHAR_TO_UTF8(*ClimberName),
 	    1 + Player.Day / 365);
 	return UTF8_TO_TCHAR(dirtbag::LegacyText(L).c_str());
+}
+
+bool UDirtbagGameInstance::ToggleGuidebook()
+{
+	// Indoors there is no book. A gym has a setter's tag on the start hold
+	// and a grade somebody made up on Tuesday, and EnsureCrag falls through
+	// to Roadside at the Gym -- so without this the "guidebook" would
+	// cheerfully show you the lines at a crag forty minutes away.
+	if (!IsOutdoors(Venue))
+	{
+		Guidebook.bActive = false;
+		return false;
+	}
+
+	// Every spot and every wall binds G, and the Lot has four spots inside
+	// a few metres of each other. Without this the key toggles once per
+	// overlapping trigger, so standing between the van and the fire opens
+	// and immediately closes the book -- which looks exactly like the key
+	// not working.
+	const uint64 Now = GFrameCounter;
+	if (Now == GuidebookToggledOnFrame)
+	{
+		return Guidebook.bActive;
+	}
+	GuidebookToggledOnFrame = Now;
+
+	Guidebook.bActive = !Guidebook.bActive;
+	if (Guidebook.bActive)
+	{
+		SetGuidebookView(Guidebook.View);
+	}
+	return Guidebook.bActive;
+}
+
+void UDirtbagGameInstance::SetGuidebookView(EDirtbagGuidebookView View)
+{
+	EnsureCrag();
+
+	FDirtbagGuidebookReadout& B = Guidebook;
+	B.View = View;
+	B.CragName = Crag.Name;
+	B.Rows.Reset();
+	B.Hidden = 0;
+	B.SentHere = 0;
+	B.LinesHere = Crag.Lines.Num();
+
+	for (const FDirtbagCragLine& Line : Crag.Lines)
+	{
+		// The ledger is looked up rather than created: reading the book
+		// must not seed a project entry for every line at the crag, which
+		// LedgerFor would do and which would quietly bloat the save with
+		// thirty-one untouched rows the moment somebody pressed G.
+		const FDirtbagProjectMemory* Ledger = nullptr;
+		for (const FDirtbagProjectMemory& M : Player.Projects)
+		{
+			if (M.RouteName == Line.Route.Name)
+			{
+				Ledger = &M;
+				break;
+			}
+		}
+		const bool bSent = Ledger && Ledger->bSent;
+		if (bSent)
+		{
+			B.SentHere++;
+		}
+
+		// Filters. Both come from the sim's own guidebook helpers in
+		// spirit -- Projects is OpenProjects and InReach is LinesUpTo --
+		// applied here because the engine holds the mirrored crag and
+		// converting the whole thing back to sim types to filter it would
+		// cost more than the filter.
+		bool bShow = true;
+		if (View == EDirtbagGuidebookView::Projects)
+		{
+			bShow = Line.bIsProject;
+		}
+		else if (View == EDirtbagGuidebookView::InReach)
+		{
+			// What you have actually climbed, not what you might. A book
+			// that shows you everything you could theoretically do is the
+			// book you already have.
+			bShow = Line.Route.Grade <= FMath::RoundToInt(PeakGradeEver);
+		}
+		if (!bShow)
+		{
+			B.Hidden++;
+			continue;
+		}
+
+		FDirtbagGuidebookRow Row;
+		Row.bProject = Line.bIsProject;
+		Row.bSent = bSent;
+		Row.FirstAscent = Line.FirstAscentBy;
+
+		// The entry, as the book would read it aloud.
+		if (Line.bIsProject)
+		{
+			Row.Entry = FString::Printf(TEXT("project — %s"),
+			                            *Line.Description);
+		}
+		else
+		{
+			Row.Entry = FString::Printf(
+			    TEXT("%s   %s"), *Line.DisplayName,
+			    *UDirtbagSimLibrary::GradeName(Line.Route.Grade,
+			                                   Line.Route.Discipline));
+			for (int32 i = 0; i < Line.Stars; i++)
+			{
+				Row.Entry += TEXT("*");
+			}
+		}
+
+		// And what you have done on it. This is the whole reason the page
+		// is worth drawing: the burn count has been tracked per line since
+		// Phase 1 and has never been visible anywhere but the wall you
+		// were standing at.
+		if (bSent)
+		{
+			Row.Yours = Ledger->Attempts > 1
+			                ? FString::Printf(TEXT("done, %d burns"),
+			                                  Ledger->Attempts)
+			                : FString(TEXT("done, first go"));
+		}
+		else if (Ledger && Ledger->Attempts > 0)
+		{
+			Row.Yours = FString::Printf(
+			    TEXT("%d burn%s, high point %d of %d"), Ledger->Attempts,
+			    Ledger->Attempts == 1 ? TEXT("") : TEXT("s"),
+			    Ledger->BestHighpoint, Line.Route.Moves.Num());
+		}
+		else if (Line.bIsProject)
+		{
+			// A project's obstacle is the dirt, so that is what its line
+			// says when you have not touched it.
+			Row.Yours = Ledger && Ledger->Cleanliness < 0.99
+			                ? FString::Printf(TEXT("%.0f%% cleaned"),
+			                                  Ledger->Cleanliness * 100.0)
+			                : FString(TEXT("filthy"));
+		}
+		B.Rows.Add(Row);
+	}
 }
 
 TArray<FString> UDirtbagGameInstance::WhoCouldTurnUp() const

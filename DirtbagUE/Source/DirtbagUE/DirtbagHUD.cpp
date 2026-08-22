@@ -695,6 +695,90 @@ void ADirtbagHUD::DrawHandover(UDirtbagGameInstance* Game, float W, float H)
 	}
 }
 
+void ADirtbagHUD::DrawGuidebook(UDirtbagGameInstance* Game, float W, float H)
+{
+	const FDirtbagGuidebookReadout& B = Game->Guidebook;
+	const float X = W * 0.5f - 420.f;
+	float Y = 70.f;
+
+	DrawRect(FLinearColor(0.04f, 0.04f, 0.05f, 0.92f), 0.f, 0.f, W, H);
+
+	DrawText(B.CragName.IsEmpty() ? TEXT("THE BOOK") : *B.CragName.ToUpper(),
+	         kInk, X, Y, GEngine->GetLargeFont(), 1.f);
+	// How much of the crag you have got through. The one place the game
+	// ever says it, and the number a climber actually keeps.
+	DrawText(FString::Printf(TEXT("%d of %d done"), B.SentHere, B.LinesHere),
+	         kDim, X + 420.f, Y + 8.f, GEngine->GetMediumFont(), 1.f);
+	Y += 46.f;
+
+	// Which page, and the keys. Always on screen — three views is two more
+	// than anybody remembers.
+	const TCHAR* Views[3] = {TEXT("1 everything"), TEXT("2 projects"),
+	                         TEXT("3 in reach")};
+	const int32 Current = static_cast<int32>(B.View);
+	for (int32 i = 0; i < 3; i++)
+	{
+		DrawText(Views[i], i == Current ? kInk : FLinearColor(0.5f, 0.5f, 0.48f, 1.f),
+		         X + i * 150.f, Y, GEngine->GetSmallFont(), 1.f);
+	}
+	Y += 30.f;
+
+	// The page. Capped at what fits rather than scrolled: a canvas HUD has
+	// no scrollbar, and a list that runs off the bottom silently is worse
+	// than one that says how much it kept back.
+	const int32 RowHeight = 24;
+	const int32 Fits = FMath::Max(1, FMath::FloorToInt((H - Y - 70.f) / RowHeight));
+	const int32 Shown = FMath::Min(B.Rows.Num(), Fits);
+
+	for (int32 i = 0; i < Shown; i++)
+	{
+		const FDirtbagGuidebookRow& Row = B.Rows[i];
+		// Done is quiet, unclimbed is gold, everything else is plain. A
+		// page that shouts every line is a page you stop reading.
+		const FLinearColor Ink =
+		    Row.bSent ? FLinearColor(0.45f, 0.65f, 0.50f, 1.f)
+		              : (Row.bProject ? FLinearColor(0.95f, 0.85f, 0.40f, 1.f)
+		                              : kInk);
+		DrawText(Row.Entry, Ink, X, Y, GEngine->GetMediumFont(), 1.f);
+
+		// Your history in the right-hand column, so the page reads as a
+		// book with your pencil marks in it rather than as a table.
+		if (!Row.Yours.IsEmpty())
+		{
+			DrawText(Row.Yours, kDim, X + 470.f, Y, GEngine->GetSmallFont(),
+			         1.f);
+		}
+		else if (!Row.FirstAscent.IsEmpty())
+		{
+			DrawText(FString::Printf(TEXT("FA %s"), *Row.FirstAscent),
+			         FLinearColor(0.5f, 0.5f, 0.48f, 1.f), X + 470.f, Y,
+			         GEngine->GetSmallFont(), 1.f);
+		}
+		Y += RowHeight;
+	}
+
+	// Never swallow the crag silently — not the rows a filter hid, and not
+	// the rows the screen ran out of room for.
+	FString Foot;
+	if (Shown < B.Rows.Num())
+	{
+		Foot = FString::Printf(TEXT("%d more below the fold."),
+		                       B.Rows.Num() - Shown);
+	}
+	if (B.Hidden > 0)
+	{
+		Foot += Foot.IsEmpty() ? FString() : TEXT("   ");
+		Foot += FString::Printf(TEXT("%d not on this page."), B.Hidden);
+	}
+	if (!Foot.IsEmpty())
+	{
+		DrawText(Foot, kDim, X, Y + 8.f, GEngine->GetSmallFont(), 1.f);
+	}
+
+	DrawText(TEXT("G to close"), FLinearColor(0.6f, 0.6f, 0.58f, 0.75f),
+	         W - 150.f, H - 46.f, GEngine->GetSmallFont(), 1.f);
+}
+
 void ADirtbagHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -707,6 +791,16 @@ void ADirtbagHUD::DrawHUD()
 
 	const float W = static_cast<float>(Canvas->SizeX);
 	const float H = static_cast<float>(Canvas->SizeY);
+
+	// The book sits over the world but under a career ending and under the
+	// road, because both of those are things happening *to* you and the
+	// book is something you opened.
+	if (Game->Guidebook.bActive && !Game->Handover.bActive &&
+	    !Game->TravelReadout.bActive)
+	{
+		DrawGuidebook(Game, W, H);
+		return;
+	}
 
 	// A career ending outranks everything, including the road -- you cannot
 	// be driving and retiring at once, but if a bug ever says you are, this

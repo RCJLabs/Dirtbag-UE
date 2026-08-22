@@ -140,6 +140,97 @@ struct FDirtbagPrompt
 	TArray<FDirtbagPromptLine> Lines;
 };
 
+/** Which page of the book. */
+UENUM(BlueprintType)
+enum class EDirtbagGuidebookView : uint8
+{
+	/** Everything here, in book order. */
+	Everything,
+	/** Lines nobody has done — the first-ascent pipeline's shopping list. */
+	Projects,
+	/** At or under what you have actually climbed. */
+	InReach,
+};
+
+/** One line on the page. */
+USTRUCT(BlueprintType)
+struct FDirtbagGuidebookRow
+{
+	GENERATED_BODY()
+
+	/** "Diesel  V5  ***" or "project — the arete left of Diesel". */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	FString Entry;
+
+	/** What you have done on it: a tick, a burn count and a highpoint, or
+	 *  nothing at all. This is the projecting/nemesis system finally
+	 *  visible — it has been tracked per line since Phase 1 and has only
+	 *  ever surfaced as "attempt 14" on the wall you happened to be
+	 *  standing at. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	FString Yours;
+
+	/** Whose it is, when somebody has done it first. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	FString FirstAscent;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	bool bSent = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	bool bProject = false;
+};
+
+/**
+ * The crag's page.
+ *
+ * `Sim/DirtbagCrag.h` carries three `unwired-ok` notes that all say the
+ * same thing — *"the guidebook page's filter; there is no guidebook
+ * screen"* — and they were right for months. `LinesUpTo` and
+ * `OpenProjects` were written for a page that did not exist.
+ *
+ * Without it the player learns about a line by walking up to it. There is
+ * no way to see what is at a crag before touring it, which lines are done,
+ * where the open projects are, or how many burns are in the thing that
+ * keeps spitting you off — and `concepts/DIRTBAG.md` §4 lists
+ * *projecting/nemesis tracking* as port-wholesale. The tracking was
+ * ported. The seeing was not.
+ *
+ * For a game whose entire loop is *pick a line, try it*, and whose fiction
+ * is a guidebook, that was the hole in the middle of the table.
+ */
+USTRUCT(BlueprintType)
+struct FDirtbagGuidebookReadout
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	bool bActive = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	EDirtbagGuidebookView View = EDirtbagGuidebookView::Everything;
+
+	/** Where this page is about. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	FString CragName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	TArray<FDirtbagGuidebookRow> Rows;
+
+	/** How many the view hid, so a filter never silently swallows the
+	 *  crag. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	int32 Hidden = 0;
+
+	/** Sends and lines here, for the header — the one place the game says
+	 *  how much of a crag you have actually got through. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	int32 SentHere = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Guidebook")
+	int32 LinesHere = 0;
+};
+
 /** Which part of the handover is on screen. */
 UENUM(BlueprintType)
 enum class EDirtbagHandoverStep : uint8
@@ -450,6 +541,25 @@ public:
 	 *  to. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	bool bLearnedTheVerb = false;
+
+	/** The crag's page. Any spot or wall opens it with G. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	FDirtbagGuidebookReadout Guidebook;
+
+	/** The frame the book was last toggled on, so overlapping triggers
+	 *  cannot toggle it twice with one keypress. Not a UPROPERTY: it is
+	 *  frame bookkeeping and has no business in a save or a details
+	 *  panel. */
+	uint64 GuidebookToggledOnFrame = 0;
+
+	/** Open or close the book, rebuilding the page for wherever you are.
+	 *  Returns true if it is now open. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Guidebook")
+	bool ToggleGuidebook();
+
+	/** Everything / projects / in reach. Rebuilds the page. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Guidebook")
+	void SetGuidebookView(EDirtbagGuidebookView View);
 
 	/** The end of a career. The van raises it; the HUD draws it. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
@@ -813,6 +923,16 @@ public:
 	 *  a season that does not end in one. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Legacy")
 	int32 ConsecutiveInjuries = 0;
+
+	/** Bookkeeping for the streak above, ticked at Sleep. Not saved: a
+	 *  reload resets a streak, which is a smaller wrong than a save
+	 *  migration for two counters, and the streak re-earns itself in a
+	 *  season. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Legacy")
+	bool bWasHurtYesterday = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Legacy")
+	int32 DaysSinceHurt = 0;
 
 	/** The best this career ever was, so decline is measured against it
 	 *  rather than against an age. Plenty of people climb their hardest at

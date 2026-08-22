@@ -254,6 +254,8 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			// Its own key, nowhere near E. See OnRetire.
 			InputComponent->BindKey(EKeys::R, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnRetire);
+			InputComponent->BindKey(EKeys::G, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnGuidebook);
 			bBoundInput = true;
 		}
 	}
@@ -280,6 +282,40 @@ void ADirtbagDaySpot::OnTriggerEnd(UPrimitiveComponent*, AActor* OtherActor,
 	{
 		DisableInput(PC);
 	}
+}
+
+void ADirtbagDaySpot::OnGuidebook()
+{
+	// Readable anywhere you can press a key, including mid-evening at the
+	// fire -- deciding what to get on tomorrow is exactly the thing you do
+	// while somebody else is dealing.
+	if (!Game || !bPlayerNear)
+	{
+		return;
+	}
+	// Asked-to-open-and-still-shut means something refused it, and a key
+	// that does nothing silently reads as a key that is broken. Detected
+	// this way rather than by re-testing the venue here, so the rule about
+	// where there is a book lives in exactly one place.
+	const bool bWas = Game->Guidebook.bActive;
+	const bool bNow = Game->ToggleGuidebook();
+	if (!bWas && !bNow)
+	{
+		Say(TEXT("Plastic. The setter's tag is the whole of the book here."),
+		    FColor::Silver, 4.f);
+	}
+	PushPrompt();
+}
+
+bool ADirtbagDaySpot::TurnGuidebookPage(int32 Which)
+{
+	if (!Game || !Game->Guidebook.bActive)
+	{
+		return false;
+	}
+	Game->SetGuidebookView(static_cast<EDirtbagGuidebookView>(
+	    FMath::Clamp(Which, 0, 2)));
+	return true;
 }
 
 void ADirtbagDaySpot::OnRetire()
@@ -991,18 +1027,21 @@ void ADirtbagDaySpot::OnChoose1()
 {
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(0)) { return; }
+	if (TurnGuidebookPage(0)) { return; }
 	if (!SetStakeNotch(0)) { ChooseDreamAt(EDirtbagDream::Rig); }
 }
 void ADirtbagDaySpot::OnChoose2()
 {
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(1)) { return; }
+	if (TurnGuidebookPage(1)) { return; }
 	if (!SetStakeNotch(1)) { ChooseDreamAt(EDirtbagDream::WarChest); }
 }
 void ADirtbagDaySpot::OnChoose3()
 {
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(2)) { return; }
+	if (TurnGuidebookPage(2)) { return; }
 	if (!SetStakeNotch(2)) { ChooseDreamAt(EDirtbagDream::HomeBase); }
 }
 
