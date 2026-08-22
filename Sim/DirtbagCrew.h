@@ -66,8 +66,13 @@ bool ReadsAsACrew(const std::vector<PartnerBond>& bonds,
 // is the part of town doing the talking -- and from a hash of the world and
 // the members, so the same people in the same valley are always called the
 // same thing and a different crew is called something else.
-bool CrewDay(Crew& crew, const std::vector<PartnerBond>& bonds,
-             const Standing& standing, const Rng& worldRng, int day,
+// `self` is you -- you are a member, so you are part of the key. Without
+// it the hash was world + partners, and the partners are the same three
+// people every generation, so the town issued the same nickname to four
+// different lives in a row.
+bool CrewDay(Crew& crew, const std::string& self,
+             const std::vector<PartnerBond>& bonds, const Standing& standing,
+             const Rng& worldRng, int day,
              const CrewDials& dials = CrewDials{});
 
 // "They call you the trail crew." Empty until there is a name.

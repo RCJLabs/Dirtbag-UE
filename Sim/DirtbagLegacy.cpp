@@ -67,7 +67,8 @@ Legacy TallyCareer(const PlayerState& player, const std::string& name,
   return out;
 }
 
-PlayerState Inherit(const Legacy& previous, const LegacyDials& dials) {
+PlayerState Inherit(const Legacy& previous, const Rng& worldRng,
+                    const LegacyDials& dials) {
   PlayerState next;
 
   // Nothing physical carries. The next climber is twenty-four with a fresh
@@ -82,7 +83,10 @@ PlayerState Inherit(const Legacy& previous, const LegacyDials& dials) {
   // on Roadside Attraction, the warm-up), and could never be offered
   // retirement, because that test needs a peak above zero and they never
   // had one. They climbed to 85 and past it. See notes/phase4-career.md.
-  next.climber = NewClimber();
+  // Salted with whose career ended, so each generation is its own draw --
+  // the flat NewClimber() this replaced dealt the same 50s and the same
+  // Average build every time, and four lives came out word-for-word alike.
+  next.climber = NewClimber(worldRng.Derive("after#" + previous.name));
   next.day = 1;
   next.cash = dials.inheritedCash;
 

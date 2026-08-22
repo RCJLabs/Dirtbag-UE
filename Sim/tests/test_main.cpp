@@ -619,32 +619,36 @@ static void TestTheTownNamesYourCrew() {
   // September is three people who had a good week in September.
   Crew crew;
   for (int d = 1; d < cd.daysBeforeTheyNameYou; d++) {
-    CHECK(!CrewDay(crew, real, scene, world, d, cd));
+    CHECK(!CrewDay(crew, "Wren", real, scene, world, d, cd));
     CHECK(crew.name.empty());
   }
-  CHECK(CrewDay(crew, real, scene, world, cd.daysBeforeTheyNameYou, cd));
+  CHECK(CrewDay(crew, "Wren", real, scene, world, cd.daysBeforeTheyNameYou, cd));
   CHECK(!crew.name.empty());
   CHECK(crew.membersWhenNamed == 3);              // two of them and you
   CHECK(crew.namedOnDay == cd.daysBeforeTheyNameYou);
 
   // Said once. The town does not keep announcing it.
-  CHECK(!CrewDay(crew, real, scene, world, cd.daysBeforeTheyNameYou + 1, cd));
+  CHECK(!CrewDay(crew, "Wren", real, scene, world,
+                 cd.daysBeforeTheyNameYou + 1, cd));
   CHECK(CrewText(crew) == "They call you " + crew.name + ".");
 
   // Named is named. It does not come back for revision when the crew drifts
   // apart -- a career that outlives its own crew still gets called the thing
   // it got called.
   const std::string stuck = crew.name;
-  for (int d = 0; d < 400; d++) CrewDay(crew, one, scene, world, 1000 + d, cd);
+  for (int d = 0; d < 400; d++)
+    CrewDay(crew, "Wren", one, scene, world, 1000 + d, cd);
   CHECK(crew.name == stuck);
 
   // A thin fortnight does not cost you the month: the counter slides back at
   // the rate it built rather than resetting, so a crew that mostly holds
   // together still gets there.
   Crew patchy;
-  for (int d = 0; d < 20; d++) CrewDay(patchy, real, scene, world, d, cd);
+  for (int d = 0; d < 20; d++)
+    CrewDay(patchy, "Wren", real, scene, world, d, cd);
   CHECK(patchy.daysReadingAsACrew == 20);
-  for (int d = 0; d < 5; d++) CrewDay(patchy, one, scene, world, 20 + d, cd);
+  for (int d = 0; d < 5; d++)
+    CrewDay(patchy, "Wren", one, scene, world, 20 + d, cd);
   CHECK(patchy.daysReadingAsACrew == 15);         // slid, not wiped
 
   // Who is talking decides what you are called. The same people in the same
@@ -654,8 +658,8 @@ static void TestTheTownNamesYourCrew() {
   stewards.with[static_cast<int>(Faction::Stewardship)] = 0.8;
   Crew a, b;
   for (int d = 0; d <= cd.daysBeforeTheyNameYou; d++) {
-    CrewDay(a, real, scene, world, d, cd);
-    CrewDay(b, real, stewards, world, d, cd);
+    CrewDay(a, "Wren", real, scene, world, d, cd);
+    CrewDay(b, "Wren", real, stewards, world, d, cd);
   }
   CHECK(!a.name.empty() && !b.name.empty());
   CHECK(a.name != b.name);
@@ -666,22 +670,35 @@ static void TestTheTownNamesYourCrew() {
   std::vector<PartnerBond> reversed = {{"Dev", 0.7, {}}, {"Margo", 0.9, {}}};
   Crew again;
   for (int d = 0; d <= cd.daysBeforeTheyNameYou; d++)
-    CrewDay(again, reversed, scene, world, d, cd);
+    CrewDay(again, "Wren", reversed, scene, world, d, cd);
   CHECK(again.name == a.name);
 
   // A different valley calls them something else.
   Crew elsewhere;
   const Rng other = Rng::FromSeed("crew-2");
   for (int d = 0; d <= cd.daysBeforeTheyNameYou; d++)
-    CrewDay(elsewhere, real, scene, other, d, cd);
+    CrewDay(elsewhere, "Wren", real, scene, other, d, cd);
   CHECK(!elsewhere.name.empty());
+
+  // A different *you* is a different crew. The hash used to key on world
+  // and partners alone, and the partners are the same three people every
+  // generation -- so the town issued one nickname to four lives in a row.
+  // You are a member; you are part of the key. (Five names per list, so a
+  // collision is possible on some pair; this pair differs, and the check
+  // is that the successor CAN be named their own thing, not that every
+  // pair must be.)
+  Crew nextGen;
+  for (int d = 0; d <= cd.daysBeforeTheyNameYou; d++)
+    CrewDay(nextGen, "Ash", real, scene, world, d, cd);
+  CHECK(!nextGen.name.empty());
+  CHECK(nextGen.name != a.name);
 
   // And if nobody rates you, you still get a name -- being called something
   // is the point. It is just not a kind one.
   Standing nobody;
   Crew unrated;
   for (int d = 0; d <= cd.daysBeforeTheyNameYou; d++)
-    CrewDay(unrated, real, nobody, world, d, cd);
+    CrewDay(unrated, "Wren", real, nobody, world, d, cd);
   CHECK(!unrated.name.empty());
   CHECK(unrated.name != a.name);
 
@@ -710,7 +727,7 @@ static void TestTheCrewNameMigrates() {
   player.standing.with[static_cast<int>(Faction::Scene)] = 0.8;
   const Rng world = Rng::FromSeed("crew-save");
   for (int d = 0; d <= CrewDials{}.daysBeforeTheyNameYou; d++)
-    CrewDay(player.crew, player.bonds, player.standing, world, d);
+    CrewDay(player.crew, player.name, player.bonds, player.standing, world, d);
   CHECK(!player.crew.name.empty());
 
   SaveGame save;
@@ -746,6 +763,38 @@ static void TestTheCrewNameMigrates() {
   SaveGame freshBack;
   CHECK(DeserializeSave(SerializeSave(fresh), freshBack) == LoadResult::Ok);
   CHECK(freshBack.player.crew.name.empty());
+}
+
+// v19 -> v20: the player's own name. It is free text from a keyboard, and
+// the save format is line-oriented, so the serializer strips line breaks --
+// one pasted newline must not shear the file in half.
+static void TestThePlayerNameMigrates() {
+  SaveGame save;
+  save.seed = "named";
+  save.player.name = "Wren";
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.name == "Wren");
+
+  // '=' is fine -- the parser splits on the first one. Newlines are not,
+  // and arrive stripped rather than fatal.
+  save.player.name = "Wren = the\nfirst";
+  SaveGame odd;
+  CHECK(DeserializeSave(SerializeSave(save), odd) == LoadResult::Ok);
+  CHECK(odd.player.name == "Wren = thefirst");
+
+  // A v19 save has no name and arrives unnamed, costing nothing: a named
+  // crew stays named, and an unnamed career salts the crew hash with
+  // nothing, exactly as every career did before names existed.
+  save.player.name = "Wren";
+  std::string v19 = SerializeSave(save);
+  DropSaveLine(v19, "player.name=");
+  SetSaveVersion(v19, 19);
+  SaveGame old;
+  CHECK(DeserializeSave(v19, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(old.player.name.empty());
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
 }
 
 static void TestDreamsCostTheBuffer() {
@@ -2094,7 +2143,7 @@ static void TestTheValleyRemembersAcrossGenerations() {
 
   // Somebody does it and names it, and their career ends.
   PlayerState first;
-  first.climber = NewClimber();
+  first.climber = NewClimber(Rng::FromSeed("fa-world"));
   ProjectMemory m = NewProjectLedger(*project);
   m.sent = true;
   m.firstSendStyle = Style::Redpoint;
@@ -2105,7 +2154,7 @@ static void TestTheValleyRemembersAcrossGenerations() {
 
   // The next one inherits nothing personal -- correctly, the ledger is
   // theirs and not yours.
-  const PlayerState next = Inherit(done);
+  const PlayerState next = Inherit(done, Rng::FromSeed("fa-world"));
   CHECK(next.projects.empty());
 
   // Which is exactly why the book has to be written separately. Before this
@@ -5477,8 +5526,9 @@ static void TestTheWorldRemembersAndTheBodyDoesNot() {
   // The whole design call. Inheriting somebody else's fingers would be
   // nonsense and would make the second life a save-scum of the first.
   LegacyDials d;
+  const Rng world = Rng::FromSeed("legacy-world");
   const Legacy l = TallyCareer(ACareer(), "Evan", 9);
-  const PlayerState next = Inherit(l, d);
+  const PlayerState next = Inherit(l, world, d);
 
   // Nothing physical carries — they start where anybody starts.
   //
@@ -5488,16 +5538,31 @@ static void TestTheWorldRemembersAndTheBodyDoesNot() {
   // and, because the retirement test needs a peak above zero, never once
   // offered the chance to stop. Thirty years of it went unnoticed because
   // the assertion agreed with the bug.
-  CHECK(next.climber.skills.power == kStartingSkill);
-  CHECK(next.climber.skills.fingers == kStartingSkill);
-  CHECK(next.climber.skills.technique == kStartingSkill);
-  CHECK(next.climber.skills.endurance == kStartingSkill);
-  CHECK(next.climber.skills.head == kStartingSkill);
+  //
+  // "Where anybody starts" is now a spread rather than a stamp: a beginner
+  // within ±6 of kStartingSkill, never a veteran and never that zero.
+  const auto aBeginner = [](double s) {
+    return s >= kStartingSkill - 6.0 && s <= kStartingSkill + 6.0;
+  };
+  CHECK(aBeginner(next.climber.skills.power));
+  CHECK(aBeginner(next.climber.skills.fingers));
+  CHECK(aBeginner(next.climber.skills.technique));
+  CHECK(aBeginner(next.climber.skills.endurance));
+  CHECK(aBeginner(next.climber.skills.head));
 
-  // Which is to say: exactly the body a brand-new career gets, no more.
-  const Climber arriving = NewClimber();
-  CHECK(next.climber.skills.power == arriving.skills.power);
-  CHECK(next.climber.skills.head == arriving.skills.head);
+  // Deterministic: the same world and the same predecessor hand back the
+  // same successor, or a reload would re-roll your body.
+  const PlayerState again = Inherit(l, world, d);
+  CHECK(again.climber.skills.power == next.climber.skills.power);
+  CHECK(again.climber.morphology == next.climber.morphology);
+
+  // And different predecessors are different draws -- four generations
+  // must not be four copies. (Skills are five independent ±6 rolls; the
+  // chance of a collision on all five is nil, and this seed pair differs.)
+  const Legacy other = TallyCareer(ACareer(), "Wren", 9);
+  const PlayerState sibling = Inherit(other, world, d);
+  CHECK(sibling.climber.skills.power != next.climber.skills.power ||
+        sibling.climber.skills.technique != next.climber.skills.technique);
 
   // And the two properties the zeroed version silently failed: they can
   // climb, and they can eventually stop.
@@ -5537,8 +5602,8 @@ static void TestTheWorldRemembersAndTheBodyDoesNot() {
   // crag rather than a consequence.
   Legacy shut = l;
   shut.standing.closedDays = 9;
-  CHECK(Inherit(shut, d).standing.closedDays == 0);
-  CHECK(CragIsOpen(Inherit(shut, d).standing));
+  CHECK(Inherit(shut, Rng::FromSeed("w"), d).standing.closedDays == 0);
+  CHECK(CragIsOpen(Inherit(shut, Rng::FromSeed("w"), d).standing));
 }
 
 static void TestNobodyIsEverThrownOut() {
@@ -7061,6 +7126,7 @@ int main() {
   TestTheDirtbagYearMigrates();
   TestTheTownNamesYourCrew();
   TestTheCrewNameMigrates();
+  TestThePlayerNameMigrates();
   TestDreamsCostTheBuffer();
   TestDreamsMigrate();
   TestTheCampfireGame();

@@ -132,6 +132,11 @@ struct DayDials {
 // Career state — everything that outlives a day. This is what the save file
 // carries (DirtbagSave.h).
 struct PlayerState {
+  // What you are called. The crew hash includes it, so the town names
+  // *this* generation's crew rather than re-issuing the last one's; the
+  // legacy is where it ends up. Empty is legal and simply adds nothing.
+  std::string name;
+
   Climber climber;
   double cash = 420.0;  // the war chest you left home with
   int day = 1;

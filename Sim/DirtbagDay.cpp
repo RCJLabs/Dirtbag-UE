@@ -338,7 +338,8 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
 
   // And a day of the town watching who gets out of the van. Same reason it
   // lives here: being called something is not an action you take.
-  CrewDay(player.crew, player.bonds, player.standing, worldRng, player.day);
+  CrewDay(player.crew, player.name, player.bonds, player.standing, worldRng,
+          player.day);
 
   // Rent, and a bought year running down. Rent lands here with the other
   // things that happen to you overnight rather than at the shop, because

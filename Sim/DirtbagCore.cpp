@@ -6,13 +6,25 @@
 
 namespace dirtbag {
 
-Climber NewClimber() {
+Climber NewClimber(const Rng& rng) {
+  Rng r = rng.Derive("body-you-arrived-in");
   Climber c;
-  c.skills.power = kStartingSkill;
-  c.skills.fingers = kStartingSkill;
-  c.skills.technique = kStartingSkill;
-  c.skills.endurance = kStartingSkill;
-  c.skills.head = kStartingSkill;
+  // +/- 6 on a 7.14-point grade: under a grade of head start in any one
+  // axis, enough that this career's easy style is not last career's.
+  const auto skill = [&]() {
+    return kStartingSkill + r.FloatRange(-6.0, 6.0);
+  };
+  c.skills.power = skill();
+  c.skills.fingers = skill();
+  c.skills.technique = skill();
+  c.skills.endurance = skill();
+  c.skills.head = skill();
+  // Average stays the most common build, the way it is at any crag.
+  const double m = r.NextDouble();
+  c.morphology = m < 0.40   ? Morphology::Average
+                 : m < 0.60 ? Morphology::Compact
+                 : m < 0.80 ? Morphology::Lanky
+                            : Morphology::Powerful;
   return c;
 }
 

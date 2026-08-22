@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+#include "DirtbagRng.h"
+
 namespace dirtbag {
 
 // Shared because more than one translation unit wants it, and because two
@@ -123,7 +125,17 @@ struct Climber {
 // A climber as they arrive at the Lot: the starting body, and nothing else
 // assumed. Use this rather than `Climber{}` anywhere a *person* is being
 // made, because `Climber{}` is a zeroed struct and a person is not.
-Climber NewClimber();
+// A new climber, drawn from the world rather than stamped out. Skills sit
+// around kStartingSkill with a spread of about three quarters of a grade,
+// and morphology is rolled -- which matters, because the resolver reads it
+// against every move's reachBias: a Lanky climber and a Compact one own
+// different cruxes, which is the cheapest real variety a career can have.
+//
+// Deterministic from the rng, so the same world hands the same life the
+// same body. There is deliberately no unseeded version: the one that
+// stamped out flat 50s and Average, four times in a row, is what made four
+// generations read word-for-word identical (ROADMAP 2026-08-22).
+Climber NewClimber(const Rng& rng);
 
 // --- Conditions -------------------------------------------------------------
 

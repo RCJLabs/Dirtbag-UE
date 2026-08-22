@@ -21,6 +21,15 @@ void UDirtbagGameInstance::Init()
 	// Anything else — missing, garbage, future — starts fresh; the bad file
 	// is left on disk untouched for post-mortems, never overwritten silently
 	// until the next sleep.
+	else
+	{
+		// A fresh valley hands you a body, not a template. The mirror's
+		// defaults are flat 50s and Average — the same climber in every
+		// world — and NewClimber draws skills and morphology from the world
+		// seed, so which lines suit you differs before a day is played.
+		Player.Climber = DirtbagConvert::FromSim(dirtbag::NewClimber(
+		    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed))));
+	}
 
 	Day = UDirtbagSimLibrary::WakeUp(Player);
 }
@@ -94,6 +103,12 @@ void UDirtbagGameInstance::Sleep()
 	// plumbing a return value through the Blueprint library keeps the news
 	// here, where every other piece of overnight news already lives.
 	const int32 YearsBefore = Player.Job.DirtbagYears;
+
+	// The sim's copy of who you are, kept current before CrewDay runs
+	// inside SleepToNextDay — the crew hash includes your name, so the sync
+	// has to happen on this side of the call or the town would name
+	// generation two after generation one.
+	Player.Name = ClimberName;
 
 	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
 
@@ -860,7 +875,10 @@ void UDirtbagGameInstance::RetireAndPassItOn(const FString& Name)
 	    SimPlayer, TCHAR_TO_UTF8(*Name), 1 + Player.Day / 365);
 	Legacies.push_back(L);
 
-	Player = DirtbagConvert::FromSim(dirtbag::Inherit(L));
+	Player = DirtbagConvert::FromSim(dirtbag::Inherit(
+	    L, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed))));
+	// The next one arrives unnamed; the naming UI fills ClimberName and the
+	// sync in Sleep carries it into the sim, where the crew hash reads it.
 	Day = UDirtbagSimLibrary::WakeUp(Player);
 	ConsecutiveInjuries = 0;
 	PeakGradeEver = 0.0;

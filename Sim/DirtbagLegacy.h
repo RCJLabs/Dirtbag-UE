@@ -119,7 +119,12 @@ Legacy TallyCareer(const PlayerState& player, const std::string& name,
 
 // The next one. Twenty-four, nothing in the fingers, and a valley that
 // already has your predecessor's name written on it in three places.
-PlayerState Inherit(const Legacy& previous,
+//
+// Takes the world because the next climber is drawn from it, salted with
+// whose career just ended -- so generation two of the same world is a
+// different body from generation one, deterministically, and a reload
+// hands you back the same successor.
+PlayerState Inherit(const Legacy& previous, const Rng& worldRng,
                     const LegacyDials& dials = LegacyDials{});
 
 // "Nine seasons. Hardest: The Guidebook Lied, V7. Four lines that are yours

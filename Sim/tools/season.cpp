@@ -278,9 +278,11 @@ int main(int argc, char** argv) {
   DogDials dog;
 
   PlayerState player;
-  player.climber.skills.power = player.climber.skills.fingers =
-      player.climber.skills.technique = player.climber.skills.endurance =
-          player.climber.skills.head = 50.0;
+  player.name = "Climber 1";
+  // Drawn from the world like every life after it -- the flat 50s this
+  // replaces were the same climber every seed, which understated how much
+  // careers differ before a single day is played.
+  player.climber = NewClimber(world);
 
   if (startingPads >= 0) player.kit.pads = startingPads;
   // The kept control's float. See the note where its dials are zeroed:
@@ -867,7 +869,7 @@ int main(int argc, char** argv) {
       for (const NamedLine& n : done.firstAscents) {
         for (CragLine& line : crag.lines) WriteIntoTheBook(line, n);
       }
-      player = Inherit(done);
+      player = Inherit(done, world);
       // Do NOT carry player.day across. Inherit sets it to 1 on purpose:
       // age is *derived* from the day counter, so resetting the counter is
       // how the next climber is twenty-four. Carrying it over -- which this
@@ -879,6 +881,7 @@ int main(int argc, char** argv) {
       // the world's calendar restarts with them. Generation two climbs
       // generation one's weather.
       lives++;
+      player.name = "Climber " + std::to_string(lives);
       consecutiveInjuries = 0;
       sinceHurt = 0;
       peakGradeEver = 0.0;

@@ -832,6 +832,11 @@ struct FDirtbagPlayerState
 {
 	GENERATED_BODY()
 
+	/** What you are called. The crew hash includes it, so the town names
+	 *  this generation's crew rather than re-issuing the last one's. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	FString Name;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	FDirtbagClimber Climber;
 

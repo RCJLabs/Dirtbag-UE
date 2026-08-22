@@ -71,9 +71,9 @@ bool ReadsAsACrew(const std::vector<PartnerBond>& bonds,
   return close >= dials.bondsThatMakeACrew;
 }
 
-bool CrewDay(Crew& crew, const std::vector<PartnerBond>& bonds,
-             const Standing& standing, const Rng& worldRng, int day,
-             const CrewDials& dials) {
+bool CrewDay(Crew& crew, const std::string& self,
+             const std::vector<PartnerBond>& bonds, const Standing& standing,
+             const Rng& worldRng, int day, const CrewDials& dials) {
   // Named is named. The town does not revisit it because you had a thin
   // winter, and it does not take it back if the crew drifts apart -- that
   // is what a nickname is, and a career that outlives its own crew still
@@ -111,7 +111,7 @@ bool CrewDay(Crew& crew, const std::vector<PartnerBond>& bonds,
   }
   std::sort(who.begin(), who.end());
 
-  std::string key = worldRng.seed;
+  std::string key = worldRng.seed + "|" + self;
   for (const std::string& w : who) key += "|" + w;
 
   const std::size_t h = HashSeedString(key);

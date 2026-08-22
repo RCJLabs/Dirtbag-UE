@@ -169,6 +169,7 @@ FDirtbagProjectMemory FromSim(const dirtbag::ProjectMemory& In)
 dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 {
 	dirtbag::PlayerState Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
 	Out.climber = ToSim(In.Climber);
 	Out.cash = In.Cash;
 	Out.day = In.Day;
@@ -216,6 +217,7 @@ dirtbag::DayState ToSim(const FDirtbagDayState& In)
 FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 {
 	FDirtbagPlayerState Out;
+	Out.Name = FString(In.name.c_str());
 	Out.Climber.Power = In.climber.skills.power;
 	Out.Climber.Fingers = In.climber.skills.fingers;
 	Out.Climber.Technique = In.climber.skills.technique;

@@ -1,5 +1,7 @@
 #include "DirtbagSave.h"
 
+#include <algorithm>
+
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
@@ -233,6 +235,13 @@ void MigrateV17ToV18(SaveFields& fields) {
 // rules. The stale `dreams.working` key is simply no longer read.
 void MigrateV18ToV19(SaveFields& fields) { fields["dreams.chosen"] = "0"; }
 
+// v19 -> v20: the player's name reaches the sim (the crew hash needs it so
+// the town names each generation's crew rather than re-issuing the last
+// one's). Old saves arrive unnamed, which costs nothing: a crew already
+// named stays named, and an unnamed career simply salts the hash with
+// nothing, exactly as every career did before names existed.
+void MigrateV19ToV20(SaveFields& fields) { fields["player.name"] = ""; }
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -255,7 +264,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12,
       &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15,
       &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18,
-      &MigrateV18ToV19};
+      &MigrateV18ToV19, &MigrateV19ToV20};
   return kMigrations;
 }
 
@@ -273,6 +282,15 @@ std::string SerializeSave(const SaveGame& save) {
   std::ostringstream out;
   out << "version=" << save.version << "\n";
   out << "seed=" << save.seed << "\n";
+  // The name is the player's own text, and the format is line-oriented: a
+  // newline in it would shear the file in half. '=' is fine -- the parser
+  // splits on the first one -- so only line breaks are stripped.
+  std::string safeName = save.player.name;
+  safeName.erase(std::remove(safeName.begin(), safeName.end(), '\n'),
+                 safeName.end());
+  safeName.erase(std::remove(safeName.begin(), safeName.end(), '\r'),
+                 safeName.end());
+  out << "player.name=" << safeName << "\n";
   out << "day=" << save.player.day << "\n";
   out << "cash=" << NumToStr(save.player.cash) << "\n";
 
@@ -469,6 +487,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   int morphology = 0, projectCount = 0;
   Climber& c = save.player.climber;
   if (!ParseString(fields, "seed", save.seed) ||
+      !ParseString(fields, "player.name", save.player.name) ||
       !ParseInt(fields, "day", save.player.day) ||
       !ParseDouble(fields, "cash", save.player.cash) ||
       !ParseDouble(fields, "skills.power", c.skills.power) ||
