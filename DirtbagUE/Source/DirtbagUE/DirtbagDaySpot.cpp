@@ -26,7 +26,12 @@ void Say(const FString& Msg, FColor Color, float Seconds = 4.f)
 
 ADirtbagDaySpot::ADirtbagDaySpot()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	// A spot is a trigger volume that answers keys and does not need
+	// frames -- except while the road is on screen, which is the one thing
+	// here that animates. Allowed but switched off, and switched on for the
+	// length of a trip only.
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
 
 	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	SetRootComponent(Root);
@@ -250,6 +255,10 @@ void ADirtbagDaySpot::OnTriggerEnd(UPrimitiveComponent*, AActor* OtherActor,
 
 void ADirtbagDaySpot::OnInteract()
 {
+	if (SkipTravel())
+	{
+		return;
+	}
 	if (!bPlayerNear || !Game)
 	{
 		return;
@@ -629,6 +638,10 @@ void ADirtbagDaySpot::RefreshFireTable()
 
 void ADirtbagDaySpot::OnCommit()
 {
+	if (SkipTravel())
+	{
+		return;
+	}
 	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Fire)
 	{
 		return;
@@ -712,6 +725,10 @@ void ADirtbagDaySpot::SettleFireHand(const FString& Line)
 
 void ADirtbagDaySpot::OnBackDown()
 {
+	if (SkipTravel())
+	{
+		return;
+	}
 	if (!bPlayerNear)
 	{
 		return;
@@ -784,14 +801,17 @@ bool ADirtbagDaySpot::SetStakeNotch(int32 Notch)
 // a hand.
 void ADirtbagDaySpot::OnChoose1()
 {
+	if (SkipTravel()) { return; }
 	if (!SetStakeNotch(0)) { ChooseDreamAt(EDirtbagDream::Rig); }
 }
 void ADirtbagDaySpot::OnChoose2()
 {
+	if (SkipTravel()) { return; }
 	if (!SetStakeNotch(1)) { ChooseDreamAt(EDirtbagDream::WarChest); }
 }
 void ADirtbagDaySpot::OnChoose3()
 {
+	if (SkipTravel()) { return; }
 	if (!SetStakeNotch(2)) { ChooseDreamAt(EDirtbagDream::HomeBase); }
 }
 
@@ -890,11 +910,126 @@ void ADirtbagDaySpot::ArriveFromDrive()
 		return;
 	}
 
-	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
-	if (APawn* Pawn = PC ? PC->GetPawn() : nullptr)
+	// The sim's side of the trip, taken **once and up front**, before a
+	// single frame of road is drawn.
+	//
+	// The screen that follows is pure presentation: it interpolates a clock
+	// for display and moves a shape across a backdrop, and it applies
+	// nothing. That ordering is deliberate -- if the player alt-F4s halfway
+	// down the road, the world is already in the state of having arrived,
+	// which is consistent. Applying at the end instead would leave a
+	// half-taken trip on the floor.
+	const bool bOnFoot = !UDirtbagSimLibrary::NeedsTheVan(DestinationZone);
+	const double Hours = bOnFoot ? WalkHours() : DriveHours();
+
+	TravelStartHour = Game->Day.Hour;
+
+	// A walk costs time and nothing else: no fuel, no wear, no breakdown
+	// roll. That is the point of connected ground -- the van is what buys
+	// you rock, and everything else is your legs.
+	const int32 Broke = bOnFoot ? -1 : Game->DriveVan(Hours);
+	Game->PassHours(Hours);
+	Game->SetVenue(ArriveAt);
+
+	BeginTravelScreen(bOnFoot, Hours, Broke);
+}
+
+void ADirtbagDaySpot::BeginTravelScreen(bool bOnFoot, double Hours,
+                                        int32 Broke)
+{
+	FDirtbagTravelReadout& T = Game->TravelReadout;
+	T.bActive = true;
+	T.bOnFoot = bOnFoot;
+	T.ToName = TravelName;
+	T.Progress = 0.0;
+	T.ShownHour = TravelStartHour;
+	T.Minutes = Hours * 60.0;
+	T.Fuel = bOnFoot ? 0.0 : Game->LastDriveFuel;
+	// The one thing the road ever has to say beyond where you are going.
+	// Said here rather than toasted on arrival, because a van giving up
+	// halfway to the crag is a thing that happens *on the road* and the
+	// road is finally on screen to show it.
+	T.Note = Broke >= 0 ? Game->VanNews : FString();
+	T.Backdrop = RoadBackdrop;
+	T.VanImage = VanSprite;
+
+	TravelElapsed = 0.f;
+	TravelHoursTaken = Hours;
+
+	// The screen needs frames. The spot does not tick otherwise -- it is a
+	// trigger volume that answers keys -- so tick is switched on for the
+	// length of the road and off again at the far kerb.
+	SetActorTickEnabled(true);
+
+	// Fade back in *behind* the road: the screen is what the player is
+	// looking at now, so the black is no longer doing any work.
+	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
 	{
-		const FVector Where = TravelTarget->GetActorLocation();
-		Pawn->TeleportTo(Where, Pawn->GetActorRotation());
+		if (PC->PlayerCameraManager)
+		{
+			PC->PlayerCameraManager->StartCameraFade(1.f, 0.f, FadeSeconds,
+			                                         FLinearColor::Black,
+			                                         false, false);
+		}
+	}
+}
+
+bool ADirtbagDaySpot::SkipTravel()
+{
+	if (!Game || !Game->TravelReadout.bActive)
+	{
+		return false;
+	}
+	TravelElapsed = FMath::Max(TravelElapsed, TravelSeconds);
+	return true;
+}
+
+void ADirtbagDaySpot::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (!Game || !Game->TravelReadout.bActive)
+	{
+		SetActorTickEnabled(false);
+		return;
+	}
+
+	TravelElapsed += DeltaSeconds;
+	const float Alpha =
+	    FMath::Clamp(TravelElapsed / FMath::Max(0.05f, TravelSeconds), 0.f, 1.f);
+
+	FDirtbagTravelReadout& T = Game->TravelReadout;
+	T.Progress = Alpha;
+	// Display only -- the real clock moved before the first frame of this.
+	//
+	// Wrapped rather than clamped, because a drive that leaves at 23:30 and
+	// takes forty minutes arrives at 00:10, and a clamp would sit the shown
+	// clock at 23:59 telling the player the trip took half an hour longer
+	// than it did.
+	T.ShownHour =
+	    FMath::Fmod(TravelStartHour + TravelHoursTaken * Alpha, 24.0);
+
+	if (Alpha < 1.f)
+	{
+		return;
+	}
+
+	// The far kerb. The teleport happens here rather than at the start so
+	// that the player is not standing in the destination while the road is
+	// still on screen -- the world behind the screen should match where the
+	// screen says you are only once it says you have arrived.
+	T.bActive = false;
+	SetActorTickEnabled(false);
+
+	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+	// Re-checked here as well as at the start: the sim's side of the trip
+	// is already applied by now, so a target that vanished mid-road would
+	// leave the player standing at the near kerb having spent the hours.
+	// Better to arrive nowhere than to spend the day twice.
+	if (APawn* Pawn = (PC && TravelTarget) ? PC->GetPawn() : nullptr)
+	{
+		Pawn->TeleportTo(TravelTarget->GetActorLocation(),
+		                 Pawn->GetActorRotation());
 		if (PC)
 		{
 			// Face the way the destination faces, so arrivals are composed.
@@ -902,31 +1037,9 @@ void ADirtbagDaySpot::ArriveFromDrive()
 		}
 	}
 
-	// A walk costs time and nothing else: no fuel, no wear, no breakdown
-	// roll. That is the point of connected ground -- the van is what buys
-	// you rock, and everything else is your legs.
-	const bool bOnFoot = !UDirtbagSimLibrary::NeedsTheVan(DestinationZone);
-	const double Hours = bOnFoot ? WalkHours() : DriveHours();
-	const int32 Broke = bOnFoot ? -1 : Game->DriveVan(Hours);
-	Game->PassHours(Hours);
-	Game->SetVenue(ArriveAt);
-
-	if (Broke >= 0)
+	if (!T.Note.IsEmpty())
 	{
-		Say(FString::Printf(TEXT("%s  %s"), *Game->VanNews, *Game->VanLine()),
+		Say(FString::Printf(TEXT("%s  %s"), *T.Note, *Game->VanLine()),
 		    FColor::Red, 8.f);
 	}
-
-	if (PC && PC->PlayerCameraManager)
-	{
-		PC->PlayerCameraManager->StartCameraFade(1.f, 0.f, FadeSeconds,
-		                                         FLinearColor::Black, false,
-		                                         false);
-	}
-	Say(bOnFoot
-	        ? FString::Printf(TEXT("Walked to %s. %.0f minutes."), *TravelName,
-	                          Hours * 60.0)
-	        : FString::Printf(TEXT("Drove to %s. %.0f minutes and $%.0f gone."),
-	                          *TravelName, Hours * 60.0, Game->LastDriveFuel),
-	    FColor::Silver);
 }

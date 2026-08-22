@@ -141,6 +141,80 @@ struct FDirtbagPrompt
 };
 
 /**
+ * The road, drawn.
+ *
+ * The 2D game shows the van crossing a background on its way somewhere.
+ * The port had fade-to-black, teleport, fade-in — which says *time passed*
+ * and nothing else.
+ *
+ * That matters more than it sounds. **This is the only time the van is on
+ * screen as a vehicle** rather than as a thing you sleep in and repair, and
+ * the van is what the money is for: it is the dream you save toward, the
+ * thing that breaks, the reason a bad night at the fire is felt twice. A
+ * fade cannot say any of that. A van crossing a background says *this is
+ * the thing you keep alive*, once per trip, for free.
+ *
+ * It doubles as the one place the game can show a **walk** as different
+ * from a drive — no van, no fuel, just twenty minutes of your legs — which
+ * is the distinction `Sim/DirtbagZones.h` exists to make.
+ *
+ * Same shape as every other readout here: the spot fills it, the HUD draws
+ * it. The backdrop and the van are asset slots and the screen works
+ * without them.
+ */
+USTRUCT(BlueprintType)
+struct FDirtbagTravelReadout
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Travel")
+	bool bActive = false;
+
+	/** A walk shows no van and costs no fuel. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Travel")
+	bool bOnFoot = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Travel")
+	FString ToName;
+
+	/** 0 at the near kerb, 1 at the far one. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Travel")
+	double Progress = 0.0;
+
+	/** The clock, interpolated for display only. The sim's hours are
+	 *  applied once, at the start of the trip — a screen that advanced the
+	 *  real clock as it drew would double-count the moment anything else
+	 *  read it mid-trip. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Travel")
+	double ShownHour = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Travel")
+	double Minutes = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Travel")
+	double Fuel = 0.0;
+
+	/** What went wrong on the way, if anything. Empty is the usual case. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Travel")
+	FString Note;
+
+	/** The road and the van, carried from the spot that owns them — the
+	 *  HUD cannot reach a trigger volume, and the assets belong to the
+	 *  route rather than to the screen, so the road to the Cave can look
+	 *  nothing like the road into town. Either may be null and the screen
+	 *  draws without them. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Travel")
+	TObjectPtr<class UTexture2D> Backdrop;
+
+	/** Named VanImage rather than Van deliberately: this module already has
+	 *  a `Van` on the player state and VanRuns/VanLine/VanNews beside it,
+	 *  and a field whose name collides with four others is a field the
+	 *  reachability checker reports as used no matter what. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Travel")
+	TObjectPtr<class UTexture2D> VanImage;
+};
+
+/**
  * The fire's table, drawn.
  *
  * The three campfire games shipped riding on a toast that expires in twelve
@@ -309,6 +383,10 @@ public:
 	 *  to. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	bool bLearnedTheVerb = false;
+
+	/** The road; a travel spot keeps this current while you are on it. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	FDirtbagTravelReadout TravelReadout;
 
 	/** The fire's table; the fire spot keeps this current. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")

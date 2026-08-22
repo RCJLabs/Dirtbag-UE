@@ -469,6 +469,95 @@ void ADirtbagHUD::DrawFire(UDirtbagGameInstance* Game, float W, float H)
 	         X + PanelW - 150.f, Y + 6.f, GEngine->GetSmallFont(), 1.f);
 }
 
+void ADirtbagHUD::DrawTravel(UDirtbagGameInstance* Game, float W, float H)
+{
+	const FDirtbagTravelReadout& T = Game->TravelReadout;
+	const float Alpha = FMath::Clamp(static_cast<float>(T.Progress), 0.f, 1.f);
+
+	// The road. A backdrop if the spot has one; otherwise a sky, a ground
+	// and a horizon, which is enough to read as somewhere rather than as a
+	// loading screen. Everything here works with no assets assigned -- the
+	// same rule the sound slots ship under.
+	const float Horizon = H * 0.62f;
+	if (T.Backdrop)
+	{
+		// Stretched to fill rather than DrawTextureSimple, which scales and
+		// would letterbox a backdrop that is not the player's aspect.
+		DrawTexture(T.Backdrop, 0.f, 0.f, W, H, 0.f, 0.f, 1.f, 1.f);
+	}
+	else
+	{
+		DrawRect(FLinearColor(0.09f, 0.11f, 0.15f, 1.f), 0.f, 0.f, W, Horizon);
+		DrawRect(FLinearColor(0.13f, 0.12f, 0.10f, 1.f), 0.f, Horizon, W,
+		         H - Horizon);
+		DrawRect(FLinearColor(0.35f, 0.32f, 0.28f, 1.f), 0.f, Horizon - 2.f, W,
+		         2.f);
+	}
+
+	// The van, crossing it. Off the near edge at 0 and off the far one at
+	// 1, so it enters and leaves rather than starting and stopping in
+	// frame -- a van parked at the edge of the screen for a beat at each
+	// end reads as a bug.
+	const float VanW = 220.f;
+	const float VanH = 110.f;
+	const float VanX = FMath::Lerp(-VanW, W, Alpha);
+	const float VanY = Horizon - VanH * 0.72f;
+	if (!T.bOnFoot)
+	{
+		if (T.VanImage)
+		{
+			DrawTexture(T.VanImage, VanX, VanY, VanW, VanH, 0.f, 0.f, 1.f,
+			            1.f);
+		}
+		else
+		{
+			// A shape, honestly a shape. It is a van the way the blockout
+			// wall was a boulder.
+			DrawRect(FLinearColor(0.72f, 0.68f, 0.58f, 1.f), VanX,
+			         VanY + VanH * 0.35f, VanW, VanH * 0.5f);
+			DrawRect(FLinearColor(0.55f, 0.52f, 0.45f, 1.f),
+			         VanX + VanW * 0.08f, VanY + VanH * 0.1f, VanW * 0.5f,
+			         VanH * 0.3f);
+		}
+	}
+
+	// Where you are going, big, centred, and the only thing on screen that
+	// is not moving.
+	const FString Head =
+	    T.bOnFoot ? FString::Printf(TEXT("Walking to %s"), *T.ToName)
+	              : FString::Printf(TEXT("Driving to %s"), *T.ToName);
+	DrawText(Head, kInk, W * 0.5f - 150.f, H * 0.16f, GEngine->GetLargeFont(),
+	         1.4f);
+
+	// The clock, running. This is the cost of the trip made visible: a
+	// forty-minute approach eats a window, and a number that ticks says so
+	// better than one that jumps.
+	const int32 Hour =
+	    FMath::Clamp(FMath::FloorToInt(static_cast<float>(T.ShownHour)), 0, 23);
+	const int32 Minute = FMath::Clamp(
+	    FMath::FloorToInt(static_cast<float>((T.ShownHour - Hour) * 60.0)), 0,
+	    59);
+	FString Cost = FString::Printf(TEXT("%02d:%02d      %.0f minutes"), Hour,
+	                               Minute, T.Minutes);
+	if (!T.bOnFoot && T.Fuel > 0.0)
+	{
+		Cost += FString::Printf(TEXT("      $%.0f of fuel"), T.Fuel);
+	}
+	DrawText(Cost, kDim, W * 0.5f - 150.f, H * 0.16f + 34.f,
+	         GEngine->GetMediumFont(), 1.f);
+
+	// And the one thing the road ever has to say beyond that.
+	if (!T.Note.IsEmpty())
+	{
+		DrawText(T.Note, FLinearColor(0.85f, 0.45f, 0.35f, 1.f),
+		         W * 0.5f - 150.f, H * 0.16f + 62.f, GEngine->GetMediumFont(),
+		         1.f);
+	}
+
+	DrawText(TEXT("any key to skip"), FLinearColor(0.6f, 0.6f, 0.58f, 0.75f),
+	         W - 190.f, H - 46.f, GEngine->GetSmallFont(), 1.f);
+}
+
 void ADirtbagHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -481,6 +570,15 @@ void ADirtbagHUD::DrawHUD()
 
 	const float W = static_cast<float>(Canvas->SizeX);
 	const float H = static_cast<float>(Canvas->SizeY);
+
+	// Between places: the road takes the whole screen and nothing else
+	// draws. There is no decision available until you arrive, so a pump bar
+	// and a shop prompt over the top of it would be furniture.
+	if (Game->TravelReadout.bActive)
+	{
+		DrawTravel(Game, W, H);
+		return;
+	}
 
 	DrawNeeds(Game, H);
 

@@ -29,6 +29,11 @@ private:
 	 *  instead of being drawn underneath one of them. */
 	float DrawPrompt(class UDirtbagGameInstance* Game, float W, float H);
 
+	/** The road. Takes the whole screen and suppresses everything else —
+	 *  you are between places, and nothing you could read is actionable
+	 *  until you arrive. */
+	void DrawTravel(class UDirtbagGameInstance* Game, float W, float H);
+
 	void DrawNeeds(class UDirtbagGameInstance* Game, float H);
 	void DrawSession(class UDirtbagGameInstance* Game, float W, float H);
 	/** The fire's table. Sits where the session bar sits, because they are

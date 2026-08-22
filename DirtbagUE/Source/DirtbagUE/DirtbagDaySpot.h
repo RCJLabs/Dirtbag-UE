@@ -53,6 +53,8 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	/** Only runs while the road is on screen; see BeginTravelScreen. */
+	virtual void Tick(float DeltaSeconds) override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	EDirtbagSpotKind Kind = EDirtbagSpotKind::Meal;
@@ -121,6 +123,25 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
 	float FadeSeconds = 0.4f;
+
+	/** How long the road takes on screen.
+	 *
+	 *  Short on purpose. The first trip is a moment; the fiftieth is a
+	 *  keypress, and a career has hundreds. **Any key skips to the far
+	 *  kerb** — a travel screen you cannot skip stops being a moment and
+	 *  becomes a tax. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
+	float TravelSeconds = 2.6f;
+
+	/** What the road looks like. Optional, like every asset slot in this
+	 *  project: with nothing assigned the screen draws a horizon and a
+	 *  shape, and still says everything it needs to. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
+	TObjectPtr<class UTexture2D> RoadBackdrop;
+
+	/** The van itself, crossing it. Not drawn on a walk. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
+	TObjectPtr<class UTexture2D> VanSprite;
 
 	/** What this spot sounds like when you use it: a van door, a kettle, a
 	 *  shop bell, a shovel of coals. One per spot, because that is what a
@@ -209,6 +230,15 @@ private:
 	 *  number in one place however many spots point along it. */
 	double WalkHours() const;
 	void ArriveFromDrive();
+
+	/** Put the road up and take the sim's side of the trip in one go. */
+	void BeginTravelScreen(bool bOnFoot, double Hours, int32 Broke);
+
+	/** Cut to the far kerb, and say whether that is what this keypress
+	 *  meant. Called first by every input handler on this actor: while the
+	 *  road is up, **every key means "get on with it"**, because a player
+	 *  on their fiftieth trip should not have to remember which one. */
+	bool SkipTravel();
 	FString PromptText() const;
 
 	UPROPERTY()
@@ -234,4 +264,10 @@ private:
 	int32 HandsSettled = 0;
 	double NightDelta = 0.0;
 	FTimerHandle DriveTimer;
+
+	/** How far along the road we are, in seconds, and how long it runs.
+	 *  Only meaningful while Game->TravelReadout.bActive. */
+	float TravelElapsed = 0.f;
+	double TravelStartHour = 0.0;
+	double TravelHoursTaken = 0.0;
 };
