@@ -55,4 +55,8 @@ echo "== log categories defined once =="
 python3 tools/check-logcat.py
 
 echo
+echo "== asset slots are actually played =="
+python3 tools/check-cues.py
+
+echo
 echo "ALL CHECKS PASSED"

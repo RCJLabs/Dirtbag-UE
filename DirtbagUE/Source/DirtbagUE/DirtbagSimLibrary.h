@@ -219,6 +219,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag")
 	static FString HowCloseText(double Close);
 
+	/** How much the pump shows, 0..1. One curve for the camera sway, the
+	 *  breath and whatever needs it next — see Sim/DirtbagSession.h. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static double PumpShows(double Pump);
+
 	/** What the project ledgers add up to — ability, hardest send, nemesis. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
 	static FDirtbagCareerSummary SummarizeCareer(const FDirtbagPlayerState& Player);

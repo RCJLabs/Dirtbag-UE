@@ -8,6 +8,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 #include "TimerManager.h"
 
 #include "DirtbagGameInstance.h"
@@ -442,6 +443,15 @@ void ADirtbagDaySpot::OnInteract()
 		Say(Game->GetCareerLine(), FColor::Silver, 6.f);
 		break;
 	}
+	}
+
+	// The one verb, heard. Fired here at the single exit rather than in
+	// each branch, so it follows the same rule the prompt does: whatever
+	// the press did, it made a noise.
+	if (InteractSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, InteractSound,
+		                                      GetActorLocation());
 	}
 
 	// Whatever just happened changed what this spot can do for you next --

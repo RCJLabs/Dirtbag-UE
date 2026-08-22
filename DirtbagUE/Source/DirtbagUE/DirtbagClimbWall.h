@@ -18,6 +18,8 @@
 #include "DirtbagClimbWall.generated.h"
 
 class UAnimSequence;
+class UAudioComponent;
+class USoundBase;
 class UBoxComponent;
 class UCameraComponent;
 class UDirtbagGameInstance;
@@ -64,6 +66,12 @@ protected:
 	/** The watched-session frame. Position it to see the whole wall. */
 	UPROPERTY(VisibleAnywhere, Category = "Dirtbag")
 	TObjectPtr<UCameraComponent> SessionCamera;
+
+	/** The breath, attached to the climber so it moves up the route with
+	 *  them. Never auto-activates: silence is the correct state of a wall
+	 *  nobody is on. */
+	UPROPERTY(VisibleAnywhere, Category = "Dirtbag")
+	TObjectPtr<UAudioComponent> Breath;
 
 	/** The climber puppet. Assign the template's Quinn/Manny mesh. Not a
 	 *  Character — it is placed, never simulated. */
@@ -193,6 +201,78 @@ protected:
 	// --- Staging dials (feel, not sim — sim dials live in Sim/) ---------
 
 	/** Seconds at a hold before a sure move; risk stretches it. */
+	// --- The sound ------------------------------------------------------
+	//
+	// Phase 5 item 4. There was none at all. `concepts/DIRTBAG.md` section 7
+	// names *"climbing sound design (chalk, breath, rubber on rock)"* on the
+	// custom-work list, and those three are exactly the slots below.
+	//
+	// **Every one of these is optional and every play site is guarded.**
+	// With nothing assigned the game behaves precisely as it did — which is
+	// the state it ships in from this container, because there is no editor
+	// here to assign an asset and no way to make one.
+	//
+	// What the container *can* build is the half that is not foley: **where
+	// a sound fires, and what the sim makes it do when it does.** A cue
+	// fired flat is a sound effect; a cue whose pitch and volume come off
+	// the same numbers the camera reads is staging. All of these take their
+	// parameters from the session, so the audio cannot drift away from what
+	// the shot and the bars are saying.
+
+	/** Chalking up. Fires at a stance, and **only before a move worth
+	 *  chalking for** — see ChalkBelowOdds. Nobody chalks for a jug, and a
+	 *  sound that happens every move says nothing. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Sound")
+	TObjectPtr<USoundBase> ChalkSound;
+
+	/** The odds at or below which the next move is worth chalking for. This
+	 *  is the same signal the camera tightens on, deliberately: the shot
+	 *  coming in and the chalk going on say the same thing about the next
+	 *  move, one to the eye and one to the ear. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Sound")
+	float ChalkBelowOdds = 0.7f;
+
+	/** Rubber on rock: one per move, pitched and levelled by how well the
+	 *  move was executed. A latched move is quiet and precise; a scrappy
+	 *  one is neither. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Sound")
+	TObjectPtr<USoundBase> MoveSound;
+
+	/** Coming off. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Sound")
+	TObjectPtr<USoundBase> SlipSound;
+
+	/** Hitting the mat — louder from higher up, because it was. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Sound")
+	TObjectPtr<USoundBase> LandSound;
+
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Sound")
+	TObjectPtr<USoundBase> TopOutSound;
+
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Sound")
+	TObjectPtr<USoundBase> BrushSound;
+
+	/** Breathing. A **loop**, running for the whole attempt, with its
+	 *  volume and pitch driven by dirtbag::PumpShows — the same curve the
+	 *  camera sway reads.
+	 *
+	 *  This is the one that matters. Pump is the resource the whole session
+	 *  turns on and the player has been reading it off a bar; breath is how
+	 *  a pumped climber actually sounds, and it is the ear's version of
+	 *  Phase 0's gate. Assign a calm loop and let the pitch do the work. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Sound")
+	TObjectPtr<USoundBase> BreathLoop;
+
+	/** What the breath does between fresh and spent. Volume rises from
+	 *  quiet to full; pitch rises to this. Modest on purpose — past about
+	 *  1.3 a breath loop reads as a chipmunk rather than as somebody in
+	 *  trouble. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Sound")
+	float BreathQuietVolume = 0.15f;
+
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Sound")
+	float BreathPitchAtLimit = 1.22f;
+
 	// --- The shot -------------------------------------------------------
 	//
 	// Phase 5 item 3. The session camera was a component placed at a fixed
@@ -321,6 +401,25 @@ private:
 	 *  move is — and so a replayed attempt is framed exactly like a driven
 	 *  one, because the readout already answers for both. */
 	void UpdateCamera(float DeltaSeconds);
+
+	/** Keep the breath in step with the pump. Same source as the camera
+	 *  sway, so the ear and the eye cannot disagree. */
+	void UpdateBreath();
+
+	/** Start and stop the breath loop with the attempt. Safe to call with
+	 *  no BreathLoop assigned, which is how it ships from the container. */
+	void StartBreath();
+	void StopBreath();
+
+	/** Chalk, but only when the next move is worth chalking for. Nobody
+	 *  chalks for a jug, and a cue that fires every move says nothing at
+	 *  all — the silence between them is what makes one mean something. */
+	void ChalkUpIfItIsWorthIt();
+
+	/** One-shot, guarded, at the climber. Every sound in this file goes
+	 *  through here so that "no asset assigned" is handled in exactly one
+	 *  place rather than at nine call sites. */
+	void PlayCue(USoundBase* Cue, float Volume = 1.f, float Pitch = 1.f);
 
 	/** Put the shot back where it was placed. Called when a session ends,
 	 *  so nothing the camera did during an attempt survives it. */

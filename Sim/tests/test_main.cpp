@@ -1314,6 +1314,58 @@ static void TestHowClose() {
   }
 }
 
+// How much the pump shows. One curve, read by the camera sway and the
+// breath and whatever needs it next -- which is the whole reason it is
+// here rather than typed into three places in the engine.
+static void TestPumpShows() {
+  ShowDials sd;
+
+  // Fresh is silent, and stays silent for the first third of a route.
+  //
+  // Pinned at absolute pump values on purpose. The first version of these
+  // asserted PumpShows(quietBelow) and PumpShows(quietBelow - 10), which
+  // are both trivially true when quietBelow is zero -- so deleting the
+  // quiet zone entirely passed the whole suite. A check phrased in terms
+  // of the dial it is checking cannot fail when that dial is wrong.
+  CHECK(PumpShows(0.0, sd) == 0.0);
+  CHECK(PumpShows(20.0, sd) == 0.0);
+  CHECK(PumpShows(30.0, sd) == 0.0);   // a third of the way up, and quiet
+  CHECK(PumpShows(45.0, sd) > 0.0);    // but it does start
+  // Spent is everything.
+  CHECK(PumpShows(100.0, sd) > 0.999);
+
+  // Never out of range, including past the top -- pump is clamped
+  // elsewhere and this must not care whether it was.
+  for (double p = -20.0; p <= 140.0; p += 2.5) {
+    const double s = PumpShows(p, sd);
+    CHECK(s >= 0.0 && s <= 1.0);
+  }
+
+  // Monotonic once it starts showing at all.
+  double last = -1.0;
+  for (double p = sd.quietBelow; p <= 100.0; p += 2.0) {
+    const double s = PumpShows(p, sd);
+    CHECK(s >= last);
+    last = s;
+  }
+
+  // Late and hard rather than creeping in. Halfway between quiet and spent
+  // is well under half of showing -- a linear curve would put it at 0.5 and
+  // a watcher would read a bar rather than a climber.
+  const double mid = (sd.quietBelow + 100.0) * 0.5;
+  CHECK(PumpShows(mid, sd) < 0.35);
+  // And the last stretch does most of the work.
+  CHECK(PumpShows(90.0, sd) - PumpShows(80.0, sd) >
+        PumpShows(50.0, sd) - PumpShows(40.0, sd));
+
+  // A degenerate dial cannot divide by zero or hand back a nonsense
+  // number; it just never shows.
+  ShowDials never;
+  never.quietBelow = 100.0;
+  CHECK(PumpShows(100.0, never) == 0.0);
+  CHECK(PumpShows(50.0, never) == 0.0);
+}
+
 static void TestTheTable() {
   CampfireDials cd;
 
@@ -7421,6 +7473,7 @@ int main() {
   TestBlackjack();
   TestTheTable();
   TestHowClose();
+  TestPumpShows();
   TestSandbagsAreSpecific();
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();

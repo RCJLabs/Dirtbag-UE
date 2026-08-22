@@ -107,6 +107,20 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
 	float FadeSeconds = 0.4f;
 
+	/** What this spot sounds like when you use it: a van door, a kettle, a
+	 *  shop bell, a shovel of coals. One per spot, because that is what a
+	 *  spot is — one verb, pressed once.
+	 *
+	 *  Optional, and the play site is guarded: with nothing assigned the
+	 *  spot behaves exactly as it always has, which is the state it ships
+	 *  in from the container. Anything that would need a *loop* — the fire
+	 *  crackling while you sit at it, the Lot at night — is an
+	 *  AmbientSound actor placed in the level beside the spot, not this. A
+	 *  spot fires when you press a key; an atmosphere is somewhere you
+	 *  are, and the level is where that belongs. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Sound")
+	TObjectPtr<class USoundBase> InteractSound;
+
 	UPROPERTY(VisibleAnywhere, Category = "Dirtbag")
 	TObjectPtr<USceneComponent> Root;
 

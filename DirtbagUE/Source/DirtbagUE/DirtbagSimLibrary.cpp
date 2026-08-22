@@ -373,6 +373,11 @@ FString UDirtbagSimLibrary::HowCloseText(double Close)
 	return FString(dirtbag::HowCloseText(Close));
 }
 
+double UDirtbagSimLibrary::PumpShows(double Pump)
+{
+	return dirtbag::PumpShows(Pump);
+}
+
 FDirtbagCareerSummary UDirtbagSimLibrary::SummarizeCareer(
     const FDirtbagPlayerState& Player)
 {

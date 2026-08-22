@@ -177,6 +177,37 @@ re-asked: *a watcher can tell how close an attempt was without reading a
 number.* Get somebody who is not you to watch an attempt with the HUD
 ignored and say whether that was close. If they can, item 3 is done.
 
+## 4d. Sound exists as slots · optional, do it when you want to
+
+There was no sound in this project at all. There still is none — **nothing
+is assigned and nothing needs to be.** The game plays exactly as it did.
+
+What is built is where every cue fires and what the sim does to it. When
+you want to hear it, the slots are on the wall actor under
+**Dirtbag|Sound**, plus one `InteractSound` per day spot:
+
+1. **Start with `BreathLoop`.** A calm two-or-three-second breathing loop.
+   It runs for the whole attempt with its volume and pitch driven by pump,
+   and it does more than everything else here combined — pump is the
+   number the session turns on, and this is that number without a bar.
+2. Then `MoveSound` (rubber on rock) and `LandSound` — the two that fire
+   most and make the climber feel like they weigh something. Landing is
+   already louder from higher up.
+3. `ChalkSound` last, **and check it fires rarely.** It only goes before a
+   move worth chalking for — the same signal the camera tightens on. If
+   you hear it every move, drop `ChalkBelowOdds` (0.7).
+4. `SlipSound`, `TopOutSound`, `BrushSound` whenever.
+
+**Fire crackle, wind, the Lot at night: place `AmbientSound` actors.** Not
+these slots. A spot fires when you press a key; an atmosphere is somewhere
+you are, and that belongs in the level.
+
+One thing that changed even with no sound assigned: the camera's pump sway
+now reads `dirtbag::PumpShows` — one curve shared by the sway and the
+breath, with a **quiet zone below 35 pump**. So the sway starts later than
+it did yesterday and comes on harder. If that reads wrong, it is a sim dial
+now (`ShowDials`), not a number in the camera.
+
 ## 5. Place the Shaded Cave · ~30 min · **the one real build job**
 
 Nothing about the rope, the runout, the clipping pump or the belayer is

@@ -2,6 +2,7 @@
 
 #include "Animation/AnimSequence.h"
 #include "Camera/CameraComponent.h"
+#include "Components/AudioComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -12,6 +13,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -97,6 +99,13 @@ ADirtbagClimbWall::ADirtbagClimbWall()
 	Climber->SetRelativeRotation(FRotator(0.f, ClimberYaw, 0.f));
 	Climber->SetVisibility(false);
 	Climber->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	// Attached to the climber, so the breath goes up the route with them
+	// rather than staying at the bottom of it. Never auto-activates:
+	// silence is the correct state of a wall nobody is on.
+	Breath = CreateDefaultSubobject<UAudioComponent>(TEXT("Breath"));
+	Breath->SetupAttachment(Climber);
+	Breath->bAutoActivate = false;
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(
 	    TEXT("/Engine/BasicShapes/Sphere.Sphere"));
@@ -420,6 +429,8 @@ void ADirtbagClimbWall::OnClean()
 		      4.f, kToastClean);
 		return;
 	}
+	PlayCue(BrushSound);
+
 	// The prompt leads with cleanliness on a project, and the brush just
 	// changed it. Said after the toast so the news reads as news and the
 	// standing state updates underneath it.
@@ -581,6 +592,8 @@ void ADirtbagClimbWall::StartAttempt()
 		BeginSessionBody();
 	}
 
+	StartBreath();
+
 	// Both branches have moved off Idle by now, so this takes the prompt
 	// down. It goes back up in EndSession, rebuilt from whatever the
 	// attempt changed.
@@ -696,6 +709,17 @@ void ADirtbagClimbWall::StageMoveResult(bool bSuccess)
 		Phase = EPhase::Moving;
 		PlayAnim(bReachLeft ? ReachLeftAnim : ReachRightAnim, false);
 		bReachLeft = !bReachLeft;
+
+		// Rubber on rock. Pitched by hold rather than at random, so a
+		// replay sounds identical to the attempt it is replaying -- the
+		// same no-reroll discipline every other gamble in this game lives
+		// under, applied to the one system where nobody would have
+		// noticed. A sine of the index is enough: it only has to be
+		// unpredictable to an ear, not to a statistician.
+		const float Vary = 0.94f + 0.12f * FMath::Frac(
+		                               FMath::Sin(HoldIndex * 12.9898f) *
+		                               43758.5453f);
+		PlayCue(MoveSound, 1.f, Vary);
 	}
 	else
 	{
@@ -703,6 +727,7 @@ void ADirtbagClimbWall::StageMoveResult(bool bSuccess)
 		MoveTo = FVector(MoveFrom.X, MoveFrom.Y, GetActorLocation().Z + 30.f);
 		Phase = EPhase::Falling;
 		PlayAnim(FallAnim, false);
+		PlayCue(SlipSound);
 	}
 }
 
@@ -730,6 +755,7 @@ void ADirtbagClimbWall::Tick(float DeltaSeconds)
 		// reading it before it was written for this frame would frame
 		// every move on the previous move's difficulty.
 		UpdateCamera(DeltaSeconds);
+		UpdateBreath();
 	}
 
 	if (Phase != EPhase::Moving && Phase != EPhase::Falling)
@@ -764,17 +790,33 @@ void ADirtbagClimbWall::Tick(float DeltaSeconds)
 			{
 				PlayAnim(HangIdleAnim, true);
 				Phase = EPhase::AtStance;
+				ChalkUpIfItIsWorthIt();
 			}
 		}
 		else
 		{
 			TimelineIndex++;
 			PlayAnim(HangIdleAnim, true);
+			ChalkUpIfItIsWorthIt();
 			ScheduleNextMove();
 		}
 	}
 	else  // landed
 	{
+		// How far they came. The drop is the honest measure rather than the
+		// move index: a fall from the top of a six-move boulder and one
+		// from the top of a fifteen-move route are different noises, and
+		// the height already knows which this was.
+		// Written long-hand rather than through GetMappedRangeValueClamped:
+		// under UE5's large-world coordinates FVector2D is double-precision
+		// while that overload takes FVector2f, and the resulting conversion
+		// is the kind of thing that compiles on one engine version and not
+		// the next. There is no compiler in this container to find out
+		// which, so it does not get to be a question.
+		const float Drop = FMath::Abs(static_cast<float>(MoveFrom.Z - MoveTo.Z));
+		const float FromHigh = FMath::Clamp((Drop - 60.f) / 440.f, 0.f, 1.f);
+		PlayCue(LandSound, FMath::Lerp(0.55f, 1.f, FromHigh));
+
 		if (bLiveSession)
 		{
 			FinishLiveAttempt();
@@ -818,6 +860,7 @@ void ADirtbagClimbWall::FinishAttempt()
 		{
 			PlayAnim(TopOutAnim, false);
 		}
+		PlayCue(TopOutSound);
 		Toast(FString::Printf(TEXT("%s  %s  —  %s"), *RouteName, *GradeText,
 		                      *StyleText(Current.Style)),
 		      FColor::Green, 5.f);
@@ -858,6 +901,7 @@ void ADirtbagClimbWall::FinishAttempt()
 void ADirtbagClimbWall::EndSession()
 {
 	Climber->SetVisibility(false);
+	StopBreath();
 	// Back to the shot as placed, so nothing an attempt did to the camera
 	// survives it and the next one starts from the author's framing rather
 	// than from wherever the last crux left it.
@@ -898,6 +942,83 @@ void ADirtbagClimbWall::RestCamera()
 	ShotLocal = RestOffset;
 	Tension = 0.f;
 	SwayTime = 0.f;
+}
+
+void ADirtbagClimbWall::PlayCue(USoundBase* Cue, float Volume, float Pitch)
+{
+	// One guard, one place. Nine call sites each testing for null is nine
+	// chances to forget, and "no asset assigned" is the *shipping* state of
+	// this file -- there is no editor in the container to assign one and no
+	// way to author one from here, so the silent path is the common path
+	// and it has to be the one that cannot break.
+	if (!Cue || !Climber)
+	{
+		return;
+	}
+	UGameplayStatics::PlaySoundAtLocation(this, Cue,
+	                                      Climber->GetComponentLocation(),
+	                                      Volume, Pitch);
+}
+
+void ADirtbagClimbWall::ChalkUpIfItIsWorthIt()
+{
+	if (!ChalkSound || !Game)
+	{
+		return;
+	}
+	// Read off the same field the camera tightens on, so the shot coming in
+	// and the chalk going on say the same thing about the next move -- one
+	// to the eye, one to the ear. Odds below zero means no move is pending
+	// and there is nothing to chalk for.
+	const double Odds = Game->SessionReadout.Odds;
+	if (Odds < 0.0 || Odds > ChalkBelowOdds)
+	{
+		return;
+	}
+	// Harder move, more of it. A hand on the crux is not the same gesture
+	// as a dab before a reachy one.
+	const float Hard = static_cast<float>(
+	    FMath::Clamp(1.0 - Odds / FMath::Max(0.01f, ChalkBelowOdds), 0.0, 1.0));
+	PlayCue(ChalkSound, FMath::Lerp(0.6f, 1.f, Hard));
+}
+
+void ADirtbagClimbWall::StartBreath()
+{
+	if (!Breath || !BreathLoop)
+	{
+		return;
+	}
+	Breath->SetSound(BreathLoop);
+	Breath->SetVolumeMultiplier(BreathQuietVolume);
+	Breath->SetPitchMultiplier(1.f);
+	Breath->Play();
+}
+
+void ADirtbagClimbWall::StopBreath()
+{
+	if (Breath && Breath->IsPlaying())
+	{
+		// Faded rather than cut, because an attempt ends with somebody
+		// standing on the ground getting their breath back, not with the
+		// air being switched off.
+		Breath->FadeOut(0.6f, 0.f);
+	}
+}
+
+void ADirtbagClimbWall::UpdateBreath()
+{
+	if (!Breath || !BreathLoop || !Breath->IsPlaying())
+	{
+		return;
+	}
+	// The same curve the camera sway reads. Two parts of the staging
+	// guessing separately at how much pump shows is how they end up
+	// disagreeing in front of a player.
+	const double Pump = Game ? Game->SessionReadout.Pump : 0.0;
+	const float Shows =
+	    static_cast<float>(UDirtbagSimLibrary::PumpShows(Pump));
+	Breath->SetVolumeMultiplier(FMath::Lerp(BreathQuietVolume, 1.f, Shows));
+	Breath->SetPitchMultiplier(FMath::Lerp(1.f, BreathPitchAtLimit, Shows));
 }
 
 void ADirtbagClimbWall::UpdateCamera(float DeltaSeconds)
@@ -950,16 +1071,19 @@ void ADirtbagClimbWall::UpdateCamera(float DeltaSeconds)
 	// sway into a drift, which is the other version of this I wrote first.
 	ShotLocal = FMath::VInterpTo(ShotLocal, Wanted, DeltaSeconds, CameraEase);
 
-	// Pump, said without a bar. Squared so it is invisible for the first
-	// half of a route and unmistakable at the top -- which is also how
-	// being pumped works. Two frequencies that do not divide into each
-	// other, because a clean sine reads as a machine rather than as
+	// Pump, said without a bar. Two frequencies that do not divide into
+	// each other, because a clean sine reads as a machine rather than as
 	// somebody holding on.
+	//
+	// The curve itself is the sim's, not this file's. It used to be a bare
+	// (pump/100)^2 typed in here, and the breath was about to need the
+	// same shape again -- so it is dirtbag::PumpShows now, with a quiet
+	// zone and a dial, and the camera and the sound cannot drift apart.
 	const double Pump = Game ? Game->SessionReadout.Pump : 0.0;
 	const float Pumped =
-	    FMath::Clamp(static_cast<float>(Pump) / 100.f, 0.f, 1.f);
+	    static_cast<float>(UDirtbagSimLibrary::PumpShows(Pump));
 	SwayTime += DeltaSeconds * PumpSwaySpeed;
-	const float Amount = PumpSway * Pumped * Pumped;
+	const float Amount = PumpSway * Pumped;
 	// Lateral to the *shot*, not to the actor. Swaying along the actor's Y
 	// would push the camera into and out of the wall on any wall whose
 	// camera is not placed along Y -- the same assumption about somebody

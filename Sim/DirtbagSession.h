@@ -316,4 +316,33 @@ double HowClose(const AttemptResult& result, int totalMoves,
 // than a reader. Never a number.
 const char* HowCloseText(double close);
 
+// --- How much the pump shows -------------------------------------------------
+//
+// 0 = nothing a watcher could see, 1 = obviously about to come off.
+//
+// This exists because two different parts of the staging had already
+// guessed at the same curve. The session camera's pump sway used a bare
+// `(pump/100)^2` typed into the engine, and the breath was about to need
+// the same shape again -- and a third copy would have arrived with the
+// animation. Three guesses at one number is the thing dial discipline is
+// for, so the curve lives here, once, and the camera, the sound and
+// anything after them read it.
+//
+// It is deliberately not linear. Pump is a private number for the first
+// third of a route -- you are working and nobody can tell -- and then it
+// is the only thing about you.
+
+struct ShowDials {
+  // Below this you are just climbing. A watcher who can read pump off a
+  // fresh climber is reading a bar, which is the thing Phase 0's gate
+  // exists to make unnecessary.
+  double quietBelow = 35.0;
+
+  // Above 1, so it comes on late and hard rather than creeping in. The
+  // shape of the last four moves of a route you are about to fall off.
+  double curve = 2.0;
+};
+
+double PumpShows(double pump, const ShowDials& dials = ShowDials{});
+
 }  // namespace dirtbag

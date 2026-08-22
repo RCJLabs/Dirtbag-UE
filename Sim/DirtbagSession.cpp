@@ -349,6 +349,15 @@ double HowClose(const AttemptResult& result, int totalMoves,
   return base * (1.0 - dials.blownIt + dials.blownIt * failedOdds);
 }
 
+double PumpShows(double pump, const ShowDials& dials) {
+  const double top = 100.0;
+  if (pump <= dials.quietBelow) return 0.0;
+  if (dials.quietBelow >= top) return 0.0;
+  const double t = (std::min(pump, top) - dials.quietBelow) /
+                   (top - dials.quietBelow);
+  return std::pow(t, dials.curve);
+}
+
 const char* HowCloseText(double close) {
   // Six bands, and none of them a number. The point of the gate is that
   // somebody watching over your shoulder knows what happened, and "you
