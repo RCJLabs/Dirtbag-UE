@@ -17,7 +17,7 @@ double ReadQuality(double rapport, const CampfireDials& dials) {
 
 }  // namespace
 
-CampfireHand DealHand(const std::vector<Partner>& lot, const Rng& worldRng,
+CampfireHand DealPoker(const std::vector<Partner>& lot, const Rng& worldRng,
                       int day, int handNumber, const CampfireDials& dials) {
   CampfireHand hand;
   // Its own stream, keyed on the hand: an evening replays identically, and
@@ -46,7 +46,7 @@ CampfireHand DealHand(const std::vector<Partner>& lot, const Rng& worldRng,
   return hand;
 }
 
-CampfireResult PlayHand(const CampfireHand& hand, double& cash,
+CampfireResult PlayPoker(const CampfireHand& hand, double& cash,
                         double& psyche, std::vector<Partner>& lot,
                         double stake, bool fold, const CampfireDials& dials) {
   CampfireResult out;
@@ -103,6 +103,215 @@ CampfireResult PlayHand(const CampfireHand& hand, double& cash,
     cash = std::max(0.0, cash + out.cashDelta);
     psyche = std::max(0.05, psyche - dials.psychePerLoss);
     out.line = out.beat + " had it all along.";
+  }
+  return out;
+}
+
+// --- Liar's dice -------------------------------------------------------------
+
+LiarsDiceRound DealLiarsDice(const std::vector<Partner>& lot,
+                             const Rng& worldRng, int day, int roundNumber,
+                             const CampfireDials& dials) {
+  LiarsDiceRound out;
+  Rng rng = worldRng.Derive("dice#" + std::to_string(day) + "#" +
+                            std::to_string(roundNumber));
+
+  const int players = static_cast<int>(lot.size()) + 1;
+  out.diceOnTable = players * dials.diceEach;
+
+  // Everybody's dice, yours first. Ones are wild, so a face's true count is
+  // its own plus the ones -- which is why nobody ever bids ones.
+  out.bidFace = rng.IntRange(2, 6);
+  int wild = 0, matching = 0;
+  for (int p = 0; p < players; p++) {
+    for (int d = 0; d < dials.diceEach; d++) {
+      const int pip = rng.IntRange(1, 6);
+      if (p == 0) out.yours.push_back(pip);
+      if (pip == 1) wild++;
+      else if (pip == out.bidFace) matching++;
+    }
+  }
+  out.actual = matching + wild;
+
+  if (lot.empty()) return out;   // nobody to bid; a legal but dead round
+
+  // Whose bid, and how greedy. The expected count for a face with wilds is
+  // a third of the table, so ambition above 1.0 is how often the bid is a
+  // lie -- and the lie is the whole game.
+  const std::size_t who = static_cast<std::size_t>(
+      rng.IntRange(0, static_cast<int>(lot.size()) - 1));
+  out.bidder = lot[who].name;
+
+  const double expected = out.diceOnTable / 3.0;
+  const double greed = dials.bidAmbition * (0.7 + 0.6 * rng.NextDouble());
+  out.bidCount = std::max(1, static_cast<int>(expected * greed + 0.5));
+
+  // The tell: whether the bid is a lie, blurred by how little you know
+  // them. Deliberately *not* the poker read's formula, and the difference
+  // matters. `truth*q + noise*(1-q)` works for a value estimate but the
+  // thing being estimated here is binary, and at any q >= 0.5 the two cases
+  // stop overlapping -- a lie lands above 0.5 and a true bid below it,
+  // every single time. Measured: rapport 0.5 and rapport 1.0 scored
+  // identically to the cent, because both were **perfect lie detectors**,
+  // which makes a liar's-dice table pointless the moment anybody likes you.
+  //
+  // Symmetric noise around a signal instead, so the ranges always overlap:
+  // at full rapport a liar reads 0.45..1.05 and an honest bid -0.05..0.55,
+  // and the sliver in the middle is a friend of ten years still getting you
+  // now and then.
+  const bool lying = out.bidCount > out.actual;
+  const double q = ReadQuality(lot[who].rapport, dials);
+  const double base = lying ? 0.75 : 0.25;
+  out.tell = Clamp01In(base + (rng.NextDouble() - 0.5) * 2.0 * (1.0 - q));
+  return out;
+}
+
+CampfireResult PlayLiarsDice(const LiarsDiceRound& round, double& cash,
+                             double& psyche, std::vector<Partner>& lot,
+                             double stake, bool call,
+                             const CampfireDials& dials) {
+  CampfireResult out;
+  for (Partner& p : lot) {
+    p.rapport = std::min(1.0, p.rapport + dials.rapportPerHand);
+  }
+  out.beat = round.bidder;
+
+  if (!call) {
+    // Passing it on is safe and wins nothing. The ante still goes, because
+    // sitting at the table costs whether or not you do anything at it.
+    out.folded = true;
+    out.cashDelta = -dials.ante;
+    cash = std::max(0.0, cash - dials.ante);
+    out.line = "You let it go round.";
+    return out;
+  }
+
+  const double put =
+      std::max(0.0, std::min(std::min(stake, dials.maxStake),
+                             std::max(0.0, cash - dials.ante)));
+
+  // The count settles it. Calling a bluff wins; calling a true bid pays the
+  // bidder, which is what stops calling everything.
+  out.won = round.bidCount > round.actual;
+  if (out.won) {
+    out.cashDelta = put;
+    cash += out.cashDelta;
+    psyche = std::min(1.0, psyche + dials.psychePerWin);
+    out.line = round.bidder + " had " + std::to_string(round.actual) + ".";
+  } else {
+    out.cashDelta = -(dials.ante + put);
+    cash = std::max(0.0, cash + out.cashDelta);
+    psyche = std::max(0.05, psyche - dials.psychePerLoss);
+    out.line = "There were " + std::to_string(round.actual) + ". " +
+               round.bidder + " counts them out slowly.";
+  }
+  return out;
+}
+
+std::string TellText(double tell) {
+  if (tell < 0.2) return "said it like a fact";
+  if (tell < 0.4) return "did not look up";
+  if (tell < 0.6) return "is giving nothing away";
+  if (tell < 0.8) return "took a moment too long";
+  return "will not put the cup down";
+}
+
+// --- Blackjack ---------------------------------------------------------------
+
+namespace {
+
+// Cards, not a shoe. A campfire deck is shuffled every hand and nobody is
+// counting -- modelling a shoe would make card counting the skill, and the
+// point of this one is that it has no skill you can build, only a decision
+// you can get right.
+int DrawCard(Rng& rng) {
+  const int c = rng.IntRange(1, 13);
+  return c > 10 ? 10 : c;   // faces are ten; aces are one, and stay one
+}
+
+}  // namespace
+
+BlackjackHand DealBlackjack(const Rng& worldRng, int day, int handNumber) {
+  BlackjackHand hand;
+  Rng rng = worldRng.Derive("jack#" + std::to_string(day) + "#" +
+                            std::to_string(handNumber));
+  hand.yours = DrawCard(rng) + DrawCard(rng);
+  hand.dealerShows = DrawCard(rng);
+  return hand;
+}
+
+int Hit(BlackjackHand& hand, const Rng& worldRng, int day, int handNumber) {
+  if (hand.finished) return 0;
+  // Keyed on the draw number so the same hand replays identically however
+  // many times it is asked -- a reload must not deal you a different card.
+  Rng rng = worldRng.Derive("jack#" + std::to_string(day) + "#" +
+                            std::to_string(handNumber) + "#draw" +
+                            std::to_string(hand.draws));
+  const int card = DrawCard(rng);
+  hand.draws++;
+  hand.yours += card;
+  if (hand.yours > 21) {
+    hand.bust = true;
+    hand.finished = true;
+  }
+  return card;
+}
+
+CampfireResult Stand(BlackjackHand& hand, double& cash, double& psyche,
+                     std::vector<Partner>& lot, double stake,
+                     const Rng& worldRng, int day, int handNumber,
+                     const CampfireDials& dials) {
+  CampfireResult out;
+  // Blackjack is the one with nobody in it, but you are still sitting with
+  // them, so the evening still counts for something.
+  for (Partner& p : lot) {
+    p.rapport = std::min(1.0, p.rapport + dials.rapportPerHand);
+  }
+
+  const double put =
+      std::max(0.0, std::min(std::min(stake, dials.maxStake),
+                             std::max(0.0, cash - dials.ante)));
+  const bool wasBust = hand.bust;
+  hand.finished = true;
+
+  if (wasBust) {
+    out.cashDelta = -(dials.ante + put);
+    cash = std::max(0.0, cash + out.cashDelta);
+    psyche = std::max(0.05, psyche - dials.psychePerLoss);
+    out.line = "Over. Somebody laughs.";
+    return out;
+  }
+
+  // The dealer plays itself out. Its hole card is drawn here rather than at
+  // the deal, on its own key, so peeking at the struct cannot tell you what
+  // it has.
+  Rng rng = worldRng.Derive("jack#" + std::to_string(day) + "#" +
+                            std::to_string(handNumber) + "#house");
+  int dealer = hand.dealerShows + DrawCard(rng);
+  while (dealer < dials.dealerStandsOn) dealer += DrawCard(rng);
+
+  // A tie pushes. Giving ties to the player is worth several points of
+  // edge on its own and was half of why this game printed money.
+  if (dealer <= 21 && hand.yours == dealer) {
+    out.cashDelta = -dials.ante;
+    cash = std::max(0.0, cash - dials.ante);
+    out.line = "Split. Nobody moves.";
+    return out;
+  }
+
+  out.won = dealer > 21 || hand.yours > dealer;
+  if (out.won) {
+    out.cashDelta = put * dials.blackjackPays;
+    cash += out.cashDelta;
+    psyche = std::min(1.0, psyche + dials.psychePerWin);
+    out.line = dealer > 21 ? "The deck goes over. You take it."
+                           : "Yours by " + std::to_string(hand.yours - dealer) +
+                                 ".";
+  } else {
+    out.cashDelta = -(dials.ante + put);
+    cash = std::max(0.0, cash + out.cashDelta);
+    psyche = std::max(0.05, psyche - dials.psychePerLoss);
+    out.line = "The house had " + std::to_string(dealer) + ".";
   }
   return out;
 }

@@ -1,11 +1,25 @@
 #pragma once
 
-// The campfire game.
+// The campfire games -- all three of them.
 //
-// `concepts/DIRTBAG.md` section 4 cuts the 2D game's minigames down to
-// *"keep ONE campfire game"* and names poker as the example. This is that
-// one, and the rules below are a design rather than a port -- the repo has
-// the sentence and nothing else.
+// `concepts/DIRTBAG.md` section 4 cut these to *"keep ONE campfire game"*.
+// Evan reversed that on 2026-08-22 (`concepts/PIVOT-campfire-games.md`):
+// liar's dice, poker and blackjack all ship, because they already exist in
+// the 2D game, they are already balanced, and they are the one category on
+// that cut list which is pure sim -- no art, no animation, no new places.
+//
+// They are deliberately not one game three times. Each asks something
+// different, and blackjack earns its place by asking nothing social at all:
+//
+//   poker        read the person       -- rapport IS the skill
+//   liar's dice  is he lying, and dare you say so
+//                                      -- rapport sharpens the tell
+//   blackjack    one decision, no people
+//                                      -- rapport does nothing
+//
+// That last is the game for a climber who has just arrived somewhere and
+// knows nobody, which is a real state in this game and one that nothing
+// else pays off.
 //
 // **Why the fire needed a verb.** SitAtTheFire already gives rapport,
 // psyche and a line of talk for spending hours there. It is entirely
@@ -68,6 +82,38 @@ struct CampfireDials {
   // together, which is the honest exchange rate: it is company, not a rope.
   double rapportPerHand = 0.01;
 
+  // --- Liar's dice ---
+  int diceEach = 5;
+  // How greedy the table's bids are, as a fraction of the expected count.
+  //
+  // Found by measuring, and the first value was badly wrong. At 1.35 the
+  // bid sat well above what the dice actually held, so **almost every bid
+  // was a lie and calling blindly won $19 a round** -- which also made the
+  // tell worth *less* than not thinking, because a player who only called
+  // on a tell passed up all the free money.
+  //
+  // A liar's dice bid has to be true more often than not. That is what
+  // makes a bluff a bluff and what makes calling a decision instead of a
+  // reflex.
+  double bidAmbition = 0.85;
+
+  // --- Blackjack ---
+  // The dealer stands on this and everything above it. Seventeen because
+  // that is what a dealer does, and because it is what makes hitting on
+  // fifteen a decision rather than a mistake.
+  int dealerStandsOn = 17;
+  // Even money. An earlier 1.2 -- meant to stop the house edge making this
+  // the worst seat at the fire -- combined with ties going to the player to
+  // make blackjack **profitable at every sane strategy**, which is not a
+  // game, it is an ATM. Ties push instead now, and the pay is flat.
+  //
+  // 1.05 rather than 1.0: at flat pay, best play lost $5.91 a hand against
+  // the $5 ante, so the cards themselves were costing you money on top of
+  // the seat. The intent is that **good blackjack costs you the ante and
+  // nothing more** -- it is the game with no edge to build, not the game
+  // that punishes you for sitting down.
+  double blackjackPays = 1.05;
+
   // Winning is a good night and losing is a night. Asymmetric on purpose --
   // the point of the game is not to be a psyche pump.
   double psychePerWin = 0.03;
@@ -95,18 +141,83 @@ struct CampfireResult {
 
 // Deal one hand. Deterministic per world, day and hand number, so an
 // evening replays identically and reloading cannot reroll a bad night.
-CampfireHand DealHand(const std::vector<Partner>& lot, const Rng& worldRng,
-                      int day, int handNumber,
-                      const CampfireDials& dials = CampfireDials{});
+CampfireHand DealPoker(const std::vector<Partner>& lot, const Rng& worldRng,
+                       int day, int handNumber,
+                       const CampfireDials& dials = CampfireDials{});
 
 // Play it. `stake` is what you put in on top of the ante; folding forfeits
 // the ante and nothing else. Applies cash, psyche and rapport -- the whole
 // hand resolves here so a caller cannot take the winnings and skip the
 // social half.
-CampfireResult PlayHand(const CampfireHand& hand, double& cash,
-                        double& psyche, std::vector<Partner>& lot,
-                        double stake, bool fold,
-                        const CampfireDials& dials = CampfireDials{});
+CampfireResult PlayPoker(const CampfireHand& hand, double& cash,
+                         double& psyche, std::vector<Partner>& lot,
+                         double stake, bool fold,
+                         const CampfireDials& dials = CampfireDials{});
+
+// --- Liar's dice -------------------------------------------------------------
+//
+// Five dice each, under a cup. Somebody bids that the table holds at least
+// N dice showing a given face, counting ones as wild. The bid comes round to
+// you and you have exactly one decision: **call it, or pass it on**.
+//
+// Where poker asks what somebody has, this asks whether they are lying --
+// so rapport buys you a tell on the *bidder* rather than a read on their
+// hand, and the rest is nerve. Calling a true bid costs you; calling a
+// bluff pays.
+
+struct LiarsDiceRound {
+  std::vector<int> yours;        // your five, which you see
+  std::string bidder;            // whose bid it is
+  int bidCount = 0;              // "there are at least N of these"
+  int bidFace = 0;               // 2..6; ones are wild and are never bid
+  int actual = 0;                // the truth, across the table
+  double tell = 0.0;             // 0..1, how much they look like lying
+  int diceOnTable = 0;
+};
+
+LiarsDiceRound DealLiarsDice(const std::vector<Partner>& lot,
+                             const Rng& worldRng, int day, int roundNumber,
+                             const CampfireDials& dials = CampfireDials{});
+
+// `call` challenges the bid. Passing accepts it and pushes the decision on,
+// which is safe and wins nothing -- the ante still goes.
+CampfireResult PlayLiarsDice(const LiarsDiceRound& round, double& cash,
+                             double& psyche, std::vector<Partner>& lot,
+                             double stake, bool call,
+                             const CampfireDials& dials = CampfireDials{});
+
+// "Dev will not put the cup down." What a tell looks like in words.
+std::string TellText(double tell);
+
+// --- Blackjack ---------------------------------------------------------------
+//
+// The one with nobody in it. You against the deck, the Lot watching. No
+// read, no rapport, no bluff -- just whether you take another card, which
+// is the whole game and is a real decision under a known distribution.
+//
+// It is here for the climber who has just turned up and knows nobody. Every
+// other thing at this fire is gated on people.
+
+struct BlackjackHand {
+  int yours = 0;                 // your total
+  int dealerShows = 0;           // the one card you can see
+  bool bust = false;
+  bool finished = false;
+  int draws = 0;                 // how many you have taken
+};
+
+BlackjackHand DealBlackjack(const Rng& worldRng, int day, int handNumber);
+
+// Take another. Mutates the hand; sets `bust` and `finished` if it goes
+// over. Returns what you drew, or 0 if the hand was already done.
+int Hit(BlackjackHand& hand, const Rng& worldRng, int day, int handNumber);
+
+// Stop, and settle. The dealer plays itself out to 17 the way a dealer
+// does, which is the only reason this is a game and not a coin toss.
+CampfireResult Stand(BlackjackHand& hand, double& cash, double& psyche,
+                     std::vector<Partner>& lot, double stake,
+                     const Rng& worldRng, int day, int handNumber,
+                     const CampfireDials& dials = CampfireDials{});
 
 // "Margo is not even looking at her cards." What a read looks like in
 // words, which is all the player should ever see of a number.

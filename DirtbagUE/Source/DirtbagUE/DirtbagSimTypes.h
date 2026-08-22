@@ -698,6 +698,54 @@ struct FDirtbagCampfireHand
 	double Pot = 0.0;
 };
 
+/** A bid at liar's dice, as it reaches you: whose it is, what they claimed,
+ *  your own five, and what they look like saying it. */
+USTRUCT(BlueprintType)
+struct FDirtbagLiarsDice
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	TArray<int32> Yours;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FString Bidder;
+
+	/** "Dev says there are seven fives." */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FString Bid;
+
+	/** "Dev took a moment too long." Never a number. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FString Tell;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	int32 DiceOnTable = 0;
+};
+
+/** Blackjack: the one with nobody in it. */
+USTRUCT(BlueprintType)
+struct FDirtbagBlackjack
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	int32 Yours = 0;
+
+	/** The one card of the deck's you can see. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	int32 DealerShows = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	bool bBust = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	bool bFinished = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	int32 Draws = 0;
+};
+
 /** What the money is for. See Sim/DirtbagDreams.h — the price is the
  *  buffer, not the number. */
 UENUM(BlueprintType)
@@ -1092,6 +1140,8 @@ namespace DirtbagConvert
 	dirtbag::Crew ToSim(const FDirtbagCrew& In);
 	FDirtbagDreams FromSim(const dirtbag::Dreams& In);
 	dirtbag::Dreams ToSim(const FDirtbagDreams& In);
+	FDirtbagBlackjack FromSim(const dirtbag::BlackjackHand& In);
+	dirtbag::BlackjackHand ToSim(const FDirtbagBlackjack& In);
 	FDirtbagOddJob FromSim(const dirtbag::OddJob& In);
 
 	dirtbag::Weather ToSim(const FDirtbagWeather& In);

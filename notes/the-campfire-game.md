@@ -1,4 +1,13 @@
-# The campfire game
+# The campfire games
+
+> **Superseded in part, 2026-08-22.** This file was written when §4's *"keep
+> ONE campfire game"* still stood. Evan reversed it the same day
+> (`concepts/PIVOT-campfire-games.md`): **liar's dice, poker and blackjack
+> all ship.** Everything below about poker is unchanged and still true —
+> its rules, its balance and the magnitude lesson. The other two are in
+> `notes/campfire-three-games.md`.
+
+# The campfire game (poker)
 
 **2026-08-22.** Last of the four unported systems. `concepts/DIRTBAG.md` §4
 cuts the 2D game's minigames to *"keep ONE campfire game"* and names poker as

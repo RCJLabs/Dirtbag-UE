@@ -473,6 +473,28 @@ dirtbag::Job ToSim(const FDirtbagJob& In)
 	return Out;
 }
 
+FDirtbagBlackjack FromSim(const dirtbag::BlackjackHand& In)
+{
+	FDirtbagBlackjack Out;
+	Out.Yours = In.yours;
+	Out.DealerShows = In.dealerShows;
+	Out.bBust = In.bust;
+	Out.bFinished = In.finished;
+	Out.Draws = In.draws;
+	return Out;
+}
+
+dirtbag::BlackjackHand ToSim(const FDirtbagBlackjack& In)
+{
+	dirtbag::BlackjackHand Out;
+	Out.yours = In.Yours;
+	Out.dealerShows = In.DealerShows;
+	Out.bust = In.bBust;
+	Out.finished = In.bFinished;
+	Out.draws = In.Draws;
+	return Out;
+}
+
 FDirtbagDreams FromSim(const dirtbag::Dreams& In)
 {
 	FDirtbagDreams Out;

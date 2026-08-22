@@ -947,7 +947,7 @@ FDirtbagCampfireHand UDirtbagGameInstance::DealCampfireHand(int32 HandNumber)
 {
 	FDirtbagCampfireHand Out;
 	const std::vector<dirtbag::Partner> Lot = LotToday();
-	const dirtbag::CampfireHand Hand = dirtbag::DealHand(
+	const dirtbag::CampfireHand Hand = dirtbag::DealPoker(
 	    Lot, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day,
 	    HandNumber);
 
@@ -971,14 +971,14 @@ FString UDirtbagGameInstance::PlayCampfireHand(int32 HandNumber, double Stake,
                                                bool bFold)
 {
 	std::vector<dirtbag::Partner> Lot = LotToday();
-	const dirtbag::CampfireHand Hand = dirtbag::DealHand(
+	const dirtbag::CampfireHand Hand = dirtbag::DealPoker(
 	    Lot, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day,
 	    HandNumber);
 
 	double Cash = Player.Cash;
 	double Psyche = Player.Climber.Psyche;
 	const dirtbag::CampfireResult R =
-	    dirtbag::PlayHand(Hand, Cash, Psyche, Lot, Stake, bFold);
+	    dirtbag::PlayPoker(Hand, Cash, Psyche, Lot, Stake, bFold);
 
 	Player.Cash = Cash;
 	Player.Climber.Psyche = Psyche;
@@ -987,6 +987,87 @@ FString UDirtbagGameInstance::PlayCampfireHand(int32 HandNumber, double Stake,
 	// evening of cards would be forgotten by morning.
 	StoreBonds(Lot);
 	return FString(R.line.c_str());
+}
+
+FDirtbagLiarsDice UDirtbagGameInstance::DealLiarsDice(int32 RoundNumber)
+{
+	FDirtbagLiarsDice Out;
+	const std::vector<dirtbag::Partner> Lot = LotToday();
+	const dirtbag::LiarsDiceRound R = dirtbag::DealLiarsDice(
+	    Lot, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day,
+	    RoundNumber);
+
+	for (int Pip : R.yours)
+	{
+		Out.Yours.Add(Pip);
+	}
+	Out.Bidder = FString(R.bidder.c_str());
+	Out.DiceOnTable = R.diceOnTable;
+	if (!R.bidder.empty())
+	{
+		Out.Bid = FString::Printf(TEXT("%s says there are %d %ds."),
+		                          *Out.Bidder, R.bidCount, R.bidFace);
+		Out.Tell = FString::Printf(TEXT("%s %s."), *Out.Bidder,
+		                           *FString(dirtbag::TellText(R.tell)));
+	}
+	return Out;
+}
+
+FString UDirtbagGameInstance::PlayLiarsDice(int32 RoundNumber, double Stake,
+                                            bool bCall)
+{
+	std::vector<dirtbag::Partner> Lot = LotToday();
+	const dirtbag::LiarsDiceRound R = dirtbag::DealLiarsDice(
+	    Lot, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day,
+	    RoundNumber);
+
+	double Cash = Player.Cash;
+	double Psyche = Player.Climber.Psyche;
+	const dirtbag::CampfireResult Res =
+	    dirtbag::PlayLiarsDice(R, Cash, Psyche, Lot, Stake, bCall);
+
+	Player.Cash = Cash;
+	Player.Climber.Psyche = Psyche;
+	LastHandCash = Res.cashDelta;
+	StoreBonds(Lot);
+	return FString(Res.line.c_str());
+}
+
+FDirtbagBlackjack UDirtbagGameInstance::DealBlackjack(int32 HandNumber)
+{
+	const dirtbag::BlackjackHand H = dirtbag::DealBlackjack(
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day, HandNumber);
+	LastBlackjack = DirtbagConvert::FromSim(H);
+	return LastBlackjack;
+}
+
+int32 UDirtbagGameInstance::HitBlackjack(int32 HandNumber)
+{
+	dirtbag::BlackjackHand H = DirtbagConvert::ToSim(LastBlackjack);
+	const int32 Card = dirtbag::Hit(
+	    H, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day,
+	    HandNumber);
+	LastBlackjack = DirtbagConvert::FromSim(H);
+	return Card;
+}
+
+FString UDirtbagGameInstance::StandBlackjack(int32 HandNumber, double Stake)
+{
+	dirtbag::BlackjackHand H = DirtbagConvert::ToSim(LastBlackjack);
+	std::vector<dirtbag::Partner> Lot = LotToday();
+	double Cash = Player.Cash;
+	double Psyche = Player.Climber.Psyche;
+
+	const dirtbag::CampfireResult Res = dirtbag::Stand(
+	    H, Cash, Psyche, Lot, Stake,
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day, HandNumber);
+
+	LastBlackjack = DirtbagConvert::FromSim(H);
+	Player.Cash = Cash;
+	Player.Climber.Psyche = Psyche;
+	LastHandCash = Res.cashDelta;
+	StoreBonds(Lot);
+	return FString(Res.line.c_str());
 }
 
 double UDirtbagGameInstance::DreamCost(EDirtbagDream Which) const

@@ -562,6 +562,39 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
 	double LastHandCash = 0.0;
 
+	// Liar's dice. Where poker asks what somebody has, this asks whether
+	// they are lying and whether you dare say so. Measured: passing costs
+	// the ante, calling everything loses $22 a round, reading a stranger
+	// loses $7.7, and reading somebody you know wins $6.9.
+
+	/** The bid as it reaches you. One decision: call it, or pass it on. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Campfire")
+	FDirtbagLiarsDice DealLiarsDice(int32 RoundNumber);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Campfire")
+	FString PlayLiarsDice(int32 RoundNumber, double Stake, bool bCall);
+
+	// Blackjack. No read, no rapport, no bluff — the game for a climber who
+	// has just turned up and knows nobody, which is a real state here and
+	// one that nothing else pays off. Measured: played well it costs you the
+	// ante and nothing more.
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Campfire")
+	FDirtbagBlackjack DealBlackjack(int32 HandNumber);
+
+	/** Take another. Returns the card; the hand comes back through
+	 *  `LastBlackjack`. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Campfire")
+	int32 HitBlackjack(int32 HandNumber);
+
+	/** Stop, and settle. The deck plays itself out to seventeen. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Campfire")
+	FString StandBlackjack(int32 HandNumber, double Stake);
+
+	/** The hand in progress — Hit and Stand both work on this. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FDirtbagBlackjack LastBlackjack;
+
 	// --- Dreams -----------------------------------------------------------
 	// The thing the money is for. Measured (notes/dreams-what-money-is-worth
 	// .md): saving costs no climbing at all — a career that banks hard climbs

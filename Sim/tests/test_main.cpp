@@ -911,11 +911,11 @@ static void TestTheCampfireGame() {
 
   // A hand is dealt from its own stream, keyed on the day and the hand, so
   // an evening replays identically and reloading cannot reroll a bad night.
-  const CampfireHand a = DealHand(lot, world, 5, 2, cd);
-  const CampfireHand b = DealHand(lot, world, 5, 2, cd);
+  const CampfireHand a = DealPoker(lot, world, 5, 2, cd);
+  const CampfireHand b = DealPoker(lot, world, 5, 2, cd);
   CHECK(a.yours == b.yours);
   CHECK(a.truth == b.truth);
-  const CampfireHand later = DealHand(lot, world, 5, 3, cd);
+  const CampfireHand later = DealPoker(lot, world, 5, 3, cd);
   CHECK(later.yours != a.yours);
   CHECK(a.who.size() == lot.size());
   CHECK(a.reads.size() == lot.size());
@@ -928,8 +928,8 @@ static void TestTheCampfireGame() {
   for (Partner& p : strangers) p.rapport = 0.0;
   double closeErr = 0.0, strangeErr = 0.0;
   for (int h = 0; h < 400; h++) {
-    const CampfireHand f = DealHand(lot, world, 1, h, cd);
-    const CampfireHand s = DealHand(strangers, world, 1, h, cd);
+    const CampfireHand f = DealPoker(lot, world, 1, h, cd);
+    const CampfireHand s = DealPoker(strangers, world, 1, h, cd);
     for (std::size_t i = 0; i < f.truth.size(); i++) {
       closeErr += std::abs(f.reads[i] - f.truth[i]);
       strangeErr += std::abs(s.reads[i] - s.truth[i]);
@@ -942,7 +942,7 @@ static void TestTheCampfireGame() {
   std::vector<Partner> table = strangers;
   double cash = 500.0, foldPsyche = 0.7;
   const CampfireResult f =
-      PlayHand(a, cash, foldPsyche, table, 40.0, true, cd);
+      PlayPoker(a, cash, foldPsyche, table, 40.0, true, cd);
   CHECK(f.folded);
   CHECK(f.cashDelta == -cd.ante);
   CHECK(cash == 500.0 - cd.ante);
@@ -951,7 +951,7 @@ static void TestTheCampfireGame() {
   // You cannot bet what you do not have.
   double broke = 3.0, p2 = 0.7;
   std::vector<Partner> t2 = lot;
-  PlayHand(a, broke, p2, t2, 1000.0, false, cd);
+  PlayPoker(a, broke, p2, t2, 1000.0, false, cd);
   CHECK(broke >= 0.0);
 
   // The measured shape, and the reason `theyStayAbove` exists. A player who
@@ -965,10 +965,10 @@ static void TestTheCampfireGame() {
     }
     double money = 100000.0, psy = 0.7;
     for (int h = 0; h < 4000; h++) {
-      const CampfireHand hd = DealHand(tbl, world, 9, h, cd);
+      const CampfireHand hd = DealPoker(tbl, world, 9, h, cd);
       double worst = 0.0;
       for (double r : hd.reads) worst = std::max(worst, r);
-      PlayHand(hd, money, psy, tbl, cd.maxStake,
+      PlayPoker(hd, money, psy, tbl, cd.maxStake,
                useRead && hd.yours < worst, cd);
       for (Partner& p : tbl) p.rapport = rapport;
     }
@@ -997,6 +997,123 @@ static void TestTheCampfireGame() {
   // arithmetic; a sentence keeps it a person.
   CHECK(std::string(ReadText(0.05)) != std::string(ReadText(0.95)));
   CHECK(!std::string(ReadText(0.5)).empty());
+}
+
+static void TestLiarsDice() {
+  CampfireDials cd;
+  const Rng world = Rng::FromSeed("dice-1");
+  const auto table = [](double r) {
+    std::vector<Partner> lot;
+    for (const char* n : {"Margo", "Dev", "Trish"}) {
+      Partner p; p.name = n; p.rapport = r; lot.push_back(p);
+    }
+    return lot;
+  };
+
+  // Deterministic per day and round, so a night replays and a reload cannot
+  // hand you a different cup.
+  std::vector<Partner> lot = table(1.0);
+  const LiarsDiceRound a = DealLiarsDice(lot, world, 4, 1, cd);
+  const LiarsDiceRound b = DealLiarsDice(lot, world, 4, 1, cd);
+  CHECK(a.yours == b.yours);
+  CHECK(a.bidCount == b.bidCount && a.actual == b.actual);
+  CHECK(static_cast<int>(a.yours.size()) == cd.diceEach);
+  CHECK(a.bidFace >= 2 && a.bidFace <= 6);   // ones are wild, never bid
+  CHECK(a.diceOnTable == cd.diceEach * 4);
+  CHECK(!a.bidder.empty());
+
+  // Passing costs the ante and nothing else -- sitting at the table costs
+  // whether or not you do anything at it.
+  double cash = 500.0, psy = 0.7;
+  std::vector<Partner> t = table(0.0);
+  const CampfireResult p = PlayLiarsDice(a, cash, psy, t, 40.0, false, cd);
+  CHECK(p.folded);
+  CHECK(p.cashDelta == -cd.ante);
+  CHECK(t[0].rapport > 0.0);          // still an evening with people
+
+  const auto run = [&](double rapport, int mode) {
+    std::vector<Partner> tbl = table(rapport);
+    double money = 1e6, ps = 0.7;
+    for (int i = 0; i < 6000; i++) {
+      const LiarsDiceRound r = DealLiarsDice(tbl, world, 7, i, cd);
+      const bool call = mode == 1 || (mode == 2 && r.tell > 0.5);
+      PlayLiarsDice(r, money, ps, tbl, cd.maxStake, call, cd);
+      for (Partner& q : tbl) q.rapport = rapport;
+    }
+    return (money - 1e6) / 6000.0;
+  };
+  const double pass = run(0.0, 0);
+  const double reflex = run(1.0, 1);
+  const double strangerTell = run(0.0, 2);
+  const double friendTell = run(1.0, 2);
+
+  // Magnitudes, not orderings -- the lesson from poker. `bidAmbition` began
+  // at 1.35, which made nearly every bid a lie: calling blindly won $19 a
+  // round and reading the table was *worse* than not thinking. Orderings
+  // would not have noticed.
+  CHECK(pass < -4.0 && pass > -6.0);   // exactly the ante
+  CHECK(reflex < -15.0);               // calling everything is punished hard
+  CHECK(strangerTell < pass);          // you cannot read people you do not know
+  CHECK(friendTell > 2.0);             // and knowing them is the whole edge
+  CHECK(friendTell < 20.0);            // without printing money
+
+  // And the tell must never be perfect. The first version blurred a binary
+  // with `lying*q + noise*(1-q)`, whose two cases stop overlapping at any
+  // q >= 0.5 -- rapport 0.5 and 1.0 then scored identically to the cent
+  // because both read every bid correctly.
+  const double halfTell = run(0.5, 2);
+  CHECK(halfTell > strangerTell);
+  CHECK(halfTell < friendTell - 1.0);  // still improving, not saturated
+
+  CHECK(std::string(TellText(0.05)) != std::string(TellText(0.95)));
+}
+
+static void TestBlackjack() {
+  CampfireDials cd;
+  const Rng world = Rng::FromSeed("jack-1");
+  std::vector<Partner> lot;
+
+  // The same hand replays identically however often it is asked.
+  const BlackjackHand a = DealBlackjack(world, 3, 1);
+  const BlackjackHand b = DealBlackjack(world, 3, 1);
+  CHECK(a.yours == b.yours && a.dealerShows == b.dealerShows);
+  CHECK(a.yours >= 2 && a.yours <= 20);
+  CHECK(a.dealerShows >= 1 && a.dealerShows <= 10);
+  CHECK(!a.finished);
+
+  // Hitting is deterministic per draw, so a reload cannot deal you a
+  // different card off the same decision.
+  BlackjackHand h1 = a, h2 = a;
+  CHECK(Hit(h1, world, 3, 1) == Hit(h2, world, 3, 1));
+  CHECK(h1.yours == h2.yours && h1.draws == 1);
+
+  // Going over ends it, and a finished hand cannot draw again.
+  BlackjackHand doomed = a;
+  for (int i = 0; i < 12 && !doomed.finished; i++) Hit(doomed, world, 3, 1);
+  CHECK(doomed.bust && doomed.finished);
+  CHECK(Hit(doomed, world, 3, 1) == 0);
+
+  const auto run = [&](int standOn) {
+    double money = 1e6, ps = 0.7;
+    for (int i = 0; i < 20000; i++) {
+      BlackjackHand hand = DealBlackjack(world, 8, i);
+      while (!hand.finished && hand.yours < standOn) Hit(hand, world, 8, i);
+      Stand(hand, money, ps, lot, cd.maxStake, world, 8, i, cd);
+    }
+    return (money - 1e6) / 20000.0;
+  };
+  const double good = run(15);
+  const double timid = run(12);
+  const double reckless = run(21);
+
+  // The intent, pinned: good blackjack costs you the ante and nothing more.
+  // It is the game with no edge to build, not the game that punishes you
+  // for sitting down -- and not, as the first version was at 1.2 pay with
+  // ties to the player, profitable at every strategy anybody would use.
+  CHECK(good < -4.0);
+  CHECK(good > -6.5);
+  CHECK(good > timid);
+  CHECK(reckless < -20.0);   // never stopping is never a plan
 }
 
 static void TestSandbagsAreSpecific() {
@@ -6915,6 +7032,8 @@ int main() {
   TestDreamsCostTheBuffer();
   TestDreamsMigrate();
   TestTheCampfireGame();
+  TestLiarsDice();
+  TestBlackjack();
   TestSandbagsAreSpecific();
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();
