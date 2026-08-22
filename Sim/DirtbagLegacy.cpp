@@ -48,6 +48,7 @@ Legacy TallyCareer(const PlayerState& player, const std::string& name,
   out.dirtbagYears = player.job.dirtbagYears;
   out.longestDirtbagStreak = player.job.longestStreak;
   out.crewName = player.crew.name;
+  out.dreams = player.dreams;
 
   for (const ProjectMemory& m : player.projects) {
     if (!m.firstAscent) continue;
@@ -150,6 +151,12 @@ std::string LegacyText(const Legacy& legacy) {
   if (!legacy.crewName.empty()) {
     out += "They called them " + legacy.crewName + ". ";
   }
+
+  // What the money was for. After the years, because the years are what
+  // paid for it -- and silent for a career that never bought one, the same
+  // as everything else here that would otherwise say zero.
+  const std::string had = DreamText(legacy.dreams);
+  if (!had.empty()) out += had + " ";
 
   // Years nobody owned. Said before the nemesis and the retirement, because
   // this is the part of the record that was a choice rather than a result --

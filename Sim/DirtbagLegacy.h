@@ -30,6 +30,7 @@
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
 #include "DirtbagDay.h"
+#include "DirtbagDreams.h"
 #include "DirtbagFactions.h"
 
 namespace dirtbag {
@@ -98,6 +99,12 @@ struct Legacy {
   // What the town called them. Outlives the crew and the career both --
   // that is what a nickname does.
   std::string crewName;
+
+  // And what the money was for, in the end. Kept whole rather than as a
+  // count because which ones matter: a career that got the Rig and never a
+  // roof is a different life from one that got the roof and stayed
+  // stranded.
+  Dreams dreams;
 };
 
 // Should the game start being honest about stopping? Never a command.

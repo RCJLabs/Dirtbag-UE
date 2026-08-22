@@ -828,6 +828,22 @@ static void TestDreamsCostTheBuffer() {
   CHECK(wallet == 0.0);
   CHECK(owed == dd.homeBaseRentPerDay - 5.0);
 
+  // It reaches the legacy, which is where a career is read -- and a career
+  // that got the Rig and never a roof is a different life from one that got
+  // the roof and stayed stranded, so the legacy keeps which.
+  PlayerState lived;
+  lived.day = 4000;
+  lived.dreams = dreams;
+  const Legacy leg = TallyCareer(lived, "Wren", 11);
+  CHECK(HasDream(leg.dreams, Dream::Rig));
+  CHECK(!HasDream(leg.dreams, Dream::HomeBase));
+  CHECK(LegacyText(leg).find("the Rig.") != std::string::npos);
+  // And a career that never bought one says nothing rather than saying none.
+  PlayerState skint;
+  skint.day = 4000;
+  CHECK(LegacyText(TallyCareer(skint, "Ash", 11)).find("the Rig") ==
+        std::string::npos);
+
   // The text says what you own and what is still running.
   CHECK(DreamText(dreams) == "the Rig.");
   CHECK(DreamText(rich) == "the War Chest.");

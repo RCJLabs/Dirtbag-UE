@@ -1003,8 +1003,30 @@ FString UDirtbagGameInstance::FreeDayLine() const
 
 FString UDirtbagGameInstance::DreamLine() const
 {
-	return FString(dirtbag::DreamText(DirtbagConvert::ToSim(Player.Dreams))
-	                   .c_str());
+	FString Line =
+	    FString(dirtbag::DreamText(DirtbagConvert::ToSim(Player.Dreams))
+	                .c_str());
+
+	// And what you are still after. Without this, WorkTowards() was written
+	// and never read — the field was saved, mirrored and cleared on
+	// purchase, and nothing ever showed it. The reachability checker cannot
+	// catch that: it checks declarations, not fields.
+	//
+	// Said with the distance attached, because "saving for the Rig" is a
+	// mood and "$3,240 of $9,000" is a decision about this week.
+	if (Player.Dreams.Working != EDirtbagDream::None &&
+	    !dirtbag::HasDream(DirtbagConvert::ToSim(Player.Dreams),
+	                       static_cast<dirtbag::Dream>(Player.Dreams.Working)))
+	{
+		const double Cost = DreamCost(Player.Dreams.Working);
+		const FString Saving = FString::Printf(
+		    TEXT("Saving for %s — $%d of $%d."),
+		    *DreamName(Player.Dreams.Working),
+		    FMath::FloorToInt(FMath::Max(0.0, Player.Cash)),
+		    FMath::FloorToInt(Cost));
+		Line += Line.IsEmpty() ? Saving : TEXT("  ") + Saving;
+	}
+	return Line;
 }
 
 FString UDirtbagGameInstance::CrewLine() const
