@@ -93,6 +93,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Rest")
 	bool bWaitForWindow = true;
 
+	/** Fire only: what a hand puts on the table beyond the ante. Half the
+	 *  sim's ceiling by default — a beer-money game, not a shakedown. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Fire")
+	double CardStake = 20.0;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
 	float FadeSeconds = 0.4f;
 
@@ -113,6 +118,18 @@ private:
 	                  UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	void OnInteract();
+	/** The fire's second verb, and its grammar: C commits, F backs down.
+	 *  Tonight's game rotates with the day — you join whatever is being
+	 *  played. C deals when nothing is pending; then C is stay/call/hit
+	 *  and F is fold/pass/stand. Toasts are the whole table UI, which is
+	 *  the blockout answer until the fire earns a widget. */
+	void OnCommit();
+	void OnBackDown();
+	/** The gear shop's dream counter: 1/2/3 name the dream, once. */
+	void OnChoose1();
+	void OnChoose2();
+	void OnChoose3();
+	void ChooseDreamAt(EDirtbagDream Which);
 	void BeginDrive();
 
 	/** What this drive actually costs. The guidebook's approach when the
@@ -130,5 +147,10 @@ private:
 
 	bool bPlayerNear = false;
 	bool bBoundInput = false;
+	/** A hand on the table at this spot. Hands re-deal deterministically
+	 *  from (day, number), so this is the only state a game needs. */
+	bool bHandPending = false;
+	int32 HandNumber = 0;
+	int32 HandDay = 0;
 	FTimerHandle DriveTimer;
 };

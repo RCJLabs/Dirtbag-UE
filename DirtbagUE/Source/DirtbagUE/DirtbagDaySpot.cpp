@@ -79,6 +79,43 @@ FString ADirtbagDaySpot::PromptText() const
 	}
 	case EDirtbagSpotKind::GearShop:
 	{
+		// The dream counter, before the rubber talk: naming what the money
+		// is for happens once a career, and until it is named the shop has
+		// nothing bigger to say.
+		if (Game->Player.Dreams.Chosen == EDirtbagDream::None)
+		{
+			return FString::Printf(
+			    TEXT("What is the money for?  1 the Rig $%.0f   2 the War "
+			         "Chest $%.0f   3 Home Base $%.0f   -  once, and it "
+			         "holds.  $%.0f"),
+			    Game->DreamCost(EDirtbagDream::Rig),
+			    Game->DreamCost(EDirtbagDream::WarChest),
+			    Game->DreamCost(EDirtbagDream::HomeBase), Game->Player.Cash);
+		}
+		// Chosen and not yet bought: the shop keeps the number in your
+		// eyeline, and E hands the money over the day you have it -- but
+		// worn rubber still talks first, because the dream can wait a
+		// resole and the resole cannot wait a dream.
+		const bool bOwnsIt =
+		    (Game->Player.Dreams.Chosen == EDirtbagDream::Rig &&
+		     Game->Player.Dreams.bRig) ||
+		    (Game->Player.Dreams.Chosen == EDirtbagDream::WarChest &&
+		     Game->Player.Dreams.bWarChest) ||
+		    (Game->Player.Dreams.Chosen == EDirtbagDream::HomeBase &&
+		     Game->Player.Dreams.bHomeBase);
+		if (Game->Player.Shoes.Wear < 0.3 && !bOwnsIt)
+		{
+			const double Cost = Game->DreamCost(Game->Player.Dreams.Chosen);
+			return Game->CanAffordDream(Game->Player.Dreams.Chosen)
+			           ? FString::Printf(
+			                 TEXT("Buy %s?  (E)  -  $%.0f, leaving $%.0f"),
+			                 *Game->DreamName(Game->Player.Dreams.Chosen),
+			                 Cost, Game->Player.Cash - Cost)
+			           : FString::Printf(
+			                 TEXT("%s  (E for shoes)  -  $%.0f of $%.0f"),
+			                 *Game->DreamName(Game->Player.Dreams.Chosen),
+			                 Game->Player.Cash, Cost);
+		}
 		// Say what it is costing you once it is costing you anything. Dead
 		// rubber is the cheapest real handicap in the game and the only one
 		// the player had no way to see.
@@ -110,8 +147,13 @@ FString ADirtbagDaySpot::PromptText() const
 			}
 			Who += P.Name;
 		}
-		return FString::Printf(TEXT("Sit at the fire?  (E)  -  %s.  %s"),
-		                       *Who, *Game->WaitAdvice());
+		// Which game is out tonight rotates with the day: you join what is
+		// being played, you do not order off a menu.
+		const TCHAR* Tonight[3] = {TEXT("cards"), TEXT("dice"),
+		                           TEXT("blackjack")};
+		return FString::Printf(
+		    TEXT("Sit at the fire?  (E)  -  %s.  %s out tonight (C).  %s"),
+		    *Who, Tonight[Game->Player.Day % 3], *Game->WaitAdvice());
 	}
 	case EDirtbagSpotKind::Rest:
 	{
@@ -148,6 +190,16 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 		{
 			InputComponent->BindKey(EKeys::E, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnInteract);
+			InputComponent->BindKey(EKeys::C, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnCommit);
+			InputComponent->BindKey(EKeys::F, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnBackDown);
+			InputComponent->BindKey(EKeys::One, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnChoose1);
+			InputComponent->BindKey(EKeys::Two, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnChoose2);
+			InputComponent->BindKey(EKeys::Three, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnChoose3);
 			bBoundInput = true;
 		}
 	}
@@ -239,6 +291,20 @@ void ADirtbagDaySpot::OnInteract()
 	}
 	case EDirtbagSpotKind::GearShop:
 	{
+		// The dream, when today is the day. Shoes still outrank it when
+		// they are worn -- but a chosen, affordable dream outranks the pad
+		// pitch, because the shop does not upsell somebody who came in to
+		// buy a van.
+		if (Game->Player.Shoes.Wear < 0.3 &&
+		    Game->Player.Dreams.Chosen != EDirtbagDream::None &&
+		    Game->CanAffordDream(Game->Player.Dreams.Chosen))
+		{
+			if (Game->BuyDream(Game->Player.Dreams.Chosen))
+			{
+				Say(Game->DreamNews, FColor::Yellow, 8.f);
+				break;
+			}
+		}
 		if (Game->Player.Shoes.Wear < 0.3)
 		{
 			// Rubber is fine, so the shop's other business. The pad is the
@@ -372,6 +438,177 @@ double ADirtbagDaySpot::DriveHours() const
 		}
 	}
 	return TravelHours;
+}
+
+void ADirtbagDaySpot::OnCommit()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Fire)
+	{
+		return;
+	}
+
+	// Hands are keyed on (day, number), so a new day is a new evening --
+	// and a reload mid-evening re-deals the identical hand, which is the
+	// same no-reroll rule every gamble in this game lives under.
+	if (HandDay != Game->Player.Day)
+	{
+		HandDay = Game->Player.Day;
+		HandNumber = 0;
+		bHandPending = false;
+	}
+
+	const int32 Tonight = Game->Player.Day % 3;
+	if (!bHandPending)
+	{
+		HandNumber++;
+		bHandPending = true;
+		switch (Tonight)
+		{
+		case 0:   // cards
+		{
+			const FDirtbagCampfireHand Hand =
+			    Game->DealCampfireHand(HandNumber);
+			FString Reads;
+			for (const FDirtbagCampfireRead& R : Hand.Reads)
+			{
+				Reads += TEXT("\n") + R.Tell;
+			}
+			Say(FString::Printf(TEXT("Your hand: %.0f of 100.  Pot $%.0f.%s"
+			                         "\nStay (C, $%.0f more) or throw them "
+			                         "in (F)."),
+			                    Hand.Yours * 100.0, Hand.Pot, *Reads,
+			                    CardStake),
+			    FColor::White, 12.f);
+			break;
+		}
+		case 1:   // liar's dice
+		{
+			const FDirtbagLiarsDice R = Game->DealLiarsDice(HandNumber);
+			FString Cup;
+			for (int32 Pip : R.Yours)
+			{
+				Cup += FString::Printf(TEXT(" %d"), Pip);
+			}
+			Say(FString::Printf(TEXT("Under your cup:%s  (%d dice on the "
+			                         "table, ones wild)\n%s\n%s\nCall it "
+			                         "(C, $%.0f) or let it go round (F)."),
+			                    *Cup, R.DiceOnTable, *R.Bid, *R.Tell,
+			                    CardStake),
+			    FColor::White, 12.f);
+			break;
+		}
+		default:   // blackjack
+		{
+			const FDirtbagBlackjack H = Game->DealBlackjack(HandNumber);
+			Say(FString::Printf(TEXT("You: %d.  The deck shows %d.\nAnother "
+			                         "card (C) or stick (F, $%.0f down)."),
+			                    H.Yours, H.DealerShows, CardStake),
+			    FColor::White, 10.f);
+			break;
+		}
+		}
+		return;
+	}
+
+	// A hand is live: C commits.
+	switch (Tonight)
+	{
+	case 0:
+	{
+		const FString Line =
+		    Game->PlayCampfireHand(HandNumber, CardStake, false);
+		Say(FString::Printf(TEXT("%s  %+.0f.  $%.0f in the pocket.  "
+		                         "Again (C)?"),
+		                    *Line, Game->LastHandCash, Game->Player.Cash),
+		    Game->LastHandCash >= 0.0 ? FColor::Green : FColor::Orange, 8.f);
+		bHandPending = false;
+		break;
+	}
+	case 1:
+	{
+		const FString Line = Game->PlayLiarsDice(HandNumber, CardStake, true);
+		Say(FString::Printf(TEXT("%s  %+.0f.  $%.0f in the pocket.  "
+		                         "Again (C)?"),
+		                    *Line, Game->LastHandCash, Game->Player.Cash),
+		    Game->LastHandCash >= 0.0 ? FColor::Green : FColor::Orange, 8.f);
+		bHandPending = false;
+		break;
+	}
+	default:
+	{
+		// Blackjack's C is another card, not a settlement -- the hand
+		// stays live until you stick (F) or go over.
+		const int32 Card = Game->HitBlackjack(HandNumber);
+		if (Game->LastBlackjack.bBust)
+		{
+			// Going over settles at once; there is nothing left to decide.
+			const FString Line =
+			    Game->StandBlackjack(HandNumber, CardStake);
+			Say(FString::Printf(TEXT("Drew %d.  %s  %+.0f.  $%.0f in the "
+			                         "pocket.  Again (C)?"),
+			                    Card, *Line, Game->LastHandCash,
+			                    Game->Player.Cash),
+			    FColor::Orange, 8.f);
+			bHandPending = false;
+		}
+		else
+		{
+			Say(FString::Printf(TEXT("Drew %d.  You: %d.  Another (C) or "
+			                         "stick (F)?"),
+			                    Card, Game->LastBlackjack.Yours),
+			    FColor::White, 10.f);
+		}
+		break;
+	}
+	}
+}
+
+void ADirtbagDaySpot::OnBackDown()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Fire ||
+	    !bHandPending || HandDay != Game->Player.Day)
+	{
+		return;
+	}
+	const int32 Tonight = Game->Player.Day % 3;
+	FString Line;
+	switch (Tonight)
+	{
+	case 0:
+		Line = Game->PlayCampfireHand(HandNumber, 0.0, true);
+		break;
+	case 1:
+		Line = Game->PlayLiarsDice(HandNumber, 0.0, false);
+		break;
+	default:
+		Line = Game->StandBlackjack(HandNumber, CardStake);
+		break;
+	}
+	Say(FString::Printf(TEXT("%s  %+.0f.  $%.0f in the pocket.  Again (C)?"),
+	                    *Line, Game->LastHandCash, Game->Player.Cash),
+	    Game->LastHandCash >= 0.0 ? FColor::Green : FColor::Orange, 8.f);
+	bHandPending = false;
+}
+
+void ADirtbagDaySpot::OnChoose1() { ChooseDreamAt(EDirtbagDream::Rig); }
+void ADirtbagDaySpot::OnChoose2() { ChooseDreamAt(EDirtbagDream::WarChest); }
+void ADirtbagDaySpot::OnChoose3() { ChooseDreamAt(EDirtbagDream::HomeBase); }
+
+void ADirtbagDaySpot::ChooseDreamAt(EDirtbagDream Which)
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop)
+	{
+		return;
+	}
+	// ChooseDream itself refuses a second choice; the shop only adds the
+	// words. Said back with the blurb, because this is the one purchase
+	// conversation in the game that is actually about the next ten years.
+	if (Game->ChooseDream(Which))
+	{
+		Say(FString::Printf(TEXT("%s, then.  %s"), *Game->DreamName(Which),
+		                    *Game->DreamBlurb(Which)),
+		    FColor::Yellow, 8.f);
+	}
 }
 
 void ADirtbagDaySpot::BeginDrive()
