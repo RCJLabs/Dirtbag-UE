@@ -104,6 +104,21 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Fire")
 	int32 StartingStakeNotch = 1;
 
+	/** Where this spot goes, in world terms rather than rock terms.
+	 *
+	 *  The 2D game has **two** travel rules and the port had one: zones are
+	 *  connected and you walk between them; crags and comps need the van.
+	 *  This is which of the two applies — a Lot or Town destination is a
+	 *  walk with no van, no fuel and no breakdown roll, and everything else
+	 *  is a drive exactly as before.
+	 *
+	 *  Defaults to Roadside on purpose: **a crag, so every travel spot
+	 *  already placed keeps behaving exactly as it does today** until it is
+	 *  deliberately told it is a walk. A default that silently made drives
+	 *  free would be the worse direction to be wrong in. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
+	EDirtbagZone DestinationZone = EDirtbagZone::Roadside;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Travel")
 	float FadeSeconds = 0.4f;
 
@@ -188,6 +203,11 @@ private:
 	 *  minutes, the Terrace nearly an hour, and none of that depends any
 	 *  more on somebody remembering to type it into the details panel. */
 	double DriveHours() const;
+
+	/** How long the same trip takes on your legs. Comes from the zone
+	 *  model rather than from this actor, so the Lot-to-town walk is one
+	 *  number in one place however many spots point along it. */
+	double WalkHours() const;
 	void ArriveFromDrive();
 	FString PromptText() const;
 

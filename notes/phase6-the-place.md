@@ -94,7 +94,7 @@ generator), a lighting pack (you own one).
 
 This is the half you asked about and the half nobody has written down.
 
-### One level. This is already decided, by the code.
+### One level. This is already decided, by the code — and it still holds.
 
 `ADirtbagDaySpot::ArriveFromDrive` calls **`Pawn->TeleportTo`**. Travel is a
 fade and a teleport inside a single level — not `OpenLevel`, not streaming.
@@ -103,26 +103,86 @@ So: **no sublevels, no World Partition data layers, no map-per-crag.** One
 landscape, every location on it. That is not a preference; it is what the
 game already does, and fighting it would be a rewrite for nothing.
 
-### The valley does not have to be a valley
+### CORRECTION, same day: two tiers, not six pockets
 
-Because travel teleports, the six locations **never need to be
-geographically plausible relative to each other.** They need exactly one
-thing: *you cannot see one from another.*
+The first version of this section said the six locations never need to be
+geographically plausible relative to each other, because travel teleports.
+**That is half right and the wrong half was load-bearing.** Evan:
 
-That is a colossal saving and it is the single most important sentence here.
-You are not building a coherent landscape. You are building **six pockets**
-with hills, distance or rock between them. A solo dev can build six pockets.
+> *"there are supposed to be attached zones for each location. the original
+> dirtbag game that was made had zones connected except for crags and the
+> olympics which you needed to use the van to get to. and then when
+> traveling you saw the van moving across a background."*
 
-The six:
+CLAUDE.md is explicit that the 2D game is the spec, and the port had
+departed from it without recording a decision. **The 2D game has two travel
+rules; the port had one.**
 
-| pocket | what is in it | how often you are there |
-|---|---|---|
-| **The Lot** | van, fire, dog, sleep, rest, 3 partners | every single night |
-| **Roadside** | the first crag, ~25 lines + projects | most days |
-| **Town** | gym, gear shop, diner, the job | weekly |
-| **The Shaded Cave** | north-facing rope routes | a few days a season |
-| **The Sun Terrace** | south-facing, 13 lines | a few days a season |
-| **the road** | travel spots between them | in passing |
+| tier | places | how you get there | must they be coherent? |
+|---|---|---|---|
+| **connected ground** | the Lot, town/city | **on foot** | **yes — you can see one from the other, and that is the point** |
+| **van destinations** | Roadside, the Cave, the Terrace, comps later | **the van, with a travel screen** | no — never visible from anywhere else |
+
+So the pocket rule survives *for crags only*. The Lot and the town are one
+continuous walkable place and have to look like one.
+
+**The sim model for this is now built** (`Sim/DirtbagZones.h`, tested), and
+it fixed a live bug on the way in — see below.
+
+### The bug the correction exposed
+
+Every travel spot in the build was gated on the van running. Under the 2D
+game's rule only crags should be. The difference is most of a week of play:
+
+- **Before:** a dead van cost you the crags, the gym, the gear shop, the
+  diner and the shift. The van breaking took the *whole game* away.
+- **After:** a dead van costs you the rock. You walk to town, work, and buy
+  the part.
+
+Being stranded from everything is not pressure, it is a pause. Being stuck
+in town earning the money to fix it is a week of the game, and it is the
+week the economy was designed to produce.
+
+Travel spots carry a `DestinationZone` now. It **defaults to Roadside — a
+crag — so every spot already placed behaves exactly as it does today** until
+it is deliberately told it is a walk. A default that quietly made drives
+free would be the worse direction to be wrong in.
+
+### The travel screen does not exist and needs building
+
+Today: fade to black, teleport, fade in. The 2D game: **the van crossing a
+background, going somewhere.**
+
+That is not decoration. It is the only time the van is ever on screen as a
+vehicle rather than as a thing you sleep in and repair, and the van is what
+the money is *for*. A fade says "time passed". A van crossing a background
+says "this is what you keep alive."
+
+Same shape as the sound work: the mechanism is container-side (a travel
+screen, the clock running, the destination named, progress across it), the
+background art is an asset slot. **Not built yet — it is the next thing.**
+
+### One big city, or the town block?
+
+Evan asked to consider it. **Recommendation: build the block first, and
+build it so it can grow.**
+
+The argument for the city is real — you own ProceduralBuildingGenerator, so
+generating buildings is nearly free, and "one big city" is the kind of
+decision that is expensive to retrofit.
+
+The argument against is that the game currently has **four** things to do in
+town: the gym, the gear shop, the diner, the job. A city of two hundred
+buildings with four doors that open is worse than a block with four doors
+that open — it reads as a film set, and every street you cannot enter is a
+promise the game breaks. **The city earns its size when there is content to
+put in it**, and that content does not exist and is not on the cut ladder.
+
+The compromise costs nothing: lay the block out as a *corner* of a town
+rather than as an island — streets that continue past the four doors and are
+blocked plausibly, buildings that face a road that goes somewhere. Then
+growing it later is generating more of what is already there, which is
+exactly what the generator is for.
 
 ### Build them in that order, because that is the order of use
 

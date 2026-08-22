@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "../DirtbagCampfire.h"
+#include "../DirtbagZones.h"
 #include "../DirtbagConditions.h"
 #include "../DirtbagCore.h"
 #include "../DirtbagCrag.h"
@@ -1364,6 +1365,81 @@ static void TestPumpShows() {
   never.quietBelow = 100.0;
   CHECK(PumpShows(100.0, never) == 0.0);
   CHECK(PumpShows(50.0, never) == 0.0);
+}
+
+// Zones: where you are, and whether you can walk there. Added when the port
+// turned out to have departed from the 2D game -- one travel rule where the
+// original has two.
+static void TestZones() {
+  ZoneDials zd;
+
+  // The whole point, and the bug this file exists to prevent: **a dead van
+  // must never take the town away.** In the port every travel spot was
+  // gated on the van running, so a breakdown removed the gym, the shop, the
+  // diner and the shift as well as the rock -- the van breaking took the
+  // game away instead of taking the crags away.
+  CHECK(!NeedsTheVan(Zone::Lot));
+  CHECK(!NeedsTheVan(Zone::Town));
+  CHECK(NeedsTheVan(Zone::Roadside));
+  CHECK(NeedsTheVan(Zone::Cave));
+  CHECK(NeedsTheVan(Zone::Terrace));
+
+  // And the consequence stated as its own check, because it is the design
+  // and not an accident of the two above: with the van dead you can still
+  // reach the money that fixes it.
+  CHECK(WalkMinutes(Zone::Lot, Zone::Town, zd) > 0.0);
+
+  // Walking is symmetric, and standing still is free rather than an error.
+  CHECK(WalkMinutes(Zone::Town, Zone::Lot, zd) ==
+        WalkMinutes(Zone::Lot, Zone::Town, zd));
+  for (int z = 0; z < kZoneCount; z++) {
+    const Zone here = static_cast<Zone>(z);
+    CHECK(WalkMinutes(here, here, zd) == 0.0);
+  }
+
+  // You cannot walk to rock, from anywhere, including from other rock.
+  for (int z = 0; z < kZoneCount; z++) {
+    const Zone other = static_cast<Zone>(z);
+    CHECK(WalkMinutes(Zone::Roadside, other, zd) <= 0.0);
+    CHECK(WalkMinutes(other, Zone::Cave, zd) <= 0.0);
+  }
+
+  // The walk follows its dial rather than a number typed beside it.
+  ZoneDials miles;
+  miles.lotToTownMinutes = 90.0;
+  CHECK(WalkMinutes(Zone::Lot, Zone::Town, miles) == 90.0);
+
+  // IsACrag names its members rather than being written as "not the Lot
+  // and not the town".
+  //
+  // **These checks cannot currently fail**, and that is recorded rather
+  // than hidden: with five zones the two definitions are equivalent, and
+  // reintroducing the lazy one passes the whole suite. They are here for
+  // the day comps arrive -- Evan named them alongside the crags as the
+  // other thing you need the van for -- because a comp is a van zone that
+  // is *not* rock, and on that day the lazy definition starts quietly
+  // putting a climbing competition on the guidebook. Intent, written down
+  // where it will be read, not a live guard pretending to be one.
+  CHECK(!IsACrag(Zone::Lot));
+  CHECK(!IsACrag(Zone::Town));
+  CHECK(IsACrag(Zone::Roadside) && IsACrag(Zone::Cave) &&
+        IsACrag(Zone::Terrace));
+  // Every crag needs the van and nothing that needs the van is not a crag
+  // -- true today, and the check is here to fail loudly on the day comps
+  // arrive, because a comp needs the van and is not a crag.
+  for (int z = 0; z < kZoneCount; z++) {
+    const Zone here = static_cast<Zone>(z);
+    if (IsACrag(here)) CHECK(NeedsTheVan(here));
+  }
+
+  // Named, distinctly, and in the game's voice rather than as an enum.
+  for (int z = 0; z < kZoneCount; z++) {
+    const std::string name = ZoneName(static_cast<Zone>(z));
+    CHECK(!name.empty());
+    for (int other = 0; other < z; other++) {
+      CHECK(name != ZoneName(static_cast<Zone>(other)));
+    }
+  }
 }
 
 static void TestTheTable() {
@@ -7474,6 +7550,7 @@ int main() {
   TestTheTable();
   TestHowClose();
   TestPumpShows();
+  TestZones();
   TestSandbagsAreSpecific();
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();

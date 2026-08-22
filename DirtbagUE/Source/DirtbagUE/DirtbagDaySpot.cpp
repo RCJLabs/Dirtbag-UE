@@ -64,8 +64,20 @@ FString ADirtbagDaySpot::PromptText() const
 		return FString::Printf(TEXT("Call it a day?  (E)  -  day %d, $%.0f"),
 		                       Game->Player.Day, Game->Player.Cash);
 	case EDirtbagSpotKind::Travel:
+	{
+		// The verb is the whole difference between the two travel rules, so
+		// the prompt says which one this is rather than calling a walk a
+		// drive. A walk also says what it does not cost, because "no fuel"
+		// is the reason you would choose it on a week when the van is sick.
+		if (!UDirtbagSimLibrary::NeedsTheVan(DestinationZone))
+		{
+			return FString::Printf(
+			    TEXT("Walk to %s?  (E)  -  %.0f minutes, no van needed"),
+			    *TravelName, WalkHours() * 60.0);
+		}
 		return FString::Printf(TEXT("Drive to %s?  (E)  -  %.0f minutes"),
 		                       *TravelName, DriveHours() * 60.0);
+	}
 	case EDirtbagSpotKind::Dog:
 		return FString::Printf(TEXT("Feed it?  (E)  -  %s.  $%.0f"),
 		                       *Game->DogLine(), Game->Player.Cash);
@@ -504,8 +516,10 @@ void ADirtbagDaySpot::PushPrompt()
 	// $9,000", "Not enough for that" -- and a colour on top of a sentence
 	// that already says it is decoration.
 	const bool bStranded =
-	    (Kind == EDirtbagSpotKind::Travel || Kind == EDirtbagSpotKind::Van) &&
-	    !Game->VanRuns();
+	    !Game->VanRuns() &&
+	    (Kind == EDirtbagSpotKind::Van ||
+	     (Kind == EDirtbagSpotKind::Travel &&
+	      UDirtbagSimLibrary::NeedsTheVan(DestinationZone)));
 	Line.Tone = bStranded ? EDirtbagPromptTone::Blocked
 	                      : EDirtbagPromptTone::Plain;
 	TArray<FDirtbagPromptLine> Lines;
@@ -818,10 +832,16 @@ void ADirtbagDaySpot::BeginDrive()
 		return;
 	}
 
-	// A broken van does not go anywhere, and this is the one place in the
-	// game that says no. It is not a lock: bodging is free and always
-	// works, so the way out is four hours rather than money.
-	if (Game && !Game->VanRuns())
+	// A broken van does not go anywhere -- but only to the places that
+	// needed it.
+	//
+	// This used to gate *every* travel spot, which is one rule where the 2D
+	// game has two, and the difference is most of a week of play: a dead
+	// van is supposed to cost you the crags, not the gym, the shop, the
+	// diner and the shift as well. Taking the whole game away is not
+	// pressure, it is a pause.
+	if (Game && !Game->VanRuns() &&
+	    UDirtbagSimLibrary::NeedsTheVan(DestinationZone))
 	{
 		Say(FString::Printf(TEXT("%s  (E at the van to sort it)"),
 		                    *Game->VanLine()),
@@ -845,6 +865,24 @@ void ADirtbagDaySpot::BeginDrive()
 	                                FMath::Max(0.05f, FadeSeconds), false);
 }
 
+double ADirtbagDaySpot::WalkHours() const
+{
+	// Which walk this is depends on where you are standing as well as
+	// where you are going, and only the Lot and town are connected today,
+	// so the answer is the one walk there is. Asked of the zone model
+	// rather than typed here: when the town grows, the table grows in one
+	// file and every spot pointing along it follows.
+	const EDirtbagZone From = DestinationZone == EDirtbagZone::Town
+	                              ? EDirtbagZone::Lot
+	                              : EDirtbagZone::Town;
+	const double Minutes =
+	    UDirtbagSimLibrary::WalkMinutes(From, DestinationZone);
+	// A destination the zone model says is unwalkable should never have
+	// reached here, but if it does, fall back to the spot's own number
+	// rather than teleporting the player for free.
+	return Minutes > 0.0 ? Minutes / 60.0 : DriveHours();
+}
+
 void ADirtbagDaySpot::ArriveFromDrive()
 {
 	if (!Game || !TravelTarget)
@@ -864,10 +902,12 @@ void ADirtbagDaySpot::ArriveFromDrive()
 		}
 	}
 
-	// The drive itself: hours on the clock, hours on the van, and the
-	// chance that the thing you have been ignoring picks this morning.
-	const double Hours = DriveHours();
-	const int32 Broke = Game->DriveVan(Hours);
+	// A walk costs time and nothing else: no fuel, no wear, no breakdown
+	// roll. That is the point of connected ground -- the van is what buys
+	// you rock, and everything else is your legs.
+	const bool bOnFoot = !UDirtbagSimLibrary::NeedsTheVan(DestinationZone);
+	const double Hours = bOnFoot ? WalkHours() : DriveHours();
+	const int32 Broke = bOnFoot ? -1 : Game->DriveVan(Hours);
 	Game->PassHours(Hours);
 	Game->SetVenue(ArriveAt);
 
@@ -883,7 +923,10 @@ void ADirtbagDaySpot::ArriveFromDrive()
 		                                         FLinearColor::Black, false,
 		                                         false);
 	}
-	Say(FString::Printf(TEXT("Drove to %s. %.0f minutes and $%.0f gone."),
-	                    *TravelName, Hours * 60.0, Game->LastDriveFuel),
+	Say(bOnFoot
+	        ? FString::Printf(TEXT("Walked to %s. %.0f minutes."), *TravelName,
+	                          Hours * 60.0)
+	        : FString::Printf(TEXT("Drove to %s. %.0f minutes and $%.0f gone."),
+	                          *TravelName, Hours * 60.0, Game->LastDriveFuel),
 	    FColor::Silver);
 }

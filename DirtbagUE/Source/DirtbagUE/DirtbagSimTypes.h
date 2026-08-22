@@ -8,6 +8,7 @@
 #include "CoreMinimal.h"
 
 #include "DirtbagCampfire.h"
+#include "DirtbagZones.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
@@ -744,6 +745,20 @@ struct FDirtbagBlackjack
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
 	int32 Draws = 0;
+};
+
+/** Where you are in the world. See Sim/DirtbagZones.h — a zone is *where*
+ *  and a venue is *what rock*, which are different questions: the Town
+ *  zone holds the Gym venue plus three destinations that are not climbing
+ *  at all. */
+UENUM(BlueprintType)
+enum class EDirtbagZone : uint8
+{
+	Lot      UMETA(DisplayName = "The Lot"),
+	Town     UMETA(DisplayName = "Town"),
+	Roadside UMETA(DisplayName = "Roadside"),
+	Cave     UMETA(DisplayName = "The Shaded Cave"),
+	Terrace  UMETA(DisplayName = "The Sun Terrace"),
 };
 
 /** Which game is out at the fire tonight. See Sim/DirtbagCampfire.h — the

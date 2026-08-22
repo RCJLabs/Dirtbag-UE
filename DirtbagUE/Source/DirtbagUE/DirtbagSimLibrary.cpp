@@ -378,6 +378,27 @@ double UDirtbagSimLibrary::PumpShows(double Pump)
 	return dirtbag::PumpShows(Pump);
 }
 
+bool UDirtbagSimLibrary::NeedsTheVan(EDirtbagZone Zone)
+{
+	return dirtbag::NeedsTheVan(static_cast<dirtbag::Zone>(Zone));
+}
+
+double UDirtbagSimLibrary::WalkMinutes(EDirtbagZone From, EDirtbagZone To)
+{
+	return dirtbag::WalkMinutes(static_cast<dirtbag::Zone>(From),
+	                            static_cast<dirtbag::Zone>(To));
+}
+
+bool UDirtbagSimLibrary::ZoneIsACrag(EDirtbagZone Zone)
+{
+	return dirtbag::IsACrag(static_cast<dirtbag::Zone>(Zone));
+}
+
+FString UDirtbagSimLibrary::ZoneName(EDirtbagZone Zone)
+{
+	return FString(dirtbag::ZoneName(static_cast<dirtbag::Zone>(Zone)));
+}
+
 FDirtbagCareerSummary UDirtbagSimLibrary::SummarizeCareer(
     const FDirtbagPlayerState& Player)
 {

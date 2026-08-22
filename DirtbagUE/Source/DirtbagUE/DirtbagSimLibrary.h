@@ -224,6 +224,22 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag")
 	static double PumpShows(double Pump);
 
+	/** Does getting there need the van? The Lot and town do not; rock
+	 *  does. See Sim/DirtbagZones.h — the port had one travel rule where
+	 *  the 2D game has two. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static bool NeedsTheVan(EDirtbagZone Zone);
+
+	/** Minutes on foot, or -1 if you cannot walk it. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static double WalkMinutes(EDirtbagZone From, EDirtbagZone To);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static bool ZoneIsACrag(EDirtbagZone Zone);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static FString ZoneName(EDirtbagZone Zone);
+
 	/** What the project ledgers add up to — ability, hardest send, nemesis. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
 	static FDirtbagCareerSummary SummarizeCareer(const FDirtbagPlayerState& Player);
