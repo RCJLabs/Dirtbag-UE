@@ -771,10 +771,11 @@ struct FDirtbagDreams
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dreams")
 	bool bHomeBase = false;
 
-	/** What you have said you are saving for. Free to declare and free to
-	 *  change — declaring is not the commitment, buying is. */
+	/** The dream. Chosen once per career, and choosing closes the other
+	 *  two. Survives the purchase — what your dream was is part of the
+	 *  career. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dreams")
-	EDirtbagDream Working = EDirtbagDream::None;
+	EDirtbagDream Chosen = EDirtbagDream::None;
 
 	/** The War Chest, being lived. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dreams")

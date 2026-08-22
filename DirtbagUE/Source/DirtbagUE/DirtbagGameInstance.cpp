@@ -1091,9 +1091,15 @@ bool UDirtbagGameInstance::CanAffordDream(EDirtbagDream Which) const
 	                          static_cast<dirtbag::Dream>(Which), Player.Cash);
 }
 
-void UDirtbagGameInstance::WorkTowards(EDirtbagDream Which)
+bool UDirtbagGameInstance::ChooseDream(EDirtbagDream Which)
 {
-	Player.Dreams.Working = Which;
+	dirtbag::Dreams SimDreams = DirtbagConvert::ToSim(Player.Dreams);
+	if (!dirtbag::ChooseDream(SimDreams, static_cast<dirtbag::Dream>(Which)))
+	{
+		return false;
+	}
+	Player.Dreams = DirtbagConvert::FromSim(SimDreams);
+	return true;
 }
 
 bool UDirtbagGameInstance::BuyDream(EDirtbagDream Which)
@@ -1134,21 +1140,18 @@ FString UDirtbagGameInstance::DreamLine() const
 	    FString(dirtbag::DreamText(DirtbagConvert::ToSim(Player.Dreams))
 	                .c_str());
 
-	// And what you are still after. Without this, WorkTowards() was written
-	// and never read — the field was saved, mirrored and cleared on
-	// purchase, and nothing ever showed it. The reachability checker cannot
-	// catch that: it checks declarations, not fields.
-	//
-	// Said with the distance attached, because "saving for the Rig" is a
-	// mood and "$3,240 of $9,000" is a decision about this week.
-	if (Player.Dreams.Working != EDirtbagDream::None &&
+	// What you are still after, with the distance attached — "saving for
+	// the Rig" is a mood and "$3,240 of $9,000" is a decision about this
+	// week. Under chosen-dreams this line carries more weight than it did:
+	// it is the one thing you are allowed to want.
+	if (Player.Dreams.Chosen != EDirtbagDream::None &&
 	    !dirtbag::HasDream(DirtbagConvert::ToSim(Player.Dreams),
-	                       static_cast<dirtbag::Dream>(Player.Dreams.Working)))
+	                       static_cast<dirtbag::Dream>(Player.Dreams.Chosen)))
 	{
-		const double Cost = DreamCost(Player.Dreams.Working);
+		const double Cost = DreamCost(Player.Dreams.Chosen);
 		const FString Saving = FString::Printf(
 		    TEXT("Saving for %s — $%d of $%d."),
-		    *DreamName(Player.Dreams.Working),
+		    *DreamName(Player.Dreams.Chosen),
 		    FMath::FloorToInt(FMath::Max(0.0, Player.Cash)),
 		    FMath::FloorToInt(Cost));
 		Line += Line.IsEmpty() ? Saving : TEXT("  ") + Saving;

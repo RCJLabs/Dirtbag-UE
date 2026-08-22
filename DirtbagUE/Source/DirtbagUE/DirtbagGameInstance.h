@@ -618,10 +618,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Dreams")
 	bool CanAffordDream(EDirtbagDream Which) const;
 
-	/** Say what you are saving for. Free, changeable, and it does nothing on
-	 *  its own — declaring is not the commitment. */
+	/** Name your dream. Once per career, and it holds: the other two stop
+	 *  being for sale the moment you say it. False if this career already
+	 *  chose. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Dreams")
-	void WorkTowards(EDirtbagDream Which);
+	bool ChooseDream(EDirtbagDream Which);
 
 	/** Buy it. Takes the cash and hands back the thing. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Dreams")

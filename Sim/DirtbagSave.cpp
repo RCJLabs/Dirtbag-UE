@@ -224,6 +224,15 @@ void MigrateV17ToV18(SaveFields& fields) {
   fields["van.rig"] = "0";
 }
 
+// v18 -> v19: dreams are chosen, not browsed. The old `dreams.working` was
+// a free note-to-self; `chosen` is a binding, once-per-career commitment.
+// A v18 note does NOT become the commitment -- binding somebody to a thing
+// they idly clicked last month is exactly the kind of retroactive promise
+// a migration must never make. Every old career arrives unchosen and makes
+// the choice for real, keeping whatever it already bought under the old
+// rules. The stale `dreams.working` key is simply no longer read.
+void MigrateV18ToV19(SaveFields& fields) { fields["dreams.chosen"] = "0"; }
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -245,7 +254,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV5ToV6, &MigrateV6ToV7, &MigrateV7ToV8, &MigrateV8ToV9,
       &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12,
       &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15,
-      &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18};
+      &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18,
+      &MigrateV18ToV19};
   return kMigrations;
 }
 
@@ -393,7 +403,7 @@ std::string SerializeSave(const SaveGame& save) {
       << "\n";
   out << "dreams.homebase=" << IntToStr(save.player.dreams.has[2] ? 1 : 0)
       << "\n";
-  out << "dreams.working=" << IntToStr(static_cast<int>(save.player.dreams.working))
+  out << "dreams.chosen=" << IntToStr(static_cast<int>(save.player.dreams.chosen))
       << "\n";
   out << "dreams.seasonoff=" << IntToStr(save.player.dreams.seasonOffDaysLeft)
       << "\n";
@@ -541,7 +551,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   save.player.kit.hangboard = hangboard != 0;
 
   int salaried = 0;
-  int dreamRig = 0, dreamWarChest = 0, dreamHomeBase = 0, dreamWorking = 0;
+  int dreamRig = 0, dreamWarChest = 0, dreamHomeBase = 0, dreamChosen = 0;
   int vanRig = 0;
   if (!ParseInt(fields, "job.salaried", salaried) ||
       !ParseInt(fields, "job.days", save.player.job.daysWorked) ||
@@ -561,7 +571,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       !ParseInt(fields, "dreams.rig", dreamRig) ||
       !ParseInt(fields, "dreams.warchest", dreamWarChest) ||
       !ParseInt(fields, "dreams.homebase", dreamHomeBase) ||
-      !ParseInt(fields, "dreams.working", dreamWorking) ||
+      !ParseInt(fields, "dreams.chosen", dreamChosen) ||
       !ParseInt(fields, "dreams.seasonoff",
                 save.player.dreams.seasonOffDaysLeft) ||
       !ParseInt(fields, "van.rig", vanRig)) {
@@ -573,9 +583,9 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   save.player.dreams.has[2] = dreamHomeBase != 0;
   // Clamped rather than trusted, the same way the injury kind is: a
   // hand-edited save must not be able to name a dream that does not exist.
-  save.player.dreams.working =
-      dreamWorking >= 0 && dreamWorking <= kDreamCount
-          ? static_cast<Dream>(dreamWorking)
+  save.player.dreams.chosen =
+      dreamChosen >= 0 && dreamChosen <= kDreamCount
+          ? static_cast<Dream>(dreamChosen)
           : Dream::None;
   save.player.van.rig = vanRig != 0;
   int secretCount = 0;

@@ -766,17 +766,34 @@ static void TestDreamsCostTheBuffer() {
   CHECK(!BuyDream(dreams, van, cash, Dream::Rig, dd));
   CHECK(DreamText(dreams).empty());
 
+  // A dream is chosen before it is bought, and money without a choice buys
+  // nothing: the shop can show all three, it can only ever sell you yours.
+  cash = CostOf(Dream::HomeBase, dd) + CostOf(Dream::Rig, dd);
+  CHECK(!CanAfford(dreams, Dream::Rig, cash, dd));
+  CHECK(!BuyDream(dreams, van, cash, Dream::Rig, dd));
+  CHECK(!ChooseDream(dreams, Dream::None));   // "nothing" is not a dream
+  CHECK(ChooseDream(dreams, Dream::Rig));
+  CHECK(dreams.chosen == Dream::Rig);
+
+  // Chosen is chosen. There is no way back, because an option you can
+  // reopen was never closed -- and the other two are off the table however
+  // much money is in the tin.
+  CHECK(!ChooseDream(dreams, Dream::HomeBase));
+  CHECK(dreams.chosen == Dream::Rig);
+  CHECK(!CanAfford(dreams, Dream::HomeBase, cash, dd));
+  CHECK(!BuyDream(dreams, van, cash, Dream::HomeBase, dd));
+
   // The Rig. It takes the money and hands back a van that is new and stays
   // newer -- but the cash is gone, which is the cost.
   cash = CostOf(Dream::Rig, dd) + 40.0;
   for (int p = 0; p < kVanPartCount; p++) van.parts[p].wear = 0.9;
-  dreams.working = Dream::Rig;
   CHECK(BuyDream(dreams, van, cash, Dream::Rig, dd));
   CHECK(cash == 40.0);                       // the buffer, spent
   CHECK(van.rig);
   for (int p = 0; p < kVanPartCount; p++) CHECK(van.parts[p].wear == 0.0);
   CHECK(HasDream(dreams, Dream::Rig));
-  CHECK(dreams.working == Dream::None);      // no longer saving for it
+  // What your dream was is part of the career -- it survives the purchase.
+  CHECK(dreams.chosen == Dream::Rig);
   CHECK(!BuyDream(dreams, van, cash, Dream::Rig, dd));   // and only once
 
   // A Rig does not stop breaking, it breaks less. Same hours, same weather,
@@ -802,6 +819,7 @@ static void TestDreamsCostTheBuffer() {
   Van v2;
   double money = CostOf(Dream::WarChest, dd);
   CHECK(!NoNeedToWork(rich));
+  CHECK(ChooseDream(rich, Dream::WarChest));
   CHECK(BuyDream(rich, v2, money, Dream::WarChest, dd));
   CHECK(money == 0.0);
   CHECK(NoNeedToWork(rich));
@@ -816,6 +834,7 @@ static void TestDreamsCostTheBuffer() {
   Van v3;
   double pot = CostOf(Dream::HomeBase, dd);
   CHECK(SkinBonus(housed, dd) == 0.0);
+  CHECK(ChooseDream(housed, Dream::HomeBase));
   CHECK(BuyDream(housed, v3, pot, Dream::HomeBase, dd));
   CHECK(SkinBonus(housed, dd) > 0.0);
   double wallet = 100.0, owed = 0.0;
@@ -854,14 +873,14 @@ static void TestDreamsCostTheBuffer() {
         "the War Chest.  212 days of the War Chest left.");
 }
 
-// v17 -> v18. Old careers own nothing, which is exactly right.
+// v17 -> v18 -> v19. Old careers own nothing, which is exactly right --
+// and a v18 note-to-self must not arrive as a binding choice.
 static void TestDreamsMigrate() {
   PlayerState player;
   Van& van = player.van;
   double cash = 60000.0;
+  CHECK(ChooseDream(player.dreams, Dream::Rig));
   CHECK(BuyDream(player.dreams, van, cash, Dream::Rig));
-  CHECK(BuyDream(player.dreams, van, cash, Dream::WarChest));
-  player.dreams.working = Dream::HomeBase;
   player.cash = cash;
 
   SaveGame save;
@@ -870,18 +889,15 @@ static void TestDreamsMigrate() {
   SaveGame back;
   CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
   CHECK(HasDream(back.player.dreams, Dream::Rig));
-  CHECK(HasDream(back.player.dreams, Dream::WarChest));
   CHECK(!HasDream(back.player.dreams, Dream::HomeBase));
-  CHECK(back.player.dreams.working == Dream::HomeBase);
-  CHECK(back.player.dreams.seasonOffDaysLeft ==
-        player.dreams.seasonOffDaysLeft);
+  CHECK(back.player.dreams.chosen == Dream::Rig);   // the record survives
   CHECK(back.player.van.rig);
 
   std::string v17 = SerializeSave(save);
   DropSaveLine(v17, "dreams.rig=");
   DropSaveLine(v17, "dreams.warchest=");
   DropSaveLine(v17, "dreams.homebase=");
-  DropSaveLine(v17, "dreams.working=");
+  DropSaveLine(v17, "dreams.chosen=");
   DropSaveLine(v17, "dreams.seasonoff=");
   DropSaveLine(v17, "van.rig=");
   SetSaveVersion(v17, 17);
@@ -890,12 +906,28 @@ static void TestDreamsMigrate() {
   CHECK(DeserializeSave(v17, old) == LoadResult::Ok);
   CHECK(old.version == kSaveVersion);
   CHECK(!HasDream(old.player.dreams, Dream::Rig));
-  CHECK(old.player.dreams.working == Dream::None);
+  CHECK(old.player.dreams.chosen == Dream::None);
   // A Rig is a van you bought, not a van you maintained, so an old career
   // keeps whatever it has been driving.
   CHECK(!old.player.van.rig);
   CHECK(old.player.cash == player.cash);   // and the money is still theirs
   CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+
+  // And the v18 shape specifically: it had `dreams.working`, a free
+  // note-to-self. That note must NOT arrive as the binding choice --
+  // binding somebody to a thing they idly clicked last month is exactly
+  // the retroactive promise a migration must never make.
+  std::string v18 = SerializeSave(save);
+  DropSaveLine(v18, "dreams.chosen=");
+  const std::size_t vat = v18.find("version=");
+  CHECK(vat != std::string::npos);
+  v18.insert(vat, "dreams.working=2\n");   // "was saving for the War Chest"
+  SetSaveVersion(v18, 18);
+
+  SaveGame noted;
+  CHECK(DeserializeSave(v18, noted) == LoadResult::Ok);
+  CHECK(noted.player.dreams.chosen == Dream::None);   // unchosen, not bound
+  CHECK(HasDream(noted.player.dreams, Dream::Rig));   // owns what it bought
 }
 
 static void TestTheCampfireGame() {

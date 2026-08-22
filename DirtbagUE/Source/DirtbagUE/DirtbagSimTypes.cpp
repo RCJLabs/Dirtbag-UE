@@ -501,7 +501,7 @@ FDirtbagDreams FromSim(const dirtbag::Dreams& In)
 	Out.bRig = In.has[0];
 	Out.bWarChest = In.has[1];
 	Out.bHomeBase = In.has[2];
-	Out.Working = static_cast<EDirtbagDream>(In.working);
+	Out.Chosen = static_cast<EDirtbagDream>(In.chosen);
 	Out.SeasonOffDaysLeft = In.seasonOffDaysLeft;
 	return Out;
 }
@@ -512,7 +512,7 @@ dirtbag::Dreams ToSim(const FDirtbagDreams& In)
 	Out.has[0] = In.bRig;
 	Out.has[1] = In.bWarChest;
 	Out.has[2] = In.bHomeBase;
-	Out.working = static_cast<dirtbag::Dream>(In.Working);
+	Out.chosen = static_cast<dirtbag::Dream>(In.Chosen);
 	Out.seasonOffDaysLeft = In.SeasonOffDaysLeft;
 	return Out;
 }

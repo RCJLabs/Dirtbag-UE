@@ -71,10 +71,16 @@ struct DreamDials {
 struct Dreams {
   bool has[kDreamCount] = {false, false, false};
 
-  // What you have said you are saving for. Free to declare, free to change,
-  // and it changes nothing on its own -- it is a note to yourself that the
-  // HUD can read back. Declaring it is not the commitment; buying is.
-  Dream working = Dream::None;
+  // The dream. One per career, chosen once, and choosing closes the other
+  // two -- Evan's call, 2026-08-22, over the first build's "free to
+  // declare, free to change" note-to-self. A dream you could swap out
+  // whenever the price looked better was a shopping list; this is the
+  // thing the next ten years are for, and the cost of naming it is
+  // everything you will now never save for instead.
+  //
+  // It survives the purchase. What your dream *was* is part of the career,
+  // and the legacy reads it.
+  Dream chosen = Dream::None;
 
   // The War Chest, being lived.
   int seasonOffDaysLeft = 0;
@@ -83,14 +89,21 @@ struct Dreams {
 bool HasDream(const Dreams& dreams, Dream d);
 double CostOf(Dream d, const DreamDials& dials = DreamDials{});
 
-// Can you put the money down today? Says nothing about whether you should.
+// Name the dream. Once, and it holds: false if it is None, or if this
+// career already chose. There is deliberately no way back -- an option you
+// can reopen was never closed, and the whole weight of the choice is that
+// the other two stop existing for you.
+bool ChooseDream(Dreams& dreams, Dream d);
+
+// Can you put the money down today? Only ever true for the chosen dream --
+// the shop can show the others, but it cannot sell them to you.
 bool CanAfford(const Dreams& dreams, Dream d, double cash,
                const DreamDials& dials = DreamDials{});
 
 // Buy it. Spends the cash -- all of it, if that is what it takes -- and
-// applies whatever the dream does. False if you cannot afford it or have it
-// already. The van is passed because the Rig is a van, and a Rig arrives
-// with everything new.
+// applies whatever the dream does. False unless this is the dream you
+// chose, you can cover it, and you do not have it already. The van is
+// passed because the Rig is a van, and a Rig arrives with everything new.
 bool BuyDream(Dreams& dreams, Van& van, double& cash, Dream d,
               const DreamDials& dials = DreamDials{});
 

@@ -92,13 +92,13 @@ kind is.
 
 ## Still open
 
-Two things, neither blocking:
+~~Two things~~ **One thing** — is any of this what the 2D game means? Three
+words was all the repo had. The prices and effects are dials.
 
-1. **Is any of this what the 2D game means?** Three words was all the repo
-   had. The prices and effects are dials; the *shape* — three dreams, three
-   currencies, cost is the buffer — is the part worth arguing about if the
-   2D version disagrees.
-2. **Nothing asks the player to choose one.** They are three purchases in a
-   shop, made in whatever order the money allows. The version where naming a
-   dream early closes off the others was the third option on the fork and is
-   still available on top of this one.
+> **[resolved 2026-08-22]** Point 2 is decided: *"Dreams we will choose."*
+> `ChooseDream` is once per career and binding — the other two stop being
+> for sale the moment you say it. `chosen` survives the purchase, because
+> what your dream *was* is part of the career. A v18 save's `working`
+> note-to-self does **not** migrate into the binding choice: old careers
+> arrive unchosen and choose for real, keeping whatever they bought under
+> the old rules.

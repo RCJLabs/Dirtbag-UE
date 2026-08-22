@@ -781,16 +781,17 @@ int main(int argc, char** argv) {
       note += "ACCESS PULLED";
     }
 
-    // Buy the thing, the day it can be afforded. Cheapest first, so a
-    // career works through them in order rather than holding out for the
-    // expensive one -- which is the impatient version and the honest one.
+    // One dream per career now, chosen up front -- the choice rotates with
+    // the generation so the sweep sees all three lived. Buy it the day it
+    // can be covered.
     if (dreams) {
-      const Dream order[3] = {Dream::Rig, Dream::WarChest, Dream::HomeBase};
-      for (Dream d : order) {
-        if (BuyDream(player.dreams, player.van, player.cash, d)) {
-          t.dreamsBought++;
-          break;   // one a day; they are not impulse buys
-        }
+      if (player.dreams.chosen == Dream::None) {
+        const Dream order[3] = {Dream::Rig, Dream::WarChest, Dream::HomeBase};
+        ChooseDream(player.dreams, order[lives % 3]);
+      }
+      if (BuyDream(player.dreams, player.van, player.cash,
+                   player.dreams.chosen)) {
+        t.dreamsBought++;
       }
     }
 

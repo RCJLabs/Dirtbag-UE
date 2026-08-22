@@ -53,10 +53,18 @@ double CostOf(Dream d, const DreamDials& dials) {
   return i >= 0 ? dials.cost[i] : 0.0;
 }
 
+bool ChooseDream(Dreams& dreams, Dream d) {
+  if (d == Dream::None) return false;
+  if (dreams.chosen != Dream::None) return false;
+  dreams.chosen = d;
+  return true;
+}
+
 bool CanAfford(const Dreams& dreams, Dream d, double cash,
                const DreamDials& dials) {
   const int i = IndexOf(d);
   if (i < 0 || dreams.has[i]) return false;
+  if (dreams.chosen != d) return false;   // the others are closed
   return cash >= dials.cost[i];
 }
 
@@ -67,9 +75,9 @@ bool BuyDream(Dreams& dreams, Van& van, double& cash, Dream d,
 
   cash -= dials.cost[i];
   dreams.has[i] = true;
-  // You got the thing you were saving for, so you are no longer saving for
-  // it. Choosing the next one is the player's business, not ours.
-  if (dreams.working == d) dreams.working = Dream::None;
+  // `chosen` deliberately survives the purchase: what your dream was is
+  // part of the career. The saving-for HUD line goes quiet on its own,
+  // because it checks HasDream.
 
   switch (d) {
     case Dream::Rig:
