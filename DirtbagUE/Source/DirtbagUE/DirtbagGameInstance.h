@@ -538,6 +538,30 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
 	FString DirtbagYearNews;
 
+	// --- The fire ---------------------------------------------------------
+	// SitAtTheFire gives rapport, psyche and a line of talk for spending
+	// hours there, and asks nothing: no decision, no stake, nothing you can
+	// be bad at. This is the verb. Measured, a player who never folds loses
+	// about $5 a hand and one who reads the table wins $3 as a stranger and
+	// $10 at full rapport — so the skill is knowing people, which is the
+	// only skill the Lot was ever going to teach.
+
+	/** Deal one. Hand numbers count up through an evening; the same day and
+	 *  number always deal the same cards, so a reload cannot reroll a bad
+	 *  night. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Campfire")
+	FDirtbagCampfireHand DealCampfireHand(int32 HandNumber);
+
+	/** Play it. Stake is what you put in on top of the ante; folding
+	 *  forfeits the ante and nothing else, and is still an evening spent
+	 *  with people. Returns what gets said. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Campfire")
+	FString PlayCampfireHand(int32 HandNumber, double Stake, bool bFold);
+
+	/** What the last hand did to your pocket. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	double LastHandCash = 0.0;
+
 	// --- Dreams -----------------------------------------------------------
 	// The thing the money is for. Measured (notes/dreams-what-money-is-worth
 	// .md): saving costs no climbing at all — a career that banks hard climbs

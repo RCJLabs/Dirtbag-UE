@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "../DirtbagCampfire.h"
 #include "../DirtbagConditions.h"
 #include "../DirtbagCore.h"
 #include "../DirtbagCrag.h"
@@ -895,6 +896,107 @@ static void TestDreamsMigrate() {
   CHECK(!old.player.van.rig);
   CHECK(old.player.cash == player.cash);   // and the money is still theirs
   CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+}
+
+static void TestTheCampfireGame() {
+  CampfireDials cd;
+  const Rng world = Rng::FromSeed("fire-1");
+  std::vector<Partner> lot;
+  for (const char* n : {"Margo", "Dev", "Trish"}) {
+    Partner p;
+    p.name = n;
+    p.rapport = 1.0;
+    lot.push_back(p);
+  }
+
+  // A hand is dealt from its own stream, keyed on the day and the hand, so
+  // an evening replays identically and reloading cannot reroll a bad night.
+  const CampfireHand a = DealHand(lot, world, 5, 2, cd);
+  const CampfireHand b = DealHand(lot, world, 5, 2, cd);
+  CHECK(a.yours == b.yours);
+  CHECK(a.truth == b.truth);
+  const CampfireHand later = DealHand(lot, world, 5, 3, cd);
+  CHECK(later.yours != a.yours);
+  CHECK(a.who.size() == lot.size());
+  CHECK(a.reads.size() == lot.size());
+  CHECK(a.pot == cd.ante * static_cast<double>(lot.size() + 1));
+
+  // The read is the truth blurred by how little you know somebody. At full
+  // rapport it is close; at none it is mostly the middle -- which does not
+  // lie to you, it tells you nothing.
+  std::vector<Partner> strangers = lot;
+  for (Partner& p : strangers) p.rapport = 0.0;
+  double closeErr = 0.0, strangeErr = 0.0;
+  for (int h = 0; h < 400; h++) {
+    const CampfireHand f = DealHand(lot, world, 1, h, cd);
+    const CampfireHand s = DealHand(strangers, world, 1, h, cd);
+    for (std::size_t i = 0; i < f.truth.size(); i++) {
+      closeErr += std::abs(f.reads[i] - f.truth[i]);
+      strangeErr += std::abs(s.reads[i] - s.truth[i]);
+    }
+  }
+  CHECK(closeErr < strangeErr);   // knowing them is seeing them
+
+  // Folding costs the ante and nothing else, and is still an evening spent
+  // with people -- rapport is paid however the hand goes.
+  std::vector<Partner> table = strangers;
+  double cash = 500.0, foldPsyche = 0.7;
+  const CampfireResult f =
+      PlayHand(a, cash, foldPsyche, table, 40.0, true, cd);
+  CHECK(f.folded);
+  CHECK(f.cashDelta == -cd.ante);
+  CHECK(cash == 500.0 - cd.ante);
+  CHECK(table[0].rapport > strangers[0].rapport);
+
+  // You cannot bet what you do not have.
+  double broke = 3.0, p2 = 0.7;
+  std::vector<Partner> t2 = lot;
+  PlayHand(a, broke, p2, t2, 1000.0, false, cd);
+  CHECK(broke >= 0.0);
+
+  // The measured shape, and the reason `theyStayAbove` exists. A player who
+  // never folds loses steadily; one who plays the read wins, and wins more
+  // for knowing the table. Before the Lot folded, a stranger playing the
+  // read made $14 a hand and the fire was an infinite cash machine.
+  const auto run = [&](double rapport, bool useRead) {
+    std::vector<Partner> tbl;
+    for (const char* n : {"Margo", "Dev", "Trish"}) {
+      Partner p; p.name = n; p.rapport = rapport; tbl.push_back(p);
+    }
+    double money = 100000.0, psy = 0.7;
+    for (int h = 0; h < 4000; h++) {
+      const CampfireHand hd = DealHand(tbl, world, 9, h, cd);
+      double worst = 0.0;
+      for (double r : hd.reads) worst = std::max(worst, r);
+      PlayHand(hd, money, psy, tbl, cd.maxStake,
+               useRead && hd.yours < worst, cd);
+      for (Partner& p : tbl) p.rapport = rapport;
+    }
+    return (money - 100000.0) / 4000.0;
+  };
+  const double passive = run(1.0, false);
+  const double stranger = run(0.0, true);
+  const double friendly = run(1.0, true);
+  CHECK(stranger > passive);         // thinking beats not thinking
+  CHECK(friendly > stranger);        // and knowing them beats thinking
+
+  // Ordering is not enough, and finding that out is why these numbers are
+  // here. Deleting the fold rule leaves every ordering check above passing
+  // -- a stranger still beats a passive player, a friend still beats a
+  // stranger -- while the table quietly pays $14 a hand to anybody with
+  // eyes. The bug this game actually had is a *magnitude* bug, so it takes
+  // magnitudes to pin it.
+  //
+  // Measured with the rule in place: passive -$5, stranger +$3, friend +$10.
+  // Measured with it removed: passive -$0, stranger +$14, friend +$27.
+  CHECK(passive < -2.0);             // inattention has a real price
+  CHECK(stranger < 6.0);             // and a stranger does not print money
+  CHECK(friendly < 15.0);            // nor does a friend
+
+  // A read is only ever words to the player. A number would make this
+  // arithmetic; a sentence keeps it a person.
+  CHECK(std::string(ReadText(0.05)) != std::string(ReadText(0.95)));
+  CHECK(!std::string(ReadText(0.5)).empty());
 }
 
 static void TestSandbagsAreSpecific() {
@@ -6812,6 +6914,7 @@ int main() {
   TestTheCrewNameMigrates();
   TestDreamsCostTheBuffer();
   TestDreamsMigrate();
+  TestTheCampfireGame();
   TestSandbagsAreSpecific();
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();

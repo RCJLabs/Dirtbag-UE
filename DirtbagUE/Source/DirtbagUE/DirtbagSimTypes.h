@@ -7,6 +7,7 @@
 
 #include "CoreMinimal.h"
 
+#include "DirtbagCampfire.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
@@ -660,6 +661,41 @@ struct FDirtbagJob
 	/** The longest unbroken run, in days, including one in progress. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
 	int32 LongestStreak = 0;
+};
+
+/** One player at the fire, as you see them: a name and a sentence about
+ *  what they look like they have. Never a number — a number would make the
+ *  campfire game arithmetic, and it is meant to be a person. */
+USTRUCT(BlueprintType)
+struct FDirtbagCampfireRead
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FString Who;
+
+	/** "Margo is not even looking at her cards." */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	FString Tell;
+};
+
+/** The hand in front of you. See Sim/DirtbagCampfire.h — how well you know
+ *  somebody is how well you see what they have, so the skill is rapport
+ *  rather than card counting. */
+USTRUCT(BlueprintType)
+struct FDirtbagCampfireHand
+{
+	GENERATED_BODY()
+
+	/** 0..1, and you see this one exactly. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	double Yours = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	TArray<FDirtbagCampfireRead> Reads;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Campfire")
+	double Pot = 0.0;
 };
 
 /** What the money is for. See Sim/DirtbagDreams.h — the price is the

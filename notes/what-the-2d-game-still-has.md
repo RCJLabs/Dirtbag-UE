@@ -22,7 +22,7 @@ decision to drop them.
 | ~~**Dreams** (Rig / War Chest / Home Base)~~ | **built 2026-08-22** — `notes/dreams.md` | no |
 | ~~**The crew-naming system**~~ | **built 2026-08-21** — `notes/the-crew.md` | no |
 | ~~**Dirtbag Year achievement**~~ | **built 2026-08-21** — `notes/dirtbag-year.md` | no |
-| **The campfire game** | no match; §4 says *"keep ONE campfire game"* | yes |
+| ~~**The campfire game**~~ | **built 2026-08-22** — `notes/the-campfire-game.md`; rules are sim-side, only the table UI needs the editor | rules no, UI yes |
 
 Also absent and *deliberately* so — §4's cut list: comps, expeditions, deep
 water solo, big wall, filmmaking, gym ownership, Solo mode. Those are

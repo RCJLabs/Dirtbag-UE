@@ -943,6 +943,52 @@ bool UDirtbagGameInstance::TakeOddJob(const FDirtbagOddJob& Job)
 	return true;
 }
 
+FDirtbagCampfireHand UDirtbagGameInstance::DealCampfireHand(int32 HandNumber)
+{
+	FDirtbagCampfireHand Out;
+	const std::vector<dirtbag::Partner> Lot = LotToday();
+	const dirtbag::CampfireHand Hand = dirtbag::DealHand(
+	    Lot, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day,
+	    HandNumber);
+
+	Out.Yours = Hand.yours;
+	Out.Pot = Hand.pot;
+	for (int32 i = 0; i < static_cast<int32>(Hand.who.size()); i++)
+	{
+		FDirtbagCampfireRead R;
+		R.Who = FString(Hand.who[i].c_str());
+		// The name is put in front of the tell here rather than in the sim,
+		// because the sim has no business writing a sentence with somebody's
+		// name in it and the engine has to anyway.
+		R.Tell = FString::Printf(TEXT("%s %s."), *R.Who,
+		                         *FString(dirtbag::ReadText(Hand.reads[i])));
+		Out.Reads.Add(R);
+	}
+	return Out;
+}
+
+FString UDirtbagGameInstance::PlayCampfireHand(int32 HandNumber, double Stake,
+                                               bool bFold)
+{
+	std::vector<dirtbag::Partner> Lot = LotToday();
+	const dirtbag::CampfireHand Hand = dirtbag::DealHand(
+	    Lot, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day,
+	    HandNumber);
+
+	double Cash = Player.Cash;
+	double Psyche = Player.Climber.Psyche;
+	const dirtbag::CampfireResult R =
+	    dirtbag::PlayHand(Hand, Cash, Psyche, Lot, Stake, bFold);
+
+	Player.Cash = Cash;
+	Player.Climber.Psyche = Psyche;
+	LastHandCash = R.cashDelta;
+	// Rapport was paid inside PlayHand, so the bonds have to go back or an
+	// evening of cards would be forgotten by morning.
+	StoreBonds(Lot);
+	return FString(R.line.c_str());
+}
+
 double UDirtbagGameInstance::DreamCost(EDirtbagDream Which) const
 {
 	return dirtbag::CostOf(static_cast<dirtbag::Dream>(Which));
