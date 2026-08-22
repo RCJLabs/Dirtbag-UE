@@ -690,12 +690,14 @@ public:
 	// between venues is a flag rather than a rebuild.
 
 	/** The gym's board for this world, cached. Indoor venue only. */
+	// blueprint-only: an accessor for Blueprint; C++ reads Crag.Lines directly
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	TArray<FDirtbagRoute> GetBoard();
 
 	/** The route at this index in whichever venue is live. Prefer
 	 *  GetRouteAt from anything that knows its own venue: this one reads
 	 *  global state, which is only correct once the player has arrived. */
+	// blueprint-only: an accessor for Blueprint; C++ uses GetRouteAt
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	FDirtbagRoute GetBoardRoute(int32 Index);
 
@@ -707,6 +709,7 @@ public:
 	FDirtbagRoute GetRouteAt(EDirtbagVenue AtVenue, int32 Index);
 
 	/** This world's crag, cached. Outdoors only. */
+	// blueprint-only: an accessor for Blueprint; C++ reads the Crag member
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
 	FDirtbagCrag GetCrag();
 
@@ -735,6 +738,7 @@ public:
 	double ApproachHoursFor(EDirtbagVenue AtVenue);
 
 	/** How many things there are to climb where you are standing. */
+	// blueprint-only: an accessor for Blueprint; C++ reads Crag.Lines.Num()
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	int32 NumRoutesHere();
 
@@ -782,6 +786,7 @@ public:
 
 	/** Name it. Records the claim and confirms what it really went at —
 	 *  which nobody, including the guidebook, knew until now. */
+	// blueprint-only: WBP_NameFirstAscent calls it; the HUD only raises the flag
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	bool NameFirstAscent(int32 BoardIndex, const FString& Name);
 
@@ -821,6 +826,7 @@ public:
 
 	/** Walk away without naming it. The line stays yours to name later —
 	 *  the ascent happened, and nothing about it expires. */
+	// blueprint-only: WBP_NameFirstAscent calls it when you walk away from the prompt
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	void DismissNaming();
 
@@ -864,6 +870,7 @@ public:
 	/** Do it. Records only that it happened; the caller applies whatever
 	 *  the act buys, because the benefit differs per act and belongs where
 	 *  it is felt. */
+	// no-door: the ethics arc verb (DIRTBAG.md s4, port-wholesale)
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Ethics")
 	void DoSomethingYouWouldNotAdmitTo(EDirtbagEthicalAct Act,
 	                                   const FString& OnRoute);
@@ -875,6 +882,7 @@ public:
 	double HowWatchedYouAre() const;
 
 	/** How many things you are carrying that nobody knows about. */
+	// no-door: the ethics readout; the HUD shows EthicsNews only
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Ethics")
 	int32 ThingsNobodyKnows() const;
 
@@ -900,6 +908,7 @@ public:
 
 	/** Take it. Says something about you: the Scene likes a sponsored
 	 *  climber and the old guard has opinions. */
+	// no-door: sponsorship (Phase 4 scope, built and measured)
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Sponsor")
 	bool SignWithSponsor();
 
@@ -909,6 +918,7 @@ public:
 	FString SponsorLine() const;
 
 	/** Do they own today? Only ever a day with a window. */
+	// no-door: sponsorship obligations; nothing asks whose day it is
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sponsor")
 	bool SponsorOwnsToday() const;
 
@@ -1012,6 +1022,7 @@ public:
 	// --- Work ------------------------------------------------------------
 
 	/** Today's board: three gigs, deterministic per world and day. */
+	// no-door: the odd-jobs board (DIRTBAG.md s4, port-wholesale)
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
 	TArray<FDirtbagOddJob> TodaysJobBoard() const;
 
@@ -1019,6 +1030,7 @@ public:
 	 *  and says something about you — the best-paying gig on the board is
 	 *  shooting guidebook photos, and it costs you the old guard and the
 	 *  stewards both. False if the van is dead and the gig needed it. */
+	// no-door: the odd-jobs board (DIRTBAG.md s4, port-wholesale)
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
 	bool TakeOddJob(const FDirtbagOddJob& Job);
 
@@ -1217,6 +1229,7 @@ public:
 	 *  one thing money buys that hands climbing back rather than moving it
 	 *  around. False if you are not hurt, cannot afford it, or saw one too
 	 *  recently. */
+	// no-door: physio, the recovery half of injury+physio+aging
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Body")
 	bool SeeAPhysio();
 
@@ -1237,6 +1250,7 @@ public:
 	bool BuyHangboard();
 
 	/** A month of plastic. The only climbing that ignores the weather. */
+	// no-door: gym membership, which gates the board and the kit
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
 	bool RenewGymMembership();
 
@@ -1384,6 +1398,7 @@ public:
 	FString LotNews;
 
 	/** Every first ascent in this career, hardest first. */
+	// blueprint-only: an accessor for Blueprint; the guidebook page builds its own rows
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	TArray<FDirtbagProjectMemory> GetFirstAscents() const;
 

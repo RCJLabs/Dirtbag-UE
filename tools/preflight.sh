@@ -59,4 +59,8 @@ echo "== asset slots are actually played =="
 python3 tools/check-cues.py
 
 echo
+echo "== every gameplay verb has a door =="
+python3 tools/check-doors.py
+
+echo
 echo "ALL CHECKS PASSED"
