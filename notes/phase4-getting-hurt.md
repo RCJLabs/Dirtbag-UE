@@ -79,7 +79,29 @@ and nothing tells the player that is the trade they are making.
 **I have not changed a dial.** Which reading is right decides whether
 anything needs doing, and that is a design call, not a measurement.
 
-## What I would do
+## [resolved 2026-08-22] Evan's call: injuries come from more than kit
+
+The fork below is settled — and by a different lever than the one I named.
+Slowing load-shedding would have made *volume* the only road to injury and
+just moved the kit gate lower. Instead there is now an **acute path**:
+`TweakSomething`, rolled per burn on its own stream — a cold crimp at your
+limit, one move, done. The chronic path (load, nightly) is untouched.
+
+The shape, per burn: never below challenge 0.55 and ramping to the limit
+(an injury is something you *did*), ×2.5 when cold (the cold first burn is
+the classic), ×0.3 off fingery holds, aging ×up to 2 past thirty. What pops
+is what you were pulling on — crimps give pulleys, pockets lumbricals, big
+moves shoulders — because a tweak has a location the way overtraining does
+not.
+
+Measured, stakeout, thirty years, six seeds: **5, 5, 2, 3, 0, 1 injuries**
+against the uniform zero this note recorded. The zero is crag-5, verified a
+legitimate ~3% lucky tail (at a 17× dial it takes 59): one climber in six
+who was never hurt a day in thirty years is a legend, not a hole. `kitted`
+still runs 15–21, so volume you buy remains the dominant road — the switch
+became a gradient.
+
+## What I would do (superseded above, kept for the record)
 
 Neither extreme. If outdoor-only climbing should be able to hurt you, the
 honest lever is not the injury chance — it is that **load sheds too fast for

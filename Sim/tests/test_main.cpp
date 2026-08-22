@@ -1197,6 +1197,120 @@ static void TestBlackjack() {
   CHECK(reckless < -20.0);   // never stopping is never a plan
 }
 
+static void TestTheTweak() {
+  BodyDials bd;
+  const Rng world = Rng::FromSeed("tweak-world");
+  const auto fresh = [] {
+    Climber c;
+    c.skills.power = c.skills.fingers = c.skills.technique =
+        c.skills.endurance = c.skills.head = 50.0;
+    return c;
+  };
+
+  // Count hits across many independent gambles, everything else pinned.
+  const auto rate = [&](double challenge, HoldType hold, double warmth,
+                        int day) {
+    int hits = 0;
+    const int N = 60000;
+    for (int a = 0; a < N; a++) {
+      Climber c = fresh();
+      if (TweakSomething(c, world, day, a, challenge, hold, warmth, bd)) {
+        hits++;
+        CHECK(c.injury.active);
+        CHECK(c.injury.daysLeft > 0);
+      }
+    }
+    return hits;
+  };
+
+  // Below the floor, never -- an injury must be something you did, not
+  // weather. A mileage day cannot hurt you no matter how many burns.
+  // (Enforced twice, deliberately: the early return states the intent and
+  // the ramp's clamp makes deleting that line harmless -- reintroduction
+  // proved the deletion changes nothing, which for a never-rule is the
+  // right kind of redundancy.)
+  CHECK(rate(bd.tweakChallengeFloor - 0.05, HoldType::Crimp, 0.0, 100) == 0);
+
+  // And the ramp is real: just over the floor is barely a risk at all,
+  // not the full limit rate wearing a floor as decoration.
+  const int barely = rate(bd.tweakChallengeFloor + 0.08, HoldType::Crimp,
+                          1.0, 100);
+  const int limitR = rate(1.0, HoldType::Crimp, 1.0, 100);
+  CHECK(barely * 3 < limitR);
+
+  // The magnitude, pinned the way the campfire taught: at the limit, warm,
+  // on a crimp, young, the dial says 0.0030 -- so 60k gambles land near
+  // 180. A band, because the rolls are a fixed sequence, and wide enough
+  // to survive retunes of everything except the order of magnitude.
+  const int warmCrimp = rate(1.0, HoldType::Crimp, 1.0, 100);
+  CHECK(warmCrimp > 90);
+  CHECK(warmCrimp < 400);
+
+  // The cold first burn is the classic: colder is strictly worse, by
+  // about the dial's factor.
+  const int coldCrimp = rate(1.0, HoldType::Crimp, 0.1, 100);
+  CHECK(coldCrimp > warmCrimp);
+  CHECK(coldCrimp > warmCrimp * 3 / 2);
+
+  // Jugs mostly cannot pop a finger. Not zero -- shoulders exist.
+  const int warmJug = rate(1.0, HoldType::Jug, 1.0, 100);
+  CHECK(warmJug < warmCrimp);
+  CHECK(warmJug > 0);
+
+  // Tendons age first: the same burn at fifty is worse than at
+  // twenty-five. Day 9500 is age ~50 on the sim's calendar.
+  CHECK(rate(1.0, HoldType::Crimp, 1.0, 9500) > warmCrimp);
+
+  // What pops is what you were pulling on. A tweak has a location, the
+  // way overtraining does not.
+  for (int a = 0; a < 60000; a++) {
+    Climber c = fresh();
+    if (TweakSomething(c, world, 100, a, 1.0, HoldType::Crimp, 1.0, bd)) {
+      CHECK(c.injury.kind == InjuryKind::Pulley);
+    }
+    Climber p = fresh();
+    if (TweakSomething(p, world, 100, a, 1.0, HoldType::Pocket, 1.0, bd)) {
+      CHECK(p.injury.kind == InjuryKind::Lumbrical);
+    }
+    Climber j = fresh();
+    if (TweakSomething(j, world, 100, a, 1.0, HoldType::Jug, 1.0, bd)) {
+      CHECK(j.injury.kind == InjuryKind::Shoulder ||
+            j.injury.kind == InjuryKind::Elbow);
+    }
+  }
+
+  // Already hurt is ClimbOnIt's question. The tweak never stacks a second
+  // injury on a first.
+  Climber hurt = fresh();
+  hurt.injury.active = true;
+  hurt.injury.severity = 0.2;
+  bool stacked = false;
+  for (int a = 0; a < 60000; a++) {
+    if (TweakSomething(hurt, world, 100, a, 1.0, HoldType::Crimp, 0.0, bd)) {
+      stacked = true;
+    }
+  }
+  CHECK(!stacked);
+
+  // Deterministic per day and attempt: the same burn replays the same,
+  // and two burns on one day are two separate gambles.
+  Climber a1 = fresh(), a2 = fresh();
+  bool anyDiffer = false;
+  for (int a = 0; a < 2000; a++) {
+    Climber x = fresh(), y = fresh();
+    const bool hx = TweakSomething(x, world, 7, a, 1.0, HoldType::Crimp, 0.0, bd);
+    const bool hy = TweakSomething(y, world, 7, a, 1.0, HoldType::Crimp, 0.0, bd);
+    CHECK(hx == hy);   // replayable
+    Climber z = fresh();
+    if (TweakSomething(z, world, 7, a + 2000, 1.0, HoldType::Crimp, 0.0, bd) !=
+        hx) {
+      anyDiffer = true;   // and not one roll stretched across the day
+    }
+  }
+  (void)a1; (void)a2;
+  CHECK(anyDiffer || rate(1.0, HoldType::Crimp, 0.0, 7) == 0);
+}
+
 static void TestSandbagsAreSpecific() {
   // A crag's sandbags are famous and deliberate, not a dice roll — and they
   // are rare enough to matter when you hit one.
@@ -7127,6 +7241,7 @@ int main() {
   TestTheTownNamesYourCrew();
   TestTheCrewNameMigrates();
   TestThePlayerNameMigrates();
+  TestTheTweak();
   TestDreamsCostTheBuffer();
   TestDreamsMigrate();
   TestTheCampfireGame();

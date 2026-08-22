@@ -85,6 +85,33 @@ struct BodyDials {
   double injuryGradePenalty = 2.6;
   double injuryBiteElsewhere = 0.25;
 
+  // --- Getting hurt the fast way ------------------------------------------
+  // The tweak: one burn, one wrong crimp, done -- as against load, which is
+  // the slow ledger. This path exists because ninety measured years said
+  // injuries were gated entirely behind buying kit: outdoor climbing is
+  // rationed so hard by weather, skin and work that load never stacks, so a
+  // career that never bought a board took *zero* injuries in four lifetimes
+  // (notes/phase4-getting-hurt.md). Evan's call, 2026-08-22: injuries come
+  // from more than kit. Tendons agree -- the classic pulley pop is a cold
+  // first burn on a crimp at your limit, not a training-volume artefact.
+  //
+  // Sized by measurement against the stakeout policy: a thirty-year outdoor
+  // career should meet the injury system a handful of times, not zero and
+  // not a gym-rat's twenty.
+  double tweakChanceAtLimit = 0.0030;
+  // Below this challenge, never. A mileage day on jugs cannot hurt you --
+  // an injury must always be something you did, not weather.
+  double tweakChallengeFloor = 0.55;
+  // The cold first burn is the classic. Warmth below the line multiplies.
+  double tweakWarmEnough = 0.5;
+  double tweakColdFactor = 2.5;
+  // Crimps and pockets are what pop; a day on jugs and slopers mostly
+  // cannot -- the same asymmetry load uses, read at speed.
+  double tweakGoodHoldFactor = 0.3;
+  // Tendons age before the rest does. Per year past thirty, capped at 2x,
+  // which quietly gives late careers a different shape from early ones.
+  double tweakAgePerYear = 0.04;
+
   // Climbing on it. This is the actual decision an injured climber makes,
   // and it has to be a real gamble both ways: you can get away with it.
   //
@@ -153,6 +180,15 @@ bool RollForInjury(Climber& climber, const Rng& worldRng, int day,
 // Pulling on while hurt. Returns true if you made it worse, which is the
 // gamble — most of the time you get away with it, and that is what makes
 // the choice a real one rather than a warning label.
+// One burn's acute gamble, rolled per attempt on its own stream. Returns
+// true on the burn that hurt you. Distinct from RollForInjury (the chronic
+// path, rolled nightly on load) and from ClimbOnIt (the gamble of pulling
+// on something already wrong).
+bool TweakSomething(Climber& climber, const Rng& worldRng, int day,
+                    int attempt, double challenge, HoldType hardestHold,
+                    double warmth, const BodyDials& dials = BodyDials{},
+                    const AgeDials& ageDials = AgeDials{});
+
 bool ClimbOnIt(Climber& climber, const Rng& worldRng, int day, int attempt,
                const BodyDials& dials = BodyDials{});
 

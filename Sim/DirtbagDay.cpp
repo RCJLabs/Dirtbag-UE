@@ -254,6 +254,13 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
   // twenty burns are twenty separate gambles rather than one.
   if (IsHurt(player.climber)) {
     ClimbOnIt(player.climber, worldRng, player.day, day.session.attemptsMade);
+  } else {
+    // Or nothing was wrong, and this is the burn where something goes. The
+    // acute path: a cold crimp at your limit, one move, done. Warmth is
+    // read from the session because the cold first burn is the classic.
+    TweakSomething(player.climber, worldRng, player.day,
+                   day.session.attemptsMade, challenge, hardest,
+                   day.session.warmth);
   }
 
   // Diminishing returns: the same session that builds a beginner barely

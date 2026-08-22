@@ -110,6 +110,57 @@ bool RollForInjury(Climber& climber, const Rng& worldRng, int day,
   return true;
 }
 
+bool TweakSomething(Climber& climber, const Rng& worldRng, int day,
+                    int attempt, double challenge, HoldType hardestHold,
+                    double warmth, const BodyDials& dials,
+                    const AgeDials& ageDials) {
+  // Already hurt is ClimbOnIt's question, not this one's.
+  if (climber.injury.active) return false;
+  if (challenge < dials.tweakChallengeFloor) return false;
+
+  // Ramp from the floor to full challenge, so "at your limit" is the
+  // dangerous place and just-over-the-floor is barely a risk at all.
+  const double ramp = (challenge - dials.tweakChallengeFloor) /
+                      std::max(1e-9, 1.0 - dials.tweakChallengeFloor);
+
+  const bool fingerHold =
+      hardestHold == HoldType::Crimp || hardestHold == HoldType::Pocket;
+  double chance = dials.tweakChanceAtLimit * Clamp01(ramp);
+  if (!fingerHold) chance *= dials.tweakGoodHoldFactor;
+  if (warmth < dials.tweakWarmEnough) chance *= dials.tweakColdFactor;
+  // Tendons age first. Capped, so an old career is fragile rather than
+  // cursed.
+  const double age = AgeOn(day, ageDials);
+  chance *= std::min(2.0, 1.0 + std::max(0.0, age - 30.0) *
+                                    dials.tweakAgePerYear);
+
+  // Its own stream, per burn -- twenty burns are twenty separate gambles,
+  // and nothing here may shift how any attempt resolves.
+  Rng rng = worldRng.Derive("tweak#" + std::to_string(day) + "#" +
+                            std::to_string(attempt));
+  if (!rng.Chance(chance)) return false;
+
+  climber.injury.active = true;
+  // What pops is what you were pulling on: fingers on the fingery holds,
+  // shoulders on the big moves off the rest. Not uniform like the chronic
+  // path, because a tweak has a location the way overtraining does not.
+  if (fingerHold) {
+    climber.injury.kind = hardestHold == HoldType::Pocket
+                              ? InjuryKind::Lumbrical
+                              : InjuryKind::Pulley;
+  } else {
+    climber.injury.kind =
+        rng.NextDouble() < 0.65 ? InjuryKind::Shoulder : InjuryKind::Elbow;
+  }
+  // Same low-biased severity as the chronic path: most tweaks are a
+  // fortnight of annoyance, and the season-ender is rare and real.
+  const double roll = rng.NextDouble();
+  climber.injury.severity = Clamp01(roll * roll);
+  climber.injury.daysLeft = InjuryDaysFor(climber.injury.severity, dials);
+  climber.psyche = std::max(0.05, climber.psyche - dials.injuryPsycheCost);
+  return true;
+}
+
 bool ClimbOnIt(Climber& climber, const Rng& worldRng, int day, int attempt,
                const BodyDials& dials) {
   if (!climber.injury.active) return false;
