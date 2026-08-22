@@ -184,4 +184,61 @@ std::string LegacyText(const Legacy& legacy) {
   return out;
 }
 
+
+std::vector<std::string> ThreeWhoCouldTurnUp(const Rng& worldRng,
+                                             int generation) {
+  // Short, unshowy, and the sort of name that ends up on a guidebook page
+  // without anybody thinking about it. Deliberately not climber-famous
+  // names: this valley has its own history and borrowing somebody else's
+  // would put a real person on your first ascent.
+  //
+  // **And deliberately none of the Lot regulars** -- Margo, Dev, Trish,
+  // Ray or Bo. The first draft had Dev and Bo in it and the test caught
+  // both: the people you have climbed with for twenty years must not turn
+  // up as the kid who inherits the valley, because the handover screen
+  // would then introduce you to somebody standing behind it.
+  //
+  // The check lives in the test rather than as a filter here, on purpose.
+  // A filter would silently absorb a name added to either list later; a
+  // test fails and says which one.
+  static const char* kPool[] = {
+      "Ash",  "Bry",   "Cass", "Ede",  "Fin",  "Gil",  "Hal",  "Ines",
+      "Jo",   "Kit",   "Lex",  "Mo",   "Nell", "Ola",  "Pia",  "Quinn",
+      "Rue",  "Sam",   "Tam",  "Vic",  "Wren", "Zeke", "Bex",  "Cal",
+      "Dane", "Elle",  "Fran", "Gus",  "Hux",  "Iva",  "Jem",  "Kai",
+  };
+  constexpr int kPoolSize = static_cast<int>(sizeof(kPool) / sizeof(kPool[0]));
+
+  // Its own stream, salted with the generation, so the offer is stable
+  // across a reload and different for each handover in the same world.
+  Rng pick = worldRng.Derive("who-turns-up#" + std::to_string(generation));
+
+  std::vector<std::string> out;
+  out.reserve(kNameChoices);
+  // Rejection rather than shuffling the whole pool: three from thirty-two
+  // collides rarely, and a partial shuffle would be more code doing less.
+  // Bounded so a pool ever shrunk below three cannot spin forever.
+  for (int guard = 0; guard < 200 && static_cast<int>(out.size()) < kNameChoices;
+       guard++) {
+    const std::string name =
+        kPool[static_cast<int>(pick.NextDouble() * kPoolSize) % kPoolSize];
+    bool already = false;
+    for (const std::string& had : out) {
+      if (had == name) already = true;
+    }
+    if (!already) out.push_back(name);
+  }
+  // If the guard ever ran out, top up in pool order rather than handing
+  // back fewer choices than the UI is about to draw keys for.
+  for (int i = 0; i < kPoolSize && static_cast<int>(out.size()) < kNameChoices;
+       i++) {
+    bool already = false;
+    for (const std::string& had : out) {
+      if (had == kPool[i]) already = true;
+    }
+    if (!already) out.push_back(kPool[i]);
+  }
+  return out;
+}
+
 }  // namespace dirtbag

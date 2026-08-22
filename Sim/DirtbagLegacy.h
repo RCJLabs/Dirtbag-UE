@@ -135,4 +135,29 @@ std::string LegacyText(const Legacy& legacy);
 // entry a later climber reads without ever meeting them.
 std::string GuidebookEntry(const NamedLine& line);
 
+// --- Who turns up ------------------------------------------------------------
+//
+// Three names for the climber who arrives after you, drawn from the world
+// and the generation, so a reload offers the same three and generation four
+// is offered different ones from generation two.
+//
+// This exists because the engine had **no way to name a climber at all.**
+// `ClimberName` was an EditAnywhere string on the game instance with no in-
+// game setter anywhere, so every career signed its first ascents "you", and
+// the crew hash -- which was given the player's name specifically so four
+// generations would stop being one generation four times -- was being fed an
+// empty string.
+//
+// A pick rather than a text box, deliberately. Typing needs a widget, an
+// editor and a keyboard focus fight; picking needs three keys the player
+// already uses for the dream and the stake. And it reads better: you are not
+// naming yourself, **you are meeting the person who rolled into the Lot**,
+// which is what a handover actually is.
+constexpr int kNameChoices = 3;
+
+// `generation` is 0 for the first career, 1 for the first inheritor, and so
+// on -- so the same world does not offer the same three names forever.
+std::vector<std::string> ThreeWhoCouldTurnUp(const Rng& worldRng,
+                                             int generation);
+
 }  // namespace dirtbag

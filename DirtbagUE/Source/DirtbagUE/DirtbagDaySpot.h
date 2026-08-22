@@ -191,6 +191,22 @@ private:
 	/** Returns true if it handled the key, i.e. this is the fire. */
 	bool SetStakeNotch(int32 Notch);
 
+	/** Stop climbing for good, at the van, on its own key.
+	 *
+	 *  **Its own key and its own confirm**, because it is the single most
+	 *  irreversible thing in this game — there is no undo, no reload that
+	 *  is not a lost evening, and the save is written immediately. E at the
+	 *  van repairs it; a career should never end because somebody meant to
+	 *  fix a wheel bearing. */
+	void OnRetire();
+
+	/** Advance the handover: the epitaph, then the choice, then arrival. */
+	void StepHandover();
+
+	/** Take one of the three. Returns true if the handover consumed the
+	 *  key, so 1/2/3 mean the successor rather than a dream or a stake. */
+	bool ChooseArrival(int32 Which);
+
 	/** One exit for every settled hand: record the sentence, add it to the
 	 *  evening's running total, clear the table. Three call sites used to
 	 *  each build their own toast, which is how the night's total came to
@@ -263,6 +279,11 @@ private:
 	 *  a number that said so. */
 	int32 HandsSettled = 0;
 	double NightDelta = 0.0;
+
+	/** True once R has been pressed at the van and the game is waiting for
+	 *  the second press. Cleared by walking away, so a confirm cannot sit
+	 *  armed across half a season. */
+	bool bRetireArmed = false;
 	FTimerHandle DriveTimer;
 
 	/** How far along the road we are, in seconds, and how long it runs.

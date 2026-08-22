@@ -34,6 +34,10 @@ private:
 	 *  until you arrive. */
 	void DrawTravel(class UDirtbagGameInstance* Game, float W, float H);
 
+	/** The end of a career, and the start of the next one. Takes the whole
+	 *  screen: there is nothing else happening. */
+	void DrawHandover(class UDirtbagGameInstance* Game, float W, float H);
+
 	void DrawNeeds(class UDirtbagGameInstance* Game, float H);
 	void DrawSession(class UDirtbagGameInstance* Game, float W, float H);
 	/** The fire's table. Sits where the session bar sits, because they are

@@ -140,6 +140,73 @@ struct FDirtbagPrompt
 	TArray<FDirtbagPromptLine> Lines;
 };
 
+/** Which part of the handover is on screen. */
+UENUM(BlueprintType)
+enum class EDirtbagHandoverStep : uint8
+{
+	/** What the career was, and what survives it. */
+	Epitaph,
+	/** Somebody turned up. 1/2/3. */
+	Choosing,
+	/** Who you are now. */
+	Arrived,
+};
+
+/**
+ * The end of a career, drawn.
+ *
+ * **This whole system was unreachable.** `RetireAndPassItOn`,
+ * `TimeToThinkAboutIt`, `CareerEpitaph`, `GenerationsBefore` and
+ * `InheritedGuidebook` are all BlueprintCallable and **nothing called any
+ * of them** — no C++ caller, no Blueprint. Phase 4's headline system,
+ * measured across ninety years and four generations in the harness, with
+ * inheritance rules and save migrations and crew names carrying over,
+ * worked perfectly and could not be performed.
+ *
+ * That is the same written-and-never-wired bug this project has now found
+ * at five different layers, and the largest instance of it: the others
+ * were a system without a verb, this is a whole phase without a door. The
+ * reachability checker cannot see it — it proves *sim* declarations are
+ * reachable from the engine, not that engine functions are reachable from
+ * play.
+ *
+ * It also unblocks a gate. Phase 4 asks that *"a career reads like
+ * somebody lived there"*, which needs a career **ending in a handover**,
+ * and the only evidence for it has been headless because the handover
+ * could not be performed at the desk.
+ */
+USTRUCT(BlueprintType)
+struct FDirtbagHandoverReadout
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Legacy")
+	bool bActive = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Legacy")
+	EDirtbagHandoverStep Step = EDirtbagHandoverStep::Epitaph;
+
+	/** The career, in one paragraph. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Legacy")
+	FString Epitaph;
+
+	/** The lines you named, which are the whole of what survives you. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Legacy")
+	TArray<FString> Guidebook;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Legacy")
+	int32 Generation = 0;
+
+	/** Three people who could turn up. Never a text box — see
+	 *  dirtbag::ThreeWhoCouldTurnUp. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Legacy")
+	TArray<FString> Candidates;
+
+	/** Who did, once chosen. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Legacy")
+	FString Arrival;
+};
+
 /**
  * The road, drawn.
  *
@@ -383,6 +450,10 @@ public:
 	 *  to. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	bool bLearnedTheVerb = false;
+
+	/** The end of a career. The van raises it; the HUD draws it. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	FDirtbagHandoverReadout Handover;
 
 	/** The road; a travel spot keeps this current while you are on it. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
@@ -769,6 +840,17 @@ public:
 	 *  fingers — because the world remembers and the body does not. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Legacy")
 	void RetireAndPassItOn(const FString& RetiringAs);
+
+	/** Three people who could turn up, for the generation after this one.
+	 *  Stable across a reload; different every handover. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Legacy")
+	TArray<FString> WhoCouldTurnUp() const;
+
+	/** Name the climber. Used by the handover, and by a fresh career that
+	 *  has never been named — without it every first ascent in the game
+	 *  was signed "you" and the crew hash was fed an empty string. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Legacy")
+	void NameTheClimber(const FString& Name);
 
 	/** How many came before. */
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Legacy")

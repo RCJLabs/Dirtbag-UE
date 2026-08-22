@@ -1370,6 +1370,58 @@ static void TestPumpShows() {
 // Zones: where you are, and whether you can walk there. Added when the port
 // turned out to have departed from the 2D game -- one travel rule where the
 // original has two.
+// Who turns up after you. Built because the engine had no way to name a
+// climber at all -- ClimberName was an EditAnywhere string with no in-game
+// setter, so every career signed its first ascents "you" and the crew hash
+// was being fed an empty string.
+static void TestWhoTurnsUp() {
+  const Rng world = Rng::FromSeed("handover-world");
+
+  // Three, always, and all different -- the UI draws a key per name and a
+  // repeated one is a choice that is not a choice.
+  for (int gen = 0; gen < 12; gen++) {
+    const std::vector<std::string> who = ThreeWhoCouldTurnUp(world, gen);
+    CHECK(static_cast<int>(who.size()) == kNameChoices);
+    for (std::size_t i = 0; i < who.size(); i++) {
+      CHECK(!who[i].empty());
+      for (std::size_t j = 0; j < i; j++) {
+        CHECK(who[i] != who[j]);
+      }
+    }
+  }
+
+  // Stable across a reload: the same world and generation offers the same
+  // three, so reloading the handover cannot reroll who showed up. Same
+  // no-reroll rule the fire and the crag already live under.
+  CHECK(ThreeWhoCouldTurnUp(world, 3) == ThreeWhoCouldTurnUp(world, 3));
+
+  // And different down the generations, which is the whole reason the
+  // generation is a parameter. Checked across a run rather than on one
+  // pair, because two adjacent draws colliding is luck and not a bug.
+  int changes = 0;
+  for (int gen = 1; gen < 12; gen++) {
+    if (ThreeWhoCouldTurnUp(world, gen) != ThreeWhoCouldTurnUp(world, gen - 1)) {
+      changes++;
+    }
+  }
+  CHECK(changes >= 9);
+
+  // A different world offers different people.
+  const Rng elsewhere = Rng::FromSeed("another-valley");
+  CHECK(ThreeWhoCouldTurnUp(world, 0) != ThreeWhoCouldTurnUp(elsewhere, 0));
+
+  // Never one of the Lot regulars. The three people you have climbed with
+  // for twenty years do not turn up as the kid who inherits the valley.
+  const std::vector<Partner> lot = LotRegulars(world, 1);
+  for (int gen = 0; gen < 24; gen++) {
+    for (const std::string& name : ThreeWhoCouldTurnUp(world, gen)) {
+      for (const Partner& p : lot) {
+        CHECK(name != p.name);
+      }
+    }
+  }
+}
+
 static void TestZones() {
   ZoneDials zd;
 
@@ -7551,6 +7603,7 @@ int main() {
   TestHowClose();
   TestPumpShows();
   TestZones();
+  TestWhoTurnsUp();
   TestSandbagsAreSpecific();
   TestCragGivesAClimberADay();
   TestNamingNeverMovesTheLedgerKey();

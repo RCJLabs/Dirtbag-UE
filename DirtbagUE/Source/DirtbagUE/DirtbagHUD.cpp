@@ -20,6 +20,38 @@ FLinearColor PumpColour(double Pump)
 	if (Pump < 80.0) return FLinearColor(0.90f, 0.70f, 0.25f, 1.f);
 	return FLinearColor(0.85f, 0.25f, 0.20f, 1.f);
 }
+// Break a paragraph at word boundaries near a column.
+//
+// The canvas draws a string as one line however long it is, and the career
+// epitaph is a paragraph -- so without this, twenty years of somebody's
+// life runs off the right-hand edge of the screen. Measured in characters
+// rather than pixels because these are fixed-width debug fonts and a real
+// text measure would be a widget's job, which is the thing this HUD exists
+// to avoid needing.
+TArray<FString> WrapToWidth(const FString& Text, int32 Columns)
+{
+	TArray<FString> Lines;
+	TArray<FString> Words;
+	Text.ParseIntoArray(Words, TEXT(" "), true);
+
+	FString Line;
+	for (const FString& Word : Words)
+	{
+		if (!Line.IsEmpty() && Line.Len() + 1 + Word.Len() > Columns)
+		{
+			Lines.Add(Line);
+			Line.Reset();
+		}
+		Line += Line.IsEmpty() ? Word : TEXT(" ") + Word;
+	}
+	if (!Line.IsEmpty())
+	{
+		Lines.Add(Line);
+	}
+	// A caller that hands us nothing should get nothing to draw, not one
+	// empty line that silently eats a row of layout.
+	return Lines;
+}
 }  // namespace
 
 void ADirtbagHUD::DrawBar(const FString& Label, double Frac, float X, float Y,
@@ -558,6 +590,111 @@ void ADirtbagHUD::DrawTravel(UDirtbagGameInstance* Game, float W, float H)
 	         W - 190.f, H - 46.f, GEngine->GetSmallFont(), 1.f);
 }
 
+void ADirtbagHUD::DrawHandover(UDirtbagGameInstance* Game, float W, float H)
+{
+	const FDirtbagHandoverReadout& O = Game->Handover;
+	const float X = W * 0.5f - 380.f;
+	float Y = H * 0.16f;
+
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.88f), 0.f, 0.f, W, H);
+
+	// An epitaph means a career ended here; without one this screen is a
+	// fresh climber putting a name to themselves, which is the same
+	// furniture doing a much smaller job.
+	const bool bSomethingEnded = !O.Epitaph.IsEmpty();
+
+	if (bSomethingEnded)
+	{
+		DrawText(O.Generation > 0
+		             ? FString::Printf(TEXT("Generation %d"), O.Generation)
+		             : FString(TEXT("A career")),
+		         kDim, X, Y, GEngine->GetMediumFont(), 1.f);
+		Y += 40.f;
+
+		// The paragraph. Wrapped by hand at a sane column, because the
+		// canvas will not do it and a career summary running off the edge
+		// of the screen is a poor way to end twenty years.
+		for (const FString& Line : WrapToWidth(O.Epitaph, 78))
+		{
+			DrawText(Line, kInk, X, Y, GEngine->GetMediumFont(), 1.f);
+			Y += 26.f;
+		}
+		Y += 26.f;
+	}
+
+	switch (O.Step)
+	{
+	case EDirtbagHandoverStep::Epitaph:
+		DrawText(TEXT("E to hand it on."), kInk, X, Y,
+		         GEngine->GetMediumFont(), 1.f);
+		break;
+
+	case EDirtbagHandoverStep::Choosing:
+	{
+		DrawText(bSomethingEnded
+		             ? TEXT("Somebody turns up at the Lot.")
+		             : TEXT("Somebody asks who you are."),
+		         kInk, X, Y, GEngine->GetMediumFont(), 1.f);
+		Y += 34.f;
+		for (int32 i = 0; i < O.Candidates.Num(); i++)
+		{
+			DrawText(FString::Printf(TEXT("%d.  %s"), i + 1, *O.Candidates[i]),
+			         FLinearColor(0.60f, 0.80f, 0.90f, 1.f), X + 14.f, Y,
+			         GEngine->GetLargeFont(), 1.f);
+			Y += 34.f;
+		}
+		break;
+	}
+
+	default:
+	{
+		DrawText(bSomethingEnded
+		             ? FString::Printf(
+		                   TEXT("%s. Twenty-four, nothing in the fingers, and "
+		                        "a valley with your predecessor's name on it."),
+		                   *O.Arrival)
+		             : FString::Printf(TEXT("%s, then."), *O.Arrival),
+		         kInk, X, Y, GEngine->GetMediumFont(), 1.f);
+		Y += 40.f;
+
+		// The book, read here rather than over the epitaph -- these are
+		// the lines *earlier* careers put up, and the one that just ended
+		// is newly among them. This is the whole point of the system: what
+		// survives you is a page somebody else opens.
+		if (bSomethingEnded)
+		{
+			if (O.Guidebook.Num() > 0)
+			{
+				DrawText(TEXT("IN THE BOOK"), kDim, X, Y,
+				         GEngine->GetSmallFont(), 1.f);
+				Y += 26.f;
+				for (const FString& Entry : O.Guidebook)
+				{
+					DrawText(Entry, FLinearColor(0.95f, 0.85f, 0.40f, 1.f),
+					         X + 14.f, Y, GEngine->GetMediumFont(), 1.f);
+					Y += 24.f;
+				}
+			}
+			else
+			{
+				// Said plainly rather than left blank. Putting nothing up
+				// is a real career and the game should not act as though
+				// the page failed to load.
+				DrawText(TEXT("Nothing in the book yet. Plenty of days, "
+				              "though."),
+				         kDim, X, Y, GEngine->GetMediumFont(), 1.f);
+				Y += 24.f;
+			}
+			Y += 20.f;
+		}
+
+		DrawText(TEXT("E to get on with it."), kDim, X, Y,
+		         GEngine->GetSmallFont(), 1.f);
+		break;
+	}
+	}
+}
+
 void ADirtbagHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -570,6 +707,15 @@ void ADirtbagHUD::DrawHUD()
 
 	const float W = static_cast<float>(Canvas->SizeX);
 	const float H = static_cast<float>(Canvas->SizeY);
+
+	// A career ending outranks everything, including the road -- you cannot
+	// be driving and retiring at once, but if a bug ever says you are, this
+	// is the one that matters.
+	if (Game->Handover.bActive)
+	{
+		DrawHandover(Game, W, H);
+		return;
+	}
 
 	// Between places: the road takes the whole screen and nothing else
 	// draws. There is no decision available until you arrive, so a pump bar

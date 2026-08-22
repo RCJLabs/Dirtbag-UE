@@ -88,12 +88,35 @@ FString ADirtbagDaySpot::PromptText() const
 		                       *Game->DogLine(), Game->Player.Cash);
 	case EDirtbagSpotKind::Van:
 	{
+		if (bRetireArmed)
+		{
+			return FString(TEXT("Stop climbing, for good?  R again to mean "
+			                    "it.  Anything else walks away."));
+		}
 		const FString What = Game->VanLine();
-		return What.IsEmpty()
-		           ? FString::Printf(TEXT("Look at the van?  (E)  -  nothing "
-		                                  "wrong with it"))
-		           : FString::Printf(TEXT("Sort the van?  (E)  -  %s.  $%.0f"),
-		                             *What, Game->Player.Cash);
+		FString Line =
+		    What.IsEmpty()
+		        ? FString(TEXT("Look at the van?  (E)  -  nothing wrong "
+		                       "with it"))
+		        : FString::Printf(TEXT("Sort the van?  (E)  -  %s.  $%.0f"),
+		                          *What, Game->Player.Cash);
+		// The one place the game says anything about stopping, and it says
+		// it only when the body has an opinion. `TimeToThinkAboutIt` is
+		// never a command and never age alone -- it is a run of injuries,
+		// or two grades off your best and past the age. Silent otherwise,
+		// because a line offering retirement every night of a career is a
+		// line you learn to stop reading.
+		if (Game->TimeToThinkAboutIt())
+		{
+			Line += TEXT("\n   You have been thinking about stopping.  (R)");
+		}
+		// And an unnamed climber can put a name to themselves here, which
+		// is the only place in the game that was ever possible.
+		if (Game->ClimberName.IsEmpty())
+		{
+			Line += TEXT("\n   Nobody has asked your name.  (R)");
+		}
+		return Line;
 	}
 	case EDirtbagSpotKind::GearShop:
 	{
@@ -228,6 +251,9 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnChoose2);
 			InputComponent->BindKey(EKeys::Three, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnChoose3);
+			// Its own key, nowhere near E. See OnRetire.
+			InputComponent->BindKey(EKeys::R, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnRetire);
 			bBoundInput = true;
 		}
 	}
@@ -241,6 +267,9 @@ void ADirtbagDaySpot::OnTriggerEnd(UPrimitiveComponent*, AActor* OtherActor,
 		return;
 	}
 	bPlayerNear = false;
+	// A confirm must not sit armed across half a season: walk away and the
+	// question is withdrawn.
+	bRetireArmed = false;
 	PushPrompt();
 	// Standing up mid-hand is not a free look. Every game here takes the
 	// ante at settlement rather than at the deal, so walking away used to
@@ -253,10 +282,155 @@ void ADirtbagDaySpot::OnTriggerEnd(UPrimitiveComponent*, AActor* OtherActor,
 	}
 }
 
+void ADirtbagDaySpot::OnRetire()
+{
+	if (!Game)
+	{
+		return;
+	}
+	// While the handover is up, R advances it -- so the same key that
+	// started the thing carries it through, and there is never a screen
+	// whose only exit is a key nobody mentioned.
+	if (Game->Handover.bActive)
+	{
+		StepHandover();
+		return;
+	}
+	if (!bPlayerNear || Kind != EDirtbagSpotKind::Van)
+	{
+		return;
+	}
+
+	// A climber nobody has named gets named, and that is all R does until
+	// they are. No confirm: putting a name to yourself is not irreversible
+	// the way stopping is, and a fresh career pressing R almost certainly
+	// means "who am I" rather than "I am done".
+	if (Game->ClimberName.IsEmpty())
+	{
+		FDirtbagHandoverReadout& H = Game->Handover;
+		H = FDirtbagHandoverReadout();
+		H.bActive = true;
+		H.Step = EDirtbagHandoverStep::Choosing;
+		H.Candidates = Game->WhoCouldTurnUp();
+		H.Generation = Game->GenerationsBefore();
+		// No epitaph: nothing has ended. The screen reads that as a
+		// naming rather than a handover and draws itself accordingly.
+		PushPrompt();
+		return;
+	}
+
+	if (!bRetireArmed)
+	{
+		bRetireArmed = true;
+		// The game does not talk you into it. TimeToThinkAboutIt is the
+		// only opinion it ever offers and it is never a command; this
+		// prompt reports the state of the body and nothing else.
+		Say(Game->TimeToThinkAboutIt()
+		        ? TEXT("Stop climbing, for good?  R again to mean it.")
+		        : TEXT("Stop climbing, for good?  You have years in you.  "
+		               "R again to mean it."),
+		    FColor::Yellow, 8.f);
+		PushPrompt();
+		return;
+	}
+
+	bRetireArmed = false;
+
+	// The epitaph is read off the career that is still running, so it must
+	// be taken *before* the handover tallies and replaces it.
+	FDirtbagHandoverReadout& H = Game->Handover;
+	H = FDirtbagHandoverReadout();
+	H.bActive = true;
+	H.Step = EDirtbagHandoverStep::Epitaph;
+	H.Epitaph = Game->CareerEpitaph();
+	H.Generation = Game->GenerationsBefore();
+	// Deliberately no guidebook yet. `InheritedGuidebook` walks the
+	// *filed* careers, so asking now would list your predecessors' lines
+	// under your own epitaph -- which is exactly backwards, and was the
+	// first version of this. It is asked after the handover, where it
+	// means what its name says: the book the next climber opens, with the
+	// career that just ended newly in it.
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::StepHandover()
+{
+	if (!Game || !Game->Handover.bActive)
+	{
+		return;
+	}
+	FDirtbagHandoverReadout& H = Game->Handover;
+
+	switch (H.Step)
+	{
+	case EDirtbagHandoverStep::Epitaph:
+	{
+		// The career ends here: tallied, filed, and the valley handed on.
+		// RetireAndPassItOn saves immediately, so from this press the
+		// decision survives a crash.
+		const FString RetiringAs =
+		    Game->ClimberName.IsEmpty() ? FString(TEXT("you"))
+		                                : Game->ClimberName;
+		Game->RetireAndPassItOn(RetiringAs);
+		// Asked *after* retiring, so the offer belongs to the generation
+		// that just arrived rather than the one that just left.
+		H.Candidates = Game->WhoCouldTurnUp();
+		H.Generation = Game->GenerationsBefore();
+		// Now it includes the career that just ended, which is the whole
+		// point: what survives you is a page somebody else reads.
+		H.Guidebook = Game->InheritedGuidebook();
+		H.Step = EDirtbagHandoverStep::Choosing;
+		break;
+	}
+	case EDirtbagHandoverStep::Choosing:
+		// No skipping past the choice. Every other screen in this game
+		// lets a key hurry it along; this one has a decision on it, and
+		// hurrying past a decision is how you end up unnamed for thirty
+		// years -- which is exactly the state this whole feature exists
+		// to fix.
+		break;
+	default:
+		H.bActive = false;
+		PushPrompt();
+		break;
+	}
+}
+
+bool ADirtbagDaySpot::ChooseArrival(int32 Which)
+{
+	if (!Game || !Game->Handover.bActive ||
+	    Game->Handover.Step != EDirtbagHandoverStep::Choosing)
+	{
+		return false;
+	}
+	FDirtbagHandoverReadout& H = Game->Handover;
+	if (!H.Candidates.IsValidIndex(Which))
+	{
+		// The key was still the handover's, even though it named nobody --
+		// otherwise pressing 3 at a two-name offer would quietly buy a
+		// dream instead.
+		return true;
+	}
+	H.Arrival = H.Candidates[Which];
+	Game->NameTheClimber(H.Arrival);
+	H.Step = EDirtbagHandoverStep::Arrived;
+	// Named after the inherit, so the name is stored against the career it
+	// belongs to rather than the one that just ended.
+	Game->SaveNow();
+	return true;
+}
+
 void ADirtbagDaySpot::OnInteract()
 {
 	if (SkipTravel())
 	{
+		return;
+	}
+	// The handover owns E while it is up, the same way the road owns every
+	// key: there is nothing else to interact with from inside it.
+	if (Game && Game->Handover.bActive)
+	{
+		StepHandover();
 		return;
 	}
 	if (!bPlayerNear || !Game)
@@ -531,10 +705,24 @@ void ADirtbagDaySpot::PushPrompt()
 	      UDirtbagSimLibrary::NeedsTheVan(DestinationZone)));
 	Line.Tone = bStranded ? EDirtbagPromptTone::Blocked
 	                      : EDirtbagPromptTone::Plain;
+	// A prompt may carry more than one line -- the van says what it needs
+	// and then, separately, that you have been thinking about stopping.
+	// Split here rather than embedding newlines in the drawn string,
+	// because the canvas draws a string as one line however many newlines
+	// are in it, and the second half would come out as a box.
+	TArray<FString> Parts;
+	Line.Text.ParseIntoArray(Parts, TEXT("\n"), true);
 	TArray<FDirtbagPromptLine> Lines;
-	if (!Line.Text.IsEmpty())
+	for (const FString& Part : Parts)
 	{
-		Lines.Add(Line);
+		if (Part.IsEmpty())
+		{
+			continue;
+		}
+		FDirtbagPromptLine One;
+		One.Text = Part;
+		One.Tone = Line.Tone;
+		Lines.Add(One);
 	}
 	Game->SetPrompt(this, Lines);
 }
@@ -802,16 +990,19 @@ bool ADirtbagDaySpot::SetStakeNotch(int32 Notch)
 void ADirtbagDaySpot::OnChoose1()
 {
 	if (SkipTravel()) { return; }
+	if (ChooseArrival(0)) { return; }
 	if (!SetStakeNotch(0)) { ChooseDreamAt(EDirtbagDream::Rig); }
 }
 void ADirtbagDaySpot::OnChoose2()
 {
 	if (SkipTravel()) { return; }
+	if (ChooseArrival(1)) { return; }
 	if (!SetStakeNotch(1)) { ChooseDreamAt(EDirtbagDream::WarChest); }
 }
 void ADirtbagDaySpot::OnChoose3()
 {
 	if (SkipTravel()) { return; }
+	if (ChooseArrival(2)) { return; }
 	if (!SetStakeNotch(2)) { ChooseDreamAt(EDirtbagDream::HomeBase); }
 }
 

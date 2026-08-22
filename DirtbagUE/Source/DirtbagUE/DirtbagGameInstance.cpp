@@ -868,6 +868,32 @@ FString UDirtbagGameInstance::CareerEpitaph() const
 	return UTF8_TO_TCHAR(dirtbag::LegacyText(L).c_str());
 }
 
+TArray<FString> UDirtbagGameInstance::WhoCouldTurnUp() const
+{
+	TArray<FString> Out;
+	for (const std::string& Name : dirtbag::ThreeWhoCouldTurnUp(
+	         dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)),
+	         GenerationsBefore()))
+	{
+		Out.Add(FString(Name.c_str()));
+	}
+	return Out;
+}
+
+void UDirtbagGameInstance::NameTheClimber(const FString& Name)
+{
+	if (Name.IsEmpty())
+	{
+		return;
+	}
+	ClimberName = Name;
+	// Straight into the sim as well as the mirror. The sync that normally
+	// carries this over happens at Sleep, and a climber named at a handover
+	// may put up a first ascent before ever sleeping -- which would sign
+	// the line with the name the sim still had, which is nobody.
+	Player.Name = Name;
+}
+
 void UDirtbagGameInstance::RetireAndPassItOn(const FString& Name)
 {
 	const dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
