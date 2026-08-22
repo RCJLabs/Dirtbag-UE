@@ -135,7 +135,11 @@ whichever of these the session touched:
 4. **Get hurt, or notice you did not.** The tweak is tuned to a handful
    per thirty years — across one fortnight you will probably see nothing,
    which is correct. What you might see: the warm-up mattering.
-5. **The naming widget, the climb wall, the mannequin yaw** — all fixed
+5. **The mannequin faces the rock** — verified at the desk 2026-08-22,
+   with the derived facing and `MeshForwardYaw = 90` (so the UE5
+   mannequins are indeed authored facing +Y; that default is now a
+   measured fact rather than a guess). **The naming widget and the climb
+   wall** — fixed
    or built last round; anything that regressed, say so.
 
 ## 8. What is deliberately not done
