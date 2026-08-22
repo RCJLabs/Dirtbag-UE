@@ -127,17 +127,40 @@ protected:
 	 *  only SetWorldLocation, every move — so it kept whatever the mesh
 	 *  happened to be authored with and climbed with its back to the rock.
 	 *
-	 *  Exposed rather than hard-coded because it depends on the skeletal
-	 *  mesh's forward axis, which the container cannot see. It guessed -90
-	 *  and the screenshot said otherwise: unrotated, the mannequin faced
-	 *  the camera (+Y), so the mesh is authored facing +Y and -90 turned
-	 *  it side-on (+X) instead of into the rock (-Y). A quarter turn where
-	 *  it needed a half. 180 is the answer for this mesh; if a future
-	 *  climbing pack ships a mesh authored down +X, this becomes -90 --
-	 *  and it is live in the details panel, so the fix is a number field,
-	 *  never a rebuild. */
+	 *  **This is no longer a fixed angle, and the two wrong guesses are
+	 *  why.** -90 put the climber side-on; 180 did too. Both were computed
+	 *  from an assumed level layout -- wall in the actor's XZ plane, camera
+	 *  looking down -Y -- and the holds actually come from a spline drawn
+	 *  by hand, on an actor that may itself be rotated. Any fixed number is
+	 *  a guess about somebody else's level.
+	 *
+	 *  So the facing is derived instead: the climber turns its back on the
+	 *  session camera, which is what "facing the rock" means from the only
+	 *  viewpoint that matters. That is correct for any spline, any actor
+	 *  rotation, and any camera nudge, with nothing to retype.
+	 *
+	 *  What remains is a fact about the *mesh* rather than the level: which
+	 *  way the skeletal mesh points when its rotation is zero. The UE5
+	 *  mannequins are authored facing +Y, which is 90. That is the one
+	 *  number here, it is a property of the asset, and it is the only thing
+	 *  to change if a climbing pack ships a mesh built down +X (0) or -X
+	 *  (180). */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Staging")
+	float MeshForwardYaw = 90.f;
+
+	/** Turn the derivation off and pin the facing by hand. For a wall the
+	 *  session camera never looks at squarely -- or to prove which way is
+	 *  which by eye. */
+	UPROPERTY(EditAnywhere, Category = "Dirtbag|Staging")
+	bool bFaceAwayFromCamera = true;
+
+	/** Used when bFaceAwayFromCamera is off. Relative to the actor. */
 	UPROPERTY(EditAnywhere, Category = "Dirtbag|Staging")
 	float ClimberYaw = 180.f;
+
+	/** Point the climber at the rock: back to the session camera, upright.
+	 *  Safe to call before BeginPlay and in the editor. */
+	void FaceTheRock();
 
 	// --- Fallbacks -------------------------------------------------------
 	// Used only in levels with no game instance (isolated test maps). With
