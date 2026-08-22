@@ -217,13 +217,34 @@ legible. The order is set by what play condemned first rather than by taste.
    *"climbing sound design (chalk, breath, rubber on rock)"*. Chalk, the
    fall, the van, the fire. The hook points are container-side work; the
    foley is not.
-5. **The Early Access decision**, which this phase finally makes answerable.
+5. ~~**The Early Access decision.**~~ **DECIDED 2026-08-22**
+   (`concepts/DECISION-early-access.md`). Evan: *"we will do ea… but way in
+   the future. first we need to continue building what we can."* **Yes to
+   EA as the shipping plan; nothing is sequenced as though it were near.**
+   No date, no price, no store page, no scope promise — all four are public
+   commitments and none is answerable from a playground template. What the
+   decision surfaced is more useful than the decision: *"we dont even have
+   anything built. just testing spots on the playground template… i dont
+   even know what assets to use or how to put things together."* Twenty-six
+   sim modules and a ninety-year headless career, played on Epic's
+   template with trigger volumes standing in for a valley. **The systems
+   are not the remaining work; the place is**, and none of it exists.
 
 **Done when:** somebody who is not Evan sits down, plays for an hour, and
 the session reads without being explained — the Phase 0 gate re-asked of a
 game rather than a prototype. Secondary: the three unverified play gates
 from Phases 1, 2 and 4 are answerable at last, because playing long enough
 to answer them stops being a chore.
+
+**What this phase turned up, and it outranks the phase.** Items 1–4 made
+the session legible and item 5 made the shipping call, but the sentence
+that matters came with the call: the game is **trigger volumes on Epic's
+playground template**, and the next unknown is not a system, it is *which
+assets build a valley and how they go together*. `DIRTBAG.md` §9 named the
+top risk correctly two years ago — *"Session isn't tense/legible in 3D"* —
+and §7 named the craft centre correctly — *"session staging: camera,
+minigame UI, animation state machine."* Everything the container is good at
+building was never the risk. **Phase 6 is the place.**
 
 **Deliberately not in this phase:** trad, more crags, more content. The
 ladder's last systemic gap is real and it is not the bottleneck — a deeper
