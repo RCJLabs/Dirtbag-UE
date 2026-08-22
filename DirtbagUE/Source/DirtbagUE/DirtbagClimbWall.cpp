@@ -83,8 +83,10 @@ ADirtbagClimbWall::ADirtbagClimbWall()
 
 	Climber = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Climber"));
 	Climber->SetupAttachment(Root);
-	// Facing the rock, like the camera. See ClimberYaw.
-	Climber->SetRelativeRotation(FRotator(0.f, -90.f, 0.f));
+	// Facing is derived in FaceTheRock() rather than set here: at
+	// construction the spline may not exist yet, and a fixed angle was
+	// wrong twice. This is only the harmless starting value.
+	Climber->SetRelativeRotation(FRotator(0.f, ClimberYaw, 0.f));
 	Climber->SetVisibility(false);
 	Climber->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
@@ -96,6 +98,38 @@ ADirtbagClimbWall::ADirtbagClimbWall()
 	}
 }
 
+void ADirtbagClimbWall::FaceTheRock()
+{
+	if (!Climber)
+	{
+		return;
+	}
+	if (!bFaceAwayFromCamera || !SessionCamera)
+	{
+		Climber->SetRelativeRotation(FRotator(0.f, ClimberYaw, 0.f));
+		return;
+	}
+
+	// Away from the camera, flattened: a climber leans and reaches, but
+	// they do not tip over, so only yaw is ever derived.
+	FVector Away = Climber->GetComponentLocation() -
+	               SessionCamera->GetComponentLocation();
+	Away.Z = 0.f;
+	if (Away.IsNearlyZero())
+	{
+		// Degenerate: the climber is directly under the camera, which
+		// happens for one frame before the spline is read. Keep whatever
+		// they had rather than snapping to an arbitrary axis.
+		return;
+	}
+
+	// The mesh's own forward is subtracted, because "yaw 0" does not mean
+	// "faces +X" for every skeletal mesh -- and assuming it did is what
+	// made the first two attempts wrong.
+	const float Facing = Away.Rotation().Yaw - MeshForwardYaw;
+	Climber->SetWorldRotation(FRotator(0.f, Facing, 0.f));
+}
+
 void ADirtbagClimbWall::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
@@ -103,9 +137,15 @@ void ADirtbagClimbWall::OnConstruction(const FTransform& Transform)
 	// Applied here rather than only in the constructor: a wall already
 	// placed in the level has its component transform serialized, so a new
 	// constructor default would never reach it. This runs on every
-	// construction, so existing walls face the right way the moment the
-	// level reloads.
-	Climber->SetRelativeRotation(FRotator(0.f, ClimberYaw, 0.f));
+	// construction, so an existing wall faces the right way the moment you
+	// move the spline, the camera, or the actor -- which is the whole
+	// point of deriving it. Park the climber on the first hold first, so
+	// the derivation has a real position to aim from.
+	if (HoldLine && HoldLine->GetNumberOfSplinePoints() > 0)
+	{
+		Climber->SetWorldLocation(HoldLocation(0));
+	}
+	FaceTheRock();
 
 	HoldMarkers->ClearInstances();
 	if (HoldMarkerMesh && HoldLine)
@@ -421,10 +461,11 @@ void ADirtbagClimbWall::StartAttempt()
 	}
 
 	Climber->SetWorldLocation(HoldLocation(0));
-	// Location is set every move and rotation never was, which is the whole
-	// bug. Set it once here too, so a wall spawned at runtime — which never
-	// sees OnConstruction — cannot climb backwards either.
-	Climber->SetRelativeRotation(FRotator(0.f, ClimberYaw, 0.f));
+	// Rotation after location, always: the derivation reads where the
+	// climber actually is, so setting it first would aim from the last
+	// hold. Location is set every move and rotation never was, which was
+	// the original bug; deriving it is the fix for the two that followed.
+	FaceTheRock();
 	Climber->SetVisibility(true);
 
 	const int32 AttemptNo =
@@ -585,6 +626,10 @@ void ADirtbagClimbWall::Tick(float DeltaSeconds)
 	MoveAlpha = FMath::Min(1.f, MoveAlpha + DeltaSeconds / FMath::Max(0.05f, Duration));
 	const float Eased = FMath::InterpEaseInOut(0.f, 1.f, MoveAlpha, 2.f);
 	Climber->SetWorldLocation(FMath::Lerp(MoveFrom, MoveTo, Eased));
+	// Re-derived as they travel: on a long traverse the line from the
+	// camera swings round, and a facing computed once at the first hold
+	// would be stale by the last one.
+	FaceTheRock();
 
 	if (MoveAlpha < 1.f)
 	{

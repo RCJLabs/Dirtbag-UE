@@ -17,10 +17,17 @@ the point of the whole thing.
    checker has been over it, but signatures are still only provable on
    your compiler. **If it fails, paste me the full log before touching
    anything.**
-4. Load your save. It migrates v13 → **v20** in one pass (five migrations
-   since your last build). The log should say so once, and everything you
-   had — the book, Bouncin, the bonds — should still be there. **If
-   anything is missing, stop and tell me; do not overwrite the save.**
+4. Load your save. It migrates v13 → **v20** in one pass, **in memory**.
+   The Output Log now says exactly what happened (`LogDirtbagSave`):
+   *"file is v13, migrated to v20 in memory. The file itself updates at
+   the next sleep."* — and that last clause is the part that looks like a
+   bug and is not: **the file on disk keeps saying `version=13` until you
+   sleep in game**, because the only thing that ever rewrites it is
+   SaveNow, and a load must never touch the only copy. Sleep once, then
+   the file reads v20 with all the new fields. Everything you had — the
+   book, Bouncin, the bonds — should still be there after a sleep;
+   **if anything is missing, stop and tell me; do not overwrite the
+   save.**
 
 ## 2. What looks different the moment you press Play · just read this
 
