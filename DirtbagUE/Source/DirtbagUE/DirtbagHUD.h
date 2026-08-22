@@ -23,6 +23,12 @@ private:
 	void DrawBar(const FString& Label, double Frac, float X, float Y, float W,
 	             float H, FLinearColor Fill);
 
+	/** What the keys do where you are standing. Drawn along the bottom and
+	 *  returns the Y it starts at, which is the floor the session bar and
+	 *  the fire table sit on — so a three-line prompt pushes them up
+	 *  instead of being drawn underneath one of them. */
+	float DrawPrompt(class UDirtbagGameInstance* Game, float W, float H);
+
 	void DrawNeeds(class UDirtbagGameInstance* Game, float H);
 	void DrawSession(class UDirtbagGameInstance* Game, float W, float H);
 	/** The fire's table. Sits where the session bar sits, because they are

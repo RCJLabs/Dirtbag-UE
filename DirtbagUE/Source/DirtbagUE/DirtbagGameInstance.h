@@ -18,6 +18,19 @@
 
 #include "DirtbagGameInstance.generated.h"
 
+// A level placed without something it needs -- a wall with no spline, a
+// travel spot with no target. Aimed at whoever is holding the editor
+// rather than at a player, so it goes to the log where it outlives the
+// playtest instead of flashing red for four seconds during it.
+//
+// Declared once here and defined once in DirtbagUE.cpp, which is the only
+// arrangement that survives a unity build: two files each writing their
+// own DEFINE_LOG_CATEGORY_STATIC for the same name compile fine alone and
+// collide the moment UBT stitches them into one translation unit -- which
+// it does by default, and which is precisely the mistake this pair of
+// files was about to make.
+DECLARE_LOG_CATEGORY_EXTERN(LogDirtbagSetup, Log, All);
+
 /**
  * What the session wants drawn right now. Published by the wall, read by
  * the HUD — so the presentation layer shares one truth and a future UMG
@@ -52,6 +65,79 @@ struct FDirtbagSessionReadout
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	double WindowEnd = 0.95;
+
+	/** Which go this is on this line. Was a toast that flashed for four
+	 *  seconds at the start of an attempt and then left the number
+	 *  nowhere — while "attempt 14 on the same problem" is the whole
+	 *  emotional content of a session and is true for all of it. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	int32 Attempt = 0;
+
+	/** Whether to show the control reminder under the grip bar. Mirrors
+	 *  `bLearnedTheVerb` on the game instance — the readout is wiped at
+	 *  the end of every session, and a reminder that came back for every
+	 *  attempt would be the same noise the toast was. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	bool bShowTheVerb = true;
+};
+
+/** How a prompt line reads. Not a colour — the HUD owns colours; this is
+ *  what the line *is*, so the same tone means the same thing whether it
+ *  came from a wall, a shop counter or a van. */
+UENUM(BlueprintType)
+enum class EDirtbagPromptTone : uint8
+{
+	/** What is here and what the key does. */
+	Plain,
+	/** Something worth having: a line nobody has done, a belayer free. */
+	Good,
+	/** Something in the way: no money, no belayer, a wrecked body. */
+	Blocked,
+};
+
+USTRUCT(BlueprintType)
+struct FDirtbagPromptLine
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Prompt")
+	FString Text;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Prompt")
+	EDirtbagPromptTone Tone = EDirtbagPromptTone::Plain;
+};
+
+/**
+ * What the keys do where you are standing.
+ *
+ * Toast triage, 2026-08-22 (`notes/phase5-toast-triage.md`). Forty-nine
+ * on-screen messages, sorted by one question: **is there a decision
+ * pending on this?** News — you ate, the van broke, somebody took your
+ * line — is already true by the time you read it and there is nothing left
+ * to do about it, which is exactly what a toast is for. But *"Shoes? (E)
+ * — $180"* is not news. It is the interaction, and it expired after four
+ * seconds while the player stood in the trigger with the decision unmade.
+ *
+ * Everything that says what a key does now lives here and is drawn for as
+ * long as it is true. That also fixed a live bug the sorting turned up:
+ * the wall's belayer line and its body-state advice were pushed through
+ * the same keyed toast slot one line apart, so on a roped line at the gym
+ * when you were tired, the second silently replaced the first and **you
+ * were never told who was holding the rope**.
+ *
+ * Owned by the actor you are standing in, so two overlapping triggers
+ * cannot clear each other's prompt.
+ */
+USTRUCT(BlueprintType)
+struct FDirtbagPrompt
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Prompt")
+	bool bActive = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Prompt")
+	TArray<FDirtbagPromptLine> Lines;
 };
 
 /**
@@ -212,9 +298,41 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	FDirtbagSessionReadout SessionReadout;
 
+	/** Set the first time the player latches a move, and never unset.
+	 *  Lives here rather than on the session readout because the readout
+	 *  is cleared at the end of every attempt, and a control reminder that
+	 *  reappears on attempt fourteen is the toast's problem with extra
+	 *  steps. Deliberately not saved: it is worth one latch to re-earn,
+	 *  and a save version bump for a tutorial flag is not.
+	 *
+	 *  Set from C++ on the wall, so nothing in Blueprint has to remember
+	 *  to. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	bool bLearnedTheVerb = false;
+
 	/** The fire's table; the fire spot keeps this current. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	FDirtbagFireReadout FireReadout;
+
+	/** What the keys do where you are standing. Spots and walls fill it
+	 *  while you are inside them. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	FDirtbagPrompt Prompt;
+
+	/** Whoever last set the prompt. A spot clears the prompt only if it
+	 *  still owns it, so walking from one overlapping trigger into another
+	 *  cannot leave you looking at a blank where the second one's prompt
+	 *  should be — or worse, at the first one's. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	TObjectPtr<AActor> PromptOwner;
+
+	/** Take the prompt, replacing whatever was there. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Prompt")
+	void SetPrompt(AActor* Owner, const TArray<FDirtbagPromptLine>& Lines);
+
+	/** Give it back, but only if you still hold it. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Prompt")
+	void ClearPrompt(AActor* Owner);
 
 	/** True when the current Player came from disk rather than a fresh start. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")

@@ -114,6 +114,33 @@ One known blockout edge, unchanged: if you ever place a **second** fire
 spot, blackjack's live hand is shared between them. One fire per level for
 now.
 
+## 4b. The prompts stay on screen now · just read this
+
+Walk into any trigger — a wall, the shop, the van, the fire — and **a
+panel appears along the bottom** saying what the keys do there. It stays
+for as long as you are standing in it, and rebuilds itself when anything
+it describes changes (buy the shoes, and the counter immediately starts
+pitching the pad instead).
+
+This replaced the four-second prompt toast. Nothing to place or wire.
+
+**The one thing worth testing on purpose:** walk up to a **roped** line at
+the gym while tired. You should see **both** the belayer line and the
+body-state advice at once. Before this, the two went through the same
+keyed toast slot one statement apart, so the second silently replaced the
+first and you were **never told who was holding the rope** — in exactly
+the case where it mattered.
+
+Also on the climbing panel now: **"attempt 14"** beside the route name for
+the whole go rather than a four-second flash at the start, and the HOLD
+Space reminder sits under the grip bar until your first successful latch,
+then never again this session.
+
+Two red messages you should never see unless a level is placed wrong —
+*"SETUP: <actor> has no HoldLine spline points"* and *"SETUP: <actor> has
+no Travel Target"* — now last thirty seconds and also go to the Output Log
+under **LogDirtbagSetup**, so a playtest cannot hide them from you.
+
 ## 5. Place the Shaded Cave · ~30 min · **the one real build job**
 
 Nothing about the rope, the runout, the clipping pump or the belayer is

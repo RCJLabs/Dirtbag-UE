@@ -38,12 +38,20 @@ FString StyleText(EDirtbagStyle Style)
 // which is what "you pressed the same key again" should look like.
 enum : int32
 {
-	kToastPrompt = 4101,
+	// 4101 (kToastPrompt) and 4103 (kToastResult) are gone: everything
+	// they carried -- the route line, the belayer, the body advice -- was
+	// standing state rather than news, and is a prompt line now. Their
+	// numbers are left unclaimed rather than reused, because two kinds of
+	// message on one slot is what caused the bug that started this.
 	kToastClean = 4102,
-	kToastResult = 4103,
 	// Its own key, or the brush toast would replace it the next press and
 	// the one message worth reading would be the one you never see.
 	kToastClaim = 4104,
+	// Level-setup mistakes. Long-lived and on their own slot, because they
+	// are aimed at whoever placed the actor rather than at a player, and a
+	// four-second red flash during a playtest is the one surface that
+	// guarantees he misses it.
+	kToastSetup = 4105,
 };
 
 void Toast(const FString& Msg, FColor Color = FColor::White,
@@ -194,22 +202,21 @@ void ADirtbagClimbWall::BeginPlay()
 	    this, &ADirtbagClimbWall::OnApproachEnd);
 }
 
-void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor,
-                                        UPrimitiveComponent*, int32, bool,
-                                        const FHitResult&)
+void ADirtbagClimbWall::PushPrompt()
 {
-	if (OtherActor != UGameplayStatics::GetPlayerPawn(this, 0))
+	if (!Game)
 	{
 		return;
 	}
-	bPlayerNear = true;
-
-	// Arriving at a wall is arriving somewhere. Doing this here rather than
-	// asking anyone to set a flag means where the game thinks you are can
-	// never disagree with what you are standing in front of.
-	if (Game)
+	if (!bPlayerNear || Phase != EPhase::Idle)
 	{
-		Game->SetVenue(Venue);
+		// Nothing to prompt while anything is running on this wall: the
+		// session panel is the interaction then, and two things claiming
+		// to say what the keys do is worse than one. Phase rather than
+		// bLiveSession, because a *watched* attempt is just as much a
+		// session and "E to climb" is just as wrong underneath it.
+		Game->ClearPrompt(this);
+		return;
 	}
 
 	// The book may have changed since BeginPlay — a line named yesterday is
@@ -246,11 +253,28 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 		}
 	}
 
-	Toast(FString::Printf(
-	          TEXT("%s  %s%s — %s   (E to climb)"), *RouteName,
-	          *UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder),
-	          *Book, *UDirtbagSimLibrary::ReadRouteText(Read)),
-	      FColor::Cyan, 5.f, kToastPrompt);
+	// What is here, who will hold the rope, and where the body is. All
+	// three are standing state — true for as long as you are stood at the
+	// bottom of this line — so all three are prompt lines rather than
+	// toasts that expire while you are still deciding.
+	//
+	// The sorting found a live bug doing this: the belayer line and the
+	// body advice were pushed through the *same* keyed toast slot two
+	// statements apart, so on a roped line at the gym when you were tired,
+	// the advice silently replaced the belayer and you were never told who
+	// was holding the rope. Separate lines cannot do that to each other.
+	TArray<FDirtbagPromptLine> Lines;
+
+	FDirtbagPromptLine What;
+	What.Text = FString::Printf(
+	    TEXT("%s  %s%s — %s   (E to climb)"), *RouteName,
+	    *UDirtbagSimLibrary::GradeName(Grade, EDirtbagDiscipline::Boulder),
+	    *Book, *UDirtbagSimLibrary::ReadRouteText(Read));
+	// An unclimbed line is the one thing on this screen worth walking
+	// across a valley for, and Book leads with it.
+	What.Tone = Book.Contains(TEXT("unclimbed")) ? EDirtbagPromptTone::Good
+	                                             : EDirtbagPromptTone::Plain;
+	Lines.Add(What);
 
 	// Who is holding the rope, on a line that needs one. This is the first
 	// thing in the game rapport buys that nothing else can, so it is said at
@@ -258,12 +282,15 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 	if (Game && UDirtbagSimLibrary::NeedsABelayer(Route))
 	{
 		const int32 Left = Game->BurnsHeldToday() - Game->RopedBurnsToday;
-		Toast(Game->CanTieIn()
-		          ? FString::Printf(TEXT("%s  (%d %s left)"), *Game->BelayLine(),
-		                            Left, Left == 1 ? TEXT("burn") : TEXT("burns"))
-		          : Game->RopeRefusal(),
-		      Game->CanTieIn() ? FColor::Cyan : FColor::Orange, 5.f,
-		      kToastResult);
+		FDirtbagPromptLine Rope;
+		Rope.Text =
+		    Game->CanTieIn()
+		        ? FString::Printf(TEXT("%s  (%d %s left)"), *Game->BelayLine(),
+		                          Left, Left == 1 ? TEXT("burn") : TEXT("burns"))
+		        : Game->RopeRefusal();
+		Rope.Tone = Game->CanTieIn() ? EDirtbagPromptTone::Plain
+		                             : EDirtbagPromptTone::Blocked;
+		Lines.Add(Rope);
 	}
 
 	// And where the body is, which is the half a player cannot see. Only
@@ -272,12 +299,43 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 	if (Game && Game->Day.bAtGym &&
 	    Game->ReadSession() != EDirtbagSessionAdvice::Ready)
 	{
-		Toast(Game->SessionAdviceText(),
-		      Game->ReadSession() == EDirtbagSessionAdvice::Wrecked
-		          ? FColor::Orange
-		          : FColor::Silver,
-		      5.f, kToastResult);
+		FDirtbagPromptLine Body;
+		Body.Text = Game->SessionAdviceText();
+		Body.Tone = Game->ReadSession() == EDirtbagSessionAdvice::Wrecked
+		                ? EDirtbagPromptTone::Blocked
+		                : EDirtbagPromptTone::Plain;
+		Lines.Add(Body);
 	}
+
+	if (Game)
+	{
+		Game->SetPrompt(this, Lines);
+	}
+}
+
+void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor,
+                                        UPrimitiveComponent*, int32, bool,
+                                        const FHitResult&)
+{
+	if (OtherActor != UGameplayStatics::GetPlayerPawn(this, 0))
+	{
+		return;
+	}
+	bPlayerNear = true;
+
+	// Arriving at a wall is arriving somewhere. Doing this here rather than
+	// asking anyone to set a flag means where the game thinks you are can
+	// never disagree with what you are standing in front of.
+	if (Game)
+	{
+		Game->SetVenue(Venue);
+	}
+
+	// What is here, who holds the rope, where the body is, and what E
+	// does about it. Rebuilt rather than said once, because every one of
+	// those changes while you stand here: the brush changes the
+	// cleanliness, a burn spends a belayer, a session leaves you tired.
+	PushPrompt();
 
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
 	{
@@ -307,6 +365,10 @@ void ADirtbagClimbWall::OnApproachEnd(UPrimitiveComponent*, AActor* OtherActor,
 		return;
 	}
 	bPlayerNear = false;
+	if (Game)
+	{
+		Game->ClearPrompt(this);
+	}
 	if (Phase == EPhase::Idle)
 	{
 		if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
@@ -346,6 +408,9 @@ void ADirtbagClimbWall::OnClean()
 		      4.f, kToastClean);
 		return;
 	}
+	// The prompt leads with cleanliness on a project, and the brush just
+	// changed it. Said after the toast so the news reads as news and the
+	// standing state updates underneath it.
 	Toast(FString::Printf(TEXT("%.0f minutes on the brush.  %s"),
 	                      CleanHoursPerPress * 60.f,
 	                      *Game->CleanlinessText(BoardIndex)),
@@ -358,6 +423,7 @@ void ADirtbagClimbWall::OnClean()
 	{
 		Toast(Claim, FColor::White, 6.f, kToastClaim);
 	}
+	PushPrompt();
 }
 
 void ADirtbagClimbWall::OnAskBeta()
@@ -390,8 +456,18 @@ void ADirtbagClimbWall::StartAttempt()
 {
 	if (HoldLine->GetNumberOfSplinePoints() < 2)
 	{
-		Toast(TEXT("HoldLine needs spline points before anyone can climb."),
-		      FColor::Red);
+		// Not player text. This is a level that was placed wrong, and the
+		// person who needs to read it is the one holding the editor -- so
+		// it goes to the log, where it survives the playtest, and to a
+		// toast that names the actor and does not expire in four seconds
+		// while he is looking somewhere else.
+		UE_LOG(LogDirtbagSetup, Warning,
+		       TEXT("%s: HoldLine has %d spline points; a climbable line "
+		            "needs at least 2."),
+		       *GetName(), HoldLine->GetNumberOfSplinePoints());
+		Toast(FString::Printf(
+		          TEXT("SETUP: %s has no HoldLine spline points."), *GetName()),
+		      FColor::Red, 30.f, kToastSetup);
 		return;
 	}
 
@@ -471,7 +547,14 @@ void ADirtbagClimbWall::StartAttempt()
 	const int32 AttemptNo =
 	    Game ? Game->AttemptsOn(Route) + (bLiveSession ? 1 : 0)
 	         : Memory.Attempts + (bLiveSession ? 1 : 0);
-	Toast(FString::Printf(TEXT("Attempt %d"), AttemptNo), FColor::Yellow);
+	if (Game)
+	{
+		// On the session panel rather than in a four-second flash. "Attempt
+		// 14 on the same problem" is true for the whole attempt and is most
+		// of what a session feels like; it should not be gone by the time
+		// you are on the crux.
+		Game->SessionReadout.Attempt = AttemptNo;
+	}
 
 	if (MountAnim)
 	{
@@ -485,6 +568,11 @@ void ADirtbagClimbWall::StartAttempt()
 	{
 		BeginSessionBody();
 	}
+
+	// Both branches have moved off Idle by now, so this takes the prompt
+	// down. It goes back up in EndSession, rebuilt from whatever the
+	// attempt changed.
+	PushPrompt();
 }
 
 void ADirtbagClimbWall::BeginSessionBody()
@@ -493,9 +581,11 @@ void ADirtbagClimbWall::BeginSessionBody()
 	if (bLiveSession)
 	{
 		Phase = EPhase::AtStance;
-		Toast(TEXT("HOLD Space to load the move. Release in the window to "
-		           "latch it; release early to shake out."),
-		      FColor::Cyan, 6.f);
+		// The verb used to be a six-second toast at the top of the route,
+		// which is the one moment a first-time player is looking at the
+		// climber rather than at the text. It lives on the session panel
+		// now, under the grip bar it describes, until the first latch
+		// proves it is not needed.
 	}
 	else
 	{
@@ -557,6 +647,15 @@ void ADirtbagClimbWall::OnHoldReleased()
 			      FColor::Orange, 1.5f);
 		}
 		return;
+	}
+
+	// You have done it once, so the reminder stops -- for good, not for
+	// this attempt. Set on the latch rather than on the press, because
+	// holding Space and letting go too early is exactly the mistake the
+	// line is there to explain.
+	if (Game)
+	{
+		Game->bLearnedTheVerb = true;
 	}
 
 	// Latched: execution peaks dead-center in the window, tapers to the edges.
@@ -748,10 +847,11 @@ void ADirtbagClimbWall::EndSession()
 		Game->SessionReadout = FDirtbagSessionReadout();
 	}
 
-	if (bPlayerNear)
-	{
-		Toast(TEXT("Press E to go again."), FColor::Cyan);
-	}
+	// "Press E to go again" was a toast saying one third of what the
+	// approach prompt says. The session is over, so the prompt comes back
+	// -- with the grade, the read, the belayer and how many burns are
+	// left, all of which changed while you were on the wall.
+	PushPrompt();
 }
 
 void ADirtbagClimbWall::UpdateHud()
@@ -770,6 +870,7 @@ void ADirtbagClimbWall::UpdateHud()
 	S.WindowStart = SweetWindowStart;
 	S.WindowEnd = SweetWindowEnd;
 	S.Grip = bCharging ? Charge : -1.0;
+	S.bShowTheVerb = !Game->bLearnedTheVerb;
 
 	if (bLiveSession)
 	{

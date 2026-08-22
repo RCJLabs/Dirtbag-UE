@@ -153,6 +153,13 @@ private:
 	 *  table from three integers and never holds a stale copy of one. */
 	void RefreshFireTable();
 
+	/** Push `PromptText()` to the HUD's prompt line. Called on every state
+	 *  change rather than once on entry: the old toast said what the shop
+	 *  was offering at the moment you walked in and then expired, so
+	 *  buying the shoes left a four-second-old sentence about shoes on
+	 *  screen and nothing about the pad it would now sell you. */
+	void PushPrompt();
+
 	/** Settle whatever is live, as if F had been pressed. Used when you
 	 *  walk away from the table mid-hand — every game here takes the ante
 	 *  at settlement rather than at the deal, so leaving used to be a free

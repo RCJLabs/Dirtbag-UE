@@ -250,6 +250,12 @@ private:
 	enum class EPhase : uint8 { Idle, Mounting, AtStance, Moving, Falling, Ending };
 
 	UFUNCTION()
+	/** What is here and what the keys do about it, rebuilt on every change
+	 *  and drawn for as long as you are stood at the bottom of the line.
+	 *  Was three toasts on two keyed slots, one of which silently ate the
+	 *  other. See notes/phase5-toast-triage.md. */
+	void PushPrompt();
+
 	void OnApproachBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 	                     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
 	                     bool bFromSweep, const FHitResult& SweepResult);

@@ -182,7 +182,11 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 		return;
 	}
 	bPlayerNear = true;
-	Say(PromptText(), FColor::Cyan);
+	// The prompt used to be a four-second toast said once. It is the
+	// interaction, not news about it: it stays up now for as long as you
+	// are standing here, and is rebuilt whenever anything it describes
+	// changes.
+	PushPrompt();
 	if (Kind == EDirtbagSpotKind::Fire)
 	{
 		StakeNotch = FMath::Clamp(StartingStakeNotch, 0, 2);
@@ -219,6 +223,7 @@ void ADirtbagDaySpot::OnTriggerEnd(UPrimitiveComponent*, AActor* OtherActor,
 		return;
 	}
 	bPlayerNear = false;
+	PushPrompt();
 	// Standing up mid-hand is not a free look. Every game here takes the
 	// ante at settlement rather than at the deal, so walking away used to
 	// cost nothing at all: deal, read the table, leave.
@@ -438,6 +443,12 @@ void ADirtbagDaySpot::OnInteract()
 		break;
 	}
 	}
+
+	// Whatever just happened changed what this spot can do for you next --
+	// the shop that sold you shoes now has a pad to pitch, the van that was
+	// broken now runs, the dog is fed. One call, at the one exit, because a
+	// prompt refreshed in eight branches is a prompt stale in the ninth.
+	PushPrompt();
 }
 
 double ADirtbagDaySpot::DriveHours() const
@@ -462,6 +473,37 @@ double ADirtbagDaySpot::DriveHours() const
 		}
 	}
 	return TravelHours;
+}
+
+void ADirtbagDaySpot::PushPrompt()
+{
+	if (!Game)
+	{
+		return;
+	}
+	if (!bPlayerNear)
+	{
+		Game->ClearPrompt(this);
+		return;
+	}
+	FDirtbagPromptLine Line;
+	Line.Text = PromptText();
+	// Only one spot state is a hard block rather than a price: a van that
+	// does not run stops both driving it and being anywhere else today.
+	// The rest of the prompts say their own state in words -- "$140 of
+	// $9,000", "Not enough for that" -- and a colour on top of a sentence
+	// that already says it is decoration.
+	const bool bStranded =
+	    (Kind == EDirtbagSpotKind::Travel || Kind == EDirtbagSpotKind::Van) &&
+	    !Game->VanRuns();
+	Line.Tone = bStranded ? EDirtbagPromptTone::Blocked
+	                      : EDirtbagPromptTone::Plain;
+	TArray<FDirtbagPromptLine> Lines;
+	if (!Line.Text.IsEmpty())
+	{
+		Lines.Add(Line);
+	}
+	Game->SetPrompt(this, Lines);
 }
 
 void ADirtbagDaySpot::RefreshFireTable()
@@ -743,6 +785,9 @@ void ADirtbagDaySpot::ChooseDreamAt(EDirtbagDream Which)
 		Say(FString::Printf(TEXT("%s, then.  %s"), *Game->DreamName(Which),
 		                    *Game->DreamBlurb(Which)),
 		    FColor::Yellow, 8.f);
+		// The counter stops asking what the money is for and starts
+		// counting it, so the standing prompt has to change with it.
+		PushPrompt();
 	}
 }
 
@@ -750,7 +795,16 @@ void ADirtbagDaySpot::BeginDrive()
 {
 	if (!TravelTarget)
 	{
-		Say(TEXT("This drive has no Travel Target set."), FColor::Red);
+		// A level placed wrong, not a thing that happened in the game. It
+		// goes to the log where it outlives the playtest, and the toast
+		// names the actor and lasts long enough to be read.
+		UE_LOG(LogDirtbagSetup, Warning,
+		       TEXT("%s: Travel spot has no TravelTarget set; the drive "
+		            "cannot go anywhere."),
+		       *GetName());
+		Say(FString::Printf(TEXT("SETUP: %s has no Travel Target."),
+		                    *GetName()),
+		    FColor::Red, 30.f);
 		return;
 	}
 

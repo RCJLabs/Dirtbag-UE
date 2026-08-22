@@ -286,8 +286,19 @@ void ADirtbagHUD::DrawSession(UDirtbagGameInstance* Game, float W, float H)
 	const float X = (W - BarW) * 0.5f;
 	float Y = H - 150.f;
 
-	DrawRect(kPanel, X - 18.f, Y - 46.f, BarW + 36.f, 132.f);
+	// The panel grows by a line when the control reminder is up, which is
+	// only ever until the first latch of a session.
+	const float PanelH = S.bShowTheVerb ? 154.f : 132.f;
+	DrawRect(kPanel, X - 18.f, Y - 46.f, BarW + 36.f, PanelH);
 	DrawText(S.RouteLine, kInk, X, Y - 40.f, GEngine->GetMediumFont(), 1.f);
+	// "Attempt 14" is true for the whole go and is most of what a session
+	// feels like, so it sits beside the route for all of it rather than
+	// flashing once at the start.
+	if (S.Attempt > 0)
+	{
+		DrawText(FString::Printf(TEXT("attempt %d"), S.Attempt), kDim,
+		         X + BarW - 90.f, Y - 38.f, GEngine->GetSmallFont(), 1.f);
+	}
 
 	DrawBar(TEXT("PUMP"), S.Pump / 100.0, X, Y, BarW, 16.f, PumpColour(S.Pump));
 	Y += 44.f;
@@ -309,6 +320,17 @@ void ADirtbagHUD::DrawSession(UDirtbagGameInstance* Game, float W, float H)
 		         13.f);
 	}
 
+	// The verb, under the bar it describes, until the first latch. It was a
+	// six-second toast fired at the top of the route -- the one moment a
+	// first-time player is watching the climber rather than reading text.
+	if (S.bShowTheVerb)
+	{
+		DrawText(TEXT("HOLD Space to load the move.  Release inside the "
+		              "green to latch it, early to shake out."),
+		         FLinearColor(0.60f, 0.80f, 0.90f, 1.f), X, Y + 42.f,
+		         GEngine->GetSmallFont(), 1.f);
+	}
+
 	if (S.Odds >= 0.0)
 	{
 		DrawText(FString::Printf(TEXT("next move  %.0f%%"), S.Odds * 100.0),
@@ -317,6 +339,42 @@ void ADirtbagHUD::DrawSession(UDirtbagGameInstance* Game, float W, float H)
 		                                      : FLinearColor(0.85f, 0.35f, 0.30f, 1.f)),
 		         X + BarW - 130.f, Y + 24.f, GEngine->GetSmallFont(), 1.f);
 	}
+}
+
+float ADirtbagHUD::DrawPrompt(UDirtbagGameInstance* Game, float W, float H)
+{
+	const FDirtbagPrompt& P = Game->Prompt;
+	if (!P.bActive || P.Lines.Num() == 0)
+	{
+		return H;
+	}
+
+	const float PanelW = 560.f;
+	const float X = (W - PanelW) * 0.5f;
+	const float PanelH = 18.f + static_cast<float>(P.Lines.Num()) * 22.f;
+	const float Top = H - 22.f - PanelH;
+
+	DrawRect(kPanel, X - 18.f, Top, PanelW + 36.f, PanelH);
+
+	float Y = Top + 9.f;
+	for (const FDirtbagPromptLine& Line : P.Lines)
+	{
+		// Three tones and no more. A prompt that colours every clause is a
+		// prompt nobody reads: plain is what is here, good is worth
+		// crossing a valley for, blocked is in your way.
+		FLinearColor Ink = kInk;
+		if (Line.Tone == EDirtbagPromptTone::Good)
+		{
+			Ink = FLinearColor(0.95f, 0.85f, 0.40f, 1.f);
+		}
+		else if (Line.Tone == EDirtbagPromptTone::Blocked)
+		{
+			Ink = FLinearColor(0.85f, 0.45f, 0.35f, 1.f);
+		}
+		DrawText(Line.Text, Ink, X, Y, GEngine->GetMediumFont(), 1.f);
+		Y += 22.f;
+	}
+	return Top;
 }
 
 void ADirtbagHUD::DrawFire(UDirtbagGameInstance* Game, float W, float H)
@@ -425,14 +483,19 @@ void ADirtbagHUD::DrawHUD()
 	const float H = static_cast<float>(Canvas->SizeY);
 
 	DrawNeeds(Game, H);
+
+	// The prompt owns the bottom of the screen and everything else stacks
+	// on top of it, so a three-line wall prompt cannot end up underneath
+	// the pump bar.
+	const float Floor = DrawPrompt(Game, W, H);
 	if (Game->SessionReadout.bActive)
 	{
-		DrawSession(Game, W, H);
+		DrawSession(Game, W, Floor);
 	}
 	else if (Game->FireReadout.bActive)
 	{
 		// Never both. You are not at the fire while you are on the wall,
 		// and if a bug ever says you are, the wall is the one that matters.
-		DrawFire(Game, W, H);
+		DrawFire(Game, W, Floor);
 	}
 }

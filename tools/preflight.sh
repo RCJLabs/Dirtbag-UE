@@ -51,4 +51,8 @@ echo "== FString never fed a std::string =="
 python3 tools/check-fstring.py
 
 echo
+echo "== log categories defined once =="
+python3 tools/check-logcat.py
+
+echo
 echo "ALL CHECKS PASSED"

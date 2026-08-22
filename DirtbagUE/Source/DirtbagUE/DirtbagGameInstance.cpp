@@ -1090,6 +1090,28 @@ FString UDirtbagGameInstance::StandBlackjack(int32 HandNumber, double Stake)
 	return FString(Res.line.c_str());
 }
 
+void UDirtbagGameInstance::SetPrompt(AActor* Owner,
+                                    const TArray<FDirtbagPromptLine>& Lines)
+{
+	PromptOwner = Owner;
+	Prompt.Lines = Lines;
+	Prompt.bActive = Lines.Num() > 0;
+}
+
+void UDirtbagGameInstance::ClearPrompt(AActor* Owner)
+{
+	// Only the holder may put it down. Triggers overlap -- the van, the
+	// fire and the shop can share a corner of the Lot -- and a spot that
+	// cleared unconditionally on the way out would wipe the prompt of the
+	// one you just walked into.
+	if (PromptOwner != Owner)
+	{
+		return;
+	}
+	PromptOwner = nullptr;
+	Prompt = FDirtbagPrompt();
+}
+
 EDirtbagFiresideGame UDirtbagGameInstance::WhatsOutTonight() const
 {
 	return static_cast<EDirtbagFiresideGame>(
