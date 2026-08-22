@@ -121,7 +121,7 @@ outright, on a control that can afford shoes. Holding a money system to a
 sends-per-year target measures the wrong thing and will keep coming back
 failed.
 
-## Phase 4 — The Long Game   **<<< CURRENT MILESTONE**
+## Phase 4 — The Long Game   ⚠️ BUILT, GATES UNVERIFIED
 
 Sport/rope presentation, crags 2–3, ethics arcs, sponsorship, injuries/aging, legacy. Early Access decision at phase start.
 
@@ -149,10 +149,75 @@ remains:
 hurt, ages, and hands the valley to the next one — and the guidebook at the
 end reads like somebody lived there.
 
+Named scope is complete and **the desk work is done** (2026-08-22): the
+Shaded Cave and the Sun Terrace are placed, the belayer is reachable, and
+Evan has played it — *"all seems to work for the most part."* The gate is
+not passed, and cannot be by a short session: it asks for **a career**,
+twenty-odd in-game years ending in a handover, and the only evidence for it
+so far is headless (`notes/phase4-career.md`). Marker advanced at Evan's
+direction; the debt is recorded here rather than quietly marked done.
+
+**The Early Access decision moves to Phase 5** rather than being dropped.
+`concepts/DIRTBAG.md` §6 puts the EA candidate at **rung 2** of the cut
+ladder and the build is at rung 4, so the decision is two rungs overdue —
+but it was never answerable while "what is left to build" had no answer.
+Phase 5 is that answer.
+
+---
+
+## Phase 5 — The Watched Session   **<<< CURRENT MILESTONE**
+
+**The systems are done and the game is a grey box.** Every rung of
+`concepts/DIRTBAG.md` §6's cut ladder is built and measured except **trad**
+(`Discipline` is still `{Boulder, Sport}`), while the presentation is: **one
+widget**, **no sound**, and twenty-one toast calls on the climb wall alone.
+The concept doc predicted exactly this — §7 names *"session staging: camera,
+minigame UI, animation state machine on route splines"* as **"the project's
+craft center"** — and it is the least-developed part of the project.
+
+This phase is that craft centre. Not new systems: the same systems, made
+legible. The order is set by what play condemned first rather than by taste.
+
+1. **The fire gets a table.** Evan, 2026-08-22: *"definitely will need to
+   improve the fire games."* Three games with hands, reads, tells and a live
+   blackjack hand cannot ride on a toast that expires in twelve seconds. The
+   campfire note said this decision would be made by play and not by
+   argument — *"the toast is the whole table UI until an evening of play
+   proves the fire earns a widget"* — and an evening of play has now proved
+   it.
+2. **Toast triage.** Twenty-one calls on the wall, and they are not one
+   thing: transient news (*a year today*, *word gets round*) is exactly what
+   a toast is for, and load-bearing interaction (the shop counter, the dream
+   choice, a live hand) is UI wearing a toast's clothes. Sort them, and
+   promote only the second kind.
+3. **The session reads.** The camera is a fixed component at (0, 450, 200)
+   and has never been designed, only defaulted. Phase 0's gate was *"a
+   watcher can tell how close an attempt was without reading a number"* —
+   that was proved on a blockout wall with a debug HUD, and it deserves
+   re-asking now that there is rock, weather and a mannequin that faces the
+   right way.
+4. **Sound.** There is none. The concept doc's custom-work list has it:
+   *"climbing sound design (chalk, breath, rubber on rock)"*. Chalk, the
+   fall, the van, the fire. The hook points are container-side work; the
+   foley is not.
+5. **The Early Access decision**, which this phase finally makes answerable.
+
+**Done when:** somebody who is not Evan sits down, plays for an hour, and
+the session reads without being explained — the Phase 0 gate re-asked of a
+game rather than a prototype. Secondary: the three unverified play gates
+from Phases 1, 2 and 4 are answerable at last, because playing long enough
+to answer them stops being a chore.
+
+**Deliberately not in this phase:** trad, more crags, more content. The
+ladder's last systemic gap is real and it is not the bottleneck — a deeper
+game whose presentation is already the constraint is a worse game, not a
+bigger one.
+
 ---
 
 ## Changelog
 
+- 2026-08-22 - **Phase 5 opens: the systems are done and the game is a grey box** (`ROADMAP.md`). Evan, having finished the desk list: *"all seems to work for the most part. definitely will need to improve the fire games but for now lets figure out the next steps."* Answered by counting rather than by taste. **The cut ladder is essentially finished** — every rung of `concepts/DIRTBAG.md` §6 is built and measured except **trad** — and against 26 sim modules the presentation is **one widget** (`WBP_NameFirstAscent`), **zero sound**, and **twenty-one toast calls on the climb wall alone**. The concept doc called this two years ahead: §7 names *"session staging: camera, minigame UI, animation state machine on route splines"* as **"the project's craft center"**, and it is the least-built part of the project. So Phase 5 is that craft centre, and deliberately **no new systems**: the fire gets a table (item 1, because play condemned it first and the campfire note had already promised the decision to play — *"the toast is the whole table UI until an evening of play proves the fire earns a widget"*), then toast triage sorting news from load-bearing UI, then the camera, then sound, then **the Early Access decision** — which moves here rather than being dropped, being two rungs overdue but unanswerable while "what is left to build" had no answer. **Phase 4 is marked `⚠️ BUILT, GATES UNVERIFIED` rather than done**: its scope is complete and Evan has played it, but the gate asks for a *career* and the only evidence is headless. The marker advanced at his direction and the debt is written down instead of quietly discharged, which is the third gate now carrying that shape.
 - 2026-08-22 - **The climber faces the rock, and the angle is nobody's guess** (`FaceTheRock`, `MeshForwardYaw`). **Verified at the desk.** Two fixed yaws had already failed — -90 left the mannequin side-on and so did 180 — and the second failure was the useful one: it said the mistake was not the number but the *method*. Both were computed from an assumed level layout (wall in the actor's XZ plane, camera down -Y), while the holds actually come from a hand-drawn spline on an actor that may itself be rotated. **A fixed angle is a guess about somebody else's level, and the container cannot see the level.** So the facing derives itself: the climber turns its back on the session camera, which is what "facing the rock" means from the only viewpoint that matters — right for any spline, any actor rotation, any camera nudge, and re-derived on every interpolated step, because on a long traverse the line from the camera swings round and a facing set once at the first hold is stale by the last. What is left is a fact about the *mesh* rather than the level: `MeshForwardYaw`, which way the skeletal mesh points at rotation zero, defaulting to 90 — and the desk confirms the UE5 mannequins are authored facing +Y, so that default is now measured rather than assumed. `bFaceAwayFromCamera` pins it by hand for a wall the camera never squares up to. One process note against myself: the per-move re-derive failed to apply on an indentation mismatch, `patch.py` said so, and I committed anyway without re-reading — `551c09a` shipped without it and `fb3ca72` repaired it. The tool did its job; I did not read its output.
 - 2026-08-22 - **A quarter turn where it needed a half** (`ClimberYaw` -90 → 180). The mannequin that used to climb facing the camera now climbed sideways, and the two bugs are one bug measured twice: unrotated, the mesh faces **+Y** (that is *why* it faced the camera), so facing the rock at -Y needs **180**, and the -90 guess turned it side-on to +X — exactly Evan's screenshot. The property's own comment had recorded the uncertainty ("depends on the skeletal mesh's forward axis, which I cannot see from here"); the screenshot was the missing measurement. Also unified the constructor's hard-coded copy of the angle onto the property — two copies of one guess is how it got baked in twice — and since `ClimberYaw` is EditAnywhere and applied in OnConstruction, the desk-side fix needs no rebuild: type 180 into the wall's details panel and the next one is free.
 - 2026-08-22 - **The save that looked unmigrated** (`LogDirtbagSave` in `DirtbagSimLibrary.cpp`). Evan rebuilt, played a minute of PIE, opened the raw save and found `version=13` — reasonably concluding the migration had not run. It had. **Migrations run in memory at load; the file on disk is rewritten only by SaveNow**, which fires on sleep, retiring, feeding the dog, and naming a first ascent — deliberately, so a load can never corrupt the only copy — and a seventy-second session that does none of those leaves the old bytes untouched. Nothing wrong happened, **and nothing said so**: the checklist claimed "the log should say so once" and no such log existed — the checker-shaped gap this time was an overclaim in my own document, and it cost a worry instead of a build. The loader now says it plainly: *"file is v13, migrated to v20 in memory. The file itself updates at the next sleep"* — the pre-migration number read off the file's own first line, since `DeserializeSave` hands the struct back already upgraded — plus a warning path that names *why* a fresh start happened (newer build vs bad format), because "starts fresh silently" was the same kind of invisible. Checklist corrected to describe the real behaviour instead of the imagined log line.
