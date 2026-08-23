@@ -453,6 +453,13 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // `WorldStageDay` for why it is one call and not five.
   WorldStageDay(player.worldCup, player.olympics, worldRng, player.day);
 
+  // And the other end of it: the Wednesday night at the gym. Schedules
+  // itself, rolls itself forward, and closes its own eight-week block --
+  // and **the regulars turn up whether you do or not**, so a block you
+  // skipped is a block you came last in, which is exactly what happens if
+  // you stop going to a real one.
+  LeagueDay(player.league, worldRng, player.day);
+
   // Rent, and a bought year running down. Rent lands here with the other
   // things that happen to you overnight rather than at the shop, because
   // that is what rent does.

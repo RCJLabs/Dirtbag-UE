@@ -13,6 +13,7 @@
 #include "DirtbagCharacter.h"
 #include "DirtbagComp.h"
 #include "DirtbagTeam.h"
+#include "DirtbagLeague.h"
 #include "DirtbagWorldStage.h"
 #include "DirtbagCore.h"
 #include "DirtbagRival.h"
@@ -200,6 +201,12 @@ struct PlayerState {
   // And the Games, on a cycle rather than a calendar. Seeded on the first
   // night, and never sooner than three weeks out.
   Olympics olympics;
+
+  // The other end of the same system: a Wednesday at the gym, five
+  // dollars, and a number that is yours. Worth no ranking points at all --
+  // see Sim/DirtbagLeague.h for why that is the design rather than an
+  // omission.
+  League league;
 
   double cash = 420.0;  // the war chest you left home with
   int day = 1;

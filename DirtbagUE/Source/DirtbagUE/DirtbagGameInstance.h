@@ -803,6 +803,34 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|World")
 	bool EnterTheGames();
 
+	// --- the league ----------------------------------------------------
+	//
+	// The other end of the same system. Five dollars, ten goes, no ranking
+	// points at all -- see Sim/DirtbagLeague.h for why that is the design
+	// rather than an omission.
+
+	/** What is on the gym whiteboard. Empty unless it is close. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|League")
+	FString LeagueLine() const;
+
+	/** Is it on tonight? */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|League")
+	bool LeagueIsTonight() const;
+
+	/** Sign in. Costs five dollars and the evening, and puts you on five
+	 *  problems at your own grade with ten goes. False if there is no
+	 *  league tonight, you cannot pay, or you are already on a board. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|League")
+	bool EnterLeague();
+
+	/** Where the block stands, and what your best is. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|League")
+	FString LeagueStandingLine() const;
+
+	/** A personal best, a night won, or a block finished. Said once. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	FString LeagueNews;
+
 	/** A World Cup season ended. Slow news, said once. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
 	FString WorldCupNews;
@@ -1306,6 +1334,11 @@ public:
 	 *  The one way `RankingPoints` is allowed to move from inside a day --
 	 *  see the field's own note in Sim/DirtbagDay.h. */
 	void RecordResult(double Points);
+
+	/** Turn in a league scorecard. Its own function for the same reason
+	 *  the world stage has one: it banks into a block table and a personal
+	 *  best and touches neither the circuit nor the ranking. */
+	bool SettleTheLeague();
 
 	/** Turn in a World Cup or Games scorecard. Split out of `SettleComp`
 	 *  rather than branching inside it: the domestic settle banks into the

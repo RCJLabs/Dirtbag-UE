@@ -456,3 +456,128 @@ round, what it costs, and why not in the game's voice — from the sim rather
 than the UFUNCTION, because **a rule that lives in an engine door cannot be
 tested from the harness**, and every rule this project has left in one has
 been found late.
+
+---
+
+# Pass 5 — the ladder is a ladder (2026-08-23)
+
+Three commits: the ranking, the rounds, the league. Phase 9's scoped list
+is complete.
+
+## The ranking was a ramp with no top
+
+Pass 4's probe measured it and this pass fixed it. A ten-year career peaked
+at **14,633 ranking points against a top tier of 2,200**, which made two of
+Phase 9's five done-when gates false: a career could not fail to reach the
+Games, and the three tiers did not mean three different things because
+inflated ranking parked a grade-6 climber at National tier where they won
+none of 247 comps.
+
+Three causes, all one idea wearing different hats — **a placing was worth
+the same wherever and whenever you got it.**
+
+1. **The curve was linear in how many people you beat**, so fifth of nine
+   paid fifty. Half a win, for beating nobody. Top-weighted now.
+2. **Points accumulated forever.** It is a rolling twelve-month record now.
+   Results go on with the day they happened, age off after a year, and the
+   total is recomputed every night rather than added to.
+3. **A placing was worth the same in any room.** A gym podium paid what a
+   National podium paid. Weighted by tier now — 0.30 / 0.65 / 1.00.
+
+The weights are set so the rungs land where the 2D game's thresholds
+already are, over a year of turning up: a Local podium regular near
+Regional Climber, a Regional podium regular near the team's 700, a National
+podium regular near the Olympic gate, somebody winning Nationals near
+World-Class.
+
+Measured after, same seed and policy: the ranking peaks at 1,348 and
+settles at 672–1,023, and **the plateau is flat across ten years and
+thirty**, which is what a rolling window is supposed to do.
+
+### The field that is derived, and the write that survives one morning
+
+`rankingPoints` is now derived and the night tick recomputes it. Writing to
+it directly survives until the next morning and no further — and the first
+version of the season test did exactly that, so the night tick caught it
+before any engine code could make the same mistake.
+
+### And the committee sat fifty times
+
+Same measurement, same root. Pass 3 put the team review on the domestic
+season on the grounds that *"a domestic season is the unit a selection
+committee actually works in"* — right about the unit and wrong about the
+length, because a season is seventy-three days. It sits once a year now,
+**refused rather than deferred**, and the stipend is $900 a year rather
+than "$180 a season" paid five times, which is the same money on an honest
+label.
+
+## Quals, semi, final
+
+At Regional and above, six come out of qualification and four out of the
+semi, and the final is four problems and five goes. Two things carry it:
+
+- **The score does not carry.** Going through replaces the board: a fresh
+  five, half a grade up, an empty scorecard.
+- **The cut is read.** `Settle` skips anybody who has been cut, or a semi
+  is scored against the six people who went home.
+
+Being eliminated is a result, not an error. Ranking and circuit points come
+off whichever round ended your comp.
+
+## The league
+
+`Sim/DirtbagLeague.{h,cpp}` — five dollars, ten goes, six named regulars,
+and **no ranking points at all.** That is the design, not an omission: a
+comp is a day with a result, a league is a habit with a number, and what
+you chase is your own best score. It only goes up and nobody can take it
+off you.
+
+Eight weeks make a block, the block has a table, and winning one is a small
+thing that is genuinely yours — which is what stops a weekly event being
+wallpaper.
+
+### Two flaws the probe found in an afternoon
+
+Both were the league borrowing the comp's arithmetic without borrowing its
+meaning.
+
+- **The regulars' weekly points were not on the player's scale.** They took
+  a flat 20–50 for turning up while the player took `CircuitPoints`, a
+  hundred for a win. The probe won **sixty-five blocks out of sixty-five.**
+  The block table is fed from the scorecard now, on one curve for
+  everybody — the same fix, and the same sentence, as the World Cup's
+  table two passes ago.
+- **The personal best saturated in a month.** Priced the comp way, worth is
+  relative to the rest of the board, so the maximum score is identical
+  every week however good you get: **two personal bests in five hundred and
+  nineteen league nights.** The league board is its own object now — a wide
+  spread priced by the *absolute grade* of each problem — so the board
+  rises with you and so does the number. Nine PBs over ten years, about one
+  a year, which is what a personal best should be.
+
+Block wins went from 65 of 65 to 16 of 64 once the regulars were paid
+properly and their handicap came down from a grade and a half to half a
+grade. A quarter of blocks won, for a climber who wins one domestic comp in
+253, is the league being the one room you can actually win.
+
+### A guard that could not fire
+
+`out.won = out.place == 1 && l.yourPoints > 0.0` looked like the zero-tie
+rule and was not: deleting it failed no test and changed no outcome,
+because `LeagueTable` already sorts a climber on nothing behind everybody
+else on nothing. Removed, and the rule is tested where it actually lives.
+Second time this project has found a guard that was never the mechanism.
+
+## Three name collisions in one week
+
+`WorldCupVenue` vs the town's `Venue`, `LeagueRegular` vs the Lot's
+`Regular`, and the dial checker catching `roundGapMin`/`gapMin`,
+`worldSeasonBreakDays`/`seasonBreakDays`, and five `LeagueDials` fields
+shadowing `CompDials`. All the same shape as `RivalDials::startAge`, and in
+every case the deliberate difference was indistinguishable from a drifted
+number until the name said so.
+
+## What is left
+
+Nothing on Phase 9's scoped list. The remaining work is Editor-side —
+nobody has yet stood in the gym and pressed E on a comp poster.

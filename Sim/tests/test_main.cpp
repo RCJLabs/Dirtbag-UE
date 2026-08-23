@@ -12,6 +12,7 @@
 #include "../DirtbagComp.h"
 #include "../DirtbagTeam.h"
 #include "../DirtbagWorldStage.h"
+#include "../DirtbagLeague.h"
 #include "../DirtbagRival.h"
 #include "../DirtbagZones.h"
 #include "../DirtbagConditions.h"
@@ -2370,6 +2371,248 @@ static CompResult ARoundYouPlaced(int yourPlace) {
   return r;
 }
 
+static void TestLeague() {
+  LeagueDials ld;
+  const Rng world = Rng::FromSeed("wednesday");
+
+  // ---- it schedules itself -----------------------------------------------
+  {
+    League l;
+    CHECK(!LeagueTonight(l, 1));
+    CHECK(DaysUntilLeague(l, 1) == -1);
+    CHECK(LeagueLine(l, 1, ld).empty());
+    LeagueDay(l, world, 1, ld);
+    CHECK(l.nextNight > 1);
+    // Inside the week, so a career does not always start on league night
+    // and the gym's rhythm is not the player's calendar.
+    CHECK(l.nextNight <= 1 + ld.everyDays);
+    CHECK(LeagueTonight(l, l.nextNight));
+    CHECK(ld.everyDays == 7);   // an absolute, not the dial it tests
+
+    // The night stays enterable for the whole of its day, and rolls the
+    // morning after -- the same rule the Games live under.
+    const int first = l.nextNight;
+    LeagueDay(l, world, first, ld);
+    CHECK(l.nextNight == first);
+    LeagueDay(l, world, first + 1, ld);
+    CHECK(l.nextNight == first + ld.everyDays);
+  }
+
+  // ---- the regulars turn up whether you do or not ------------------------
+  //
+  // **A block you skipped is a block you came last in.** Same rule the
+  // World Cup's field lives under, and it is what stops a weekly event
+  // being something you can ignore for free.
+  {
+    League l;
+    LeagueDay(l, world, 1, ld);
+    int day = l.nextNight;
+    LeagueNight closed;
+    for (int w = 0; w <= ld.weeksPerBlock + 1; w++) {
+      const LeagueNight n = LeagueDay(l, world, day, ld);
+      if (n.blockClosed) { closed = n; break; }
+      day += ld.everyDays;
+    }
+    CHECK(closed.blockClosed);
+    // **A tie at nothing is not a tie**, here as everywhere else in this
+    // game: a climber who never turned up does not come top of a table
+    // nobody scored in. Tested against `LeagueTable`, which is where the
+    // rule actually lives -- the version of this that lived in the block
+    // close was a guard that could not fire.
+    {
+      League empty;
+      empty.fieldPoints.assign(TheRegulars().size(), 0.0);
+      const std::vector<CircuitStanding> flat = LeagueTable(empty);
+      CHECK(flat.back().isYou);
+      CHECK(flat.size() == TheRegulars().size() + 1);
+      // And one point is enough to be ahead of them.
+      empty.yourPoints = 1.0;
+      CHECK(LeagueTable(empty).front().isYou);
+    }
+    CHECK(l.block == 2);            // it moved on
+    CHECK(l.weeksDone == 0);        // and started clean
+    CHECK(!closed.won);             // you were not there
+    CHECK(closed.cash == 0.0);
+    CHECK(closed.news.empty());     // and it does not congratulate you
+    CHECK(l.blockWins == 0);
+    // The board was reset, so last block's points do not decide this one.
+    for (double p : l.fieldPoints) CHECK(p == 0.0);
+  }
+
+  // ---- a night, and the number you are here for --------------------------
+  {
+    League l;
+    LeagueDay(l, world, 1, ld);
+    const CompDials cd = LeagueCompDials(ld);
+    // **Ten goes, not seven.** A league night is a session with a
+    // scorecard, and a stingy attempt count would make it a worse comp
+    // rather than a different thing.
+    CHECK(cd.attempts == ld.nightAttempts);
+    CHECK(cd.attempts > CompDials{}.attempts);
+    CHECK(cd.problems == ld.nightProblems);
+
+    CompState board = SetTheLeagueBoard(world, 8.0, l.nextNight, ld);
+    CHECK(static_cast<int>(board.problems.size()) == ld.nightProblems);
+    CHECK(board.attemptsLeft == ld.nightAttempts);
+
+    // A night where you got nothing up is not a personal best and does not
+    // win anything.
+    League quiet = l;
+    const LeagueResult nothing = SettleLeague(
+        quiet, board, 8.0, quiet.nextNight, world, ld);
+    CHECK(nothing.score == 0.0);
+    CHECK(!nothing.personalBest);
+    CHECK(nothing.cash == 0.0);
+    CHECK(quiet.nights == 1);
+
+    // Climb the whole thing.
+    for (auto& pr : board.progress) { pr.topped = true; pr.flashed = true; }
+    const LeagueResult good =
+        SettleLeague(l, board, 8.0, l.nextNight, world, ld);
+    CHECK(good.score > 0.0);
+    CHECK(good.place >= 1);
+    CHECK(good.fieldSize ==
+          static_cast<int>(TheRegulars().size()) + 1);
+    CHECK(l.best == good.score);
+    CHECK(l.bestOnDay == l.nextNight);
+    CHECK(l.yourPoints > 0.0);
+    // **Your first night is not a personal best.** There was nothing to
+    // beat, and telling somebody they have set a record on the first
+    // Wednesday is the game congratulating itself.
+    CHECK(!good.personalBest);
+
+    // Beating it is, and it says by how much.
+    League again = l;
+    again.best = good.score - 7.0;
+    const LeagueResult pb =
+        SettleLeague(again, board, 8.0, again.nextNight + 7, world, ld);
+    CHECK(pb.personalBest);
+    CHECK(pb.improvedBy > 0.0);
+    CHECK(pb.rep == ld.bestRep);
+    CHECK(pb.news.find("Best") != std::string::npos);
+    CHECK(again.best == pb.score);
+
+    // ...and failing to beat it leaves it alone.
+    League held = again;
+    const double was = held.best;
+    CompState weak = SetTheLeagueBoard(world, 8.0, held.nextNight, ld);
+    SettleLeague(held, weak, 2.0, held.nextNight, world, ld);
+    CHECK(held.best == was);
+  }
+
+  // ---- and the number grows as you do -----------------------------------
+  //
+  // **The fix that made a personal best worth chasing.** Priced the comp
+  // way -- worth relative to the rest of the board -- the maximum score is
+  // the same every week however good you get, so the number saturates in
+  // the first month and never moves again: measured, **two personal bests
+  // in five hundred and nineteen league nights.** Priced by the grade of
+  // the problem, the board rises with you and so does the number.
+  {
+    const auto perfectNight = [&](double grade) {
+      CompState b = SetTheLeagueBoard(world, grade, 40, ld);
+      for (auto& pr : b.progress) { pr.topped = true; pr.flashed = true; }
+      return YourScore(b, LeagueCompDials(ld));
+    };
+    CHECK(perfectNight(9.0) > perfectNight(6.0));
+    CHECK(perfectNight(6.0) > perfectNight(4.0));
+    // Materially, not by a rounding error: three grades of work has to
+    // show up as a number a player would notice.
+    CHECK(perfectNight(9.0) > perfectNight(6.0) * 1.2);
+
+    // **A spread, not five at your level.** The gym sets for the whole
+    // room, and the whole room turns up on a Wednesday.
+    const CompState b = SetTheLeagueBoard(world, 8.0, 40, ld);
+    int low = kMaxGrade, high = 0;
+    for (const CompProblem& p : b.problems) {
+      low = std::min(low, p.route.trueGrade);
+      high = std::max(high, p.route.trueGrade);
+    }
+    CHECK(high - low >= 4);
+    CHECK(low < 8);
+    CHECK(high > 8);
+    // And the hard one is worth more than the easy one, because it is
+    // harder -- not because of where it sits on the board.
+    CHECK(b.problems.back().topPoints > b.problems.front().topPoints);
+  }
+
+  // ---- it is worth no ranking points, and that is the design -----------
+  //
+  // The whole reason a league is not a small comp. Checked as a property of
+  // the type rather than of a call: `LeagueResult` has no ranking field to
+  // read, and `SettleLeague` never touches the record -- so this pins the
+  // one thing that could still leak, which is the block table borrowing
+  // the circuit's own points.
+  {
+    League l;
+    LeagueDay(l, world, 1, ld);
+    CompState board = SetTheLeagueBoard(world, 8.0, l.nextNight, ld);
+    for (auto& pr : board.progress) { pr.topped = true; pr.flashed = true; }
+    const double before = l.yourPoints;
+    const LeagueResult r =
+        SettleLeague(l, board, 8.0, l.nextNight, world, ld);
+    CHECK(l.yourPoints > before);          // the block table moves
+    CHECK(r.cash <= ld.nightCash);         // and it pays beer money
+    CHECK(ld.nightCash < CompDials{}.winCash);
+    CHECK(ld.nightFee < CompDials{}.entryFee);
+    // Both standing nudges are under what the factions file calls a small
+    // deliberate act: the scene notices, and does not care much.
+    CHECK(ld.bestRep < 0.1);
+    CHECK(ld.blockRep < 0.1);
+  }
+
+  // ---- winning a block --------------------------------------------------
+  {
+    League l;
+    LeagueDay(l, world, 1, ld);
+    int day = l.nextNight;
+    LeagueNight closed;
+    for (int w = 0; w <= ld.weeksPerBlock + 1; w++) {
+      // Turn up and top the lot, every week.
+      CompState board = SetTheLeagueBoard(world, 12.0, day, ld);
+      for (auto& pr : board.progress) { pr.topped = true; pr.flashed = true; }
+      SettleLeague(l, board, 12.0, day, world, ld);
+      const LeagueNight n = LeagueDay(l, world, day + 1, ld);
+      if (n.blockClosed) { closed = n; break; }
+      day += ld.everyDays;
+    }
+    CHECK(closed.blockClosed);
+    CHECK(closed.place == 1);
+    CHECK(closed.won);
+    CHECK(closed.cash == ld.blockCash);
+    CHECK(closed.rep == ld.blockRep);
+    CHECK(l.blockWins == 1);
+    CHECK(!closed.news.empty());
+    // A block is worth about a week of shifts and no more. **A league is
+    // not income**, or the gym becomes a job with a scorecard.
+    CHECK(ld.blockCash < DayDials{}.shiftWage * 2.0);
+  }
+
+  // ---- and the regulars are people --------------------------------------
+  {
+    CHECK(TheRegulars().size() == 6);
+    for (const LeagueRegular& r : TheRegulars()) {
+      CHECK(std::string(r.name).size() > 0);
+      CHECK(std::string(r.who).size() > 25);   // they say something
+      // **Worse than the comp field on purpose** -- the good ones are at a
+      // comp on a Saturday.
+      CHECK(r.gradeOffset <= 1.0);
+    }
+    CHECK(ld.regularShift < 0.0);
+  }
+
+  // ---- and the whiteboard says something --------------------------------
+  {
+    League l;
+    LeagueDay(l, world, 1, ld);
+    CHECK(!LeagueLine(l, l.nextNight, ld).empty());
+    CHECK(!LeagueLine(l, l.nextNight - 1, ld).empty());
+    // **Silent unless it is close.** A whiteboard counting down from six
+    // days is a progress bar for a Wednesday.
+    CHECK(LeagueLine(l, l.nextNight - 6, ld).empty());
+  }
+}
+
 static void TestWorldStage() {
   WorldStageDials wd;
   const Rng world = Rng::FromSeed("the-world");
@@ -3368,6 +3611,49 @@ static void TestWorldStageSave() {
   // **An old save loads, and arrives with a career that never got on a
   // plane.** Exact rather than generous: giving a v26 career a World Cup
   // start would be inventing a year it did not have.
+  // The league: the personal best is the one number here nobody would
+  // forgive losing, because it is the whole reason to turn up.
+  {
+    League& lg = save.player.league;
+    lg.nextNight = 61;
+    lg.block = 3;
+    lg.weeksDone = 4;
+    lg.yourPoints = 210.0;
+    lg.best = 47.5;
+    lg.bestOnDay = 33;
+    lg.nights = 22;
+    lg.blockWins = 1;
+    lg.fieldPoints.assign(TheRegulars().size(), 12.0);
+    SaveGame lb;
+    CHECK(DeserializeSave(SerializeSave(save), lb) == LoadResult::Ok);
+    CHECK(lb.player.league.best == 47.5);
+    CHECK(lb.player.league.bestOnDay == 33);
+    CHECK(lb.player.league.nights == 22);
+    CHECK(lb.player.league.blockWins == 1);
+    CHECK(lb.player.league.block == 3);
+    CHECK(lb.player.league.weeksDone == 4);
+    CHECK(lb.player.league.nextNight == 61);
+    CHECK(lb.player.league.fieldPoints.size() == TheRegulars().size());
+    // Losing the block table would hand a half-finished block back with
+    // the regulars on nothing, which is a block you cannot lose.
+    for (double p : lb.player.league.fieldPoints) CHECK(p == 12.0);
+
+    std::string v28 = SerializeSave(save);
+    for (const char* k : {"league.next=", "league.block=", "league.weeks=",
+                          "league.you=", "league.best=", "league.bestday=",
+                          "league.nights=", "league.wins=",
+                          "league.fields=", "league.lastnight="}) {
+      DropSaveLine(v28, k);
+    }
+    SetSaveVersion(v28, 28);
+    SaveGame old28;
+    CHECK(DeserializeSave(v28, old28) == LoadResult::Ok);
+    CHECK(old28.player.league.nextNight == 0);
+    CHECK(old28.player.league.best == 0.0);
+    CHECK(old28.player.league.nights == 0);
+    CHECK(old28.player.league.block == 1);
+  }
+
   // **v27 -> v28 deliberately throws the old ranking away.** The lifetime
   // total is not a smaller version of the rolling one, it is a different
   // measurement -- and carrying 14,633 points across would hand a migrated
@@ -3375,6 +3661,12 @@ static void TestWorldStageSave() {
   // record behind it to age out.
   {
     std::string v27 = SerializeSave(save);
+    for (const char* k : {"league.next=", "league.block=", "league.weeks=",
+                          "league.you=", "league.best=", "league.bestday=",
+                          "league.nights=", "league.wins=",
+                          "league.fields=", "league.lastnight="}) {
+      DropSaveLine(v27, k);
+    }
     DropSaveLine(v27, "rank.results=");
     DropSaveLine(v27, "rank.r0d=");
     DropSaveLine(v27, "rank.r0p=");
@@ -3415,6 +3707,12 @@ static void TestWorldStageSave() {
   DropSaveLine(v26, "og.silver=");
   DropSaveLine(v26, "og.bronze=");
   DropSaveLine(v26, "og.last=");
+  for (const char* k : {"league.next=", "league.block=", "league.weeks=",
+                        "league.you=", "league.best=", "league.bestday=",
+                        "league.nights=", "league.wins=", "league.fields=",
+                        "league.lastnight="}) {
+    DropSaveLine(v26, k);
+  }
   DropSaveLine(v26, "rank.results=");
   DropSaveLine(v26, "rank.r0d=");
   DropSaveLine(v26, "rank.r0p=");
@@ -3610,6 +3908,10 @@ static void TestRivalSave() {
                         "team.coachfor=", "team.passed=", "team.lastpts=",
                         "team.lastseason=", "team.lastday=",
                         "team.mates=", "team.gone=", "rank.results=",
+                        "league.next=", "league.block=", "league.weeks=",
+                        "league.you=", "league.best=", "league.bestday=",
+                        "league.nights=", "league.wins=", "league.fields=",
+                        "league.lastnight=",
                         "rival.race=",
                         "rival.raceby=", "rival.racefa=", "rival.fas=",
                         "rival.fa0=", "rival.fa1=", "pastrivals=",
@@ -10413,6 +10715,7 @@ int main() {
   TestCircuitCareer();
   TestNationalTeam();
   TestWorldStage();
+  TestLeague();
   TestWorldStageSave();
   TestRival();
   TestRivalRace();

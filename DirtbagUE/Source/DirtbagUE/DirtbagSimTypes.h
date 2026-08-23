@@ -13,6 +13,7 @@
 #include "DirtbagComp.h"
 #include "DirtbagTeam.h"
 #include "DirtbagWorldStage.h"
+#include "DirtbagLeague.h"
 #include "DirtbagRival.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
@@ -583,6 +584,52 @@ struct FDirtbagNationalTeam
 	int32 LastReviewDay = 0;
 };
 
+/** A running league. Mirrors dirtbag::League.
+ *
+ *  **The low end of the same system**, and worth no ranking points at all
+ *  -- what you chase is your own best score, which only goes up and which
+ *  nobody can take off you. */
+USTRUCT(BlueprintType)
+struct FDirtbagLeague
+{
+	GENERATED_BODY()
+
+	/** The next night. Zero means the gym has not said yet. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	int32 NextNight = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	int32 Block = 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	int32 WeeksDone = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	double YourPoints = 0.0;
+
+	/** Parallel to the regulars, who turn up whether you do or not. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	TArray<double> FieldPoints;
+
+	/** **What you are actually chasing.** */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	double Best = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	int32 BestOnDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	int32 Nights = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	int32 BlockWins = 0;
+
+	/** The last night you actually climbed, so the regulars are not paid
+	 *  twice on the weeks you turn up. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	int32 LastClimbedNight = 0;
+};
+
 /** One result on the ranking record. Mirrors dirtbag::RankingResult.
  *
  *  **The ranking is made of these and is not accumulated.** A lifetime
@@ -619,6 +666,7 @@ UENUM(BlueprintType)
 enum class EDirtbagStage : uint8
 {
 	Domestic UMETA(DisplayName = "The circuit"),
+	League   UMETA(DisplayName = "League night"),
 	WorldCup UMETA(DisplayName = "World Cup"),
 	Games    UMETA(DisplayName = "The Games"),
 };
@@ -1531,6 +1579,10 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
 	FDirtbagOlympics Olympics;
 
+	/** The Wednesday night at the gym. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
+	FDirtbagLeague League;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gear")
 	FDirtbagShoes Shoes;
 
@@ -1798,6 +1850,8 @@ namespace DirtbagConvert
 	dirtbag::NationalTeam ToSim(const FDirtbagNationalTeam& In);
 	FDirtbagCircuit FromSim(const dirtbag::Circuit& In);
 	dirtbag::Circuit ToSim(const FDirtbagCircuit& In);
+	FDirtbagLeague FromSim(const dirtbag::League& In);
+	dirtbag::League ToSim(const FDirtbagLeague& In);
 	FDirtbagRankingResult FromSim(const dirtbag::RankingResult& In);
 	dirtbag::RankingResult ToSim(const FDirtbagRankingResult& In);
 	FDirtbagWorldCupSeason FromSim(const dirtbag::WorldCupSeason& In);

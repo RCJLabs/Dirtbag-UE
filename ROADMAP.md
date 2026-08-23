@@ -524,7 +524,7 @@ acted on: fewer races, longer clock.
 
 ---
 
-## Phase 9 — The Ladder   ⚠️ THE WHOLE LADDER IS BUILT 2026-08-23; TWO RUNGS AND A CLOCK REMAIN
+## Phase 9 — The Ladder   ⚠️ ALL SEVEN PIECES BUILT 2026-08-23; UNPLAYED IN THE EDITOR
 
 **Reinstated 2026-08-23** — Evan: *"wait comps were cut??? ok bring them back
 and the olympics. that's a huge part of the game."* The pivot and its
@@ -588,13 +588,32 @@ came thirteenth of thirteen — while every one of 76,000 checks passed,
 because they were all orderings. Found by measuring, and pinned now by a
 test that is absolute.
 
-**Still open here, and reported rather than fixed** because they are pass
-2's and pass 3's dials: **ranking points accumulate on a domestic clock that
-runs about five seasons a year.** A ten-year career peaks at 14,633 ranking
-points against a top tier of 2,200, the selection committee sits fifty
-times, and a grade-6 climber is parked at National tier where they win none
-of 247 comps. One of `compsPerSeason`, `seasonBreakDays` or
-`RankingPointsFor` is the fix and which one is a taste call.
+**Pass 5 closed the list**: the ranking, the rounds, and the league.
+
+**The ranking was a ramp with no top**, and it made two of the five gates
+below false. A ten-year career peaked at 14,633 points against a top tier
+of 2,200, so a career could not fail to reach the Games, and a grade-6
+climber parked at National tier won none of 247 comps. Three causes, one
+idea: *a placing was worth the same wherever and whenever you got it.* The
+curve is top-weighted now, the ranking is a **rolling twelve-month record**
+rather than a lifetime total, and a placing is weighted by which room it
+was in. It peaks at 1,348 and settles near 700–1,000, flat across ten years
+and thirty. The selection committee sits **once a year** rather than fifty
+times in ten.
+
+**Quals → semi → final** at Regional and above: six out of quals, four out
+of the semi, a four-problem final. The score does not carry and the cut is
+read.
+
+**Leagues** (`Sim/DirtbagLeague`): five dollars, ten goes, six named
+regulars, eight-week blocks, and **no ranking points at all** — what you
+chase is your own best score. The probe found both of its flaws in an
+afternoon: the regulars were paid on a different scale from the player (65
+blocks won out of 65) and the personal best saturated in a month (2 PBs in
+519 nights). Both fixed and measured: 16 blocks of 64, about one PB a year.
+
+**What is left is Editor-side.** Nobody has stood in the gym and pressed E
+on a comp poster.
 
 **Leagues come with it** as the same system's low end: a weekly gym night
 with a personal best to chase rather than a ranking. Cheap, and it gives the
@@ -793,6 +812,8 @@ it, being the same system's low end.
 ---
 
 ## Changelog
+
+- 2026-08-23 - **Phase 9 pass 5: the ladder is a ladder** (`Sim/DirtbagLeague.*`, SAVE v28 and v29). Three pieces, and the first was a bug the fourth pass's probe had already measured: **the ranking was a ramp with no top.** A ten-year career peaked at **14,633 points against a top tier of 2,200**, which made two of this phase's five gates false -- a career could not fail to reach the Games, and a grade-6 climber parked at National tier won **none of 247 comps** while the ranking said they belonged there. Three causes and one idea behind all of them: **a placing was worth the same wherever and whenever you got it.** The curve was linear in how many people you beat, so fifth of nine paid fifty -- half a win, for beating nobody; points accumulated forever, so a rung cleared once was cleared for life; and a gym podium paid exactly what a National podium paid. Now: top-weighted like every real ranking table, a **rolling twelve-month record** rather than a total, and weighted by which room you were in (0.30 / 0.65 / 1.00, set so the rungs land on the 2D game's own thresholds over a year of turning up). Measured after: it peaks at 1,348 and settles at 672-1,023, **flat across ten years and thirty**, which is what a rolling window is supposed to do. `rankingPoints` is derived now, and a direct write survives exactly one morning -- the first version of the season test did that and the night tick caught it before any engine code could. The same measurement fixed the **selection committee sitting fifty times in ten years**: pass 3 put the review on the domestic season on the grounds that a season is the unit a committee works in, right about the unit and wrong about the length, because a season is seventy-three days. Once a year now, refused rather than deferred, and $900 a year rather than "$180 a season" paid five times -- the same money on an honest label. **Quals, semi, final** at Regional and above: six out of qualification, four out of the semi, a four-problem five-go final, and two things carry it -- **the score does not carry** (going through replaces the board with a fresh five half a grade up) and **the cut is read** (`Settle` skips anybody who went home, or a semi produces the qualification table again). Being eliminated is a result and not an error: out in qualification is a different day from finishing last in a final. **Leagues** are the other end of the same system: five dollars, ten goes, six named regulars, eight-week blocks, and **no ranking points at all** -- a comp is a day with a result and a league is a habit with a number, and what you chase is your own best score, which only goes up and which nobody can take off you. Both of its flaws were found by the probe in an afternoon and both were the league borrowing the comp's arithmetic without its meaning: the regulars took a flat 20-50 for turning up while the player took a hundred for a win, so the probe won **sixty-five blocks out of sixty-five**; and the personal best, priced relative to the board like a comp's, was **identical every week however good you got** -- two personal bests in five hundred and nineteen nights. The block table is fed from the scorecard now on one curve for everybody, the same fix and the same sentence as the World Cup's table two passes ago, and the league board is its own object -- a wide spread priced by the absolute grade of each problem -- so it rises with you and so does the number. Sixteen blocks of sixty-four and about one personal best a year. Also removed: **a guard that could not fire.** `out.won = place == 1 && yourPoints > 0` looked like the zero-tie rule and was not -- `LeagueTable` already sorts a climber on nothing behind everybody else on nothing -- so deleting it failed no test and changed no outcome. Second time this project has found one, and the rule is tested where it lives now. Three name collisions in one week (`WorldCupVenue`, `LeagueRegular`, and five `LeagueDials` fields shadowing `CompDials`), all the shape of `RivalDials::startAge`: a deliberate difference is indistinguishable from a drifted number until the name says so. preflight green on all twelve; probe coverage 103 sim rules at the start of the day, 134 now.
 
 - 2026-08-23 - **Phase 9 pass 4: the World Cup and the Games** (`Sim/DirtbagWorldStage.*`, SAVE v27). The top of the ladder: ten real venues with real travel costs, six rounds a season, and **a field that flies whether you do or not** -- so a round you skip is not a round that did not happen, it is everybody else banking while you stayed home, and the season is decided by which rounds you could afford. Then the Games on a four-year cycle, gated at Olympic Hopeful, against seven climbers who are all at or above the world standard. Both reuse the comp engine unchanged, because **the format is not what makes it hard** -- five problems and seven goes, exactly like a Tuesday at the gym; what differs is the roster, the board and getting there. **The design call is that the world stage is absolute and a domestic comp is not.** A gym comp is set at *your* grade plus a tier offset because a gym comp is your peers, and the board follows you up as you improve; the World Cup is set where it is set, and getting better is what closes the gap. **Reading it the other way made the entire top of the ladder unwinnable at every skill level in the game, for everyone** -- a climber at 95 skill topped 0.01 of five problems and finished thirteenth of thirteen, and so did a climber at 55 -- and **all 76,000 checks passed**, because every one of them was an ordering and orderings hold fine on a game nobody can win. Found by measuring, the same way the rival's grade-for-skill bug was found in Phase 8, and it is the same lesson twice now: **a system whose tests are all relative needs one test that is absolute.** The standard is set against what a career actually reaches rather than against a feeling -- a ten-year career at the crag lands on an allround grade of about 6.9, so the world stage sits a grade and a half above that: at 9.2 you are tenth of thirteen, at 9.9 you podium one round in five, at 10.6 you win two in five. The Games needed correcting the other way: a softer board put a grade-9.9 climber on the medals **44%** of the time against a 19% World Cup podium, because a podium is three of eight there and three of thirteen here -- level boards put both at about 19%, so **a medal is as hard as a World Cup podium and getting to the start line is what makes it rarer.** **The probe had never entered a comp.** `Sim/tools/season.cpp` gained a `comper` policy, and until it existed the whole comp system -- the gym comp, the circuit, the tiers, the team, the World Cup, the Games -- was measured only by the harness; the measured game was not the played game at the scale of an entire subsystem, and no checker could see it because every door existed and nothing that plays a career ever opened one. It immediately found **two calendars nothing in the harness could have caught**, because both are about *how often* and a harness assertion asks *whether*: the Games came round every 56 days (**sixty Games in a ten-year career**; now 1460, the cycle everybody knows, so a thirty-year career sees seven) and a World Cup season lasted eleven weeks (**forty-seven seasons and 281 rounds in ten years**; now about a hundred days of competing and a 240-day off-season). It also found three things **reported rather than fixed**, because they are pass 2's and pass 3's dials: a ten-year career peaks at **14,633 ranking points against a top tier of 2,200**, the selection committee **sits fifty times**, and a grade-6 climber parked at National tier **wins none of 247 comps** -- all one root, ranking accumulating on a domestic clock that runs five seasons a year. **The doors are the gym wall**, all three ladders on one key in the order the day matters -- the Games, then a World Cup round, then the Tuesday comp -- and `CanFly` and `CanEnterTheGames` answer the whole question sim-side, because a rule that lives in a UFUNCTION cannot be tested from the harness and every rule this project has left in one has been found late.
 

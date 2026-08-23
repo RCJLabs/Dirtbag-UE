@@ -1572,6 +1572,10 @@ bool UDirtbagGameInstance::SettleComp()
 	// keeps the attempt loop, the scoreboard and the placing text shared,
 	// which is what stops two comps disagreeing about what a flash is
 	// worth.
+	if (Comp.Stage == EDirtbagStage::League)
+	{
+		return SettleTheLeague();
+	}
 	if (Comp.Stage != EDirtbagStage::Domestic)
 	{
 		return SettleTheWorldStage();
@@ -1695,6 +1699,110 @@ bool UDirtbagGameInstance::SettleComp()
 
 	Comp.bSettled = true;
 	Comp.Placing = FString(dirtbag::PlacingText(Res).c_str());
+	Comp.Board.Reset(Res.board.size());
+	for (const dirtbag::CompEntrant& E : Res.board)
+	{
+		Comp.Board.Add(FString::Printf(TEXT("%s%s   %.0f"),
+		                               E.isYou ? TEXT("> ") : TEXT("  "),
+		                               UTF8_TO_TCHAR(E.name.c_str()),
+		                               E.score));
+	}
+	RefreshComp();
+	return true;
+}
+
+// --- the league --------------------------------------------------------
+
+FString UDirtbagGameInstance::LeagueLine() const
+{
+	return FString(dirtbag::LeagueLine(DirtbagConvert::ToSim(Player.League),
+	                                   Player.Day)
+	                   .c_str());
+}
+
+bool UDirtbagGameInstance::LeagueIsTonight() const
+{
+	return dirtbag::LeagueTonight(DirtbagConvert::ToSim(Player.League),
+	                              Player.Day);
+}
+
+FString UDirtbagGameInstance::LeagueStandingLine() const
+{
+	const dirtbag::League L = DirtbagConvert::ToSim(Player.League);
+	if (L.nights <= 0)
+	{
+		return FString();
+	}
+	const std::vector<dirtbag::CircuitStanding> Table =
+	    dirtbag::LeagueTable(L);
+	int32 Place = 0;
+	for (int32 i = 0; i < static_cast<int32>(Table.size()); i++)
+	{
+		if (Table[i].isYou) { Place = i + 1; }
+	}
+	FString Line = FString::Printf(
+	    TEXT("League block %d: %d of %d after %d week%s.  Best: %.0f"),
+	    L.block, Place, static_cast<int32>(Table.size()), L.weeksDone,
+	    L.weeksDone == 1 ? TEXT("") : TEXT("s"), L.best);
+	if (L.blockWins > 0)
+	{
+		Line += FString::Printf(TEXT("  (%d block%s won)"), L.blockWins,
+		                        L.blockWins == 1 ? TEXT("") : TEXT("s"));
+	}
+	return Line;
+}
+
+bool UDirtbagGameInstance::EnterLeague()
+{
+	if (Comp.bActive || !LeagueIsTonight())
+	{
+		return false;
+	}
+	const dirtbag::LeagueDials LD;
+	if (Player.Cash < LD.nightFee)
+	{
+		return false;
+	}
+	Player.Cash -= LD.nightFee;
+	PassHours(LD.nightHours);
+	Day.Energy = FMath::Max(0.0, Day.Energy - LD.nightEnergy);
+
+	GLiveComp = dirtbag::SetTheLeagueBoard(
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), AllroundGrade(),
+	    Player.Day, LD);
+	Comp = FDirtbagCompReadout{};
+	Comp.bActive = true;
+	Comp.Stage = EDirtbagStage::League;
+	Comp.Where = TEXT("League night");
+	RefreshComp();
+	return true;
+}
+
+bool UDirtbagGameInstance::SettleTheLeague()
+{
+	const dirtbag::LeagueDials LD;
+	dirtbag::League L = DirtbagConvert::ToSim(Player.League);
+	const dirtbag::LeagueResult Res = dirtbag::SettleLeague(
+	    L, GLiveComp, AllroundGrade(), Player.Day,
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed) +
+	                           std::string("#league#") +
+	                           std::to_string(Player.Day)),
+	    LD);
+	Player.League = DirtbagConvert::FromSim(L);
+	Player.Cash += Res.cash;
+	if (Res.rep > 0.0)
+	{
+		dirtbag::Standing S = DirtbagConvert::ToSim(Player.Standing);
+		dirtbag::Shift(S, dirtbag::Faction::Scene, Res.rep);
+		Player.Standing = DirtbagConvert::FromSim(S);
+	}
+	LeagueNews = FString(Res.news.c_str());
+
+	// **No ranking points and no circuit points.** The whole reason a
+	// league is not a small comp: what it moves is your own number.
+	Comp.bSettled = true;
+	Comp.Placing = FString::Printf(
+	    TEXT("%d of %d, %.0f points."), Res.place, Res.fieldSize, Res.score);
 	Comp.Board.Reset(Res.board.size());
 	for (const dirtbag::CompEntrant& E : Res.board)
 	{

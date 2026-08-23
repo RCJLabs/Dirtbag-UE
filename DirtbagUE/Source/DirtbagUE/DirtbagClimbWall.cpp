@@ -683,6 +683,28 @@ void ADirtbagClimbWall::PushPrompt()
 			Lines.Add(Notice);
 		}
 
+		// **And the whiteboard, which is the other end of the same
+		// system.** Below the comp poster because it is the smaller night,
+		// and it says the number you are here for rather than a placing.
+		const FString Whiteboard = Game->LeagueLine();
+		if (!Whiteboard.IsEmpty())
+		{
+			FDirtbagPromptLine Notice;
+			Notice.Text = Game->LeagueIsTonight()
+			                  ? Whiteboard + TEXT("  (E) to sign in")
+			                  : Whiteboard;
+			Notice.Tone = EDirtbagPromptTone::Plain;
+			Lines.Add(Notice);
+		}
+		const FString Standing = Game->LeagueStandingLine();
+		if (!Standing.IsEmpty() && Game->LeagueIsTonight())
+		{
+			FDirtbagPromptLine Notice;
+			Notice.Text = Standing;
+			Notice.Tone = EDirtbagPromptTone::Plain;
+			Lines.Add(Notice);
+		}
+
 		// The days-out line, when there is one and no round today. Kept
 		// separate from the poster above so the wall can say "Seoul, in
 		// three days, $790" while the local comp says its own thing.
@@ -880,6 +902,22 @@ void ADirtbagClimbWall::OnInteract()
 				return;
 			}
 			Toast(TEXT("You cannot cover the entry."), FColor::Orange, 5.f);
+			return;
+		}
+		// Last, because it is the smallest night -- and if a comp and the
+		// league land on the same day, the comp is the one you came for.
+		if (Game->LeagueIsTonight())
+		{
+			if (Game->EnterLeague())
+			{
+				Toast(TEXT("Five problems, ten goes, and a number to beat."
+				           "  1-5."),
+				      FColor::Yellow, 8.f);
+				PushPrompt();
+				return;
+			}
+			Toast(TEXT("You cannot cover the five dollars."), FColor::Orange,
+			      5.f);
 			return;
 		}
 	}

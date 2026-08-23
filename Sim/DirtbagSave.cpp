@@ -290,6 +290,24 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // version of the new one, it is a different measurement. A migrated career
 // is Unranked and re-earns its rung over its next season of comps, which
 // is about eleven weeks of play.
+// v28 -> v29: the league. A v28 career had no Wednesday night, so it
+// arrives with none scheduled -- and the night tick schedules the first one
+// inside the week, which is where a career starts anyway. **The personal
+// best starts at nothing**, exactly, because it is a record of nights you
+// climbed and a migrated career climbed none.
+void MigrateV28ToV29(SaveFields& fields) {
+  fields["league.next"] = "0";
+  fields["league.block"] = "1";
+  fields["league.weeks"] = "0";
+  fields["league.you"] = "0";
+  fields["league.best"] = "0";
+  fields["league.bestday"] = "0";
+  fields["league.nights"] = "0";
+  fields["league.wins"] = "0";
+  fields["league.lastnight"] = "0";
+  fields["league.fields"] = "0";
+}
+
 void MigrateV27ToV28(SaveFields& fields) {
   fields["ranking"] = "0";
   fields["rank.results"] = "0";
@@ -423,7 +441,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21,
       &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24,
       &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27,
-      &MigrateV27ToV28};
+      &MigrateV27ToV28, &MigrateV28ToV29};
   return kMigrations;
 }
 
@@ -649,6 +667,23 @@ std::string SerializeSave(const SaveGame& save) {
         const std::string k = "rank.r" + IntToStr(static_cast<int>(i));
         out << k << "d=" << IntToStr(rr[i].day) << "\n";
         out << k << "p=" << NumToStr(rr[i].points) << "\n";
+      }
+
+      const League& lg = save.player.league;
+      out << "league.next=" << IntToStr(lg.nextNight) << "\n";
+      out << "league.block=" << IntToStr(lg.block) << "\n";
+      out << "league.weeks=" << IntToStr(lg.weeksDone) << "\n";
+      out << "league.you=" << NumToStr(lg.yourPoints) << "\n";
+      out << "league.best=" << NumToStr(lg.best) << "\n";
+      out << "league.bestday=" << IntToStr(lg.bestOnDay) << "\n";
+      out << "league.nights=" << IntToStr(lg.nights) << "\n";
+      out << "league.wins=" << IntToStr(lg.blockWins) << "\n";
+      out << "league.lastnight=" << IntToStr(lg.lastClimbedNight) << "\n";
+      out << "league.fields="
+          << IntToStr(static_cast<int>(lg.fieldPoints.size())) << "\n";
+      for (std::size_t i = 0; i < lg.fieldPoints.size(); i++) {
+        out << "league.field" << IntToStr(static_cast<int>(i)) << "="
+            << NumToStr(lg.fieldPoints[i]) << "\n";
       }
 
       const Olympics& og = save.player.olympics;
@@ -878,7 +913,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         fas = 0, pastCount = 0, raceFa = 0, circuitDates = 0,
         circuitFields = 0, teamStatus = 0, teamEver = 0, teamMates = 0,
         teamGone = 0, wcRounds = 0, wcFields = 0, wcClosed = 0,
-        rankResults = 0;
+        rankResults = 0, leagueFields = 0;
     if (!ParseString(fields, "rival.name", rv.name) ||
         !ParseInt(fields, "rival.style", style) ||
         !ParseInt(fields, "rival.vibe", vibe) ||
@@ -934,6 +969,19 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseInt(fields, "wc.rounds", wcRounds) ||
         !ParseInt(fields, "wc.fields", wcFields) ||
         !ParseInt(fields, "rank.results", rankResults) ||
+        !ParseInt(fields, "league.next", save.player.league.nextNight) ||
+        !ParseInt(fields, "league.block", save.player.league.block) ||
+        !ParseInt(fields, "league.weeks", save.player.league.weeksDone) ||
+        !ParseDouble(fields, "league.you",
+                     save.player.league.yourPoints) ||
+        !ParseDouble(fields, "league.best", save.player.league.best) ||
+        !ParseInt(fields, "league.bestday",
+                  save.player.league.bestOnDay) ||
+        !ParseInt(fields, "league.nights", save.player.league.nights) ||
+        !ParseInt(fields, "league.wins", save.player.league.blockWins) ||
+        !ParseInt(fields, "league.lastnight",
+                  save.player.league.lastClimbedNight) ||
+        !ParseInt(fields, "league.fields", leagueFields) ||
         !ParseInt(fields, "og.next", save.player.olympics.nextDay) ||
         !ParseInt(fields, "og.appearances",
                   save.player.olympics.appearances) ||
@@ -997,6 +1045,15 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         return LoadResult::BadFormat;
       }
       save.player.circuit.fieldPoints.push_back(p);
+    }
+
+    save.player.league.fieldPoints.clear();
+    for (int i = 0; i < leagueFields; i++) {
+      double p = 0.0;
+      if (!ParseDouble(fields, "league.field" + IntToStr(i), p)) {
+        return LoadResult::BadFormat;
+      }
+      save.player.league.fieldPoints.push_back(p);
     }
 
     save.player.rankingRecord.clear();

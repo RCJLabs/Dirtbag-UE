@@ -58,6 +58,7 @@ struct Tally {
   double rankingPeak = 0.0;
   double rankingEnd = 0.0;   // where it settles, which is the real number
   int roundsClimbed = 0, finalsReached = 0;
+  int leagueNights = 0, leaguePBs = 0;
   int teamSeasons = 0;
   int wcStarts = 0, wcMissed = 0, wcPodiums = 0, wcWins = 0, wcTitles = 0;
   int gamesEntered = 0, medals = 0;
@@ -460,6 +461,29 @@ int main(int argc, char** argv) {
                          cdl);
         }
       };
+
+      // **The Wednesday night, played rather than skipped.** Cheap, so
+      // the policy always turns up -- which is the honest test of whether
+      // a league is worth turning up to.
+      if (LeagueTonight(player.league, player.day) &&
+          player.cash >= LeagueDials{}.nightFee) {
+        const LeagueDials ld;
+        player.cash -= ld.nightFee;
+        CompState night =
+            SetTheLeagueBoard(world, yourGrade, player.day, ld);
+        playTheBoard(night, LeagueCompDials(ld));
+        const LeagueResult lr =
+            SettleLeague(player.league, night, yourGrade, player.day,
+                         world.Derive("probe-league#" +
+                                      std::to_string(day)),
+                         ld);
+        player.cash += lr.cash;
+        if (lr.rep > 0.0) Shift(player.standing, Faction::Scene, lr.rep);
+        t.leagueNights++;
+        if (lr.personalBest) t.leaguePBs++;
+        today.hour = 21.0;
+        note = "league: " + std::to_string(lr.place);
+      }
 
       const GamesCheck games =
           CanEnterTheGames(player.olympics, player.rankingPoints, player.day,
@@ -1242,7 +1266,8 @@ int main(int argc, char** argv) {
          "\thead\tallround\tshoewear\trivallost\trivalgens"
          "\traces\traceslost\traceswon"
          "\tcomps\tcompwins\tcomppods\trank\trankend\tteamyears"
-         "\trounds\tfinals"
+         "\trounds\tfinals\tleaguenights\tleaguepbs\tleaguebest"
+         "\tleaguewins"
          "\twcstarts\twcmissed\twcpods\twcwins\twctitles"
          "\tgames\tmedals\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
@@ -1250,6 +1275,7 @@ int main(int argc, char** argv) {
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
          "\t%d\t%d\t%d"
          "\t%d\t%d\t%d\t%.0f\t%.0f\t%d\t%d\t%d"
+         "\t%d\t%d\t%.0f\t%d"
          "\t%d\t%d\t%d\t%d\t%d"
          "\t%d\t%d\n",
          seed.c_str(),
@@ -1291,7 +1317,9 @@ int main(int argc, char** argv) {
          player.shoes.wear, t.linesLostToTheRival, t.rivalGenerations,
          t.racesStarted, t.racesLost, t.racesWon,
          t.compsEntered, t.compWins, t.compPodiums, t.rankingPeak,
-         t.rankingEnd, t.teamSeasons, t.roundsClimbed, t.finalsReached, t.wcStarts, t.wcMissed, t.wcPodiums, t.wcWins,
+         t.rankingEnd, t.teamSeasons, t.roundsClimbed, t.finalsReached,
+         t.leagueNights, t.leaguePBs, player.league.best,
+         player.league.blockWins, t.wcStarts, t.wcMissed, t.wcPodiums, t.wcWins,
          t.wcTitles, t.gamesEntered, t.medals);
 
   if (quiet) {

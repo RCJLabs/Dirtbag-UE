@@ -182,6 +182,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.circuit = ToSim(In.Circuit);
 	Out.worldCup = ToSim(In.WorldCup);
 	Out.olympics = ToSim(In.Olympics);
+	Out.league = ToSim(In.League);
 	Out.team = ToSim(In.Team);
 	Out.pastRivals.reserve(In.PastRivals.Num());
 	for (const FDirtbagPastRival& P : In.PastRivals)
@@ -246,6 +247,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Circuit = FromSim(In.circuit);
 	Out.WorldCup = FromSim(In.worldCup);
 	Out.Olympics = FromSim(In.olympics);
+	Out.League = FromSim(In.league);
 	Out.Team = FromSim(In.team);
 	Out.PastRivals.Reset(In.pastRivals.size());
 	for (const dirtbag::PastRival& P : In.pastRivals)
@@ -759,6 +761,40 @@ dirtbag::Circuit ToSim(const FDirtbagCircuit& In)
 	Out.fieldPoints.reserve(In.FieldPoints.Num());
 	for (double P : In.FieldPoints) { Out.fieldPoints.push_back(P); }
 	Out.titles = In.Titles;
+	return Out;
+}
+
+FDirtbagLeague FromSim(const dirtbag::League& In)
+{
+	FDirtbagLeague Out;
+	Out.NextNight = In.nextNight;
+	Out.Block = In.block;
+	Out.WeeksDone = In.weeksDone;
+	Out.YourPoints = In.yourPoints;
+	Out.FieldPoints.Reset(In.fieldPoints.size());
+	for (double P : In.fieldPoints) { Out.FieldPoints.Add(P); }
+	Out.Best = In.best;
+	Out.BestOnDay = In.bestOnDay;
+	Out.Nights = In.nights;
+	Out.BlockWins = In.blockWins;
+	Out.LastClimbedNight = In.lastClimbedNight;
+	return Out;
+}
+
+dirtbag::League ToSim(const FDirtbagLeague& In)
+{
+	dirtbag::League Out;
+	Out.nextNight = In.NextNight;
+	Out.block = In.Block;
+	Out.weeksDone = In.WeeksDone;
+	Out.yourPoints = In.YourPoints;
+	Out.fieldPoints.reserve(In.FieldPoints.Num());
+	for (double P : In.FieldPoints) { Out.fieldPoints.push_back(P); }
+	Out.best = In.Best;
+	Out.bestOnDay = In.BestOnDay;
+	Out.nights = In.Nights;
+	Out.blockWins = In.BlockWins;
+	Out.lastClimbedNight = In.LastClimbedNight;
 	return Out;
 }
 
