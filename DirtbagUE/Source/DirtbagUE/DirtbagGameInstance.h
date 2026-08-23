@@ -1439,6 +1439,12 @@ public:
 	/** Rebuild the comp board from the live sim state. */
 	void RefreshComp();
 
+	/** Everything the climber carries into any attempt, anywhere -- the
+	 *  flaw, the temperament, the joints, the flu, the tooth, the rubber.
+	 *  One place, because the comp resolver used to assume a clean body of
+	 *  everybody and nobody noticed. See Sim/DirtbagBodyContext.h. */
+	dirtbag::BodyContext TheBodyYouWalkedInWith() const;
+
 	/** Put a result on the ranking record and refresh the derived total.
 	 *  The one way `RankingPoints` is allowed to move from inside a day --
 	 *  see the field's own note in Sim/DirtbagDay.h. */

@@ -1565,11 +1565,30 @@ bool UDirtbagGameInstance::CompAttempt(int32 Which)
 		return false;
 	}
 	const int32 Before = GLiveComp.attemptsLeft;
+	// **Everything the climber walked in carrying**, or a comp is the one
+	// room in the game where a wrecked body climbs like a fresh one --
+	// which it was, measured: a maxed-out finger joint, four cortisone
+	// shots, a flu and an abscess scored identically to nothing at all.
+	// See Sim/DirtbagBodyContext.h.
 	dirtbag::AttemptProblem(
 	    GLiveComp, Which, DirtbagConvert::ToSim(Player.Climber),
 	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed) +
 	                           std::string("#comp#") +
-	                           std::to_string(Player.Day)));
+	                           std::to_string(Player.Day)),
+	    // The dials the live board was set under. Today every variant
+	    // agrees on the two things `AttemptProblem` actually reads -- the
+	    // pressure and the zone thresholds -- so this changes nothing yet.
+	    // It is here because the board and the burns resolving under
+	    // *different* dials is the same class of bug as the one this whole
+	    // change closes, and it costs a branch to make impossible.
+	    Comp.Stage == EDirtbagStage::League
+	        ? dirtbag::LeagueCompDials()
+	    : Comp.Stage == EDirtbagStage::WorldCup
+	        ? dirtbag::WorldCupCompDials()
+	    : Comp.Stage == EDirtbagStage::Games
+	        ? dirtbag::OlympicCompDials()
+	        : dirtbag::CompDials{},
+	    TheBodyYouWalkedInWith());
 	RefreshComp();
 	// The go only counted if the sim took it -- a bad index or a problem
 	// you have already topped spends nothing, which the caller needs to
@@ -2303,6 +2322,18 @@ void UDirtbagGameInstance::RecordResult(double Points)
 	// makes results *age out*; this is what makes them count today.
 	Player.RankingPoints =
 	    dirtbag::RankingFrom(P.rankingRecord, Player.Day);
+}
+
+dirtbag::BodyContext UDirtbagGameInstance::TheBodyYouWalkedInWith() const
+{
+	dirtbag::BodyContext Body;
+	Body.who = DirtbagConvert::ToSim(Player.Character);
+	Body.medical = DirtbagConvert::ToSim(Player.Medical);
+	Body.sickness = DirtbagConvert::ToSim(Player.Sickness);
+	Body.teeth = DirtbagConvert::ToSim(Player.Teeth);
+	Body.shoeWear = Player.Shoes.Wear;
+	Body.day = Player.Day;
+	return Body;
 }
 
 double UDirtbagGameInstance::AllroundGrade() const

@@ -15,6 +15,7 @@
 #include "DirtbagCharacter.h"
 #include "DirtbagCore.h"
 #include "DirtbagAilments.h"
+#include "DirtbagBodyContext.h"
 #include "DirtbagMedical.h"
 #include "DirtbagRng.h"
 #include "DirtbagSession.h"

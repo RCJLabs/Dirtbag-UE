@@ -484,6 +484,21 @@ int main(int argc, char** argv) {
                         player.climber.skills.endurance +
                         player.climber.skills.head) / 5.0);
 
+      // **What the climber walked in carrying.** Rebuilt each time it is
+      // used, because the flu and the tooth and the joints all move; a
+      // comp resolved without it is a comp a wrecked climber walks
+      // through -- see Sim/DirtbagBodyContext.h.
+      const auto bodyNow = [&]() {
+        BodyContext b;
+        b.who = player.character;
+        b.medical = player.medical;
+        b.sickness = player.sickness;
+        b.teeth = player.teeth;
+        b.shoeWear = player.shoes.wear;
+        b.day = player.day;
+        return b;
+      };
+
       // Seven goes at five problems, easiest first.
       const auto playTheBoard = [&](CompState& board, const CompDials& cdl) {
         for (int a = 0; a < cdl.attempts; a++) {
@@ -498,7 +513,7 @@ int main(int argc, char** argv) {
           AttemptProblem(board, pick, player.climber,
                          world.Derive("probe-comp#" + std::to_string(day) +
                                       "#" + std::to_string(a)),
-                         cdl);
+                         cdl, bodyNow());
         }
       };
 

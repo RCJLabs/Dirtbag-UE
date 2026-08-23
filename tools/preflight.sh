@@ -16,6 +16,11 @@
 #                       compiled it
 #   engine-fields       `Day.Day`, when the day counter lives on
 #                       FDirtbagPlayerState
+#   bodycontext         the comp resolver assembled its own AttemptInput and
+#                       set six fields, so a climber with a wrecked finger,
+#                       a flu and an abscess scored the same as a fresh one
+#                       at a comp -- in the path that serves comps, the
+#                       circuit, the World Cup, the Games and league nights
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -57,6 +62,10 @@ python3 tools/check-logcat.py
 echo
 echo "== asset slots are actually played =="
 python3 tools/check-cues.py
+
+echo
+echo "== every attempt is climbed by a body =="
+python3 tools/check-bodycontext.py
 
 echo
 echo "== every gameplay verb has a door =="

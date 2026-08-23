@@ -16,6 +16,7 @@
 #include "DirtbagLeague.h"
 #include "DirtbagMedical.h"
 #include "DirtbagAilments.h"
+#include "DirtbagBodyContext.h"
 #include "DirtbagRival.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"

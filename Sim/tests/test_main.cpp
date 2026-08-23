@@ -15,6 +15,7 @@
 #include "../DirtbagLeague.h"
 #include "../DirtbagMedical.h"
 #include "../DirtbagAilments.h"
+#include "../DirtbagBodyContext.h"
 #include "../DirtbagRival.h"
 #include "../DirtbagZones.h"
 #include "../DirtbagConditions.h"
@@ -1892,6 +1893,116 @@ static void TestCircuit() {
     // multiplier is 1.001, and then a season has no shape.
     CHECK(b.yourPoints == std::round(a.yourPoints * cd.finalsMultiplier));
     CHECK(b.yourPoints > a.yourPoints * 1.4);
+  }
+
+  // ---- a comp is climbed by the body you walked in with -----------------
+  //
+  // **The hole this closes was four systems wide and it was found by
+  // accident.** `AttemptProblem` built its own `AttemptInput` and set six
+  // fields; it never set the joints, the ailments, the comeback stage, the
+  // flaw or the rubber. Measured before the fix, over 400 boards:
+  //
+  //     comp score, healthy climber:      4.1
+  //     comp score, same climber wrecked: 4.1
+  //
+  // Through the session path the same body carried 2.2 grades of ailment
+  // penalty and a fully degraded joint. Two paths, one assembling the
+  // input by hand -- the same shape as every "written and never wired"
+  // this project has found, in the path that serves gym comps, the
+  // circuit, the World Cup, the Games *and* league nights.
+  {
+    Climber you;
+    you.skills.power = you.skills.fingers = you.skills.technique =
+        you.skills.endurance = you.skills.head = 60.0;
+    you.skin = 100.0;
+    you.psyche = 0.7;
+
+    BodyContext wreck;
+    wreck.medical.joints[static_cast<int>(InjuryKind::Pulley)] = 1.0;
+    wreck.medical.scars.push_back(Scar{InjuryKind::Pulley, 0.9, 1});
+    wreck.sickness.active = true;
+    wreck.sickness.severity = 0.9;
+    wreck.teeth.stage = ToothStage::Abscess;
+    wreck.shoeWear = 1.0;
+    wreck.day = 400;
+
+    const auto playIt = [&](const BodyContext& b) {
+      double total = 0.0;
+      const int N = 120;
+      for (int s = 0; s < N; s++) {
+        const Rng w = Rng::FromSeed("bodyctx#" + std::to_string(s));
+        CompState board = SetTheBoard(w, CompTier::Local, 8.0, 40 + s, cd);
+        for (int a = 0; a < cd.attempts; a++) {
+          int pick = -1;
+          for (std::size_t i = 0; i < board.problems.size(); i++) {
+            if (!board.progress[i].topped) {
+              pick = static_cast<int>(i);
+              break;
+            }
+          }
+          if (pick < 0) break;
+          AttemptProblem(board, pick, you,
+                         w.Derive("a#" + std::to_string(a)), cd, b);
+        }
+        total += YourScore(board, cd);
+      }
+      return total / static_cast<double>(N);
+    };
+
+    const double well = playIt(BodyContext{});
+    const double hurt = playIt(wreck);
+    CHECK(well > 0.0);
+    // **Materially, not by a rounding error.** A body in that state has to
+    // be a worse day at a comp than a clean one, or the whole medical half
+    // of the game is decoration in the room it matters most.
+    CHECK(hurt < well * 0.75);
+
+    // And each of the four carries on its own, so no one of them can go
+    // quiet without this failing.
+    BodyContext joints;
+    joints.medical.joints[static_cast<int>(InjuryKind::Pulley)] = 1.0;
+    joints.day = 400;
+    BodyContext ill;
+    ill.sickness.active = true;
+    ill.sickness.severity = 0.9;
+    BodyContext tooth;
+    tooth.teeth.stage = ToothStage::Abscess;
+    BodyContext rubber;
+    rubber.shoeWear = 1.0;
+    CHECK(playIt(joints) < well);
+    CHECK(playIt(ill) < well);
+    CHECK(playIt(tooth) < well);
+    CHECK(playIt(rubber) < well);
+
+    // **A flaw and a comp's nerves are two reasons, not one.** The old
+    // code assigned the pressure penalty over the top of the flaw, so
+    // Happy Feet simply did not exist at a comp; `ApplyBody` adds.
+    {
+      AttemptInput in;
+      in.route.type = RouteType::Technical;
+      in.oddsPenalty = 0.4;         // the situation has had its say
+      BodyContext happy;
+      Build build;
+      build.flaw = Flaw::HappyFeet;
+      happy.who = MakeCharacter(build, Rng::FromSeed("hf"));
+      ApplyBody(in, happy);
+      CHECK(in.oddsPenalty > 0.4);
+      CHECK(OddsPenalty(happy.who, RouteType::Technical) > 0.0);
+    }
+    // A clean body is exactly neutral, which is what makes the default
+    // argument safe and every golden vector unchanged.
+    {
+      AttemptInput in;
+      ApplyBody(in, BodyContext{});
+      CHECK(in.oddsPenalty == 0.0);
+      CHECK(in.boldness == 0.0);
+      CHECK(in.ailmentPenalty == 0.0);
+      CHECK(in.shoeWear == 0.0);
+      CHECK(in.injuryStagePenalty == 1.0);
+      for (int j = 0; j < kInjuryKindCount; j++) {
+        CHECK(in.jointDamage[j] == 0.0);
+      }
+    }
   }
 
   // ---- quals, semi, final ----------------------------------------------

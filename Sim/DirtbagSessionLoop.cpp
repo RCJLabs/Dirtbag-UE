@@ -65,23 +65,20 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
   in.attemptNumber = memory.attempts + 1;
   in.warmth = session.warmth;
   in.cleanliness = memory.cleanliness;   // how much of it you have uncovered
-  in.shoeWear = session.shoeWear;        // what is left of the rubber
   in.padding = session.padding;          // what you dragged up the hill
-  // Happy Feet, and nothing else in this game, touches this.
-  in.oddsPenalty = OddsPenalty(who, route.type);
-  // Being ill, and the tooth -- both flat, both on everything.
-  in.ailmentPenalty = SickPenalty(sick) + ToothGradePenalty(teeth);
-  // How far through the comeback you are. A graded return is climbing --
-  // badly -- and this is the number that says so.
-  if (climber.injury.active && med.stage != Comeback::Clear) {
-    in.injuryStagePenalty = StagePenalty(med);
-  }
-  // What the joints carry, and it does not heal.
-  for (int j = 0; j < kInjuryKindCount; j++) {
-    in.jointDamage[j] =
-        JointWear(med, static_cast<InjuryKind>(j), day);
-  }
-  in.boldness = NerveShift(who);
+  // **Everything the body carries, in one call.** Was six lines of
+  // hand-stamping here and none at all in the comp resolver, which is
+  // exactly how a wrecked climber came to score the same as a fresh one at
+  // a comp -- see Sim/DirtbagBodyContext.h.
+  BodyContext body;
+  body.who = who;
+  body.medical = med;
+  body.sickness = sick;
+  body.teeth = teeth;
+  body.shoeWear = session.shoeWear;   // the pair you pulled on with today
+  body.day = day;
+  ApplyBody(in, body);
+
   in.execution = execution;
   in.botExecution = botExecution;
   return in;

@@ -369,7 +369,8 @@ CompState SetTheBoard(const Rng& worldRng, CompTier tier, double yourGrade,
 
 AttemptResult AttemptProblem(CompState& comp, int problemIndex,
                              const Climber& climber, const Rng& compRng,
-                             const CompDials& dials) {
+                             const CompDials& dials,
+                             const BodyContext& body) {
   AttemptResult none;
   if (comp.finished) return none;
   if (comp.attemptsLeft <= 0) return none;
@@ -396,6 +397,13 @@ AttemptResult AttemptProblem(CompState& comp, int problemIndex,
   in.padding = 1.0;      // it is a competition wall; the mats are the floor
   in.warmth = 1.0;       // you warmed up in isolation
   in.cleanliness = 1.0;  // freshly set
+
+  // **And everything the climber walked in carrying.** Added after the
+  // situation, because the situation is what a comp *is* and the body is
+  // what you brought to it -- and because `ApplyBody` adds to the odds
+  // penalty rather than replacing it, so a flaw and a comp's nerves are
+  // two reasons and not one.
+  ApplyBody(in, body);
 
   // Its own stream per (problem, try), so a comp cannot shift the rng
   // anything else resolves on and a replay deals the same climb.

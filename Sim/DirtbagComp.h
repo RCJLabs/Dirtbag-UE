@@ -46,6 +46,7 @@
 #include <string>
 #include <vector>
 
+#include "DirtbagBodyContext.h"
 #include "DirtbagCore.h"
 #include "DirtbagRng.h"
 #include "DirtbagSession.h"
@@ -474,9 +475,16 @@ CompState SetTheBoard(const Rng& worldRng, CompTier tier, double yourGrade,
 // presentation layer has its timeline, exactly as a session burn does.
 // Does nothing and returns an empty result when the attempt is not legal --
 // no attempts left, a bad index, or a problem you have already topped.
+// `body` is everything the climber carries in with them -- the flaw, the
+// temperament, the joints, the flu, the tooth, the rubber. **Defaulted to a
+// clean body, which is neutral**, so every existing caller and every golden
+// vector resolves exactly as it did; and a clean body is exactly what the
+// comp resolver used to assume of everybody, which is the bug this argument
+// exists to close. See Sim/DirtbagBodyContext.h.
 AttemptResult AttemptProblem(CompState& comp, int problemIndex,
                              const Climber& climber, const Rng& compRng,
-                             const CompDials& dials = CompDials{});
+                             const CompDials& dials = CompDials{},
+                             const BodyContext& body = BodyContext{});
 
 // What you have banked so far.
 double YourScore(const CompState& comp, const CompDials& dials = CompDials{});
