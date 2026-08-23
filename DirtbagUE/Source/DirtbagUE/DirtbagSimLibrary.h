@@ -64,6 +64,34 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
 	double ShakeOut();
 
+	/** **Get something in, here, before the next move.** Returns the
+	 *  quality of what went on the rope — zero when the rock gave you
+	 *  nothing worth having, which still costs you the piece and the pump,
+	 *  because finding that out is what the pump was spent on.
+	 *
+	 *  The other release verb, and the one that makes a trad lead a lead:
+	 *  it is a decision made mid-go, under pump, with the clock running.
+	 *  No-op returning 0 on anything that is not a trad lead. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	double PlaceGear();
+
+	/** What a sensible leader would do at the next move — the batch
+	 *  resolver's own policy, so a prompt that defaults to it defaults to
+	 *  what the measured game does. Pure. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	bool WouldPlaceGear() const;
+
+	/** Pieces still on the harness. Zero is a solo from here up. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	int32 GetRackLeft() const;
+
+	/** How much you trust what is holding the rope at the next move, and
+	 *  how far above it you are — the two halves of the head game, for a
+	 *  HUD that has to say "psychological, and the bolt is below your
+	 *  feet" without printing a number. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	double GetLastPieceTrust() const;
+
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
 	bool IsOver() const;
 
@@ -343,6 +371,49 @@ public:
 	 *  in high summer this is the only rock worth walking to. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
 	static FDirtbagCrag ShadedCave(const FString& Seed);
+
+	/** The valley's trad crag: an hour up the hill, east-facing, sixteen
+	 *  lines and three unclimbed ones, and the only rock you cannot climb
+	 *  without owning a rack. Its classics are moderate where the cave's
+	 *  are hard — trad is the one discipline whose entry-level lines are
+	 *  the famous ones. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static FDirtbagCrag TheOldButtress(const FString& Seed);
+
+	// --- Trad -------------------------------------------------------------
+	// The rack, and what it is worth. The placing verb itself lives on the
+	// live attempt in the game instance, beside the shake-out, because it
+	// is a thing the player does mid-go rather than a thing they read.
+
+	/** Which rung of the shelf this rack is. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static EDirtbagRackTier RackTier(const FDirtbagRack& Rack);
+
+	/** What a rung of the shelf gets you. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static FDirtbagRack RackOf(EDirtbagRackTier Tier);
+
+	/** What that rung costs. The most expensive thing in the game. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static double RackPrice(EDirtbagRackTier Tier);
+
+	/** "a set of nuts" / "a rack of cams" / "doubles" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static FString RackTierName(EDirtbagRackTier Tier);
+
+	/** No rack, no lead. The rope stays in the van for a different reason
+	 *  than it does when nobody will belay you, and both are real. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static bool CanLeadTrad(const FDirtbagRack& Rack);
+
+	/** "bomber" / "that'll do" / "psychological". Never a number: the whole
+	 *  point of a placement is that you are looking at it and deciding. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static FString PieceText(double Quality);
+
+	/** "a rack of cams, eleven pieces left" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static FString RackText(const FDirtbagRack& Rack);
 
 	// --- The town --------------------------------------------------------
 	// Six venues, authored. The opening hours are the mechanic: the diner

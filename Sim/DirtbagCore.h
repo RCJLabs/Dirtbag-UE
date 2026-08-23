@@ -34,7 +34,18 @@ const char* SportGradeName(int grade);    // "5.7".."5.16a"
 // --- Routes -----------------------------------------------------------------
 
 enum class RouteType { Crimp, Power, Endurance, Technical, Dyno, Crack };
-enum class Discipline { Boulder, Sport };
+// What kind of climbing this is, which is really a question about what is
+// between you and the ground.
+//
+//   Boulder  nothing but foam, and only for the last few moves of a line.
+//   Sport    bolts: already there, evenly spaced, and every one bomber.
+//   Trad     whatever you can get in, wherever the rock lets you, placed
+//            with one hand while the other one holds on.
+//
+// Appended rather than inserted: the save file stores this by value and the
+// engine mirror static_asserts against it, so Boulder=0 and Sport=1 are
+// load-bearing numbers rather than an ordering.
+enum class Discipline { Boulder, Sport, Trad };
 enum class HoldType { Crimp, Sloper, Pinch, Pocket, Jug, Dyno, Crack };
 
 struct Move {
@@ -52,6 +63,36 @@ struct Route {
   RouteType type = RouteType::Technical;
   Discipline discipline = Discipline::Boulder;
   std::vector<Move> moves;
+};
+
+// --- What is holding the rope --------------------------------------------
+//
+// These two live here, in the vocabulary, rather than in DirtbagTrad.h where
+// their behaviour is. The runout model in DirtbagSport.h reads protection
+// and the resolver in DirtbagSession.h carries a rack, and neither of those
+// files can include the trad one without a cycle. Two words in the shared
+// vocabulary is the cheap answer; two copies of them would be the expensive
+// one.
+
+// How much you trust what is on the rope, per move index. Zero at a move
+// with nothing at it.
+//
+// Sport leaves this empty and means it: bolts are a property of how the
+// line was equipped, `BoltsFor` derives them from the route, and they are
+// all bomber. Trad fills it in as the leader places, because a nut is a
+// property of the attempt and not of the rock — climb the same pitch twice
+// and you will not protect it the same way.
+struct Protection {
+  std::vector<double> quality;
+};
+
+// What is on your harness. Not a list of sizes — a count and a standard,
+// because the interesting decisions are "have I got enough left for the
+// headwall" and "will this hold", and neither of them is about whether the
+// #2 is still at the belay.
+struct Rack {
+  int pieces = 0;       // how many placements you have left in you
+  double quality = 0.0; // 0 a borrowed set of nuts .. 1 a double set of cams
 };
 
 // --- Climbers ---------------------------------------------------------------

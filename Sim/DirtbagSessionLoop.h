@@ -110,6 +110,14 @@ struct SessionState {
   // Defaults to fully padded so that every caller predating pads — the
   // golden vectors included — resolves exactly as it always did.
   double padding = 1.0;
+
+  // **And what is on your harness.** Carried on the session for exactly the
+  // reason the padding is: what matters is what you walked in with, not
+  // what is sitting in the van an hour down the hill. Empty by default, so
+  // every caller predating trad — the golden vectors included — resolves
+  // exactly as it always did, and a leader who forgot the rack solos the
+  // pitch, which is the honest answer rather than a crash.
+  Rack rack;
 };
 
 SessionState StartSession(const Climber& climber);

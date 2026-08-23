@@ -3115,6 +3115,20 @@ bool UDirtbagGameInstance::BuyHangboard()
 	});
 }
 
+bool UDirtbagGameInstance::BuyTradRack()
+{
+	const double Price = ShopPrice();
+	dirtbag::Rack SimRack = DirtbagConvert::ToSim(Player.Rack);
+	double Money = Player.Cash;
+	if (!dirtbag::BuyRack(SimRack, Money, dirtbag::TradDials{}, Price))
+	{
+		return false;
+	}
+	Player.Rack = DirtbagConvert::FromSim(SimRack);
+	Player.Cash = Money;
+	return true;
+}
+
 FString UDirtbagGameInstance::MembershipLine() const
 {
 	const dirtbag::KitDials Kd;
@@ -3141,6 +3155,32 @@ FString UDirtbagGameInstance::HangboardLine() const
 	return FString::Printf(
 	    TEXT("A hangboard?  (H)  -  $%.0f, once, and it lives in the van."),
 	    Kd.hangboardCost);
+}
+
+FString UDirtbagGameInstance::RackOfferLine() const
+{
+	const dirtbag::TradDials Td;
+	const dirtbag::Rack Have = DirtbagConvert::ToSim(Player.Rack);
+	const dirtbag::RackTier Tier = dirtbag::TierOf(Have, Td);
+	if (Tier == dirtbag::RackTier::Doubles)
+	{
+		return FString();
+	}
+	const dirtbag::RackTier Want =
+	    static_cast<dirtbag::RackTier>(static_cast<int>(Tier) + 1);
+	// The first one is the one that matters, because until you own a rack
+	// there is a whole crag you cannot go to. After that it is an upgrade
+	// like any other and the line says so.
+	return Tier == dirtbag::RackTier::None
+	           ? FString::Printf(
+	                 TEXT("%s?  (G)  -  $%.0f, and the buttress opens."),
+	                 UTF8_TO_TCHAR(dirtbag::RackTierName(Want)),
+	                 dirtbag::RackPrice(Want, Td) * ShopPrice())
+	           : FString::Printf(
+	                 TEXT("%s?  (G)  -  $%.0f.  You lead on %s."),
+	                 UTF8_TO_TCHAR(dirtbag::RackTierName(Want)),
+	                 dirtbag::RackPrice(Want, Td) * ShopPrice(),
+	                 UTF8_TO_TCHAR(dirtbag::RackTierName(Tier)));
 }
 
 bool UDirtbagGameInstance::RenewGymMembership()

@@ -232,6 +232,62 @@ const ProjectEntry kCaveProjects[] = {
 constexpr int kCaveProjectCount =
     static_cast<int>(sizeof(kCaveProjects) / sizeof(kCaveProjects[0]));
 
+// The trad crag. Shaped like neither of the others, and for reasons that
+// are about the discipline rather than about the rock:
+//
+//   **The spread starts low and stays low.** A cave is bolted from 5.9 up
+//   because nobody bolts easy steep rock; a buttress has been climbed since
+//   before anybody owned a drill, and its classics are moderate. Half of
+//   this list is inside the reach of a first-season climber, which is the
+//   point — trad is the one discipline where the entry-level lines are the
+//   famous ones.
+//
+//   **Almost everything is a crack.** RouteType::Crack carries HoldType::
+//   Crack through SignatureHold, and TakesGear reads the hold: a crack line
+//   is a line you can protect, and a face line up here is a line you mostly
+//   cannot. That is the whole of what makes one route on this crag a
+//   different lead from another, and it is derived rather than authored.
+//
+//   **The hard ones are hard because of the gear.** "Ropeless in a Sense"
+//   is a face route on this list on purpose. It goes at a grade a good
+//   climber can pull, and TakesGear will offer them almost nothing on it.
+const BookEntry kButtress[] = {
+    // The apron at the bottom. Everybody's first lead is on this wall.
+    {"Sunday Crack",          0, 0, RouteType::Crack,      2},   // 5.7
+    {"The Staircase",         1, 1, RouteType::Crack,      1},   // 5.8
+    {"Hand Jam Holiday",      2, 2, RouteType::Crack,      3},   // 5.9, the classic
+    {"Wide Awake",            2, 3, RouteType::Crack,      1},   // offwidth, stiff
+    {"Layback Flake",         3, 3, RouteType::Technical,  2},   // 5.10a
+
+    // The main buttress. Where the guidebook's stars are.
+    {"The Sentry Box",        4, 4, RouteType::Crack,      3},   // 5.10c
+    {"Green Corner",          4, 4, RouteType::Technical,  2},
+    {"Rusty Piton Direct",    5, 5, RouteType::Crack,      2},   // 5.11a
+    {"Fingers Crossed",       5, 6, RouteType::Crimp,      2},   // thin, and thin gear
+    {"The Long Reach",        6, 6, RouteType::Crack,      2},
+    {"Second's Nightmare",    6, 6, RouteType::Technical,  1},
+    {"Bombproof",             7, 7, RouteType::Crack,      3},   // 5.12a, sews up
+
+    // The headwall, which is where the grades stop meaning what they say.
+    {"Ropeless in a Sense",   7, 7, RouteType::Power,      3},   // face; no gear
+    {"The Groundfall Pitch",  8, 8, RouteType::Crimp,      2},   // 5.12c
+    {"Last Piece Below You",  9, 9, RouteType::Crack,      3},   // 5.13a
+};
+constexpr int kButtressCount =
+    static_cast<int>(sizeof(kButtress) / sizeof(kButtress[0]));
+
+// A trad project is the third animal again. Nobody has bolted it, so
+// nobody has hung on it, so the grade is a guess made from the ground with
+// binoculars — and the real question is not whether it goes but whether it
+// can be protected, which is a question you can only answer while on it.
+const ProjectEntry kButtressProjects[] = {
+    {"the seam left of Bombproof",             9, RouteType::Crimp},
+    {"the unclimbed arête on the headwall",   10, RouteType::Power},
+    {"the roof crack nobody has racked for",   8, RouteType::Crack},
+};
+constexpr int kButtressProjectCount =
+    static_cast<int>(sizeof(kButtressProjects) / sizeof(kButtressProjects[0]));
+
 }  // namespace
 
 Crag RoadsideCrag(const Rng& worldRng) {
@@ -380,6 +436,56 @@ Crag ShadedCave(const Rng& worldRng) {
 
     line.route = BuildRoute(caveRng, e.description, e.guess, trueGrade, e.type,
                             Discipline::Sport);
+    line.stars = 0;
+    line.isProject = true;
+    line.description = e.description;
+    crag.lines.push_back(line);
+  }
+  return crag;
+}
+
+Crag TheOldButtress(const Rng& worldRng) {
+  Crag crag;
+  crag.name = "the Old Buttress";
+  // East-facing and high up: sun until mid-morning, then shade and wind for
+  // the rest of the day. It is the longest walk in the valley and the only
+  // place you need a rack, and both of those are the same fact — the lines
+  // up here were climbed on gear because nobody was carrying a drill that
+  // far.
+  crag.aspect = Aspect::East;
+  crag.approachHours = 1.1;
+
+  // Its own stream, for the same narrow reason the cave has one: the
+  // projects below draw from a stateful stream, and a shared one would make
+  // the buttress's unclimbed lines depend on how many the cave has.
+  const Rng buttressRng = worldRng.Derive("old-buttress");
+
+  crag.lines.reserve(kButtressCount + kButtressProjectCount);
+  for (int i = 0; i < kButtressCount; i++) {
+    const BookEntry& e = kButtress[i];
+    CragLine line;
+    line.route = BuildRoute(buttressRng, e.name, e.grade, e.trueGrade, e.type,
+                            Discipline::Trad);
+    line.stars = e.stars;
+    line.isProject = false;
+    line.firstAscentBy = "unknown";
+    crag.lines.push_back(line);
+  }
+
+  Rng projectRng = buttressRng.Derive("buttress-projects");
+  for (int i = 0; i < kButtressProjectCount; i++) {
+    const ProjectEntry& e = kButtressProjects[i];
+    CragLine line;
+    // The widest drift of the three crags, and deliberately wide in the
+    // stiff direction. Nobody has hung on this line to find out what it is;
+    // a boulder project has been tried from the ground and a bolted one has
+    // been inspected on a rope, and this one has been looked at.
+    const double roll = projectRng.NextDouble();
+    const int drift = roll < 0.20 ? 0 : (roll < 0.55 ? 1 : (roll < 0.85 ? 2 : 3));
+    const int trueGrade = std::max(0, e.guess + drift);
+
+    line.route = BuildRoute(buttressRng, e.description, e.guess, trueGrade,
+                            e.type, Discipline::Trad);
     line.stars = 0;
     line.isProject = true;
     line.description = e.description;

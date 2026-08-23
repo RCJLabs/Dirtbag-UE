@@ -66,6 +66,7 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
   in.warmth = session.warmth;
   in.cleanliness = memory.cleanliness;   // how much of it you have uncovered
   in.padding = session.padding;          // what you dragged up the hill
+  in.rack = session.rack;                // and what is on your harness
   // **Everything the body carries, in one call.** Was six lines of
   // hand-stamping here and none at all in the comp resolver, which is
   // exactly how a wrecked climber came to score the same as a fresh one at

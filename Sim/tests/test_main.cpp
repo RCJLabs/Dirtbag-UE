@@ -41,6 +41,7 @@
 #include "../DirtbagSession.h"
 #include "../DirtbagSponsor.h"
 #include "../DirtbagSport.h"
+#include "../DirtbagTrad.h"
 #include "../DirtbagSessionLoop.h"
 
 using namespace dirtbag;
@@ -6880,6 +6881,15 @@ static void TestTheMirroredDialsStillAgree() {
   CHECK(sd.deadShoeGradePenalty == gd.deadShoeGradePenalty);
   CHECK(sd.shoeBiteOnGoodHolds == gd.deadShoeBiteOnGoodHolds);
   CHECK(sd.runoutGradePenalty == pd.runoutGradePenalty);
+  CHECK(sd.soloGradePenalty == pd.soloGradePenalty);
+  CHECK(sd.pumpGradePenalty == TradDials{}.gradesAtFullPump);
+  // And the slider between the two of them lands on each end exactly, so
+  // that a bolt is priced by one number and the ground by the other with
+  // nothing rounded in between.
+  CHECK(FallPenalty(1.0, sd.soloGradePenalty, sd.runoutGradePenalty) ==
+        sd.runoutGradePenalty);
+  CHECK(FallPenalty(0.0, sd.soloGradePenalty, sd.runoutGradePenalty) ==
+        sd.soloGradePenalty);
   CHECK(sd.injuryGradePenalty == bd.injuryGradePenalty);
 
   // The fourth pair, and the only one nobody had written down as one. Both
@@ -11036,6 +11046,606 @@ static void TestTheLotCanActuallyBelayTheCave() {
   CHECK(!cave.lines.empty());
 }
 
+// --- Trad --------------------------------------------------------------------
+//
+// The milestone's three gates, in order, and one test each for the things
+// that had to be true for them to mean anything.
+
+static Route TradPitch(const char* name, int grade,
+                       RouteType type = RouteType::Crack) {
+  Rng world = Rng::FromStream("pitch", Stream::Worldgen);
+  return BuildRoute(world, name, grade, grade, type, Discipline::Trad);
+}
+
+static void TestTheRockDecidesWhereGearGoes() {
+  TradDials d;
+  const auto On = [&](HoldType h, double rest = 0.0) {
+    Move m;
+    m.hold = h;
+    m.restQuality = rest;
+    return TakesGear(m, d);
+  };
+
+  // A crack is a crack, and a blank wall is a blank wall however good you
+  // are. This ordering is the whole reason one route on the buttress is a
+  // different lead from another.
+  CHECK(On(HoldType::Crack) > On(HoldType::Jug));
+  CHECK(On(HoldType::Jug) > On(HoldType::Pocket));
+  CHECK(On(HoldType::Pocket) > On(HoldType::Pinch));
+  CHECK(On(HoldType::Pinch) > On(HoldType::Crimp));
+  CHECK(On(HoldType::Crimp) > On(HoldType::Sloper));
+  CHECK(On(HoldType::Sloper) > On(HoldType::Dyno));
+  // You are not placing anything mid-dyno.
+  CHECK(On(HoldType::Dyno) == 0.0);
+
+  // A ledge is a ledge because something structural is happening — but the
+  // stance cannot conjure a placement out of a hold that offers nothing.
+  CHECK(On(HoldType::Crimp, 0.9) > On(HoldType::Crimp, 0.0));
+  CHECK(On(HoldType::Crack, 1.0) <= 1.0);
+}
+
+static void TestAPlacementIsADecisionMadeUnderPump() {
+  // **Gate 2.** Everything below is the same placement changing its mind
+  // about how good it is, and every one of the reasons is something the
+  // player is doing rather than something the route decided in advance.
+  TradDials d;
+  Climber c = MakeClimber(60, 60, 60, 65, 55);
+  Rack full = RackOf(RackTier::Cams, d);
+
+  // Pockets, because the interesting comparison is the same rock from two
+  // stances — and a crack is deliberately exempt from that comparison, as
+  // the pair below this one pins.
+  Move ledge;
+  ledge.hold = HoldType::Pocket;
+  ledge.restQuality = 0.85;
+
+  Move nothing;
+  nothing.hold = HoldType::Pocket;
+  nothing.restQuality = 0.0;
+
+  // Fresh beats pumped, at the same stance, with the same rack. This is the
+  // line the gate is about: *when* you spend the rack is a decision made on
+  // the route, not a plan made in the car park.
+  CHECK(PlaceHere(ledge, 0.0, c, full, d) > PlaceHere(ledge, 80.0, c, full, d));
+
+  // Standing on something beats hanging off something — and both of them
+  // are placements rather than one of them being nothing, which is what
+  // makes this a comparison.
+  CHECK(PlaceHere(nothing, 30.0, c, full, d) > 0.0);
+  CHECK(PlaceHere(ledge, 30.0, c, full, d) >
+        PlaceHere(nothing, 30.0, c, full, d));
+
+  // And it costs more to try from the bad one — more, from the worst
+  // stance, than the move you are standing on costs to climb. That is the
+  // relationship that makes a trad leader climb to stances.
+  CHECK(PlaceCost(nothing, d) > PlaceCost(ledge, d));
+  CHECK(PlaceCost(nothing, d) > SessionDials{}.basePumpCost);
+  // A placement from a stance is still about twice a clip and never free.
+  CHECK(PlaceCost(ledge, d) > SportDials{}.clipPumpCost);
+
+  // The exemption, and it is the whole reason the first measured pass of
+  // this file produced a game in which leading was strictly worse than
+  // soloing: a hand-sized cam into a hand-sized crack goes in off a jam.
+  // The rock being obvious buys you the same thing a ledge does.
+  Move jam;
+  jam.hold = HoldType::Crack;
+  jam.restQuality = 0.0;
+  Move crackLedge = jam;
+  crackLedge.restQuality = 0.9;
+  CHECK(PlaceCost(jam, d) == PlaceCost(crackLedge, d));
+  CHECK(PlaceHere(jam, 30.0, c, full, d) ==
+        PlaceHere(crackLedge, 30.0, c, full, d));
+  // Which is not the same as free: a placement is always more than a clip.
+  CHECK(PlaceCost(jam, d) > SportDials{}.clipPumpCost);
+
+  // The rack you own, and knowing what goes where.
+  CHECK(PlaceHere(ledge, 30.0, c, RackOf(RackTier::Doubles, d), d) >
+        PlaceHere(ledge, 30.0, c, RackOf(RackTier::Nuts, d), d));
+  Climber gumby = MakeClimber(60, 60, 15, 65, 55);
+  Climber craftsman = MakeClimber(60, 60, 95, 65, 55);
+  CHECK(PlaceHere(ledge, 30.0, craftsman, full, d) >
+        PlaceHere(ledge, 30.0, gumby, full, d));
+
+  // An empty harness places nothing, which is not the same as placing badly.
+  CHECK(PlaceHere(ledge, 0.0, c, Rack{}, d) == 0.0);
+
+  // And the piece that is worse than nothing on the rope, because it *is*
+  // nothing on the rope: bad rock, no stance, wrecked, out of your depth.
+  Move blank;
+  blank.hold = HoldType::Sloper;
+  blank.restQuality = 0.0;
+  CHECK(PlaceHere(blank, 85.0, gumby, RackOf(RackTier::Nuts, d), d) == 0.0);
+}
+
+static void TestOneRunoutModelServesBothDisciplines() {
+  // **Gate 3.** Not "trad has a runout too" — the same function, arriving
+  // at the same numbers, from two different sources of protection. Bolt the
+  // trad route by hand and it *is* the sport route, move for move.
+  SportDials sd;
+  TradDials td;
+  Route pitch = Pitch("Two Ways Up", 7);
+  Route same = pitch;
+  same.discipline = Discipline::Trad;
+
+  Protection gear;
+  gear.quality.assign(pitch.moves.size(), 0.0);
+  for (int bolt : BoltsFor(pitch, sd)) gear.quality[bolt] = 1.0;
+
+  for (int i = 0; i < static_cast<int>(pitch.moves.size()); i++) {
+    CHECK(RunoutAt(same, i, sd, gear) == RunoutAt(pitch, i, sd));
+    CHECK(OnTheRope(same, i, sd, gear) == OnTheRope(pitch, i, sd));
+    CHECK(PieceAt(same, i, sd, gear) == PieceAt(pitch, i, sd));
+    // Above the first piece the two are the same climb, exactly.
+    if (OnTheRope(same, i, sd, gear)) {
+      CHECK(ExposureAt(same, i, 1.0, SessionDials{}, gear) ==
+            ExposureAt(pitch, i, 1.0));
+    }
+  }
+
+  // Below it they are deliberately not, and this is the one place the two
+  // disciplines are allowed to disagree: on a bolted route the ungeared
+  // region is two moves by construction and the crash-pad answer is right
+  // there, and on a trad lead it is however far you have climbed without
+  // stopping, which is a solo. Same function, same seam, different
+  // question.
+  CHECK(ExposureAt(same, 0, 1.0, SessionDials{}, gear) ==
+        ExposureAt(pitch, 0, 1.0));   // move one is free on anything
+  CHECK(ExposureAt(same, 1, 1.0, SessionDials{}, gear) >
+        ExposureAt(pitch, 1, 1.0));
+
+  // Now believe in the gear less. Same spacing, same everything, and every
+  // protected move is more frightening — which is the sentence a watcher
+  // says out loud: *he is not runout, he doesn't believe in that nut*.
+  Protection dodgy = gear;
+  for (double& q : dodgy.quality) {
+    if (q > 0.0) q = 0.4;
+  }
+  bool anyWorse = false;
+  for (int i = 0; i < static_cast<int>(pitch.moves.size()); i++) {
+    CHECK(RunoutAt(same, i, sd, dodgy) >= RunoutAt(same, i, sd, gear));
+    if (RunoutAt(same, i, sd, dodgy) > RunoutAt(same, i, sd, gear)) {
+      anyWorse = true;
+    }
+  }
+  CHECK(anyWorse);
+
+  // And the two fears add rather than compete: high above a bad piece is
+  // worse than either being high above a good one or level with a bad one.
+  Protection oneBad;
+  oneBad.quality.assign(pitch.moves.size(), 0.0);
+  oneBad.quality[0] = 0.3;
+  Protection oneGood = oneBad;
+  oneGood.quality[0] = 1.0;
+  CHECK(RunoutAt(same, 3, sd, oneBad) > RunoutAt(same, 3, sd, oneGood));
+  CHECK(RunoutAt(same, 3, sd, oneBad) > RunoutAt(same, 0, sd, oneBad));
+
+  // The pad rule is the sport one, unchanged, and it hangs off the *first
+  // piece* rather than off the first bolt: a leader who has not placed
+  // anything is bouldering, and the ground-fall model is right for them.
+  Protection none;
+  none.quality.assign(pitch.moves.size(), 0.0);
+  const int top = static_cast<int>(pitch.moves.size()) - 1;
+  CHECK(!OnTheRope(same, top, sd, none));
+  CHECK(ExposureAt(same, top, 0.0, SessionDials{}, none) > 0.0);
+  // And no amount of foam helps, because nobody has ever carried a pad up a
+  // pitch and it would not reach. Measured through the pad term this was
+  // exactly zero, and soloing was the strongest strategy in the game.
+  CHECK(ExposureAt(same, top, 1.0, SessionDials{}, none) ==
+        ExposureAt(same, top, 0.0, SessionDials{}, none));
+  // The largest exposure in the resolver, above being fully pumped and
+  // above being injured: it is the only one that prices dying.
+  CHECK(ExposureAt(same, top, 1.0, SessionDials{}, none) >
+        SessionDials{}.pumpGradePenalty);
+  // It climbs with you rather than switching on: nobody is scared on move
+  // one, and by six moves up it is as bad as it gets.
+  CHECK(ExposureAt(same, 0, 1.0, SessionDials{}, none) == 0.0);
+  CHECK(ExposureAt(same, 3, 1.0, SessionDials{}, none) <
+        ExposureAt(same, top, 1.0, SessionDials{}, none));
+  // Get one in low down and the ground stops being the question.
+  Protection off = none;
+  off.quality[1] = 0.9;
+  CHECK(OnTheRope(same, top, sd, off));
+  CHECK(ExposureAt(same, top, 0.0, SessionDials{}, off) ==
+        ExposureAt(same, top, 1.0, SessionDials{}, off));
+
+  // Nothing here reaches a boulder, which is what keeps it clear of
+  // everything already measured.
+  Rng world = Rng::FromStream("pitch", Stream::Worldgen);
+  const Route boulder = BuildRoute(world, "Short", 7, 7, RouteType::Crack,
+                                   Discipline::Boulder);
+  for (int i = 0; i < static_cast<int>(boulder.moves.size()); i++) {
+    CHECK(RunoutAt(boulder, i, sd, gear) == 0.0);
+    CHECK(!OnTheRope(boulder, i, sd, gear));
+  }
+  CHECK(!IsTrad(boulder));
+  CHECK(IsTrad(same));
+  CHECK(NeedsABelayer(same));
+  CHECK(!NeedsABelayer(boulder));
+  (void)td;
+}
+
+static double TradSendRate(const Route& route, const Climber& c,
+                           const Rack& rack, int runs) {
+  int sent = 0;
+  for (int i = 0; i < runs; i++) {
+    Rng rng = Rng::FromSeed("trad-" + std::to_string(i));
+    AttemptInput in = MakeInput(c, route);
+    in.rack = rack;
+    if (ResolveAttempt(rng, in).sent) sent++;
+  }
+  return static_cast<double>(sent) / static_cast<double>(runs);
+}
+
+static void TestATradLeadIsNotASportLead() {
+  // **Gate 1.** The same rock, the same climber, the same seeds, and a
+  // different climb — for two reasons a watcher can name from the ground:
+  // the leader is spending pump on gear, and the gear is not as good as a
+  // bolt.
+  TradDials d;
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  // A grade the climber leads rather than projects. Trad comes out about a
+  // full grade under sport across the ladder (0.96/0.74 at V5, 0.74/0.20 at
+  // V6, 0.17/0.00 at V7), which is the number every trad climber will
+  // quote you about their own two grades — so the comparison has to be
+  // made somewhere both of them are climbing.
+  Route bolted = Pitch("The Long Haul", 5);
+  Route onGear = bolted;
+  onGear.discipline = Discipline::Trad;
+
+  const Rack rack = RackOf(RackTier::Cams, d);
+  const double sport = TradSendRate(bolted, c, Rack{}, 600);
+  const double trad = TradSendRate(onGear, c, rack, 600);
+  CHECK(sport > 0.05);          // the comparison needs both to be climbable
+  CHECK(trad > 0.0);
+  CHECK(trad < sport);
+
+  // The two reasons, isolated. Both are measured on a climber who cannot
+  // fall off, so that each pitch is climbed to the top and the comparison
+  // is about the *route* rather than about where the two of them happened
+  // to come off — peak pump on an attempt that ended at move six is a
+  // statement about falling, not about protecting.
+  Climber crusher = MakeClimber(100, 100, 100, 100, 100);
+  const auto ToTheTop = [&](const Route& r, const Rack& k) {
+    AttemptInput in = MakeInput(crusher, r);
+    in.rack = k;
+    LiveAttempt la = BeginAttempt(Rng::FromSeed("top"), in);
+    while (!AttemptOver(la)) {
+      if (WouldPlace(la)) PlaceGear(la);
+      StepMove(la, 1.0);
+    }
+    return FinishAttempt(la);
+  };
+  // Two versions of the same pitch: one you can protect and one you cannot.
+  // The reasons a trad lead is harder are not one reason, and which of them
+  // you are paying depends on the rock — which is the whole point of having
+  // both on the buttress.
+  Route crackGear = onGear;
+  Route crackBolted = bolted;
+  for (Move& m : crackGear.moves) m.hold = HoldType::Crack;
+  for (Move& m : crackBolted.moves) m.hold = HoldType::Crack;
+  Route faceGear = onGear;
+  Route faceBolted = bolted;
+  for (Move& m : faceGear.moves) m.hold = HoldType::Sloper;
+  for (Move& m : faceBolted.moves) m.hold = HoldType::Sloper;
+
+  // **Reason one: the pump**, and you pay it on the rock that takes gear.
+  // Placing costs more than clipping, so a leader arrives at the top of a
+  // crack more tired than a clipper does.
+  const AttemptResult ledCrack = ToTheTop(crackGear, rack);
+  const AttemptResult clippedCrack = ToTheTop(crackBolted, Rack{});
+  CHECK(ledCrack.sent && clippedCrack.sent);
+  CHECK(ledCrack.peakPump > clippedCrack.peakPump);
+
+  // **Reason two: the head**, and you pay it on the rock that does not.
+  // The gear is placed rather than drilled, so it is not all bomber and it
+  // is not all where you would have wanted it — and on a blank face there
+  // is barely any of it, which is a different climb again.
+  const auto Worst = [&](const Route& r, const AttemptResult& res) {
+    double worst = 0.0;
+    for (int i = 0; i < static_cast<int>(r.moves.size()); i++) {
+      worst = std::max(worst, ExposureAt(r, i, 1.0, SessionDials{}, res.gear));
+    }
+    return worst;
+  };
+  const AttemptResult ledFace = ToTheTop(faceGear, rack);
+  const AttemptResult clippedFace = ToTheTop(faceBolted, Rack{});
+  CHECK(Worst(crackGear, ledCrack) > Worst(crackBolted, clippedCrack));
+  CHECK(Worst(faceGear, ledFace) > Worst(crackGear, ledCrack));
+  // And the leader on the face is not pumped, they are frightened: there
+  // was nothing to stop for.
+  CHECK(ledFace.peakPump < ledCrack.peakPump);
+
+  // Which shows up where it counts. The face costs a leader more grades
+  // than the crack does, against the same rock bolted.
+  const double faceGap = TradSendRate(faceBolted, c, Rack{}, 600) -
+                         TradSendRate(faceGear, c, rack, 600);
+  const double crackGap = TradSendRate(crackBolted, c, Rack{}, 600) -
+                          TradSendRate(crackGear, c, rack, 600);
+  CHECK(faceGap > crackGap);
+
+  // And the rack you own is the difference between two trad leads, which is
+  // what makes it worth six hundred dollars. Measured with a flat fall
+  // penalty this came out backwards — see FallPenalty in DirtbagSport.h.
+  CHECK(TradSendRate(crackGear, c, RackOf(RackTier::Doubles, d), 900) >
+        TradSendRate(crackGear, c, RackOf(RackTier::Nuts, d), 900));
+}
+
+static void TestNeitherPolicyWinsEveryPitch() {
+  // The proof that placing is a *decision*: the two extremes are both
+  // worse than thinking about it. Sew it up and you arrive at the crux
+  // wrecked; run it out and you arrive there frightened and empty-handed.
+  //
+  // If either extreme dominated, the prompt would be a formality and the
+  // gate would be a lie.
+  TradDials d;
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  const Route route = TradPitch("The Whole Argument", 5);
+  const Rack rack = RackOf(RackTier::Cams, d);
+
+  // Three leaders. `sew` places at every move that offers anything at all
+  // until the rack is gone; `solo` never places; `sensible` is the bot.
+  const auto Rate = [&](int policy) {
+    int sent = 0;
+    const int runs = 700;
+    for (int i = 0; i < runs; i++) {
+      AttemptInput in = MakeInput(c, route);
+      in.rack = policy == 1 ? Rack{} : rack;
+      LiveAttempt la = BeginAttempt(Rng::FromSeed("pol-" + std::to_string(i)), in);
+      while (!AttemptOver(la)) {
+        if (policy == 0 && WouldPlace(la)) PlaceGear(la);
+        if (policy == 2) PlaceGear(la);
+        const int at = la.nextMove;
+        StepMove(la, in.botExecution);
+        if (la.nextMove > at && route.moves[at].restQuality > 0.0) {
+          ShakeOut(la);
+        }
+      }
+      if (FinishAttempt(la).sent) sent++;
+    }
+    return static_cast<double>(sent) / static_cast<double>(runs);
+  };
+
+  const double sensible = Rate(0);
+  const double solo = Rate(1);
+  const double sew = Rate(2);
+  CHECK(sensible > solo);
+  CHECK(sensible > sew);
+}
+
+static void TestTheRackRunsOut() {
+  // A finite rack is what makes *where* you spend it a decision. Two
+  // pieces on a sixteen-move pitch is a lead with a long second half, and
+  // the leader should not have discovered that at the top.
+  TradDials d;
+  const Route route = TradPitch("Last Piece Below You", 6);
+
+  Rack thin = RackOf(RackTier::Cams, d);
+  thin.pieces = 2;
+
+  // Climbed by somebody who cannot fall off, because this test is about
+  // where the gear went rather than whether the route goes.
+  Climber crusher = MakeClimber(100, 100, 100, 100, 100);
+  const auto Lead = [&](const Rack& k) {
+    AttemptInput in = MakeInput(crusher, route);
+    in.rack = k;
+    LiveAttempt la = BeginAttempt(Rng::FromSeed("thin"), in);
+    while (!AttemptOver(la)) {
+      if (WouldPlace(la)) PlaceGear(la);
+      StepMove(la, 1.0);
+    }
+    return FinishAttempt(la);
+  };
+
+  const auto PlacedIn = [](const AttemptResult& res) {
+    std::vector<int> at;
+    for (int i = 0; i < static_cast<int>(res.gear.quality.size()); i++) {
+      if (res.gear.quality[i] > 0.0) at.push_back(i);
+    }
+    return at;
+  };
+
+  const std::vector<int> thinAt = PlacedIn(Lead(thin));
+  const std::vector<int> fatAt = PlacedIn(Lead(RackOf(RackTier::Doubles, d)));
+
+  // You cannot place what you have not got.
+  CHECK(static_cast<int>(thinAt.size()) <= thin.pieces);
+  CHECK(!thinAt.empty());
+  // And with a full rack the same pitch is protected far more often, which
+  // is the whole of what the money buys.
+  CHECK(fatAt.size() > thinAt.size());
+
+  // Rationing, which is what stops a thin rack being a fat rack that ends
+  // early: a leader with two pieces does not spend the first one where a
+  // leader with eighteen does. They climb past it.
+  CHECK(thinAt.front() > fatAt.front());
+
+  // An empty harness is a solo from wherever it ran out, and the exposure
+  // model says so rather than quietly leaving the leader safe.
+  Rack single = RackOf(RackTier::Cams, d);
+  single.pieces = 1;
+  const AttemptResult oneGo = Lead(single);
+  const std::vector<int> oneAt = PlacedIn(oneGo);
+  CHECK(oneAt.size() == 1);
+  const int top = static_cast<int>(route.moves.size()) - 1;
+  CHECK(top - oneAt.front() > static_cast<int>(d.botSpacing));
+  CHECK(ExposureAt(route, top, 1.0, SessionDials{}, oneGo.gear) >
+        ExposureAt(route, oneAt.front(), 1.0, SessionDials{}, oneGo.gear));
+}
+
+static void TestABatchTradAttemptIsLedNotSoloed() {
+  // The measured game must be the played game. A trad route resolved in
+  // batch is a trad route led sensibly — if the bot did not place, every
+  // number this file has ever produced would have been a solo.
+  TradDials d;
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  const Route route = TradPitch("Hand Jam Holiday", 4);
+
+  Rng rng = Rng::FromSeed("batch");
+  AttemptInput in = MakeInput(c, route);
+  in.rack = RackOf(RackTier::Cams, d);
+  const AttemptResult led = ResolveAttempt(rng, in);
+  int pieces = 0;
+  for (double q : led.gear.quality) {
+    if (q > 0.0) pieces++;
+  }
+  CHECK(pieces > 0);
+
+  // With nothing on your harness the same attempt is the same climb with
+  // no gear in it, which is the correct answer rather than a crash.
+  Rng bare = Rng::FromSeed("batch");
+  AttemptInput nothing = MakeInput(c, route);
+  const AttemptResult soloed = ResolveAttempt(bare, nothing);
+  for (double q : soloed.gear.quality) CHECK(q == 0.0);
+
+  // And a sport route still carries no gear vector at all: protection there
+  // is a property of the rock, and a second copy of the bolts stored per
+  // attempt is exactly the duplication gate 3 forbids.
+  Rng bolted = Rng::FromSeed("batch");
+  AttemptInput sport = MakeInput(c, Pitch("The Long Haul", 4));
+  CHECK(ResolveAttempt(bolted, sport).gear.quality.empty());
+}
+
+static void TestARackIsTheMostExpensiveThingYouOwn() {
+  TradDials d;
+  Rack rack;
+  CHECK(!CanLeadTrad(rack));
+  CHECK(TierOf(rack, d) == RackTier::None);
+
+  double cash = 100.0;
+  CHECK(!BuyRack(rack, cash, d));      // cannot afford the nuts
+  CHECK(cash == 100.0);                // and nothing was half-bought
+  CHECK(!CanLeadTrad(rack));
+
+  cash = 190.0;
+  CHECK(BuyRack(rack, cash, d));
+  CHECK(cash == 0.0);
+  CHECK(CanLeadTrad(rack));
+  CHECK(TierOf(rack, d) == RackTier::Nuts);
+
+  // You buy up the ladder, one rung at a time, and the counter's price is
+  // the price of the rung you are buying.
+  cash = 10000.0;
+  CHECK(BuyRack(rack, cash, d));
+  CHECK(TierOf(rack, d) == RackTier::Cams);
+  CHECK(cash == 10000.0 - d.camsCost);
+  CHECK(BuyRack(rack, cash, d));
+  CHECK(TierOf(rack, d) == RackTier::Doubles);
+  // Nothing above doubles, and asking does not cost you anything.
+  const double before = cash;
+  CHECK(!BuyRack(rack, cash, d));
+  CHECK(cash == before);
+
+  // Each rung is more gear and better gear than the one below it, which is
+  // what makes the price a decision rather than a tax.
+  CHECK(RackOf(RackTier::Doubles, d).pieces > RackOf(RackTier::Cams, d).pieces);
+  CHECK(RackOf(RackTier::Cams, d).pieces > RackOf(RackTier::Nuts, d).pieces);
+  CHECK(d.doublesQuality > d.camsQuality);
+  CHECK(d.camsQuality > d.nutsQuality);
+  CHECK(RackPrice(RackTier::Doubles, d) > RackPrice(RackTier::Cams, d));
+  CHECK(RackPrice(RackTier::Cams, d) > RackPrice(RackTier::Nuts, d));
+  // A rack is the most expensive thing on any shelf in the game.
+  CHECK(d.camsCost > KitDials{}.padCost);
+
+  // The family money works here the way it works at every other counter.
+  Rack theirs;
+  double trust = 190.0 * 0.7;
+  CHECK(BuyRack(theirs, trust, d, 0.7));
+
+  // Words, and never a number.
+  CHECK(std::string(RackTierName(RackTier::None)) == "no rack");
+  CHECK(RackText(Rack{}, d) == "no rack");
+  CHECK(RackText(RackOf(RackTier::Cams, d), d).find("cams") !=
+        std::string::npos);
+  Rack one = RackOf(RackTier::Cams, d);
+  one.pieces = 1;
+  CHECK(RackText(one, d).find("1 piece left") != std::string::npos);
+  CHECK(std::string(PieceText(0.0)) == "nothing");
+  CHECK(std::string(PieceText(0.95)) == "bomber");
+  CHECK(std::string(PieceText(0.2)) != std::string(PieceText(0.9)));
+}
+
+static void TestTheRackSurvivesTheSave() {
+  TradDials d;
+  SaveGame save;
+  save.seed = "gear-placement";
+  save.player.rack = RackOf(RackTier::Cams, d);
+  save.player.rack.pieces = 9;   // three of them still at the last belay
+
+  const std::string text = SerializeSave(save);
+  SaveGame back;
+  CHECK(DeserializeSave(text, back) == LoadResult::Ok);
+  CHECK(back.player.rack.pieces == 9);
+  CHECK(back.player.rack.quality == d.camsQuality);
+  CHECK(TierOf(back.player.rack, d) == RackTier::Cams);
+
+  // A career from before there was any trad to place gear on loads with an
+  // empty harness, which is exactly what it had.
+  std::string v32 = text;
+  DropSaveLine(v32, "rack.pieces=");
+  DropSaveLine(v32, "rack.quality=");
+  SetSaveVersion(v32, 32);
+  SaveGame old;
+  CHECK(DeserializeSave(v32, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(old.player.rack.pieces == 0);
+  CHECK(!CanLeadTrad(old.player.rack));
+  CHECK(old.seed == save.seed);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+}
+
+static void TestTheButtressIsTradRock() {
+  Rng world = Rng::FromStream("valley", Stream::Worldgen);
+  const Crag buttress = TheOldButtress(world);
+  const Crag cave = ShadedCave(world);
+
+  CHECK(!buttress.lines.empty());
+  int cracks = 0, easy = 0;
+  for (const CragLine& line : buttress.lines) {
+    CHECK(line.route.discipline == Discipline::Trad);
+    CHECK(NeedsABelayer(line.route));
+    // A pitch, not a long boulder: it has the stances that make one
+    // climbable, exactly as the cave's do.
+    CHECK(line.route.moves.size() > 8);
+    if (line.route.type == RouteType::Crack) cracks++;
+    if (!line.isProject && line.route.grade <= 3) easy++;
+  }
+  // Mostly cracks, because a crack is a line you can protect.
+  CHECK(cracks * 2 > static_cast<int>(buttress.lines.size()));
+  // And its classics are moderate where the cave's are hard — trad is the
+  // one discipline whose entry-level lines are the famous ones.
+  CHECK(easy >= 4);
+  int easyCave = 0;
+  for (const CragLine& line : cave.lines) {
+    if (!line.isProject && line.route.grade <= 3) easyCave++;
+  }
+  CHECK(easy > easyCave);
+
+  // Its own world, stable across runs and different from the other crags'.
+  Rng other = Rng::FromStream("elsewhere", Stream::Worldgen);
+  CHECK(TheOldButtress(world).lines[0].route.moves[0].difficulty ==
+        buttress.lines[0].route.moves[0].difficulty);
+  CHECK(TheOldButtress(other).lines.back().route.trueGrade !=
+            buttress.lines.back().route.trueGrade ||
+        TheOldButtress(other).lines.back().route.moves.size() !=
+            buttress.lines.back().route.moves.size());
+
+  // The headwall's face testpiece offers a leader less than its crack
+  // testpiece does, at the same grade — which is why one of them is called
+  // Ropeless in a Sense and the other is called Bombproof.
+  const auto GearOn = [&](const std::string& name) {
+    double total = 0.0;
+    for (const CragLine& line : buttress.lines) {
+      if (line.route.name != name) continue;
+      for (const Move& m : line.route.moves) total += TakesGear(m);
+      return total / static_cast<double>(line.route.moves.size());
+    }
+    return -1.0;
+  };
+  CHECK(GearOn("Bombproof") > 0.0);
+  CHECK(GearOn("Ropeless in a Sense") > 0.0);
+  CHECK(GearOn("Bombproof") > GearOn("Ropeless in a Sense"));
+}
+
 // --- Age ---------------------------------------------------------------------
 
 static void TestAgeIsDerivedNotStored() {
@@ -12012,6 +12622,16 @@ int main() {
   TestClippingCostsAndTheStanceDecidesHowMuch();
   TestBetaIsWorthMoreOnALongerRoute();
   TestAPitchGoesOnRedpoint();
+  TestTheRockDecidesWhereGearGoes();
+  TestAPlacementIsADecisionMadeUnderPump();
+  TestOneRunoutModelServesBothDisciplines();
+  TestATradLeadIsNotASportLead();
+  TestNeitherPolicyWinsEveryPitch();
+  TestTheRackRunsOut();
+  TestABatchTradAttemptIsLedNotSoloed();
+  TestARackIsTheMostExpensiveThingYouOwn();
+  TestTheRackSurvivesTheSave();
+  TestTheButtressIsTradRock();
   TestAgeIsDerivedNotStored();
   TestNothingIsTakenBeforeThePeak();
   TestPowerGoesFirstAndTechniqueNeverGoes();

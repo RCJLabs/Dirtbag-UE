@@ -44,6 +44,7 @@
 // aggregated here; Sport was not, so the belay functions were invisible to
 // DirtbagGameInstance.cpp and the build died on a container-green commit.
 #include "DirtbagSport.h"
+#include "DirtbagTrad.h"
 
 #include "DirtbagSimTypes.generated.h"
 
@@ -62,7 +63,7 @@ enum class EDirtbagRouteType : uint8
 UENUM(BlueprintType)
 enum class EDirtbagDiscipline : uint8
 {
-	Boulder, Sport
+	Boulder, Sport, Trad
 };
 
 UENUM(BlueprintType)
@@ -251,6 +252,43 @@ struct FDirtbagAttemptResult
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	TArray<FDirtbagMoveResult> Timeline;
+
+	/** What ended up on the rope, per move, 0 where there is nothing —
+	 *  empty on anything but a trad lead. The staging needs it: a whipper
+	 *  onto a bomber cam and a whipper onto a nut the leader did not
+	 *  believe in are the same fall and not the same shot, and the camera
+	 *  cannot know which without this. See Sim/DirtbagTrad.h. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	TArray<double> Gear;
+};
+
+/** What is on the shelf, in the order a dirtbag buys it. Mirrors
+ *  dirtbag::RackTier. */
+UENUM(BlueprintType)
+enum class EDirtbagRackTier : uint8
+{
+	None,
+	Nuts,
+	Cams,
+	Doubles
+};
+
+/** What is on your harness. Not a list of sizes — a count and a standard,
+ *  because the questions worth asking are "have I got enough left for the
+ *  headwall" and "will this hold". Mirrors dirtbag::Rack. */
+USTRUCT(BlueprintType)
+struct FDirtbagRack
+{
+	GENERATED_BODY()
+
+	/** How many placements you have left in you. Zero is no rack, and no
+	 *  rack is no trad lead. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Trad")
+	int32 Pieces = 0;
+
+	/** 0 a borrowed set of nuts .. 1 a double set of cams. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Trad")
+	double Quality = 0.0;
 };
 
 USTRUCT(BlueprintType)
@@ -286,6 +324,15 @@ struct FDirtbagSessionState
 	 *  every attempt as 0.0, and dead rubber cost nothing in the game. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	double ShoeWear = 0.0;
+
+	/** What is on your harness, copied off the career when the session
+	 *  starts — what you walked in with, not what is in the van an hour
+	 *  down the hill. Carried rather than mirror-skipped for the reason
+	 *  spelled out above ShoeWear: a skipped field is not absent from
+	 *  Blueprint, it is erased from the sim on the next round trip, and a
+	 *  leader whose rack was erased solos the pitch. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	FDirtbagRack Rack;
 };
 
 USTRUCT(BlueprintType)
@@ -1896,6 +1943,11 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Kit")
 	FDirtbagKit Kit;
 
+	/** The rack. The only thing you can own that unlocks a whole discipline
+	 *  rather than improving one. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Trad")
+	FDirtbagRack Rack;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Sponsor")
 	FDirtbagSponsorship Sponsor;
 
@@ -2180,6 +2232,8 @@ namespace DirtbagConvert
 	FDirtbagSponsorship FromSim(const dirtbag::Sponsorship& In);
 	dirtbag::Sponsorship ToSim(const FDirtbagSponsorship& In);
 	FDirtbagKit FromSim(const dirtbag::Kit& In);
+	FDirtbagRack FromSim(const dirtbag::Rack& In);
+	dirtbag::Rack ToSim(const FDirtbagRack& In);
 	dirtbag::Kit ToSim(const FDirtbagKit& In);
 	FDirtbagStanding FromSim(const dirtbag::Standing& In);
 	dirtbag::Standing ToSim(const FDirtbagStanding& In);

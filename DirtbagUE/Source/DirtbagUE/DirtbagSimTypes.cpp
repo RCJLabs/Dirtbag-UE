@@ -4,7 +4,8 @@
 // fail the build instead of silently corrupting data.
 static_assert(static_cast<int>(EDirtbagHold::Crack) == static_cast<int>(dirtbag::HoldType::Crack), "Hold enums out of sync");
 static_assert(static_cast<int>(EDirtbagRouteType::Crack) == static_cast<int>(dirtbag::RouteType::Crack), "RouteType enums out of sync");
-static_assert(static_cast<int>(EDirtbagDiscipline::Sport) == static_cast<int>(dirtbag::Discipline::Sport), "Discipline enums out of sync");
+static_assert(static_cast<int>(EDirtbagDiscipline::Trad) == static_cast<int>(dirtbag::Discipline::Trad), "Discipline enums out of sync");
+static_assert(static_cast<int>(EDirtbagRackTier::Doubles) == static_cast<int>(dirtbag::RackTier::Doubles), "RackTier enums out of sync");
 static_assert(static_cast<int>(EDirtbagStyle::Fell) == static_cast<int>(dirtbag::Style::Fell), "Style enums out of sync");
 static_assert(static_cast<int>(EDirtbagMorphology::Powerful) == static_cast<int>(dirtbag::Morphology::Powerful), "Morphology enums out of sync");
 static_assert(static_cast<int>(EDirtbagRouteRead::NotThisYear) == static_cast<int>(dirtbag::RouteRead::NotThisYear), "RouteRead enums out of sync");
@@ -67,6 +68,7 @@ dirtbag::SessionState ToSim(const FDirtbagSessionState& In)
 	Out.attemptsMade = In.AttemptsMade;
 	Out.padding = In.Padding;
 	Out.shoeWear = In.ShoeWear;
+	Out.rack = ToSim(In.Rack);
 	return Out;
 }
 
@@ -133,6 +135,11 @@ FDirtbagAttemptResult FromSim(const dirtbag::AttemptResult& In)
 	{
 		Out.Timeline.Add(FromSim(MR));
 	}
+	Out.Gear.Reserve(In.gear.quality.size());
+	for (double Q : In.gear.quality)
+	{
+		Out.Gear.Add(Q);
+	}
 	return Out;
 }
 
@@ -145,6 +152,7 @@ FDirtbagSessionState FromSim(const dirtbag::SessionState& In)
 	Out.Psyche = In.psyche;
 	Out.AttemptsMade = In.attemptsMade;
 	Out.Padding = In.padding;
+	Out.Rack = FromSim(In.rack);
 	return Out;
 }
 
@@ -205,6 +213,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.dreams = ToSim(In.Dreams);
 	Out.standing = ToSim(In.Standing);
 	Out.kit = ToSim(In.Kit);
+	Out.rack = ToSim(In.Rack);
 	Out.sponsor = ToSim(In.Sponsor);
 	Out.secrets.reserve(In.Secrets.Num());
 	for (const FDirtbagSecret& S : In.Secrets)
@@ -283,6 +292,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Dreams = FromSim(In.dreams);
 	Out.Standing = FromSim(In.standing);
 	Out.Kit = FromSim(In.kit);
+	Out.Rack = FromSim(In.rack);
 	Out.Sponsor = FromSim(In.sponsor);
 	Out.Secrets.Reserve(static_cast<int32>(In.secrets.size()));
 	for (const dirtbag::Secret& S : In.secrets)
@@ -453,6 +463,22 @@ dirtbag::Sponsorship ToSim(const FDirtbagSponsorship& In)
 	Out.daysHurtThisSeason = In.DaysHurtThisSeason;
 	Out.gradeAtLastReview = In.GradeAtLastReview;
 	Out.seasonsWithoutProgress = In.SeasonsWithoutProgress;
+	return Out;
+}
+
+FDirtbagRack FromSim(const dirtbag::Rack& In)
+{
+	FDirtbagRack Out;
+	Out.Pieces = In.pieces;
+	Out.Quality = In.quality;
+	return Out;
+}
+
+dirtbag::Rack ToSim(const FDirtbagRack& In)
+{
+	dirtbag::Rack Out;
+	Out.pieces = In.Pieces;
+	Out.quality = In.Quality;
 	return Out;
 }
 

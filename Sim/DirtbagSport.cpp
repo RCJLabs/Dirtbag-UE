@@ -18,13 +18,40 @@ std::vector<int> BoltsFor(const Route& route, const SportDials& dials) {
   return bolts;
 }
 
-int LastBoltAtOrBelow(const Route& route, int moveIndex,
-                      const SportDials& dials) {
-  int last = -1;
-  for (int bolt : BoltsFor(route, dials)) {
-    if (bolt <= moveIndex) last = bolt; else break;
+double PieceAt(const Route& route, int moveIndex, const SportDials& dials,
+               const Protection& gear) {
+  if (moveIndex < 0) return 0.0;
+  switch (route.discipline) {
+    case Discipline::Boulder:
+      return 0.0;
+    case Discipline::Sport:
+      // Every bolt is a bolt. Nobody has ever backed off a route because
+      // they did not fancy the hardware.
+      return IsClippingMove(route, moveIndex, dials) ? 1.0 : 0.0;
+    case Discipline::Trad:
+      if (moveIndex >= static_cast<int>(gear.quality.size())) return 0.0;
+      return Clamp01(gear.quality[moveIndex]);
   }
-  return last;
+  return 0.0;
+}
+
+int LastPieceAtOrBelow(const Route& route, int moveIndex,
+                       const SportDials& dials, const Protection& gear) {
+  if (route.discipline == Discipline::Sport) {
+    // Walk the bolt list once rather than asking PieceAt per move: the
+    // answer is the same and the allocation is not quadratic.
+    int last = -1;
+    for (int bolt : BoltsFor(route, dials)) {
+      if (bolt <= moveIndex) last = bolt; else break;
+    }
+    return last;
+  }
+  const int top = std::min(moveIndex,
+                           static_cast<int>(gear.quality.size()) - 1);
+  for (int i = top; i >= 0; i--) {
+    if (PieceAt(route, i, dials, gear) > 0.0) return i;
+  }
+  return -1;
 }
 
 bool IsClippingMove(const Route& route, int moveIndex,
@@ -35,23 +62,42 @@ bool IsClippingMove(const Route& route, int moveIndex,
   return false;
 }
 
-bool OnTheRope(const Route& route, int moveIndex, const SportDials& dials) {
-  if (route.discipline != Discipline::Sport) return false;
-  return LastBoltAtOrBelow(route, moveIndex, dials) >= 0;
+double FallPenalty(double trust, double solo, double runout, double curve) {
+  const double doubt = 1.0 - Clamp01(trust);
+  return runout + (solo - runout) * std::pow(doubt, std::max(1.0, curve));
 }
 
-double RunoutAt(const Route& route, int moveIndex, const SportDials& dials) {
-  if (route.discipline != Discipline::Sport) return 0.0;
+bool OnTheRope(const Route& route, int moveIndex, const SportDials& dials,
+               const Protection& gear) {
+  if (route.discipline == Discipline::Boulder) return false;
+  return LastPieceAtOrBelow(route, moveIndex, dials, gear) >= 0;
+}
 
-  const int last = LastBoltAtOrBelow(route, moveIndex, dials);
+double RunoutAt(const Route& route, int moveIndex, const SportDials& dials,
+                const Protection& gear) {
+  if (route.discipline == Discipline::Boulder) return 0.0;
+
+  const int last = LastPieceAtOrBelow(route, moveIndex, dials, gear);
   if (last < 0) {
-    // Below the first bolt you are not runout, you are bouldering — and the
-    // ground-fall penalty that applies there is the right one, which is why
-    // this returns nothing rather than everything.
+    // Below the first piece you are not runout, you are bouldering — and
+    // the ground-fall penalty that applies there is the right one, which is
+    // why this returns nothing rather than everything.
     return 0.0;
   }
   const double above = static_cast<double>(moveIndex - last);
-  return Clamp01(above / std::max(1.0, dials.runoutSaturationMoves));
+  const double distance =
+      Clamp01(above / std::max(1.0, dials.runoutSaturationMoves));
+
+  // And how little you believe in the thing you are above. Zero on sport,
+  // always, because PieceAt returns 1 for a bolt — which is what lets one
+  // function serve both disciplines without either of them noticing the
+  // other exists.
+  //
+  // They add rather than compete: being a long way above a bad nut is
+  // worse than either, and a climber who has been there will tell you so.
+  const double doubt =
+      (1.0 - PieceAt(route, last, dials, gear)) * dials.poorGearFear;
+  return Clamp01(distance + doubt);
 }
 
 double ClipCost(const Route& route, int moveIndex, const SportDials& dials) {
@@ -67,7 +113,7 @@ double ClipCost(const Route& route, int moveIndex, const SportDials& dials) {
 }
 
 bool NeedsABelayer(const Route& route) {
-  return route.discipline == Discipline::Sport;
+  return route.discipline != Discipline::Boulder;
 }
 
 bool WillBelay(const Partner& partner, const SportDials& dials) {

@@ -105,6 +105,17 @@ Crag ShadedCave(const Rng& worldRng);
 // the valley that a nine-to-five takes off you.
 Crag SunTerrace(const Rng& worldRng);
 
+// The trad crag: an hour up the hill, east-facing, and the only rock in the
+// valley you cannot climb without owning a rack. Sixteen lines and three
+// unclimbed ones, mostly cracks, graded on the YDS ladder like the cave.
+//
+// It is the third crag rather than a re-tagging of the first two because a
+// trad route and a sport route are not the same rock with different metal
+// in it: the buttress's classics are moderate where the cave's are hard,
+// and its testpieces are frightening where the cave's are pumpy. See the
+// tables in DirtbagCrag.cpp for why each of those is shaped that way.
+Crag TheOldButtress(const Rng& worldRng);
+
 // Lines at or under this grade, in book order — what a guidebook page shows.
 // unwired-ok: the guidebook page's filter; there is no guidebook screen
 std::vector<const CragLine*> LinesUpTo(const Crag& crag, int grade);

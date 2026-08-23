@@ -260,6 +260,7 @@ private:
 	 *  spots, because it is one object and where you are says which you
 	 *  meant. */
 	void OnHangboard();
+	void OnRack();
 
 	/** While the book is open, 1/2/3 turn the page rather than naming a
 	 *  dream or sizing a stake. Returns true if the book took the key. */

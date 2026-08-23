@@ -825,24 +825,40 @@ practise is a stat**.
 
 ---
 
-## Phase 13 — Trad
+## Phase 13 — Trad   **BUILT 2026-08-23**
 
 The cut ladder's last systemic rung (`concepts/DIRTBAG.md` §6, rung 3), open
 since Phase 3 and deferred four times on the same correct reasoning: a
 deeper game whose presentation or place is the constraint is a worse game,
 not a bigger one. After Phase 6 that reasoning expires.
 
-`Discipline` is still `{Boulder, Sport}`. Sport and the runout are built and
+`Discipline` is `{Boulder, Sport, Trad}`. Sport and the runout are built and
 measured, and trad is the third answer to the same question the runout
 already asks — how far above the last piece are you, and did you place it
 well.
 
 **Done when:**
-1. A trad lead resolves differently from a sport lead on the same rock, for
-   reasons a watcher can name.
-2. Placing gear is a decision made under pump, not a checkbox before the
-   climb.
-3. The existing runout model absorbs it rather than being duplicated.
+1. ~~A trad lead resolves differently from a sport lead on the same rock, for
+   reasons a watcher can name.~~ **Passes.** About a grade on an eighteen-move
+   crack (V6: sport 0.735, trad 0.453), and the reason is different rock by
+   rock: on a crack you pay in pump, on a face you pay in head.
+2. ~~Placing gear is a decision made under pump, not a checkbox before the
+   climb.~~ **Passes.** `PlaceGear` is a verb of the live attempt beside
+   `ShakeOut`; quality falls with pump at the same stance; and both extreme
+   policies lose to thinking about it (sensible 0.866, solo 0.591, sew-it-up
+   0.000).
+3. ~~The existing runout model absorbs it rather than being duplicated.~~
+   **Passes.** One `RunoutAt`, one `ExposureAt`, one `FallPenalty`. Bolt a
+   trad route by hand and it is the sport route move for move, and a test
+   pins the equality.
+
+Built out of order at Evan's request while Phase 6's Editor half waits for a
+PC. Measurements and the four bugs the measuring found:
+`notes/phase13-trad.md`.
+
+**Still open:** the season probe does not lead trad, so nothing here has been
+measured at career scale — the same gap that hid the World Cup's calendar
+and the tooth's dead end.
 
 ---
 
@@ -865,6 +881,8 @@ it, being the same system's low end.
 ---
 
 ## Changelog
+
+- 2026-08-23 - **Phase 13: trad** (`Sim/DirtbagTrad.*`, SAVE v33). The cut ladder's last systemic rung, open since Phase 3 and deferred four times. **It is not a second climbing model** -- it is Phase 8's runout model, unchanged, reading protection that arrived by a *decision* instead of by a bolter, which is gate 3 and is where everything else comes from. `FallPenalty`, `PieceAt` and `LastPieceAtOrBelow` serve both disciplines; bolt the trad route by hand and it *is* the sport route, move for move, and a test says so. The difference is three sentences a watcher can name from the ground: the gear is a decision, it costs more than a clip (9.0 against 3.0 from a jug, 23.4 from a blank wall -- more than the move you are standing on), and you can run out of it. Measured, an eighteen-move crack for a grade-7.8 climber: sport 0.960/0.737/0.167 at V5/V6/V7 against trad 0.890/0.478/0.028 -- **about a grade**, which is the number every trad climber quotes about their own two grades. And it is two reasons rather than one, showing up on different rock: on a crack you pay in **pump** (3.7 pieces, 0.79 grades of exposure) and on a face you pay in **head** (1.4 pieces, 3.13 grades), which is why the buttress has both and why one testpiece is called *Ropeless in a Sense* and the other *Bombproof*. **Four things the measurement found, and three of them were the game telling you to do the wrong thing.** *Soloing was the strongest strategy and it was free*: `AttemptInput` arrives fully padded, below the first piece the exposure model is the crash-pad model, so a leader who placed nothing had zero exposure at every move of a pitch and paid no pump either -- **soloing sent 68.6%, leading sent 0%**, and every ordering test passed. `soloGradePenalty` is 3.2 now, the largest number in the resolver, above being fully pumped and above being injured, because **it is the only one of them that can kill you**. *The most expensive purchase in the game made you worse at climbing*: the fear model saturated at the sport number, so a piece you were certain would rip could never be more frightening than a bolt runout, a worse rack meant fewer placements meant less pump -- **nuts sent 0.651 and a double rack of cams sent 0.454.** Fixed by pricing a fall by *what is going to catch it*, on a convex curve, because **a piece you are 70% sure of is not 70% of the way from a bolt to the deck.** A bolt's trust is 1, lands exactly on `runoutGradePenalty`, and no golden vector moves. *And every placement on a crack was priced as if made off a crimp*, because a crack move's `restQuality` is zero unless the hold is a jug: **a hand-sized cam into a hand-sized crack goes in off a jam**, and until it did the bot placed 2.2 pieces in eighteen moves and leading sent zero. **The bot is a decision rather than a threshold.** It started as two quality bars and both were the wrong shape -- a quality bar cannot tell a good piece from a *useful* one, and with a 0.24 bar for the first placement the bot got a nut in at move 1 that it believed in so little the pitch came out **more frightening than soloing it**. It asks one question now, in grade units, through the resolver's own dials: is this stretch less frightening with the piece than without, by more than the pump costs. Spacing falls out of it, and so does declining rubbish rock. Two corrections worth keeping: **averaged over the stretch, not read off its far end** (a piece that leaves you runout by the top looks worth nothing however much of the stretch it saved), and **rationing raises the bar rather than stretching the lookahead** -- stretching it ran past where fear saturates, every comparison came out "as bad as it gets either way", and a leader with two pieces carried them to move ten and placed both next to each other. **Being short does not make you see further, it makes you fussier.** The gate that proves it is a decision: sensible 0.866, sew-it-up 0.000, solo 0.591 -- both extremes lose and soloing stays *tempting*, which is the shape a decision is supposed to have. **The Old Buttress** is the third crag, sixteen lines and three unclimbed, and its spread starts low and stays low because nobody bolts 5.7 in a cave: **trad is the one discipline whose entry-level lines are the famous ones.** SAVE v33 carries the rack, and so does `SessionState`, because the mirror checker's standing lesson holds -- a skipped field is not absent from Blueprint, it is erased from the sim on the next round trip, and a leader whose rack was erased solos the pitch. Nuts $190, cams $640, doubles $1,150, on **G** at the counter: the most expensive thing on any shelf and the only purchase that opens a crag rather than improving a day. Six defects verified by reintroduction; preflight green on all thirteen. **Still open, and named**: the season probe does not lead trad, so every number here is an attempt or a policy rather than a career -- the same gap that hid the World Cup's calendar and the tooth's dead end.
 
 - 2026-08-23 - **Phase 12: work is a craft** (`Sim/DirtbagCraft.*`, SAVE v32). **A lever you pull for money is a lever; a trade you are getting better at is a life.** Phase 3 ported the odd-jobs board and the salaried trap and both were built and measured; what it did not port is that every job in the 2D game has a craft behind it. Ten of them -- setting, coaching, the counter, labour, trail, the camera, courier, rescue, the bar, the office -- and **three gigs were added to the board rather than three enum entries**, because a craft you cannot practise is a stat; a test walks two hundred days of the board and fails if any trade is unreachable. Flyering deliberately maps to nothing: some work is just work. **Gate one**: every trade pays back into the body or the head, and the same career with the teaching switched off and on comes out power +12 to +24, endurance +15 to +17, technique +9 to +13 -- in the lanes those trades teach and nowhere else, and fingers goes *down* because no trade teaches fingers and a stronger climber picks different routes. None of it is as good as climbing, which is load-bearing: **work that trained you as well as climbing did would make the salaried trap not a trap.** **Gate two**: something comes up on about a third of shifts -- a hold spins mid-session, a kid freezes at the top, the last drop is a hospital and you are forty minutes down -- and there are two ways to handle it, the right one harder and needing the craft you have actually built. Somebody who can do the job pulls it off fifty times in sixty; somebody who cannot manages under twenty-five, and **never zero, because a wall is not a decision.** The easy way is never wrong, never punished and never gets you anywhere: it has to be a real option or the decision is a skill check. **Gate three nearly shipped unreachable.** Standing is per trade and a bad enough run takes the gig off your board for good -- but the probe's policy only reached when the craft was there, so it botched two times in four hundred and forty and **was never sacked once in thirty years**: testable in the harness and unreachable in a played career, which is the same as not existing. Given a policy that always reaches, one to three sackings a career, and **the trade changes** -- losing setting pushes a career into labour and it is still there thirty years later, which is the gate: not a number in a menu, a different life. Two things found and fixed on the way. The work gain went straight onto the skill, making work **the one training path in the game with no headroom on it** -- thirty years of shifts is seven thousand hours, and at a flat rate that is a hundred and thirty points into a stat that stops at a hundred; through the same diminishing returns as everything else now, and clamped. And `BoardOpenToYou` was deleted for being sugar: it read well, nothing used it but its own test, and the engine wrote the same two-line loop inline -- **a second place for a rule to live is how the rule starts disagreeing with itself**, which is precisely the class the checker written an hour earlier exists to catch. Employer standing is per *trade* rather than per building, which is simpler than the 2D game and written down rather than hidden. preflight green on all thirteen; probe coverage 145 sim rules to 147.
 

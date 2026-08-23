@@ -60,6 +60,36 @@ double UDirtbagLiveAttempt::ShakeOut()
 	return dirtbag::ShakeOut(Live);
 }
 
+double UDirtbagLiveAttempt::PlaceGear()
+{
+	return dirtbag::PlaceGear(Live);
+}
+
+bool UDirtbagLiveAttempt::WouldPlaceGear() const
+{
+	return dirtbag::WouldPlace(Live);
+}
+
+int32 UDirtbagLiveAttempt::GetRackLeft() const
+{
+	return Live.rackLeft;
+}
+
+double UDirtbagLiveAttempt::GetLastPieceTrust() const
+{
+	const dirtbag::SportDials Sd;
+	const int Last = dirtbag::LastPieceAtOrBelow(Live.input.route,
+	                                             Live.nextMove, Sd, Live.gear);
+	if (Last < 0)
+	{
+		// Nothing on the rope. Not "safe" — the exposure model has its own
+		// and much larger opinion about that, and the HUD should not say
+		// bomber because it found no gear.
+		return 0.0;
+	}
+	return dirtbag::PieceAt(Live.input.route, Last, Sd, Live.gear);
+}
+
 bool UDirtbagLiveAttempt::IsOver() const
 {
 	return dirtbag::AttemptOver(Live);
@@ -627,6 +657,55 @@ FDirtbagCrag UDirtbagSimLibrary::ShadedCave(const FString& Seed)
 	// generated from the same world or they are not in the same valley.
 	return DirtbagConvert::FromSim(
 	    dirtbag::ShadedCave(dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed))));
+}
+
+FDirtbagCrag UDirtbagSimLibrary::TheOldButtress(const FString& Seed)
+{
+	// FromSeed, exactly as the other two do — three crags generated from
+	// different worlds are not three crags in one valley.
+	return DirtbagConvert::FromSim(
+	    dirtbag::TheOldButtress(dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed))));
+}
+
+// --- Trad --------------------------------------------------------------------
+
+EDirtbagRackTier UDirtbagSimLibrary::RackTier(const FDirtbagRack& Rack)
+{
+	return static_cast<EDirtbagRackTier>(
+	    dirtbag::TierOf(DirtbagConvert::ToSim(Rack)));
+}
+
+FDirtbagRack UDirtbagSimLibrary::RackOf(EDirtbagRackTier Tier)
+{
+	return DirtbagConvert::FromSim(
+	    dirtbag::RackOf(static_cast<dirtbag::RackTier>(Tier)));
+}
+
+double UDirtbagSimLibrary::RackPrice(EDirtbagRackTier Tier)
+{
+	return dirtbag::RackPrice(static_cast<dirtbag::RackTier>(Tier));
+}
+
+FString UDirtbagSimLibrary::RackTierName(EDirtbagRackTier Tier)
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::RackTierName(static_cast<dirtbag::RackTier>(Tier)));
+}
+
+bool UDirtbagSimLibrary::CanLeadTrad(const FDirtbagRack& Rack)
+{
+	return dirtbag::CanLeadTrad(DirtbagConvert::ToSim(Rack));
+}
+
+FString UDirtbagSimLibrary::PieceText(double Quality)
+{
+	return UTF8_TO_TCHAR(dirtbag::PieceText(Quality));
+}
+
+FString UDirtbagSimLibrary::RackText(const FDirtbagRack& Rack)
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::RackText(DirtbagConvert::ToSim(Rack)).c_str());
 }
 
 // --- The town ----------------------------------------------------------------

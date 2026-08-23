@@ -3,6 +3,7 @@
 #include "DirtbagBody.h"
 #include "DirtbagGear.h"
 #include "DirtbagSport.h"
+#include "DirtbagTrad.h"
 
 #include <algorithm>
 #include <cmath>
@@ -52,7 +53,8 @@ double MorphologyAdjust(const Climber& climber, const Move& move,
 // V0..V18 ladder, exactly as the 2D game's skill-vs-grade check does).
 // Shared by the live step and the odds preview so the UI never lies.
 double MoveEffective(const AttemptInput& input, const Move& move, int index,
-                     double exec, double pump, const SessionDials& dials) {
+                     double exec, double pump, const SessionDials& dials,
+                     const Protection& gear) {
   const Climber& c = input.climber;
   double effective = SkillToGrade(BlendedSkill(c.skills, move.hold), dials);
 
@@ -133,7 +135,7 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
   // bothers you. They are different questions and they add.
   const double nerve =
       Clamp01(0.5 + (c.skills.head - 50.0) / 100.0 + input.boldness);
-  effective -= ExposureAt(input.route, index, input.padding, dials) *
+  effective -= ExposureAt(input.route, index, input.padding, dials, gear) *
                (1.0 - 0.5 * nerve);
 
   // Pump spends ability, in grade units — felt only where margins are thin.
@@ -144,16 +146,61 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
 }  // namespace
 
 double ExposureAt(const Route& route, int index, double padding,
-                  const SessionDials& dials) {
+                  const SessionDials& dials, const Protection& gear) {
   // What you would hit, which is a different question on a rope than on a
   // pad. Both are paid out of head — a bold climber is still bolder — but
   // they are not the same fear and they must not both apply.
-  if (OnTheRope(route, index)) {
-    // Above the first bolt the ground is not the question any more. The
+  if (OnTheRope(route, index, SportDials{}, gear)) {
+    // Above the first piece the ground is not the question any more. The
     // crash-pad penalty has to *stop* here or it follows a roped climber
     // thirty metres up a pitch and punishes them for having no foam under
     // a route nobody would put foam under.
-    return dials.runoutGradePenalty * RunoutAt(route, index);
+    //
+    // And on a trad lead the *first* piece is the one that does this,
+    // which is why getting off the deck is worth a marginal placement: the
+    // whole ground-fall model switches off the moment something is on the
+    // rope, whoever put it there.
+    // Priced by what is going to catch you. On a bolted route this is
+    // exactly runoutGradePenalty and always has been, because a bolt's
+    // trust is 1 — the golden vectors do not move. On a trad lead it is
+    // the number that makes a rack worth six hundred dollars.
+    const SportDials sport;
+    const int last = LastPieceAtOrBelow(route, index, sport, gear);
+    const double trust = last >= 0 ? PieceAt(route, last, sport, gear) : 0.0;
+    return FallPenalty(trust, dials.soloGradePenalty,
+                       dials.runoutGradePenalty, sport.gearDoubtCurve) *
+           RunoutAt(route, index, sport, gear);
+  }
+
+  // **Nothing on the rope, and a long way up.** That is not a bad landing,
+  // it is a solo, and the pad model below is the wrong question for it:
+  // measured with the pad model, a leader who placed nothing sent an
+  // eighteen-move pitch 69% of the time against 0% for one who protected
+  // it, because AttemptInput arrives fully padded by default and foam
+  // cancelled the whole ground term. Soloing was the strongest strategy in
+  // the game and it was free.
+  //
+  // Trad only, deliberately. On a bolted route the region below the first
+  // piece is two moves by construction and the pad model is the right one
+  // there — the boulderer's answer for the part of a pitch that really is
+  // a boulder. On a trad lead it is however far you have chosen to climb
+  // without stopping, and that is a different question.
+  //
+  // Scaled by moves off the deck rather than by fraction of the route,
+  // because the ground does not care how long the pitch is, and saturating
+  // at the same distance the runout does — six moves above the deck with
+  // nothing in is as frightened as anybody gets.
+  if (route.discipline == Discipline::Trad) {
+    // The saturation distance comes from the runout model rather than a
+    // second opinion about how high is high — it is the same six moves,
+    // because the ground and the last piece are the same question asked
+    // from two heights. The *penalty* is its own number and a much bigger
+    // one, and it says why in DirtbagSport.h. Nothing on the rope is trust
+    // zero, which is the same thing FallPenalty says one line up.
+    const SportDials sport;
+    return dials.soloGradePenalty *
+           Clamp01(static_cast<double>(index) /
+                   std::max(1.0, sport.runoutSaturationMoves));
   }
   const int moves = static_cast<int>(route.moves.size());
   if (moves <= 0) return 0.0;
@@ -217,6 +264,14 @@ LiveAttempt BeginAttempt(const Rng& rng, const AttemptInput& input,
   la.input = input;
   la.dials = dials;
   la.rng = rng;
+
+  // You leave the ground with the rack on your harness and nothing on the
+  // rope. Sized once here so PlaceGear never has to grow the vector under
+  // a leader who is busy.
+  if (input.route.discipline == Discipline::Trad) {
+    la.rackLeft = std::max(0, input.rack.pieces);
+    la.gear.quality.assign(input.route.moves.size(), 0.0);
+  }
   return la;
 }
 
@@ -230,7 +285,8 @@ double PeekOdds(const LiveAttempt& la, double execution) {
   const Move& move = la.input.route.moves[la.nextMove];
   const double exec = std::clamp(execution, 0.0, 1.0);
   const double margin =
-      MoveEffective(la.input, move, la.nextMove, exec, la.pump, la.dials) -
+      MoveEffective(la.input, move, la.nextMove, exec, la.pump, la.dials,
+                    la.gear) -
       move.difficulty;
   return Sigmoid(kOddsBias + margin * la.dials.oddsSlope);
 }
@@ -241,7 +297,8 @@ MoveResult StepMove(LiveAttempt& la, double execution) {
   const double exec = std::clamp(execution, 0.0, 1.0);
 
   const double effective =
-      MoveEffective(la.input, move, la.nextMove, exec, la.pump, la.dials);
+      MoveEffective(la.input, move, la.nextMove, exec, la.pump, la.dials,
+                    la.gear);
   const double margin = effective - move.difficulty;
   const double odds = Sigmoid(kOddsBias + margin * la.dials.oddsSlope);
 
@@ -303,9 +360,57 @@ double ShakeOut(LiveAttempt& la) {
   return before - la.pump;
 }
 
+bool WouldPlace(const LiveAttempt& la, const TradDials& dials) {
+  if (AttemptOver(la)) return false;
+  Rack left = la.input.rack;
+  left.pieces = la.rackLeft;
+  return WorthPlacing(la.input.route, la.nextMove, la.gear, left, la.pump,
+                      la.input.climber, dials);
+}
+
+double PlaceGear(LiveAttempt& la, const TradDials& dials) {
+  if (AttemptOver(la)) return 0.0;
+  if (la.input.route.discipline != Discipline::Trad) return 0.0;
+  if (la.rackLeft <= 0) return 0.0;
+
+  const int at = la.nextMove;
+  if (at < 0 || at >= static_cast<int>(la.gear.quality.size())) return 0.0;
+  // Two pieces at one move is a belay, not a lead.
+  if (la.gear.quality[at] > 0.0) return 0.0;
+
+  const Move& stance = la.input.route.moves[at];
+
+  // The pump goes first, and it goes whether or not anything useful comes
+  // of it. That ordering is the whole of the decision: you commit to the
+  // fiddling before you know what you have got, which is why a leader
+  // places from stances and why a placement made in a panic is worse than
+  // one made two moves lower.
+  la.pump = std::min(100.0, la.pump + PlaceCost(stance, dials));
+  la.rackLeft--;
+
+  Rack left = la.input.rack;
+  left.pieces = la.rackLeft + 1;   // the piece you are holding is still yours
+  const double quality =
+      PlaceHere(stance, la.pump, la.input.climber, left, dials);
+  la.gear.quality[at] = quality;
+
+  // A shake-out at this stance is worth less afterwards, the same way it is
+  // after any other hang: you have been here a while now.
+  la.shakesAtStance++;
+
+  // The timeline records the stance as it was left, so a staged replay
+  // shows the fiddling rather than the arrival — same contract as ShakeOut.
+  if (!la.partial.timeline.empty()) {
+    la.partial.timeline.back().pumpAfter = la.pump;
+  }
+  la.partial.peakPump = std::max(la.partial.peakPump, la.pump);
+  return quality;
+}
+
 AttemptResult FinishAttempt(const LiveAttempt& la) {
   const Route& r = la.input.route;
   AttemptResult result = la.partial;
+  result.gear = la.gear;
 
   result.sent = result.highpoint == static_cast<int>(r.moves.size());
   if (result.sent) {
@@ -341,6 +446,11 @@ AttemptResult ResolveAttempt(Rng& rng, const AttemptInput& input,
     const double exec = i < input.execution.size()
                             ? std::clamp(input.execution[i], 0.0, 1.0)
                             : input.botExecution;
+    // ...and it places gear the way it takes shake-outs: to a stated
+    // policy, so that the measured game and the played game cannot drift.
+    // A trad route resolved in batch is a trad route led sensibly, not a
+    // trad route soloed.
+    if (WouldPlace(la)) PlaceGear(la);
     const MoveResult mr = StepMove(la, exec);
     if (mr.success && input.route.moves[i].restQuality > 0.0) ShakeOut(la);
   }

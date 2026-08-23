@@ -105,10 +105,10 @@ Route BuildRoute(const Rng& worldRng, const std::string& name, int grade,
     // 68%, because pump accrued for the full length with almost nowhere to
     // shake out. One guaranteed mid-route rest was not a pitch, it was a
     // boulder with a ledge in it.
-    if (discipline == Discipline::Sport && !move.crux && i % 4 == 3) {
+    if (discipline != Discipline::Boulder && !move.crux && i % 4 == 3) {
       move.restQuality = std::max(move.restQuality, rng.FloatRange(0.35, 0.85));
     }
-    if (discipline == Discipline::Sport && i == moveCount / 2 && !move.crux) {
+    if (discipline != Discipline::Boulder && i == moveCount / 2 && !move.crux) {
       move.restQuality = std::max(move.restQuality, rng.FloatRange(0.4, 0.9));
     }
     route.moves.push_back(move);

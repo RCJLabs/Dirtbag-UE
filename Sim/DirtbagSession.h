@@ -17,6 +17,10 @@
 
 #include "DirtbagCore.h"
 #include "DirtbagRng.h"
+// For TradDials, which is a default argument of the placing verb below. The
+// trad header includes nothing but the core vocabulary, exactly so that it
+// can be included from here without a cycle.
+#include "DirtbagTrad.h"
 
 namespace dirtbag {
 
@@ -135,6 +139,12 @@ struct SessionDials {
   // the guidebook agree; the number lives there.
   double runoutGradePenalty = 1.1;
 
+  // Above the *ground*, on a rope route, with nothing in. The largest
+  // number in this struct, because it is the only one that prices dying
+  // rather than falling. Mirrors SportDials; the number and the reason
+  // live there.
+  double soloGradePenalty = 3.2;
+
   // What knowing the sequence is worth, in grade units at full beta — and
   // how much more it is worth on a long route, because there is more of it
   // to have. A six-move boulder is one puzzle; a twenty-move pitch is a
@@ -186,8 +196,14 @@ double GradeToSkill(double grade, const SessionDials& dials = SessionDials{});
 // The single source of that question. The resolver prices a scary move with
 // it and the day loop trains head off it, and two copies of "how bold was
 // that" would drift exactly the way two copies of SkillToGrade would.
+// `gear` is what is on the rope, and it is only ever read on a trad
+// route: a boulder has none and a sport route derives its own from the
+// bolts. Trailing and empty by default so every existing caller — the day
+// loop's head training, the golden vectors, the engine's HUD — resolves
+// exactly as it always did.
 double ExposureAt(const Route& route, int index, double padding,
-                  const SessionDials& dials = SessionDials{});
+                  const SessionDials& dials = SessionDials{},
+                  const Protection& gear = Protection{});
 
 // What this climber can do on this route's kind of holds, in grades —
 // the ground-up read, before pump, execution, or luck get a say.
@@ -259,6 +275,15 @@ struct AttemptInput {
   // vector resolves exactly as it did. See Sim/DirtbagAilments.h.
   double ailmentPenalty = 0.0;
 
+  // **What is on your harness when you leave the ground.** Empty for a
+  // boulderer and for a sport climber, both of whom are correct to leave
+  // it in the van, and the reason a trad route you cannot protect is a
+  // route you do not lead. See Sim/DirtbagTrad.h.
+  //
+  // Only the *starting* rack: what is left partway up is state, and state
+  // lives in LiveAttempt beside the pump.
+  Rack rack;
+
   // Per-move minigame quality, 0..1. Missing entries fall back to botExecution.
   std::vector<double> execution;
   double botExecution = 0.72;
@@ -278,6 +303,15 @@ struct AttemptResult {
   double skinCost = 0.0;
   double peakPump = 0.0;
   std::vector<MoveResult> timeline;
+
+  // **What ended up on the rope**, and empty on anything that is not a
+  // trad lead. Part of the result rather than thrown away with the live
+  // attempt because two different things need it after the fact: the
+  // staging, which cannot show a whipper onto a bad nut it does not know
+  // about, and the day loop's head training, which reads exposure off the
+  // highpoint and would otherwise price a well-protected pitch and a solo
+  // identically.
+  Protection gear;
 };
 
 // Resolves one attempt. The rng should be a per-attempt derivation
@@ -305,6 +339,16 @@ struct LiveAttempt {
   int nextMove = 0;
   int shakesAtStance = 0;
   bool over = false;
+
+  // **What is on the rope so far, and what is left on the harness.** State
+  // of the attempt, exactly like the pump: the same leader on the same
+  // pitch twice does not protect it the same way, which is the sentence
+  // this whole discipline is built out of.
+  //
+  // Empty and zero on a boulder or a bolted route, where protection is a
+  // property of the rock rather than of the go.
+  Protection gear;
+  int rackLeft = 0;
   AttemptResult partial;  // timeline/highpoint/peak so far; Finish completes it
 };
 
@@ -324,6 +368,25 @@ MoveResult StepMove(LiveAttempt& la, double execution);
 // (negative when the hang tax beat the stance). No-op before the first move
 // or after the attempt ends.
 double ShakeOut(LiveAttempt& la);
+
+// **Get something in, here, before the next move.** Returns the quality of
+// what went on the rope — zero when the rock gave you nothing worth having,
+// which still costs you the piece and the pump, because finding that out is
+// what the pump was spent on.
+//
+// A verb of the live attempt, sitting beside ShakeOut for the same reason
+// ShakeOut sits here: it is a thing the player does mid-go, under pump,
+// with the clock running. That is gate 2 of the milestone, and it is why
+// this is not a field on AttemptInput.
+//
+// No-op returning 0 on anything that is not a trad lead, on a finished
+// attempt, with an empty harness, or at a move that already has a piece
+// at it — two pieces at one move is a belay, not a lead.
+double PlaceGear(LiveAttempt& la, const TradDials& dials = TradDials{});
+
+// What a sensible leader would do at the next move: the batch resolver's
+// policy, and the honest default for a live prompt. Pure.
+bool WouldPlace(const LiveAttempt& la, const TradDials& dials = TradDials{});
 
 bool AttemptOver(const LiveAttempt& la);
 

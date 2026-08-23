@@ -262,6 +262,13 @@ struct PlayerState {
   // the game that arrives *because* you climbed rather than instead of it.
   Sponsorship sponsor;
 
+  // **The rack**, which is the only thing you can own that unlocks a whole
+  // discipline rather than improving one — no rack, no trad lead, and the
+  // rope stays in the van for a different reason than when nobody will
+  // belay you. Empty for a career that has never bought one, which is
+  // every career until it is not. See Sim/DirtbagTrad.h.
+  Rack rack;
+
   // What you own that buys you climbing: pads, a board, the gym. The
   // answer to the measurement that said the year ended with $133 in the
   // bank and nowhere for it to go.

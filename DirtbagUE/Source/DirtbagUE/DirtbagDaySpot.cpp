@@ -266,6 +266,13 @@ FString ADirtbagDaySpot::PromptText() const
 		{
 			Kit += FString::Printf(TEXT("\n   %s"), *Board);
 		}
+		// And the rack, which is the one purchase that opens a crag rather
+		// than improving a day.
+		const FString Gear = Game->RackOfferLine();
+		if (!Gear.IsEmpty())
+		{
+			Kit += FString::Printf(TEXT("\n   %s"), *Gear);
+		}
 
 		FString Care;
 		const FString Physio = Game->PhysioLine();
@@ -494,6 +501,8 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnSalary);
 			InputComponent->BindKey(EKeys::H, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnHangboard);
+			InputComponent->BindKey(EKeys::G, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnRack);
 			bBoundInput = true;
 		}
 	}
@@ -571,6 +580,40 @@ void ADirtbagDaySpot::OnMembership()
 		return;
 	}
 	Say(FString::Printf(TEXT("Signed up.  %s"), *Game->MembershipLine()),
+	    FColor::Green, 6.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnRack()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop)
+	{
+		return;
+	}
+	const dirtbag::TradDials Td;
+	const dirtbag::RackTier Have =
+	    dirtbag::TierOf(DirtbagConvert::ToSim(Game->Player.Rack), Td);
+	if (Have == dirtbag::RackTier::Doubles)
+	{
+		Say(TEXT("There is nothing on this shelf you have not got."),
+		    FColor::Orange, 5.f);
+		return;
+	}
+	const dirtbag::RackTier Want =
+	    static_cast<dirtbag::RackTier>(static_cast<int>(Have) + 1);
+	if (!Game->BuyTradRack())
+	{
+		Say(FString::Printf(TEXT("$%.0f, and you have $%.0f."),
+		                    dirtbag::RackPrice(Want, Td) * Game->ShopPrice(),
+		                    Game->Player.Cash),
+		    FColor::Orange, 5.f);
+		return;
+	}
+	// The first rack is a different sentence from the fourth cam.
+	Say(Have == dirtbag::RackTier::None
+	        ? TEXT("It goes over your shoulder on the way out. The buttress "
+	               "is an hour up the hill.")
+	        : TEXT("Racked up. You will notice it on the thin ones."),
 	    FColor::Green, 6.f);
 	PushPrompt();
 }

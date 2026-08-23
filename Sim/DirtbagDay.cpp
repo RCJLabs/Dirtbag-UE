@@ -211,6 +211,10 @@ void StartGymSession(PlayerState& player, DayState& day, const KitDials& kit,
   // What you dragged up the hill. GoToTheGym overrides this afterwards,
   // because indoors the landing is somebody else's problem.
   day.session.padding = PaddingFrom(player.kit, kit);
+  // And the rack, for the same reason and by the same rule: what you
+  // carried in. GoToTheGym does not override it — there is nothing indoors
+  // to place it on, and a trad route in a gym is not a thing.
+  day.session.rack = player.rack;
   day.atGym = true;
 }
 
@@ -393,7 +397,12 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
       std::min(result.highpoint, static_cast<int>(route.moves.size()) - 1);
   double boldest = 0.0;
   for (int i = 0; i <= reachedIndex; i++) {
-    boldest = std::max(boldest, ExposureAt(route, i, day.session.padding));
+    // Reading the gear that actually went in, which is the difference
+    // between training head on a pitch you sewed up and one you ran out.
+    // Empty on everything but a trad lead, where the sport bolts and the
+    // boulder's ground answer for themselves.
+    boldest = std::max(boldest, ExposureAt(route, i, day.session.padding,
+                                           SessionDials{}, result.gear));
   }
   Gain(player.climber.skills.head,
        teach(Skill::Head,

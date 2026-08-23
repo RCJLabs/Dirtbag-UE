@@ -324,6 +324,14 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // A career that has been washing dishes for ten years starts learning to
 // wash dishes today, which is wrong, and is less wrong than deciding it
 // was a setter all along.
+// v32 → v33: the rack. A v32 career owned no gear and could not have —
+// there was no trad in the game to place it on — so it loads with an empty
+// harness, which is exactly what it had.
+void MigrateV32ToV33(SaveFields& fields) {
+  fields["rack.pieces"] = "0";
+  fields["rack.quality"] = "0";
+}
+
 void MigrateV31ToV32(SaveFields& fields) {
   fields["craft.n"] = "0";
   fields["craft.taken"] = "0";
@@ -523,7 +531,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24,
       &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27,
       &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30,
-      &MigrateV30ToV31, &MigrateV31ToV32};
+      &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33};
   return kMigrations;
 }
 
@@ -914,6 +922,8 @@ std::string SerializeSave(const SaveGame& save) {
   out << "injury.days=" << IntToStr(save.player.climber.injury.daysLeft)
       << "\n";
   out << "physio.last=" << IntToStr(save.player.lastPhysioDay) << "\n";
+  out << "rack.pieces=" << IntToStr(save.player.rack.pieces) << "\n";
+  out << "rack.quality=" << NumToStr(save.player.rack.quality) << "\n";
   out << "kit.pads=" << IntToStr(save.player.kit.pads) << "\n";
   out << "kit.hangboard=" << IntToStr(save.player.kit.hangboard ? 1 : 0)
       << "\n";
@@ -1051,7 +1061,9 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     }
     // Clamped rather than trusted: a hand-edited save must not be able to
     // hand the guidebook a ladder that does not exist.
-    m.discipline = disc == 1 ? Discipline::Sport : Discipline::Boulder;
+    m.discipline = disc == 2 ? Discipline::Trad
+                             : (disc == 1 ? Discipline::Sport
+                                          : Discipline::Boulder);
     save.player.projects.push_back(m);
   }
 
@@ -1444,6 +1456,10 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       injuryKind >= 0 && injuryKind < kInjuryKindCount ? injuryKind : 0);
 
   int hangboard = 0;
+  if (!ParseInt(fields, "rack.pieces", save.player.rack.pieces) ||
+      !ParseDouble(fields, "rack.quality", save.player.rack.quality)) {
+    return LoadResult::BadFormat;
+  }
   if (!ParseInt(fields, "kit.pads", save.player.kit.pads) ||
       !ParseInt(fields, "kit.hangboard", hangboard) ||
       !ParseInt(fields, "kit.membership",
@@ -1567,7 +1583,9 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       }
       ParseString(fields, fk + "given", n.givenName);
       n.style = static_cast<Style>(style);
-      n.discipline = disc == 1 ? Discipline::Sport : Discipline::Boulder;
+      n.discipline = disc == 2 ? Discipline::Trad
+                               : (disc == 1 ? Discipline::Sport
+                                            : Discipline::Boulder);
       n.by = l.name;
       l.firstAscents.push_back(n);
     }

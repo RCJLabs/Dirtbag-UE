@@ -1801,6 +1801,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
 	bool BuyHangboard();
 
+	/** Buys the next rung of the rack: nuts, then cams, then doubles.
+	 *  False and unchanged when you cannot afford it or there is nothing
+	 *  above what you have. The only purchase in the game that unlocks a
+	 *  discipline rather than improving one. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Trad")
+	bool BuyTradRack();
+
 	/** A month of plastic. The only climbing that ignores the weather. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
 	bool RenewGymMembership();
@@ -1815,6 +1822,11 @@ public:
 	 *  once you own one, because it is bought once and never again. */
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Kit")
 	FString HangboardLine() const;
+
+	/** What the shelf is offering a leader today, or empty once you have
+	 *  doubles and there is nothing above it. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	FString RackOfferLine() const;
 
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Kit")
 	bool IsGymMember() const;
