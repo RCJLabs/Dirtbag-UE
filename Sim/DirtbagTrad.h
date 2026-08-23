@@ -170,9 +170,22 @@ struct TradDials {
   double camsCost = 640.0;
   double doublesCost = 1150.0;
 
-  int nutsPieces = 8;
-  int camsPieces = 12;
-  int doublesPieces = 18;
+  // **Sized against the pitches, not against a catalogue.** A 14-20 move
+  // route wants a piece about every botSpacing moves, so it takes five or
+  // six -- which made the first pass's 8/12/18 a count that could not
+  // matter: measured over three thirty-year careers, **not one lead in
+  // 2,622 ever emptied the harness**, because eighteen pieces is more rack
+  // than any single line in the valley needs and even the entry rack
+  // rationed at 1.0. The whole "you can run out of it" half of the
+  // discipline was provable in the harness and unreachable in a played
+  // career, which is the third time this project has shipped that shape.
+  //
+  // At 5, a set of nuts genuinely does not cover a pitch and the leader
+  // runs it out somewhere; at 12, doubles genuinely do. That is the second
+  // axis the shelf is supposed to have, next to quality.
+  int nutsPieces = 5;
+  int camsPieces = 8;
+  int doublesPieces = 12;
 
   double nutsQuality = 0.45;
   double camsQuality = 0.75;

@@ -191,10 +191,72 @@ rather than the rock:
   a time, on **G**. The most expensive thing on any shelf in the game, and
   the only purchase that unlocks a whole crag rather than improving a day.
 
+## A career of leading
+
+*Added the same day. The gap above is closed: `Sim/tools/season.cpp` gained
+a `trad` policy — saves for a rack, then climbs the buttress instead of
+Roadside, buying up the shelf as the money arrives.*
+
+Three thirty-year careers, each run twice on the same seed — once as the
+ordinary boulderer, once as a leader:
+
+| seed | sends | head | allround | work% |
+|---|---|---|---|---|
+| a | 25 → **9** | 61.6 → **77.6** | 5.40 → **6.02** | 13 → 14 |
+| b | 17 → **8** | 66.7 → **100.0** | 5.56 → **6.63** | 14 → 14 |
+| c | 25 → **8** | 62.1 → **69.9** | 5.84 → **5.32** | 14 → 14 |
+
+**A trad career ticks about a third as much and ends a bolder climber.**
+Head is up by 16, 33 and 8 points, and it is up because head is trained off
+exposure and trad is where the exposure is — nothing had to be added for
+that, it fell out of `ExposureAt` being the single source the day loop
+already read. Allround is up at two seeds of three. Sends are down hard at
+all three, which is the honest price and the same sentence a trad climber
+would say about their own logbook.
+
+Head reaching **exactly 100.0** at seed b is a cap-out, and worth flagging
+rather than fixing here: head never declines, so a long enough trad career
+trains the last decade for nothing.
+
+### Two things the career measurement found
+
+**The top two rungs of the shelf were decoration.** Measured with the probe
+just buying what it could afford, all three careers bought a set of nuts on
+day one for $190 and never once held enough cash to consider cams. The
+reason is not the price, it is the shape of the money: **a dirtbag's balance
+oscillates between about $125 and $290 for thirty years.** Peak cash never
+approaches $640. Any purchase above about $300 requires deciding to work for
+it, exactly as a dream does.
+
+So the policy now works for the rack — the only reason anybody in this game
+has turned a climbing day into a working day for a piece of equipment — and
+with that, every career reaches doubles and spends $1,980 doing it. **Work
+goes from 13% of days to 14%.** The rack costs a few weeks of a thirty-year
+life, which is the right answer: it is a real decision and not a wall.
+
+**The rack count could not matter.** Not one lead in 2,622 emptied the
+harness, because 8/12/18 pieces is more rack than any 14-to-20-move line in
+the valley needs — a pitch takes a piece every `botSpacing` moves, so five
+or six. Even the *entry* rack rationed at 1.0, which means the rationing
+arithmetic never once fired either. The whole "you can run out of it" half
+of the discipline was provable in the harness and unreachable in a played
+career: **the third time this project has shipped that shape**, after the
+craft's sacking gate and the comp probe that had never entered a comp.
+
+Sized against the pitches now — 5/8/12 — so a set of nuts genuinely does not
+cover a line and doubles genuinely do. That is the second axis the shelf is
+supposed to have, next to quality.
+
 ## Still open
 
-The season probe does not lead trad. Every number above is a harness
-measurement of an attempt or a policy, not of a career — so *does anybody
-ever buy a rack, and what does a life of leading look like* is unmeasured.
-That is the next thing, and it is the same gap that hid the World Cup's
-calendar and the tooth's dead end.
+- **A leader still never empties a full rack in a played career**, because
+  the probe's grind falls low on most burns and doubles is twelve pieces
+  against a pitch's five. Running out is now an entry-rack-and-long-pitch
+  phenomenon rather than a general one, which is honest, but it means the
+  played game rarely sees a mechanic the harness proves.
+- **The comparison above is not clean.** The control climbs 5-to-8-move
+  boulders and the leader climbs 14-to-20-move pitches, so some of the send
+  drop is length rather than discipline. The clean comparison is the
+  buttress against the cave, and the probe cannot go to the cave — it has
+  only ever climbed Roadside.
+- Head caps out at 100 in a long trad career.

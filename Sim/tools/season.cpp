@@ -23,6 +23,8 @@
 #include "DirtbagCore.h"
 #include "DirtbagBody.h"
 #include "DirtbagCrag.h"
+#include "DirtbagSport.h"
+#include "DirtbagTrad.h"
 #include "DirtbagDay.h"
 #include "DirtbagDog.h"
 #include "DirtbagFirstAscent.h"
@@ -45,6 +47,16 @@ namespace {
 struct LineTally { std::string name; int burns = 0, sends = 0, best = 0; int moves = 0; };
 
 struct Tally {
+  // --- Trad ---------------------------------------------------------------
+  // What a career of leading looks like, which is a different question from
+  // what an attempt looks like.
+  double spentRack = 0.0;
+  int gotTheRackOnDay = -1;     // -1: never could afford one
+  int leadsOnGear = 0;          // burns on a trad route
+  int piecesPlaced = 0;
+  int ranItOut = 0;             // burns that reached the top third with nothing in
+  double leadFearSum = 0.0;     // worst exposure per lead, in grade units
+
   int daysClimbed = 0, daysWorked = 0, daysRested = 0, daysWashedOut = 0;
   int burns = 0, sends = 0, firstAscents = 0;
   int mealsEaten = 0, dogMeals = 0, brokeDays = 0, starvedNights = 0;
@@ -263,6 +275,16 @@ int main(int argc, char** argv) {
   // and deliberately dumb: the question is whether the ladder is reachable,
   // not whether it can be optimised.
   const bool comps = argc > 5 && std::string(argv[5]) == "comper";
+
+  // **A leader.** Saves for a rack and then climbs the buttress instead of
+  // Roadside, buying up the shelf as the money arrives.
+  //
+  // It exists because trad shipped measured only by the harness, and this
+  // project has twice now built a system whose every assertion held and
+  // whose *career* was nonsense -- the World Cup's fifty Games in ten years
+  // and the tooth's ten thousand days of abscess. Both were about how often
+  // rather than whether, and a harness assertion cannot ask how often.
+  const bool leads = argc > 5 && std::string(argv[5]) == "trad";
 
   // Arg 6 overrides skin regen per night (shipped: 1.5, so nine points of
   // skin is six nights). This is not a balance proposal — it is the knob
@@ -796,6 +818,33 @@ int main(int argc, char** argv) {
       }
     }
 
+    // The rack, which is the one purchase that opens a crag rather than
+    // improving a day -- and by some distance the most expensive thing on
+    // any shelf in the game, which is the point of measuring whether a
+    // career ever gets to the top of it.
+    if (leads) {
+      const TradDials td;
+      const RackTier have = TierOf(player.rack, td);
+      if (have != RackTier::Doubles) {
+        const RackTier want = static_cast<RackTier>(static_cast<int>(have) + 1);
+        // A bigger float than the kit's: nobody spends their last thousand
+        // dollars on cams, and the first rack is worth waiting for in a way
+        // a second pad is not.
+        const double keep = 150.0;
+        if (player.cash > RackPrice(want, td) + keep) {
+          const double before = player.cash;
+          if (BuyRack(player.rack, player.cash, td)) {
+            t.spentRack += before - player.cash;
+            if (have == RackTier::None) t.gotTheRackOnDay = player.day;
+          }
+        }
+      }
+      // And once you own one, the buttress is where you go. Before that it
+      // is an hour's walk to rock you cannot lead, which is exactly the
+      // gate the purchase opens.
+      crag = CanLeadTrad(player.rack) ? TheOldButtress(world) : RoadsideCrag(world);
+    }
+
     // The salary owns its days whether or not you wanted them.
     JobDials jd;
     bool needMoney = false;
@@ -819,6 +868,24 @@ int main(int argc, char** argv) {
       // the only policy that ever turns a climbing day into a working day
       // for something other than rent, which is what a dream would do.
       if (hoards && player.cash < savingsTarget) needMoney = true;
+      // **A leader works for the rack**, which is the only reason anybody
+      // in this game has ever turned a climbing day into a working day for
+      // a piece of equipment. Measured without it, three thirty-year
+      // careers bought a set of nuts on day one for $190 and never once
+      // held enough cash to consider cams: the career's balance oscillates
+      // between about $125 and $290 all its life, so the top two rungs of
+      // the shelf were decoration. What this now measures is the honest
+      // question -- not whether a rack is affordable, but what it costs in
+      // climbing days.
+      if (leads) {
+        const TradDials td;
+        const RackTier have = TierOf(player.rack, td);
+        if (have != RackTier::Doubles) {
+          const RackTier want =
+              static_cast<RackTier>(static_cast<int>(have) + 1);
+          if (player.cash < RackPrice(want, td) + 150.0) needMoney = true;
+        }
+      }
       // A dreamer never has to work while the War Chest is running. That is
       // the whole of what it bought.
       if (NoNeedToWork(player.dreams)) needMoney = false;
@@ -1082,6 +1149,35 @@ int main(int argc, char** argv) {
                  static_cast<int>(line->route.moves.size())});
             lt = &t.perLine.back();
           }
+          // What the lead was actually like. Recorded here rather than
+          // inferred from the send, because the interesting thing about a
+          // trad career is not how often it tops out -- it is how much of
+          // it was spent above bad gear.
+          if (line->route.discipline == Discipline::Trad) {
+            t.leadsOnGear++;
+            int pieces = 0;
+            for (double q : r.gear.quality) {
+              if (q > 0.0) pieces++;
+            }
+            t.piecesPlaced += pieces;
+            double worst = 0.0;
+            const int reached =
+                std::min(r.highpoint,
+                         static_cast<int>(line->route.moves.size()) - 1);
+            for (int i = 0; i <= reached; i++) {
+              worst = std::max(worst, ExposureAt(line->route, i,
+                                                 today.session.padding,
+                                                 SessionDials{}, r.gear));
+            }
+            t.leadFearSum += worst;
+            // Emptied the harness. The first version of this asked
+            // whether the top third was unprotected, which measures
+            // soloing the *bottom* two thirds and came out zero across
+            // 2,449 leads -- a metric that cannot fire is worse than no
+            // metric, because it reads as a system behaving itself.
+            if (pieces >= today.session.rack.pieces) t.ranItOut++;
+          }
+
           lt->burns++;
           lt->best = std::max(lt->best, r.highpoint);
           if (r.sent) lt->sends++;
@@ -1440,7 +1536,8 @@ int main(int argc, char** argv) {
          "\tpremiums\tclaims\tjointrisk\tscars"
          "\tsickdays\ttimesill\tmeds\tprehab\ttoothdays\ttoothfixes"
          "\tworsttooth"
-         "\tmoments\tbotched\tducked\tsackings\tbestcraft\ttrade\n");
+         "\tmoments\tbotched\tducked\tsackings\tbestcraft\ttrade"
+         "\track\trackday\track$\tleads\tpieces\tranout\tleadfear\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -1451,7 +1548,8 @@ int main(int argc, char** argv) {
          "\t%d\t%d"
          "\t%d\t%d\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.3f\t%d"
          "\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
-         "\t%d\t%d\t%d\t%d\t%.0f\t%s\n",
+         "\t%d\t%d\t%d\t%d\t%.0f\t%s"
+         "\t%s\t%d\t%.0f\t%d\t%d\t%d\t%.2f\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -1463,6 +1561,7 @@ int main(int argc, char** argv) {
          : stakesClaims   ? "stakeout"
          : projects       ? "projector"
          : comps          ? "comper"
+         : leads          ? "trad"
          : takesDeals     ? "sponsored"
                           : "greedy",
          restUntilSkin, player.cash, t.cashLow, t.sends, t.firstAscents,
@@ -1508,7 +1607,13 @@ int main(int argc, char** argv) {
            }
            return best;
          }(),
-         CraftName(YourTrade(player.hand)));
+         CraftName(YourTrade(player.hand)),
+         // What a career of leading came to. `rackday` is the one that
+         // matters most: a rack you can never afford is a discipline that
+         // does not exist, however well it resolves in the harness.
+         RackTierName(TierOf(player.rack)), t.gotTheRackOnDay, t.spentRack,
+         t.leadsOnGear, t.piecesPlaced, t.ranItOut,
+         t.leadsOnGear ? t.leadFearSum / t.leadsOnGear : 0.0);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,
