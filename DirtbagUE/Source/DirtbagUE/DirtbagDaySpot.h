@@ -211,6 +211,11 @@ private:
 	 *  notes/phase6-the-guidebook.md for why it is not a global key. */
 	void OnGuidebook();
 
+	/** Sign the deal on the table, at the counter. Its own key because E
+	 *  buys shoes, and signing away three days a month should not be the
+	 *  same press as buying rubber. */
+	void OnSign();
+
 	/** While the book is open, 1/2/3 turn the page rather than naming a
 	 *  dream or sizing a stake. Returns true if the book took the key. */
 	bool TurnGuidebookPage(int32 Which);

@@ -918,9 +918,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sponsor")
 	EDirtbagSponsorTier OfferOnTheTable() const;
 
+	/** What the offer on the table is worth, in words — what it pays and
+	 *  what it will want. Empty when nobody is asking. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sponsor")
+	FString WhatTheyAreOffering() const;
+
 	/** Take it. Says something about you: the Scene likes a sponsored
 	 *  climber and the old guard has opinions. */
-	// no-door: sponsorship (Phase 4 scope, built and measured)
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Sponsor")
 	bool SignWithSponsor();
 
@@ -930,7 +934,6 @@ public:
 	FString SponsorLine() const;
 
 	/** Do they own today? Only ever a day with a window. */
-	// no-door: sponsorship obligations; nothing asks whose day it is
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sponsor")
 	bool SponsorOwnsToday() const;
 

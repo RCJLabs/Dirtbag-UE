@@ -246,11 +246,24 @@ namespace
 {
 // Which act each key offers, in the order the prompt lists them. One place,
 // so the prompt and the keys can never disagree about what 2 means.
-const EDirtbagEthicalAct kShortcuts[3] = {
+// Four acts, four keys.
+//
+// The first draft had three and a comment claiming all four could never be
+// offerable at once. They can, and it is the most interesting case in the
+// system: a **sponsored climber in a slump, standing under a line they have
+// already fallen off**, can chisel it, tick it, pull through on it, or
+// shoot it for the sponsor. That player would have been offered a fourth
+// option with no key to press.
+//
+// The key indexes the *offered* list rather than this one, so 2 always
+// means the second thing the prompt actually showed you.
+const EDirtbagEthicalAct kShortcuts[4] = {
     EDirtbagEthicalAct::ChippedAHold,
     EDirtbagEthicalAct::ClaimedASend,
     EDirtbagEthicalAct::PulledOnGear,
+    EDirtbagEthicalAct::StagedAPhoto,
 };
+constexpr int kShortcutCount = 4;
 
 // What each one is, said the way you would think it rather than the way
 // you would admit it.
@@ -262,6 +275,8 @@ const TCHAR* ShortcutLine(EDirtbagEthicalAct Act)
 		return TEXT("take a chisel to the bad hold");
 	case EDirtbagEthicalAct::ClaimedASend:
 		return TEXT("write it in the book anyway");
+	case EDirtbagEthicalAct::StagedAPhoto:
+		return TEXT("shoot it like you got it, for the sponsor");
 	default:
 		return TEXT("pull through on the gear and call it clean");
 	}
@@ -300,16 +315,25 @@ void ADirtbagClimbWall::OnShortcut()
 
 bool ADirtbagClimbWall::TakeShortcut(int32 Which)
 {
-	if (!Game || !bShortcutOffered || Which < 0 || Which > 2)
+	if (!Game || !bShortcutOffered || Which < 0 || Which >= kShortcutCount)
 	{
 		return false;
 	}
-	const EDirtbagEthicalAct Act = kShortcuts[Which];
-	// A key for an act this line will not take is still the offer's key --
-	// otherwise pressing 3 on a line you have never touched would fall
-	// through to whatever else 3 does.
-	const FString Said = Game->CanTakeShortcut(Act, BoardIndex)
-	                         ? Game->TakeShortcut(Act, BoardIndex)
+	// The key indexes the *offered* list, not the master list, so 2 always
+	// means the second thing the prompt showed you.
+	TArray<EDirtbagEthicalAct> Offered;
+	for (int32 i = 0; i < kShortcutCount; i++)
+	{
+		if (Game->CanTakeShortcut(kShortcuts[i], BoardIndex))
+		{
+			Offered.Add(kShortcuts[i]);
+		}
+	}
+	// A key past the end of the offer is still the offer's key -- otherwise
+	// pressing 3 on a line with two options would fall through to whatever
+	// else 3 does.
+	const FString Said = Offered.IsValidIndex(Which)
+	                         ? Game->TakeShortcut(Offered[Which], BoardIndex)
 	                         : FString();
 	bShortcutOffered = false;
 	if (!Said.IsEmpty())
@@ -327,6 +351,7 @@ bool ADirtbagClimbWall::TakeShortcut(int32 Which)
 void ADirtbagClimbWall::OnShortcut1() { TakeShortcut(0); }
 void ADirtbagClimbWall::OnShortcut2() { TakeShortcut(1); }
 void ADirtbagClimbWall::OnShortcut3() { TakeShortcut(2); }
+void ADirtbagClimbWall::OnShortcut4() { TakeShortcut(3); }
 
 void ADirtbagClimbWall::PushPrompt()
 {
@@ -442,14 +467,15 @@ void ADirtbagClimbWall::PushPrompt()
 		Head.Text = TEXT("Nobody is watching.");
 		Head.Tone = EDirtbagPromptTone::Blocked;
 		Lines.Add(Head);
-		for (int32 i = 0; i < 3; i++)
+		int32 Shown = 0;
+		for (int32 i = 0; i < kShortcutCount; i++)
 		{
 			if (!Game->CanTakeShortcut(kShortcuts[i], BoardIndex))
 			{
 				continue;
 			}
 			FDirtbagPromptLine Option;
-			Option.Text = FString::Printf(TEXT("   %d  %s"), i + 1,
+			Option.Text = FString::Printf(TEXT("   %d  %s"), ++Shown,
 			                              ShortcutLine(kShortcuts[i]));
 			Option.Tone = EDirtbagPromptTone::Blocked;
 			Lines.Add(Option);
@@ -521,6 +547,8 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 			                        &ADirtbagClimbWall::OnShortcut2);
 			InputComponent->BindKey(EKeys::Three, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnShortcut3);
+			InputComponent->BindKey(EKeys::Four, IE_Pressed, this,
+			                        &ADirtbagClimbWall::OnShortcut4);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnHoldPressed);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Released, this,

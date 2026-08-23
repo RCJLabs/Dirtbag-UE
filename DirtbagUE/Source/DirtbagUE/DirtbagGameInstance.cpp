@@ -221,6 +221,37 @@ void UDirtbagGameInstance::Sleep()
 		                          *SponsorLine());
 	}
 
+	// Whether they own the day you have just woken into.
+	//
+	// **This is the entire mechanic and nothing was asking it.**
+	// `SponsorOwnsToday` had no caller, so a deal paid $640 a month and
+	// cost nothing at all -- the one money in this game whose price is
+	// good days was, in the played game, free money.
+	//
+	// Taken at Sleep rather than offered as a choice, because the sim's
+	// own header is unambiguous about what the trade is: *"Obligation days
+	// a month, and they land on days with a window. This is the entire
+	// mechanic: money that costs you the good days rather than the spare
+	// ones."* The decision was made when you signed. You wake up and half
+	// the day already belongs to somebody, which is what being sponsored
+	// is.
+	if (SponsorOwnsToday())
+	{
+		const dirtbag::SponsorDials Sp;
+		PassHours(Sp.obligationHours);
+		Day.Energy = FMath::Max(0.0, Day.Energy - Sp.obligationEnergy);
+		// Appended rather than assigned: the money, the review and a shoot
+		// can all land on the same morning, and overwriting would lose the
+		// one that mattered.
+		const FString Shoot = FString::Printf(
+		    TEXT("They want you today. %.0f hours of standing on the same "
+		         "move while somebody changes a lens."),
+		    Sp.obligationHours);
+		SponsorNews = SponsorNews.IsEmpty()
+		                  ? Shoot
+		                  : SponsorNews + TEXT("  ") + Shoot;
+	}
+
 	// And whether anybody put it together while you slept. This lives in
 	// Sleep rather than being a call the day loop remembers, because five
 	// separate per-day ticks have now been written and left uncalled in this
@@ -828,21 +859,28 @@ bool UDirtbagGameInstance::CanTakeShortcut(EDirtbagEthicalAct Act,
 		// line you never tied into is the other act, and it costs more
 		// when it comes out for exactly that reason.
 		return Ledger && Ledger->Attempts > 0;
+	case EDirtbagEthicalAct::StagedAPhoto:
+		// Unblocked the day sponsorship got a door. There is nothing to
+		// stage a shot *for* without somebody paying for it, and until now
+		// there was no way to have a sponsor at all -- which is why this
+		// act sat unoffered with the reason written where it would be
+		// read.
+		//
+		// Only worth doing when they are about to notice you have stopped
+		// climbing. A photo of a send that did not happen is a thing you
+		// do the season before a review goes badly, not a thing you do for
+		// fun.
+		return Player.Sponsor.Tier != EDirtbagSponsorTier::None &&
+		       Player.Sponsor.SeasonsWithoutProgress > 0;
 	default:
-		// **RetroBolted and StagedAPhoto are deliberately not offered**,
-		// and saying so here is better than offering an act that does
-		// nothing -- which would be this project's own favourite bug
-		// wearing a new hat.
+		// **RetroBolted is deliberately not offered**, and saying so here
+		// is better than offering an act that does nothing -- which would
+		// be this project's own favourite bug wearing a new hat.
 		//
-		// Retro-bolting buys less runout, and runout is computed in
-		// `RunoutAt` rather than carried on the route, so its benefit
-		// needs plumbing that does not exist yet. It is a real act with a
-		// real cost dial (0.6) waiting for it.
-		//
-		// Staging a photo buys a sponsor's goodwill, and **there is no way
-		// to get a sponsor** -- `SignWithSponsor` is on the no-door list.
-		// Offering it would be a shortcut whose benefit is a system you
-		// cannot reach, which is worse than not offering it at all.
+		// It buys less runout, and runout is computed in `RunoutAt` rather
+		// than carried on the route, so its benefit needs plumbing that
+		// does not exist yet. A real act with a real cost dial (0.6)
+		// waiting for it.
 		return false;
 	}
 }
@@ -868,6 +906,20 @@ FString UDirtbagGameInstance::TakeShortcut(EDirtbagEthicalAct Act,
 			Ledger->bSent = true;
 		}
 	}
+	// A staged shot buys exactly one thing: the sponsor believes you have
+	// been climbing. The review counts seasons without progress, so the
+	// benefit is that clock going back to zero -- you did not send
+	// anything, and they think you did.
+	//
+	// Deliberately not a fake send in the ledger. The lie is told to the
+	// sponsor rather than to the book, which is why its Secret carries no
+	// route key and why StripsTheAscent finds nothing to take: the ascent
+	// never existed to be taken.
+	if (Act == EDirtbagEthicalAct::StagedAPhoto)
+	{
+		Player.Sponsor.SeasonsWithoutProgress = 0;
+	}
+
 	// Chipping needs nothing here. Its benefit is applied in GetRouteAt,
 	// derived from the secret, because the rock has to stay changed across
 	// a save and the crag is rebuilt from the seed every load.
@@ -881,6 +933,10 @@ FString UDirtbagGameInstance::TakeShortcut(EDirtbagEthicalAct Act,
 	case EDirtbagEthicalAct::ClaimedASend:
 		return FString::Printf(TEXT("%s. Ticked. Nobody was there."),
 		                       *Route.Name);
+	case EDirtbagEthicalAct::StagedAPhoto:
+		return FString(
+		    TEXT("Three moves up, hanging on the rope between shots. It "
+		         "will look like the top."));
 	default:
 		return FString(
 		    TEXT("One hang. Nobody saw it. You write it down clean."));
@@ -969,6 +1025,36 @@ EDirtbagSponsorTier UDirtbagGameInstance::OfferOnTheTable() const
 	return static_cast<EDirtbagSponsorTier>(dirtbag::OfferFor(
 	    Career.HardestSendGrade, CountFirstAscents(Player),
 	    DirtbagConvert::ToSim(Player.Standing)));
+}
+
+FString UDirtbagGameInstance::WhatTheyAreOffering() const
+{
+	const EDirtbagSponsorTier Offer = OfferOnTheTable();
+	if (Offer <= Player.Sponsor.Tier)
+	{
+		return FString();
+	}
+	const dirtbag::SponsorDials Sp;
+	const double Pays = dirtbag::MonthlyStipend(
+	    static_cast<dirtbag::SponsorTier>(Offer));
+	const int32 Days =
+	    Offer == EDirtbagSponsorTier::Title   ? Sp.obligationDaysTitle
+	    : Offer == EDirtbagSponsorTier::Gear  ? Sp.obligationDaysGear
+	                                          : Sp.obligationDaysShoes;
+
+	// Both halves, every time. An offer that says what it pays and not what
+	// it wants is an advert, and the whole point of this system is that the
+	// price is days rather than money.
+	FString What = FString(
+	    dirtbag::SponsorTierName(static_cast<dirtbag::SponsorTier>(Offer)));
+	What += Pays > 0.0 ? FString::Printf(TEXT(" - $%.0f a month"), Pays)
+	                   : FString(TEXT(" - free rubber"));
+	What += Days > 0
+	            ? FString::Printf(TEXT(", and %d day%s a month that will not "
+	                                   "be the rainy ones"),
+	                              Days, Days == 1 ? TEXT("") : TEXT("s"))
+	            : FString(TEXT(", and they want nothing"));
+	return What;
 }
 
 bool UDirtbagGameInstance::SignWithSponsor()

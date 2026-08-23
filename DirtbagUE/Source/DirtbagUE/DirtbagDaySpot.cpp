@@ -192,13 +192,31 @@ FString ADirtbagDaySpot::PromptText() const
 			return FString::Printf(TEXT("%s  (E)  -  $%.0f"), *Pad,
 			                       Game->Player.Cash);
 		}
+		// Somebody is offering. Said at the counter because this is the
+		// industry's one presence in the valley -- and a shoe deal is
+		// literally free rubber from this shop, so it is where the
+		// conversation would actually happen.
+		//
+		// Only when it beats what you already hold: a shop that offers you
+		// the deal you signed last year every time you walk in is a shop
+		// nobody reads.
+		const EDirtbagSponsorTier Offer = Game->OfferOnTheTable();
+		FString Deal;
+		if (Offer > Game->Player.Sponsor.Tier)
+		{
+			Deal = FString::Printf(
+			    TEXT("\n   Somebody has been asking about you.  %s  (S)"),
+			    *Game->WhatTheyAreOffering());
+		}
+
 		const double Grades = Game->ShoeCostInGrades();
-		return Grades >= 0.05
+		return (Grades >= 0.05
 		    ? FString::Printf(
 		          TEXT("Shoes?  (E)  -  %s, costing you %.1f of a grade.  $%.0f"),
 		          *Game->ShoeLine(), Grades, Game->Player.Cash)
 		    : FString::Printf(TEXT("Shoes?  (E)  -  %s.  $%.0f"),
-		                      *Game->ShoeLine(), Game->Player.Cash);
+		                      *Game->ShoeLine(), Game->Player.Cash)) +
+		       Deal;
 	}
 	case EDirtbagSpotKind::Fire:
 	{
@@ -281,6 +299,8 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnRetire);
 			InputComponent->BindKey(EKeys::G, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnGuidebook);
+			InputComponent->BindKey(EKeys::S, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnSign);
 			bBoundInput = true;
 		}
 	}
@@ -307,6 +327,25 @@ void ADirtbagDaySpot::OnTriggerEnd(UPrimitiveComponent*, AActor* OtherActor,
 	{
 		DisableInput(PC);
 	}
+}
+
+void ADirtbagDaySpot::OnSign()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop)
+	{
+		return;
+	}
+	const FString What = Game->WhatTheyAreOffering();
+	if (!Game->SignWithSponsor())
+	{
+		return;
+	}
+	// Said once, flatly, with what it will cost attached -- the game does
+	// not congratulate you for this any more than it congratulates you for
+	// a shortcut. You have swapped days for money and the days are the
+	// expensive half.
+	Say(FString::Printf(TEXT("Signed.  %s"), *What), FColor::Yellow, 9.f);
+	PushPrompt();
 }
 
 void ADirtbagDaySpot::OnGuidebook()

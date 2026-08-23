@@ -409,6 +409,7 @@ private:
 	void OnShortcut1();
 	void OnShortcut2();
 	void OnShortcut3();
+	void OnShortcut4();
 
 	/** Drive the shot: follow the climber, tighten on a hard move, breathe
 	 *  with the pump. Reads the same FDirtbagSessionReadout the HUD reads,
