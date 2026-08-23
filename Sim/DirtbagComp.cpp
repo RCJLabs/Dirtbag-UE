@@ -421,6 +421,102 @@ AttemptResult AttemptProblem(CompState& comp, int problemIndex,
   return r;
 }
 
+const char* RoundName(CompRound r) {
+  switch (r) {
+    case CompRound::Semi: return "semi-final";
+    case CompRound::Final: return "final";
+    case CompRound::Qualification:
+    default: return "qualification";
+  }
+}
+
+bool StillIn(const CompState& comp, const std::string& name) {
+  // Nobody cut yet means everybody is in, which is what qualification is.
+  if (comp.stillIn.empty()) return true;
+  for (const std::string& n : comp.stillIn) {
+    if (n == name) return true;
+  }
+  return false;
+}
+
+bool RunsRounds(CompTier tier, const CompDials& dials) {
+  return static_cast<int>(tier) >= static_cast<int>(dials.roundsFrom);
+}
+
+int SurvivorsOf(CompRound round, const CompDials& dials) {
+  switch (round) {
+    case CompRound::Qualification: return dials.semiCut;
+    case CompRound::Semi: return dials.finalCut;
+    case CompRound::Final:
+    default: return 0;   // nothing comes out of a final but a result
+  }
+}
+
+RoundOutcome NextRound(CompState& comp, const CompResult& result,
+                       const Rng& worldRng, double yourGrade, int day,
+                       const CompDials& dials) {
+  RoundOutcome out;
+  out.place = result.place;
+  out.next = comp.round;
+
+  const int survivors = SurvivorsOf(comp.round, dials);
+  if (!RunsRounds(comp.tier, dials) || survivors <= 0 ||
+      comp.round == CompRound::Final) {
+    comp.finished = true;
+    return out;
+  }
+  out.survivors = survivors;
+
+  // **The cut, taken off the board that was just climbed.** Everybody
+  // above the line goes through, including you if you are one of them.
+  std::vector<std::string> through;
+  for (std::size_t i = 0; i < result.board.size() &&
+                          static_cast<int>(i) < survivors;
+       i++) {
+    through.push_back(result.board[i].isYou ? std::string("You")
+                                            : result.board[i].name);
+  }
+  const bool youWentThrough =
+      result.place > 0 && result.place <= survivors;
+
+  if (!youWentThrough) {
+    comp.finished = true;
+    // Said plainly. Being out in qualification is a different day from
+    // finishing last in a final, and the game has to be able to say which.
+    out.news = std::string("Out in the ") + RoundName(comp.round) + ".";
+    return out;
+  }
+
+  out.through = true;
+  comp.round = comp.round == CompRound::Qualification ? CompRound::Semi
+                                                      : CompRound::Final;
+  out.next = comp.round;
+  comp.stillIn = through;
+
+  // A fresh board, half a grade up, and a fresh set of goes. **The score
+  // does not carry** -- a good qualification buys you a place in the semi
+  // and nothing else, which is the whole point of the format.
+  CompDials rd = dials;
+  if (comp.round == CompRound::Final) {
+    rd.problems = dials.finalProblems;
+    rd.attempts = dials.finalAttempts;
+  }
+  const double step =
+      dials.roundGradeStep * static_cast<double>(comp.round);
+  const CompTier tier = comp.tier;
+  const std::vector<std::string> keep = comp.stillIn;
+  comp = SetTheBoard(worldRng.Derive(std::string("round#") +
+                                     RoundName(comp.round)),
+                     tier, yourGrade + step, day, rd);
+  comp.round = out.next;
+  comp.stillIn = keep;
+
+  out.news = comp.round == CompRound::Final
+                 ? "Through to the final."
+                 : "Through to the semi-final.";
+  return out;
+}
+
 double YourScore(const CompState& comp, const CompDials& dials) {
   double total = 0.0;
   for (std::size_t i = 0; i < comp.problems.size(); i++) {
@@ -476,6 +572,10 @@ CompResult Settle(const CompState& comp, double yourGrade,
   const double shift = FieldShift(comp.tier, dials);
   out.board.push_back(CompEntrant{"You", out.yourScore, true, false});
   for (const Competitor& c : TheField()) {
+    // **Nobody who has been cut is on this scoreboard.** Without it a
+    // semi-final would be scored against the six people who went home,
+    // and every round would produce the same table as qualification.
+    if (!StillIn(comp, c.name)) continue;
     CompEntrant e;
     e.name = c.name;
     e.score = CompetitorScore(comp.problems,
@@ -484,7 +584,7 @@ CompResult Settle(const CompState& comp, double yourGrade,
     out.board.push_back(e);
   }
   double rivalScore = -1.0;
-  if (!rivalName.empty()) {
+  if (!rivalName.empty() && StillIn(comp, rivalName)) {
     CompEntrant e;
     e.name = rivalName;
     e.isRival = true;

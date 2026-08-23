@@ -1512,6 +1512,10 @@ bool UDirtbagGameInstance::EnterComp()
 void UDirtbagGameInstance::RefreshComp()
 {
 	Comp.Tier = FString(dirtbag::TierName(GLiveComp.tier));
+	Comp.Round = static_cast<EDirtbagCompRound>(GLiveComp.round);
+	Comp.bHasRounds = Comp.Stage == EDirtbagStage::Domestic &&
+	                  dirtbag::RunsRounds(GLiveComp.tier);
+	Comp.StillIn = GLiveComp.stillIn.size();
 	Comp.AttemptsLeft = GLiveComp.attemptsLeft;
 	Comp.YourScore = dirtbag::YourScore(GLiveComp);
 	Comp.Problems.Reset(GLiveComp.problems.size());
@@ -1579,7 +1583,39 @@ bool UDirtbagGameInstance::SettleComp()
 	    R.grade,
 	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed) +
 	                           std::string("#settle#") +
-	                           std::to_string(Player.Day)));
+	                           std::to_string(Player.Day) +
+	                           std::string("#r") +
+	                           std::to_string(static_cast<int>(
+	                               GLiveComp.round))));
+
+	// **A round is not the comp.** At Regional and above the scorecard you
+	// just turned in decides who goes through rather than who won, and if
+	// you are one of them the board underneath you is replaced: a fresh
+	// five, half a grade up, a fresh set of goes, and the score does not
+	// carry. Only the round you go out in -- or the final -- reaches the
+	// banking below.
+	if (dirtbag::RunsRounds(GLiveComp.tier) &&
+	    GLiveComp.round != dirtbag::CompRound::Final)
+	{
+		const dirtbag::RoundOutcome Out = dirtbag::NextRound(
+		    GLiveComp, Res,
+		    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), AllroundGrade(),
+		    Player.Day);
+		if (Out.through)
+		{
+			// Another round is another round's worth of pump. Charged per
+			// round rather than once for the day, because that is what the
+			// format costs.
+			Day.Energy = FMath::Max(
+			    0.0, Day.Energy - dirtbag::CompDials{}.roundEnergy);
+			Comp.RoundNews = FString(Out.news.c_str());
+			Comp.Board.Reset();
+			Comp.Placing.Reset();
+			RefreshComp();
+			return true;
+		}
+		Comp.RoundNews = FString(Out.news.c_str());
+	}
 
 	Player.Cash += Res.cash;
 

@@ -77,6 +77,16 @@ struct ProblemProgress {
   int zone = 0;           // 0 none, 1 low zone, 2 high zone
 };
 
+// Which round of a comp is on the wall.
+//
+// **A Tuesday at the gym is one board and done; a Regional is a day.**
+// That is the whole difference the format makes: at a tiered comp you have
+// to do it three times, the score does not carry, and a good qualification
+// buys you a place in the semi rather than a placing.
+enum class CompRound { Qualification = 0, Semi, Final };
+constexpr int kCompRoundCount = 3;
+const char* RoundName(CompRound r);
+
 // A comp in progress. The player spends `attemptsLeft` across the board.
 struct CompState {
   CompTier tier = CompTier::Local;
@@ -84,7 +94,20 @@ struct CompState {
   std::vector<ProblemProgress> progress;
   int attemptsLeft = 0;
   bool finished = false;
+
+  // Which round this board is. Qualification for a Local comp, and it
+  // never moves off it.
+  CompRound round = CompRound::Qualification;
+  // Who is still in it, by name, **including "You"**. Empty means the
+  // whole field, which is what qualification is. `Settle` reads this and
+  // ranks nobody who has been cut -- without it a semi-final would be
+  // scored against six people who went home.
+  std::vector<std::string> stillIn;
 };
+
+// Is this name still in the comp? A comp with nobody cut yet says yes to
+// everybody, which is what makes qualification the same call as a final.
+bool StillIn(const CompState& comp, const std::string& name);
 
 // Somebody on the scoreboard.
 struct CompEntrant {
@@ -193,6 +216,35 @@ struct CompDials {
   // you can see coming is a week of deciding whether to rest for it. Enough
   // to skip a session and not enough to train for it.
   int announceDaysAhead = 3;
+
+  // --- quals, semi, final ----------------------------------------------
+  //
+  // **The lowest tier that runs a real three-round comp.** Below it a comp
+  // is one board: a gym comp on a Tuesday is not a day off work, and
+  // making somebody climb three rounds for a $20 local would be the format
+  // doing the opposite of what it is for.
+  CompTier roundsFrom = CompTier::Regional;
+
+  // How many come out of each round. The field is eight or nine, so six
+  // and four -- an isolation zone and then a real final, at the scale a
+  // national scene actually runs.
+  int semiCut = 6;
+  int finalCut = 4;
+
+  // **A final is shorter and harder.** Four problems and fewer goes, so a
+  // single mistake is the whole result -- which is what a final is.
+  int finalProblems = 4;
+  int finalAttempts = 5;
+
+  // Each round sits above the last. Half a grade, because the field is
+  // getting thinner at the same time and both together would make a final
+  // unclimbable rather than hard.
+  double roundGradeStep = 0.5;
+
+  // What another round takes out of you. Charged per round rather than
+  // once for the day: three rounds is three times the pump, and that is
+  // the cost of the format.
+  double roundEnergy = 20.0;
 
   // --- the circuit season ---------------------------------------------
   // Five comps, and **the last one is the finals**. Not a sixth event: the
@@ -442,6 +494,30 @@ const std::vector<Competitor>& TheField();
 // the form roll, so the scoreboard can be rebuilt rather than stored.
 double CompetitorScore(const std::vector<CompProblem>& problems, double grade,
                        RouteType signature, RouteType weakness, double form,
+                       const CompDials& dials = CompDials{});
+
+// Does this tier run rounds at all?
+bool RunsRounds(CompTier tier, const CompDials& dials = CompDials{});
+
+// How many survive this round. Zero for a round that ends the comp.
+int SurvivorsOf(CompRound round, const CompDials& dials = CompDials{});
+
+// What happened at the end of a round. **Getting cut is a result, not an
+// error** -- being out in qualification is a different day from finishing
+// last in a final, and the game has to be able to say which.
+struct RoundOutcome {
+  bool through = false;
+  int place = 0;          // where you came in the round just climbed
+  int survivors = 0;
+  CompRound next = CompRound::Qualification;
+  std::string news;
+};
+
+// Close a round: cut the field, and either set the next board or leave the
+// comp finished. Mutates `comp` -- a new board, a fresh scorecard, a fresh
+// set of attempts, and the shorter list of who is left.
+RoundOutcome NextRound(CompState& comp, const CompResult& result,
+                       const Rng& worldRng, double yourGrade, int day,
                        const CompDials& dials = CompDials{});
 
 // Rank everybody and pay out. `rivalName` empty means no rival entered.

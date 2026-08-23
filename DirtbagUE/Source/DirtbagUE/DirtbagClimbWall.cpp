@@ -381,7 +381,12 @@ bool ADirtbagClimbWall::CompProblem(int32 Which)
 	if (Game->Comp.AttemptsLeft <= 0)
 	{
 		Game->SettleComp();
-		Toast(Game->Comp.Placing, FColor::Yellow, 10.f);
+		// **A round closing is not the comp closing.** At Regional and above
+		// the last go of qualification either puts you through to a fresh
+		// board or puts you out, and both are news; only a settled comp has
+		// a placing to read.
+		Toast(Game->Comp.bSettled ? Game->Comp.Placing : Game->Comp.RoundNews,
+		      FColor::Yellow, 10.f);
 	}
 	PushPrompt();
 	return true;
@@ -443,9 +448,23 @@ void ADirtbagClimbWall::PushPrompt()
 			L.Tone = EDirtbagPromptTone::Plain;
 			Lines.Add(L);
 		};
+		// Which room, and which round of it. A gym comp has one round and
+		// says nothing about it; a Regional says which one you are on and
+		// how many people are left, because that is the whole tension of
+		// the format.
+		const FString Where =
+		    Game->Comp.bHasRounds
+		        ? FString::Printf(
+		              TEXT("%s %s"), *Game->Comp.Tier,
+		              Game->Comp.Round == EDirtbagCompRound::Final
+		                  ? TEXT("final")
+		              : Game->Comp.Round == EDirtbagCompRound::Semi
+		                  ? TEXT("semi-final")
+		                  : TEXT("qualification"))
+		        : Game->Comp.Tier + TEXT(" comp");
 		if (Game->Comp.bSettled)
 		{
-			Add(FString::Printf(TEXT("%s comp - %s"), *Game->Comp.Tier,
+			Add(FString::Printf(TEXT("%s - %s"), *Where,
 			                    *Game->Comp.Placing));
 			for (const FString& Row : Game->Comp.Board)
 			{
@@ -454,9 +473,18 @@ void ADirtbagClimbWall::PushPrompt()
 		}
 		else
 		{
-			Add(FString::Printf(TEXT("%s comp - %d goes left, %.0f banked"),
-			                    *Game->Comp.Tier, Game->Comp.AttemptsLeft,
+			Add(FString::Printf(TEXT("%s - %d goes left, %.0f banked"),
+			                    *Where, Game->Comp.AttemptsLeft,
 			                    Game->Comp.YourScore));
+			if (Game->Comp.StillIn > 0)
+			{
+				Add(FString::Printf(TEXT("%d left in it."),
+				                    Game->Comp.StillIn));
+			}
+			if (!Game->Comp.RoundNews.IsEmpty())
+			{
+				Add(Game->Comp.RoundNews);
+			}
 			for (int32 i = 0; i < Game->Comp.Problems.Num(); i++)
 			{
 				const FDirtbagCompProblem& P = Game->Comp.Problems[i];

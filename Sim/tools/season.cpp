@@ -57,6 +57,7 @@ struct Tally {
   int compsEntered = 0, compWins = 0, compPodiums = 0;
   double rankingPeak = 0.0;
   double rankingEnd = 0.0;   // where it settles, which is the real number
+  int roundsClimbed = 0, finalsReached = 0;
   int teamSeasons = 0;
   int wcStarts = 0, wcMissed = 0, wcPodiums = 0, wcWins = 0, wcTitles = 0;
   int gamesEntered = 0, medals = 0;
@@ -494,15 +495,40 @@ int main(int argc, char** argv) {
       } else if (CompIsToday(player.circuit, player.day) &&
                  player.cash >= cpd.entryFee) {
         player.cash -= cpd.entryFee;
-        CompState board = SetTheBoard(world, TierFor(player.rankingPoints),
-                                      yourGrade, player.day);
-        playTheBoard(board, cpd);
+        const CompTier tier = TierFor(player.rankingPoints);
+        CompState board = SetTheBoard(world, tier, yourGrade, player.day);
         const bool finals = FinalsToday(player.circuit, player.day);
-        const CompResult r = Settle(
-            board, yourGrade,
-            player.rival.retired ? std::string() : player.rival.name,
-            player.rival.grade,
-            world.Derive("probe-settle#" + std::to_string(day)));
+
+        // **Quals, semi, final -- climbed, not skipped.** At Regional and
+        // above the scorecard decides who goes through rather than who
+        // won, and the probe has to run the rounds or the format is
+        // measured by nothing. The loop ends when a round puts you out or
+        // there is no round left.
+        CompResult r;
+        for (int round = 0; round < kCompRoundCount; round++) {
+          playTheBoard(board, board.round == CompRound::Final
+                                  ? [&] {
+                                      CompDials f = cpd;
+                                      f.attempts = cpd.finalAttempts;
+                                      return f;
+                                    }()
+                                  : cpd);
+          r = Settle(board, yourGrade,
+                     player.rival.retired ? std::string()
+                                          : player.rival.name,
+                     player.rival.grade,
+                     world.Derive("probe-settle#" + std::to_string(day) +
+                                  "#" + std::to_string(round)));
+          if (!RunsRounds(tier, cpd) ||
+              board.round == CompRound::Final) {
+            break;
+          }
+          const RoundOutcome ro =
+              NextRound(board, r, world, yourGrade, player.day, cpd);
+          if (!ro.through) break;
+          t.roundsClimbed++;
+          if (board.round == CompRound::Final) t.finalsReached++;
+        }
         player.cash += r.cash;
         BankResult(player.circuit, r, finals);
         Record(player.rankingRecord, player.day,
@@ -1216,13 +1242,14 @@ int main(int argc, char** argv) {
          "\thead\tallround\tshoewear\trivallost\trivalgens"
          "\traces\traceslost\traceswon"
          "\tcomps\tcompwins\tcomppods\trank\trankend\tteamyears"
+         "\trounds\tfinals"
          "\twcstarts\twcmissed\twcpods\twcwins\twctitles"
          "\tgames\tmedals\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
          "\t%d\t%d\t%d"
-         "\t%d\t%d\t%d\t%.0f\t%.0f\t%d"
+         "\t%d\t%d\t%d\t%.0f\t%.0f\t%d\t%d\t%d"
          "\t%d\t%d\t%d\t%d\t%d"
          "\t%d\t%d\n",
          seed.c_str(),
@@ -1264,7 +1291,7 @@ int main(int argc, char** argv) {
          player.shoes.wear, t.linesLostToTheRival, t.rivalGenerations,
          t.racesStarted, t.racesLost, t.racesWon,
          t.compsEntered, t.compWins, t.compPodiums, t.rankingPeak,
-         t.rankingEnd, t.teamSeasons, t.wcStarts, t.wcMissed, t.wcPodiums, t.wcWins,
+         t.rankingEnd, t.teamSeasons, t.roundsClimbed, t.finalsReached, t.wcStarts, t.wcMissed, t.wcPodiums, t.wcWins,
          t.wcTitles, t.gamesEntered, t.medals);
 
   if (quiet) {

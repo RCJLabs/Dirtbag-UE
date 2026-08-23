@@ -1891,6 +1891,120 @@ static void TestCircuit() {
     CHECK(b.yourPoints > a.yourPoints * 1.4);
   }
 
+  // ---- quals, semi, final ----------------------------------------------
+  //
+  // **A Tuesday at the gym is one board and done; a Regional is a day.**
+  // The format is what makes the tiers mean three different things rather
+  // than three grade offsets, and the load-bearing part of it is that
+  // **the score does not carry**: a good qualification buys a place in the
+  // semi and nothing else.
+  {
+    CHECK(!RunsRounds(CompTier::Local, cd));
+    CHECK(RunsRounds(CompTier::Regional, cd));
+    CHECK(RunsRounds(CompTier::National, cd));
+    CHECK(SurvivorsOf(CompRound::Qualification, cd) == cd.semiCut);
+    CHECK(SurvivorsOf(CompRound::Semi, cd) == cd.finalCut);
+    CHECK(SurvivorsOf(CompRound::Final, cd) == 0);
+    CHECK(cd.finalCut < cd.semiCut);   // it narrows
+
+    // A gym comp does not have rounds, and asking for one ends it.
+    {
+      CompState local = SetTheBoard(world, CompTier::Local, 8.0, 10, cd);
+      CompResult won;
+      won.place = 1;
+      const RoundOutcome o = NextRound(local, won, world, 8.0, 10, cd);
+      CHECK(!o.through);
+      CHECK(local.finished);
+      CHECK(local.round == CompRound::Qualification);
+      CHECK(o.news.empty());   // nothing happened, so nothing is said
+    }
+
+    // **Missing the cut is a result, not an error.** Being out in
+    // qualification is a different day from finishing last in a final.
+    {
+      CompState reg = SetTheBoard(world, CompTier::Regional, 8.0, 10, cd);
+      CompResult missed;
+      missed.place = cd.semiCut + 1;
+      const RoundOutcome o = NextRound(reg, missed, world, 8.0, 10, cd);
+      CHECK(!o.through);
+      CHECK(reg.finished);
+      CHECK(o.news.find("qualification") != std::string::npos);
+    }
+
+    // Through, and the board underneath you is a new one.
+    {
+      CompState reg = SetTheBoard(world, CompTier::Regional, 8.0, 10, cd);
+      const int qualGrade = reg.problems[0].route.trueGrade;
+      // Climb the whole thing, so there is something to not carry.
+      for (auto& pr : reg.progress) { pr.topped = true; pr.flashed = true; }
+      CHECK(YourScore(reg, cd) > 0.0);
+      reg.attemptsLeft = 0;
+
+      CompResult made;
+      made.place = 2;
+      made.board.push_back(CompEntrant{"Kai", 90.0, false, false});
+      made.board.push_back(CompEntrant{"You", 80.0, true, false});
+      for (int i = 0; i < cd.semiCut - 2; i++) {
+        made.board.push_back(CompEntrant{
+            "Filler" + std::to_string(i), 70.0 - i, false, false});
+      }
+      const RoundOutcome o = NextRound(reg, made, world, 8.0, 10, cd);
+      CHECK(o.through);
+      CHECK(o.next == CompRound::Semi);
+      CHECK(reg.round == CompRound::Semi);
+      CHECK(!reg.finished);
+      CHECK(o.news.find("semi") != std::string::npos);
+      // **The score does not carry.** Nor do the attempts you spent.
+      CHECK(YourScore(reg, cd) == 0.0);
+      CHECK(reg.attemptsLeft == cd.attempts);
+      for (const ProblemProgress& pr : reg.progress) {
+        CHECK(pr.tries == 0);
+        CHECK(!pr.topped);
+      }
+      // The field is the cut, and you are in it.
+      CHECK(static_cast<int>(reg.stillIn.size()) == cd.semiCut);
+      CHECK(StillIn(reg, "You"));
+      CHECK(StillIn(reg, "Kai"));
+      // Each round sits above the last.
+      CHECK(reg.problems[0].route.trueGrade >= qualGrade);
+
+      // **And Settle ranks nobody who went home.** Without the cut being
+      // read, a semi-final is scored against the six people who left and
+      // every round produces the qualification table again.
+      CompState semi = reg;
+      const CompResult s = Settle(semi, 8.0, "", 0.0, world, cd);
+      CHECK(static_cast<int>(s.board.size()) <
+            static_cast<int>(TheField().size()) + 1);
+      for (const CompEntrant& e : s.board) {
+        CHECK(StillIn(semi, e.isYou ? std::string("You") : e.name));
+      }
+
+      // Semi to final: narrower, shorter, and it ends there.
+      CompResult top;
+      top.place = 1;
+      top.board.push_back(CompEntrant{"You", 90.0, true, false});
+      for (int i = 0; i < cd.finalCut - 1; i++) {
+        top.board.push_back(CompEntrant{
+            "Kept" + std::to_string(i), 80.0 - i, false, false});
+      }
+      const RoundOutcome f = NextRound(reg, top, world, 8.0, 10, cd);
+      CHECK(f.through);
+      CHECK(reg.round == CompRound::Final);
+      CHECK(static_cast<int>(reg.stillIn.size()) == cd.finalCut);
+      // **A final is shorter and harder**, so one mistake is the result.
+      CHECK(static_cast<int>(reg.problems.size()) == cd.finalProblems);
+      CHECK(reg.attemptsLeft == cd.finalAttempts);
+      CHECK(cd.finalAttempts < cd.attempts);
+
+      // Nothing comes out of a final but a result.
+      CompResult ended;
+      ended.place = 1;
+      const RoundOutcome after = NextRound(reg, ended, world, 8.0, 10, cd);
+      CHECK(!after.through);
+      CHECK(reg.finished);
+    }
+  }
+
   // ---- not turning up ---------------------------------------------------
   //
   // **A firm schedule you can ignore for free is a suggestion.** The rival

@@ -330,6 +330,24 @@ struct FDirtbagCompReadout
 	/** Where it is, when it is somewhere. Empty for a comp at the gym. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	FString Where;
+
+	/** Which round is on the wall. Qualification at a gym comp, and it
+	 *  never moves off it -- a Tuesday is one board and done. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	EDirtbagCompRound Round = EDirtbagCompRound::Qualification;
+
+	/** Does this comp run rounds at all? */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	bool bHasRounds = false;
+
+	/** How many are left in it, once anybody has been cut. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 StillIn = 0;
+
+	/** "Through to the final." / "Out in the semi-final." Said once, when
+	 *  a round closes, and cleared when the next one starts. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString RoundNews;
 };
 
 /** The creation flow, as a thing the HUD can draw.

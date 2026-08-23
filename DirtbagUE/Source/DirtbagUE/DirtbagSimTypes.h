@@ -601,6 +601,15 @@ struct FDirtbagRankingResult
 	double Points = 0.0;
 };
 
+/** Which round of a comp is on the wall. Mirrors dirtbag::CompRound. */
+UENUM(BlueprintType)
+enum class EDirtbagCompRound : uint8
+{
+	Qualification UMETA(DisplayName = "Qualification"),
+	Semi          UMETA(DisplayName = "Semi-final"),
+	Final         UMETA(DisplayName = "Final"),
+};
+
 /** Which ladder the live board belongs to. Mirrors dirtbag::Stage.
  *
  *  The engine holds one comp at a time and the settle has to know where the
