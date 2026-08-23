@@ -526,6 +526,28 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	FDirtbagDayState Day;
 
+	/** Which zone the player is standing in. You wake in the van, so the
+	 *  Lot is where a career starts.
+	 *
+	 *  **Added 2026-08-23 with the wider map, and it fixes a bug the
+	 *  widening created.** While there were exactly two walkable zones, a
+	 *  travel spot could work out where you were walking *from* by looking
+	 *  at where you were walking *to* — if the destination is town you must
+	 *  be at the Lot, otherwise you must be in town — and
+	 *  `ADirtbagDaySpot::WalkHours` did exactly that. With eleven walkable
+	 *  zones that inference is simply false, and it fails silently: the walk
+	 *  still costs *a* number, just the wrong one. So where you are is now
+	 *  state rather than a guess.
+	 *
+	 *  Deliberately **not saved yet.** Nothing in the save has ever recorded
+	 *  where you were standing, and adding it is a SAVE_VERSION bump for a
+	 *  field that only starts mattering when Phase 6 makes the zones real
+	 *  places you load back into. Recorded here rather than done quietly:
+	 *  today a load puts you at the Lot, which is where the level spawns you
+	 *  anyway, so the two agree. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	EDirtbagZone CurrentZone = EDirtbagZone::Lot;
+
 	/** Live session readout for the HUD; the wall keeps this current. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	FDirtbagSessionReadout SessionReadout;

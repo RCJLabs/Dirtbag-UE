@@ -748,17 +748,38 @@ struct FDirtbagBlackjack
 };
 
 /** Where you are in the world. See Sim/DirtbagZones.h — a zone is *where*
- *  and a venue is *what rock*, which are different questions: the Town
- *  zone holds the Gym venue plus three destinations that are not climbing
- *  at all. */
+ *  and a venue is *what rock*, which are different questions: downtown
+ *  holds the Gym venue plus three destinations that are not climbing at
+ *  all.
+ *
+ *  **The first five ordinals are frozen and new zones go on the end.**
+ *  This is a `uint8` and `ADirtbagDaySpot::DestinationZone` is an
+ *  `EditAnywhere` property, so every travel spot already placed in a level
+ *  stores its destination by ordinal. Inserting a zone anywhere but the
+ *  end silently repoints all of them, with no compiler error and no failing
+ *  test — the symptom is walking to the gym and arriving at a crag. The
+ *  sim's `TestZones` pins the first five ordinals for the same reason;
+ *  keep the two lists in the same order or the `static_cast` in
+ *  `UDirtbagSimLibrary` quietly means something else. */
 UENUM(BlueprintType)
 enum class EDirtbagZone : uint8
 {
-	Lot      UMETA(DisplayName = "The Lot"),
-	Town     UMETA(DisplayName = "Town"),
-	Roadside UMETA(DisplayName = "Roadside"),
-	Cave     UMETA(DisplayName = "The Shaded Cave"),
-	Terrace  UMETA(DisplayName = "The Sun Terrace"),
+	Lot        UMETA(DisplayName = "The Lot"),
+	Town       UMETA(DisplayName = "Downtown"),
+	Roadside   UMETA(DisplayName = "Roadside"),
+	Cave       UMETA(DisplayName = "The Shaded Cave"),
+	Terrace    UMETA(DisplayName = "The Sun Terrace"),
+	OldTown    UMETA(DisplayName = "Old Town"),
+	Midtown    UMETA(DisplayName = "Midtown"),
+	Trailhead  UMETA(DisplayName = "The Trailhead"),
+	Outskirts  UMETA(DisplayName = "The Outskirts"),
+	Uptown     UMETA(DisplayName = "Uptown"),
+	MarketRow  UMETA(DisplayName = "Market Row"),
+	GrandPlaza UMETA(DisplayName = "Grand Plaza"),
+	Park       UMETA(DisplayName = "Greenwood Park"),
+	Lake       UMETA(DisplayName = "Trout Lake"),
+	Village    UMETA(DisplayName = "The Olympic Village"),
+	Farm       UMETA(DisplayName = "The Farm"),
 };
 
 /** Which game is out at the fire tonight. See Sim/DirtbagCampfire.h — the

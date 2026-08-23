@@ -1425,6 +1425,20 @@ static void TestWhoTurnsUp() {
 static void TestZones() {
   ZoneDials zd;
 
+  // **The ordinals of the original five are frozen, and this is the most
+  // load-bearing check in the file.** `EDirtbagZone` is a `uint8` and
+  // `ADirtbagDaySpot::DestinationZone` is an `EditAnywhere` property, so
+  // every travel spot already placed in Evan's level stores its destination
+  // as a number. Inserting a zone before the end renumbers all of them at
+  // once: no compiler error, no failing test anywhere else, and the symptom
+  // is walking to the gym and arriving at a crag. The map grew from five to
+  // sixteen on 2026-08-23 and it grew *upward* for exactly this reason.
+  CHECK(static_cast<int>(Zone::Lot) == 0);
+  CHECK(static_cast<int>(Zone::Town) == 1);
+  CHECK(static_cast<int>(Zone::Roadside) == 2);
+  CHECK(static_cast<int>(Zone::Cave) == 3);
+  CHECK(static_cast<int>(Zone::Terrace) == 4);
+
   // The whole point, and the bug this file exists to prevent: **a dead van
   // must never take the town away.** In the port every travel spot was
   // gated on the van running, so a breakdown removed the gym, the shop, the
@@ -1456,33 +1470,121 @@ static void TestZones() {
     CHECK(WalkMinutes(other, Zone::Cave, zd) <= 0.0);
   }
 
-  // The walk follows its dial rather than a number typed beside it.
+  // The walk follows its dial rather than a number typed beside it. Two
+  // borders, so a 45-minute border is a 90-minute walk.
   ZoneDials miles;
-  miles.lotToTownMinutes = 90.0;
+  miles.minutesPerCrossing = 45.0;
   CHECK(WalkMinutes(Zone::Lot, Zone::Town, miles) == 90.0);
+
+  // **And the tuned number survived the widening.** `lotToTownMinutes` was
+  // twenty, chosen so the walk is worth the van when the van runs and
+  // survivable when it does not. On the real grid the Lot and downtown are
+  // diagonal, so that is two borders, and `minutesPerCrossing` is ten
+  // precisely so this one walk still costs what it was tuned to cost.
+  // Widening a map must not quietly rebalance the route that was already
+  // right, and the only way to know it did not is to pin it.
+  CHECK(WalkMinutes(Zone::Lot, Zone::Town, zd) == 20.0);
 
   // IsACrag names its members rather than being written as "not the Lot
   // and not the town".
   //
-  // **These checks cannot currently fail**, and that is recorded rather
-  // than hidden: with five zones the two definitions are equivalent, and
-  // reintroducing the lazy one passes the whole suite. They are here for
-  // the day comps arrive -- Evan named them alongside the crags as the
-  // other thing you need the van for -- because a comp is a van zone that
-  // is *not* rock, and on that day the lazy definition starts quietly
-  // putting a climbing competition on the guidebook. Intent, written down
-  // where it will be read, not a live guard pretending to be one.
+  // **The day this was written for has arrived.** The old note here said
+  // these checks could not fail, because with five zones "is a crag" and
+  // "needs the van" were the same set, and that they were kept for the day
+  // comps turned up -- *"a comp is a van zone that is not rock, and on that
+  // day the lazy definition starts quietly putting a climbing competition
+  // on the guidebook."* Comps came back on 2026-08-23 and the Olympic
+  // Village landed with them, along with your folks' farm. **Both need the
+  // van and neither is rock**, so the lazy definition now fails here
+  // instead of being a comment hoping somebody reads it.
   CHECK(!IsACrag(Zone::Lot));
   CHECK(!IsACrag(Zone::Town));
   CHECK(IsACrag(Zone::Roadside) && IsACrag(Zone::Cave) &&
         IsACrag(Zone::Terrace));
-  // Every crag needs the van and nothing that needs the van is not a crag
-  // -- true today, and the check is here to fail loudly on the day comps
-  // arrive, because a comp needs the van and is not a crag.
+  CHECK(NeedsTheVan(Zone::Village) && !IsACrag(Zone::Village));
+  CHECK(NeedsTheVan(Zone::Farm) && !IsACrag(Zone::Farm));
+  // Every crag still needs the van. That direction stays true forever --
+  // it is the one that would let you walk to rock.
   for (int z = 0; z < kZoneCount; z++) {
     const Zone here = static_cast<Zone>(z);
     if (IsACrag(here)) CHECK(NeedsTheVan(here));
   }
+
+  // ---- the grid itself, which is a hand-typed table ----------------
+  //
+  // Every link is written twice, once from each end, and a table written
+  // twice is a table that disagrees with itself eventually. Nothing here
+  // tests a design decision; all of it tests my typing.
+
+  // If north of A is B, then south of B is A -- and the same east to west.
+  // This is the check that catches a link entered from one side only, which
+  // in play is a one-way street you can walk into and not out of.
+  const Compass kDirs[4] = {Compass::North, Compass::South, Compass::East,
+                            Compass::West};
+  const Compass kBack[4] = {Compass::South, Compass::North, Compass::West,
+                            Compass::East};
+  for (int z = 0; z < kZoneCount; z++) {
+    const Zone here = static_cast<Zone>(z);
+    for (int d = 0; d < 4; d++) {
+      Zone there = Zone::Lot;
+      if (!NeighbourOf(here, kDirs[d], there)) continue;
+      Zone back = Zone::Lot;
+      CHECK(NeighbourOf(there, kBack[d], back));
+      CHECK(back == here);
+      CHECK(Adjacent(here, there) && Adjacent(there, here));
+      CHECK(WalkCrossings(here, there) == 1);
+    }
+  }
+
+  // Nothing is next to itself, and nothing off the grid is next to
+  // anything. You cannot walk out of the Shaded Cave in any direction.
+  for (int z = 0; z < kZoneCount; z++) {
+    const Zone here = static_cast<Zone>(z);
+    CHECK(!Adjacent(here, here));
+    if (!NeedsTheVan(here)) continue;
+    for (int d = 0; d < 4; d++) {
+      Zone there = Zone::Lot;
+      CHECK(!NeighbourOf(here, kDirs[d], there));
+    }
+  }
+
+  // **Connected ground has to actually be connected.** An island in the
+  // table would be a zone you can see on the map and never reach on foot,
+  // and because `WalkCrossings` answers -1 for "you cannot walk that", an
+  // island reads at every call site as though it needed the van. This is
+  // the check that tells the two apart.
+  for (int a = 0; a < kZoneCount; a++) {
+    const Zone from = static_cast<Zone>(a);
+    if (NeedsTheVan(from)) continue;
+    for (int b = 0; b < kZoneCount; b++) {
+      const Zone to = static_cast<Zone>(b);
+      if (NeedsTheVan(to)) continue;
+      CHECK(WalkCrossings(from, to) >= 0);
+      CHECK(WalkCrossings(from, to) == WalkCrossings(to, from));
+    }
+  }
+
+  // The distances themselves, pinned rather than asserted as an ordering.
+  // An ordering ("the lake is further than the Trailhead") passes on a map
+  // where everything is one border from everything, which is exactly the
+  // table a bad edit produces.
+  CHECK(WalkCrossings(Zone::Lot, Zone::Town) == 2);        // diagonal
+  CHECK(WalkCrossings(Zone::Lot, Zone::OldTown) == 1);     // straight up
+  CHECK(WalkCrossings(Zone::Lot, Zone::Trailhead) == 1);   // straight across
+  CHECK(WalkCrossings(Zone::Lot, Zone::Lake) == 2);        // down the stem
+  CHECK(WalkCrossings(Zone::Town, Zone::Outskirts) == 2);
+  CHECK(WalkCrossings(Zone::MarketRow, Zone::GrandPlaza) == 2);
+  // The two far corners of the map: the quiet end to the expensive one.
+  // Six borders is an hour on foot at the default dial, which is the
+  // longest walk in the game and is meant to be.
+  CHECK(WalkCrossings(Zone::Lake, Zone::GrandPlaza) == 6);
+  CHECK(WalkMinutes(Zone::Lake, Zone::GrandPlaza, zd) == 60.0);
+
+  // The Village and the farm are off the grid like the crags, which is the
+  // 2D rule stated as a test: *"zones connected except for crags and the
+  // olympics which you needed to use the van to get to."*
+  CHECK(WalkCrossings(Zone::Lot, Zone::Village) == -1);
+  CHECK(WalkCrossings(Zone::Lot, Zone::Farm) == -1);
 
   // Named, distinctly, and in the game's voice rather than as an enum.
   for (int z = 0; z < kZoneCount; z++) {

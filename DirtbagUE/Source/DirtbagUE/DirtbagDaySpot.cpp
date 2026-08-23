@@ -1398,13 +1398,15 @@ void ADirtbagDaySpot::BeginDrive()
 double ADirtbagDaySpot::WalkHours() const
 {
 	// Which walk this is depends on where you are standing as well as
-	// where you are going, and only the Lot and town are connected today,
-	// so the answer is the one walk there is. Asked of the zone model
-	// rather than typed here: when the town grows, the table grows in one
-	// file and every spot pointing along it follows.
-	const EDirtbagZone From = DestinationZone == EDirtbagZone::Town
-	                              ? EDirtbagZone::Lot
-	                              : EDirtbagZone::Town;
+	// where you are going, so it asks the game where you are.
+	//
+	// **This used to infer it and the inference has stopped being true.**
+	// With two walkable zones you could say "if I am going to town I must
+	// be at the Lot, otherwise I must be in town" and be right every time.
+	// The map went to eleven walkable zones on 2026-08-23, and that
+	// sentence became false without becoming an error — the walk still
+	// costs a number, and the number is somebody else's walk.
+	const EDirtbagZone From = Game ? Game->CurrentZone : EDirtbagZone::Lot;
 	const double Minutes =
 	    UDirtbagSimLibrary::WalkMinutes(From, DestinationZone);
 	// A destination the zone model says is unwalkable should never have
@@ -1440,6 +1442,11 @@ void ADirtbagDaySpot::ArriveFromDrive()
 	const int32 Broke = bOnFoot ? -1 : Game->DriveVan(Hours);
 	Game->PassHours(Hours);
 	Game->SetVenue(ArriveAt);
+	// Where in the world, alongside what rock -- the two answer different
+	// questions and both change at the same moment, which is this one.
+	// Set after `Hours`, because `WalkHours` above reads it as the origin
+	// and would otherwise price the walk from where you are about to be.
+	Game->CurrentZone = DestinationZone;
 
 	BeginTravelScreen(bOnFoot, Hours, Broke);
 }
