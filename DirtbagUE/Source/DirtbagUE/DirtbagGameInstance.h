@@ -870,7 +870,6 @@ public:
 	/** Do it. Records only that it happened; the caller applies whatever
 	 *  the act buys, because the benefit differs per act and belongs where
 	 *  it is felt. */
-	// no-door: the ethics arc verb (DIRTBAG.md s4, port-wholesale)
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Ethics")
 	void DoSomethingYouWouldNotAdmitTo(EDirtbagEthicalAct Act,
 	                                   const FString& OnRoute);
@@ -882,9 +881,25 @@ public:
 	double HowWatchedYouAre() const;
 
 	/** How many things you are carrying that nobody knows about. */
-	// no-door: the ethics readout; the HUD shows EthicsNews only
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Ethics")
 	int32 ThingsNobodyKnows() const;
+
+	/** Can this shortcut be taken on this line, right now?
+	 *
+	 *  Each act asks something different of the situation: you cannot pull
+	 *  through on a line you never got on, and there is no point chiselling
+	 *  one you have already done. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Ethics")
+	bool CanTakeShortcut(EDirtbagEthicalAct Act, int32 BoardIndex);
+
+	/** Take it, and apply what it buys.
+	 *
+	 *  `DoSomethingYouWouldNotAdmitTo` records only that it happened,
+	 *  because the benefit differs per act — this is where the benefit
+	 *  lives, and it is deliberately the exact mirror of what stripping
+	 *  takes away when the truth comes out. Returns what gets said. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Ethics")
+	FString TakeShortcut(EDirtbagEthicalAct Act, int32 BoardIndex);
 
 	/** Roll for the day. Returns the line to show when something surfaces,
 	 *  empty otherwise — "Everyone knows you chipped a hold on Chalk Ghost

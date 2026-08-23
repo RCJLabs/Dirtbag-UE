@@ -279,6 +279,17 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	{
 		Slow += TEXT("      ") + Crew;
 	}
+	// What you are carrying. Sits with the slow numbers because it is a
+	// fact about your life rather than a thing happening today, and it is
+	// silent at zero -- which is the honest career and the common one. A
+	// counter that says "0 secrets" every day of a clean career is a
+	// counter suggesting you get some.
+	const int32 Carrying = Game->ThingsNobodyKnows();
+	if (Carrying > 0)
+	{
+		Slow += FString::Printf(TEXT("      %d thing%s nobody knows"),
+		                        Carrying, Carrying == 1 ? TEXT("") : TEXT("s"));
+	}
 	// What the money was for. Sits with the slow numbers because owning one
 	// is a fact about your life rather than a thing happening today — but
 	// the War Chest counts down here, which is the one that moves.

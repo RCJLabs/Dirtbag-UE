@@ -242,6 +242,92 @@ void ADirtbagClimbWall::OnGuidebook()
 	PushPrompt();
 }
 
+namespace
+{
+// Which act each key offers, in the order the prompt lists them. One place,
+// so the prompt and the keys can never disagree about what 2 means.
+const EDirtbagEthicalAct kShortcuts[3] = {
+    EDirtbagEthicalAct::ChippedAHold,
+    EDirtbagEthicalAct::ClaimedASend,
+    EDirtbagEthicalAct::PulledOnGear,
+};
+
+// What each one is, said the way you would think it rather than the way
+// you would admit it.
+const TCHAR* ShortcutLine(EDirtbagEthicalAct Act)
+{
+	switch (Act)
+	{
+	case EDirtbagEthicalAct::ChippedAHold:
+		return TEXT("take a chisel to the bad hold");
+	case EDirtbagEthicalAct::ClaimedASend:
+		return TEXT("write it in the book anyway");
+	default:
+		return TEXT("pull through on the gear and call it clean");
+	}
+}
+}  // namespace
+
+void ADirtbagClimbWall::OnShortcut()
+{
+	if (!Game || !bPlayerNear || Phase != EPhase::Idle)
+	{
+		return;
+	}
+	if (bShortcutOffered)
+	{
+		bShortcutOffered = false;
+		PushPrompt();
+		return;
+	}
+	// Only offer if there is something to offer. A key that opens an empty
+	// list is a key that looks broken.
+	bool bAny = false;
+	for (const EDirtbagEthicalAct Act : kShortcuts)
+	{
+		if (Game->CanTakeShortcut(Act, BoardIndex))
+		{
+			bAny = true;
+		}
+	}
+	if (!bAny)
+	{
+		return;
+	}
+	bShortcutOffered = true;
+	PushPrompt();
+}
+
+bool ADirtbagClimbWall::TakeShortcut(int32 Which)
+{
+	if (!Game || !bShortcutOffered || Which < 0 || Which > 2)
+	{
+		return false;
+	}
+	const EDirtbagEthicalAct Act = kShortcuts[Which];
+	// A key for an act this line will not take is still the offer's key --
+	// otherwise pressing 3 on a line you have never touched would fall
+	// through to whatever else 3 does.
+	const FString Said = Game->CanTakeShortcut(Act, BoardIndex)
+	                         ? Game->TakeShortcut(Act, BoardIndex)
+	                         : FString();
+	bShortcutOffered = false;
+	if (!Said.IsEmpty())
+	{
+		// Said quietly and once. Nothing about this is an achievement, and
+		// the game does not comment on it -- the comment comes years later,
+		// from everybody else.
+		Toast(Said, FColor::Silver, 7.f);
+		RefreshBookName();
+	}
+	PushPrompt();
+	return true;
+}
+
+void ADirtbagClimbWall::OnShortcut1() { TakeShortcut(0); }
+void ADirtbagClimbWall::OnShortcut2() { TakeShortcut(1); }
+void ADirtbagClimbWall::OnShortcut3() { TakeShortcut(2); }
+
 void ADirtbagClimbWall::PushPrompt()
 {
 	if (!Game)
@@ -347,6 +433,43 @@ void ADirtbagClimbWall::PushPrompt()
 		Lines.Add(Body);
 	}
 
+	// The shortcut, when it has been asked for. Listed rather than
+	// screened, because this is a thing you do in a moment at the bottom of
+	// a route and not a menu you open.
+	if (bShortcutOffered)
+	{
+		FDirtbagPromptLine Head;
+		Head.Text = TEXT("Nobody is watching.");
+		Head.Tone = EDirtbagPromptTone::Blocked;
+		Lines.Add(Head);
+		for (int32 i = 0; i < 3; i++)
+		{
+			if (!Game->CanTakeShortcut(kShortcuts[i], BoardIndex))
+			{
+				continue;
+			}
+			FDirtbagPromptLine Option;
+			Option.Text = FString::Printf(TEXT("   %d  %s"), i + 1,
+			                              ShortcutLine(kShortcuts[i]));
+			Option.Tone = EDirtbagPromptTone::Blocked;
+			Lines.Add(Option);
+		}
+		FDirtbagPromptLine Out;
+		Out.Text = TEXT("   T  think better of it");
+		Lines.Add(Out);
+	}
+	else if (Game->CanTakeShortcut(EDirtbagEthicalAct::ClaimedASend,
+	                               BoardIndex))
+	{
+		// Offered without being urged. One word, at the end of the line
+		// that is already there, and never a sentence telling you what it
+		// would buy -- the game does not sell you this.
+		if (Lines.Num() > 0)
+		{
+			Lines[0].Text += TEXT("   (T)");
+		}
+	}
+
 	if (Game)
 	{
 		Game->SetPrompt(this, Lines);
@@ -390,6 +513,14 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 			                        &ADirtbagClimbWall::OnAskBeta);
 			InputComponent->BindKey(EKeys::G, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnGuidebook);
+			InputComponent->BindKey(EKeys::T, IE_Pressed, this,
+			                        &ADirtbagClimbWall::OnShortcut);
+			InputComponent->BindKey(EKeys::One, IE_Pressed, this,
+			                        &ADirtbagClimbWall::OnShortcut1);
+			InputComponent->BindKey(EKeys::Two, IE_Pressed, this,
+			                        &ADirtbagClimbWall::OnShortcut2);
+			InputComponent->BindKey(EKeys::Three, IE_Pressed, this,
+			                        &ADirtbagClimbWall::OnShortcut3);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnHoldPressed);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Released, this,
@@ -407,6 +538,9 @@ void ADirtbagClimbWall::OnApproachEnd(UPrimitiveComponent*, AActor* OtherActor,
 		return;
 	}
 	bPlayerNear = false;
+	// An offer must not sit open across a session: walk away and it is
+	// withdrawn, the same rule the van's retirement confirm lives under.
+	bShortcutOffered = false;
 	if (Game)
 	{
 		Game->ClearPrompt(this);

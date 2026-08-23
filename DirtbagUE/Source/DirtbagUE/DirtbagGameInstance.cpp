@@ -283,7 +283,29 @@ FDirtbagRoute UDirtbagGameInstance::GetRouteAt(EDirtbagVenue AtVenue,
 {
 	if (IsOutdoors(AtVenue))
 	{
-		return GetCragLineAt(AtVenue, Index).Route;
+		FDirtbagRoute Route = GetCragLineAt(AtVenue, Index).Route;
+		// A chipped hold is the one shortcut that changes the rock, so it
+		// has to change the route rather than the ledger -- and it has to
+		// keep changing it for good, for everyone, forever.
+		//
+		// Applied here because this is the single funnel every caller goes
+		// through, and derived from the secret rather than stored on the
+		// crag because **the crag is regenerated from the seed on every
+		// load** and a mutation written into it would evaporate at the
+		// next save. The secret persists; the rock follows from it.
+		//
+		// The send stands when this comes out (StripsTheAscent is false
+		// for chipping) which is right: it happened, on a line that is no
+		// longer what it was.
+		for (const FDirtbagSecret& S : Player.Secrets)
+		{
+			if (S.Act == EDirtbagEthicalAct::ChippedAHold &&
+			    S.RouteKey == Route.Name)
+			{
+				Route.TrueGrade = FMath::Max(0, Route.TrueGrade - 1);
+			}
+		}
+		return Route;
 	}
 	EnsureBoard();
 	if (Board.Num() == 0)
@@ -787,6 +809,102 @@ void UDirtbagGameInstance::DoSomethingYouWouldNotAdmitTo(
 	Player.Secrets.Add(DirtbagConvert::FromSim(dirtbag::Commit(
 	    static_cast<dirtbag::EthicalAct>(Act), TCHAR_TO_UTF8(*OnRoute),
 	    Player.Day)));
+}
+
+bool UDirtbagGameInstance::CanTakeShortcut(EDirtbagEthicalAct Act,
+                                          int32 BoardIndex)
+{
+	// Plastic has no ethics worth the name. You cannot chisel a resin
+	// hold, nobody bolts a gym, and claiming a gym problem is not a lie
+	// anybody in this game would tell.
+	if (!IsOutdoors(Venue))
+	{
+		return false;
+	}
+	const FDirtbagProjectMemory* Ledger = nullptr;
+	const FDirtbagRoute Route = GetRouteAt(Venue, BoardIndex);
+	for (const FDirtbagProjectMemory& M : Player.Projects)
+	{
+		if (M.RouteName == Route.Name)
+		{
+			Ledger = &M;
+			break;
+		}
+	}
+	// Nothing to gain from a line you have already done.
+	if (Ledger && Ledger->bSent)
+	{
+		return false;
+	}
+
+	switch (Act)
+	{
+	case EDirtbagEthicalAct::ChippedAHold:
+		return true;
+	case EDirtbagEthicalAct::ClaimedASend:
+		return true;
+	case EDirtbagEthicalAct::PulledOnGear:
+		// "One hang nobody saw" needs you to have been on it. Claiming a
+		// line you never tied into is the other act, and it costs more
+		// when it comes out for exactly that reason.
+		return Ledger && Ledger->Attempts > 0;
+	default:
+		// **RetroBolted and StagedAPhoto are deliberately not offered**,
+		// and saying so here is better than offering an act that does
+		// nothing -- which would be this project's own favourite bug
+		// wearing a new hat.
+		//
+		// Retro-bolting buys less runout, and runout is computed in
+		// `RunoutAt` rather than carried on the route, so its benefit
+		// needs plumbing that does not exist yet. It is a real act with a
+		// real cost dial (0.6) waiting for it.
+		//
+		// Staging a photo buys a sponsor's goodwill, and **there is no way
+		// to get a sponsor** -- `SignWithSponsor` is on the no-door list.
+		// Offering it would be a shortcut whose benefit is a system you
+		// cannot reach, which is worse than not offering it at all.
+		return false;
+	}
+}
+
+FString UDirtbagGameInstance::TakeShortcut(EDirtbagEthicalAct Act,
+                                           int32 BoardIndex)
+{
+	if (!CanTakeShortcut(Act, BoardIndex))
+	{
+		return FString();
+	}
+	const FDirtbagRoute Route = GetRouteAt(Venue, BoardIndex);
+	DoSomethingYouWouldNotAdmitTo(Act, Route.Name);
+
+	// The benefit, and it is deliberately the exact mirror of what
+	// stripping takes back: claiming and pulling on both write a send into
+	// the ledger, and the day it comes out that send is what goes.
+	if (Act == EDirtbagEthicalAct::ClaimedASend ||
+	    Act == EDirtbagEthicalAct::PulledOnGear)
+	{
+		if (FDirtbagProjectMemory* Ledger = LedgerFor(BoardIndex))
+		{
+			Ledger->bSent = true;
+		}
+	}
+	// Chipping needs nothing here. Its benefit is applied in GetRouteAt,
+	// derived from the secret, because the rock has to stay changed across
+	// a save and the crag is rebuilt from the seed every load.
+
+	switch (Act)
+	{
+	case EDirtbagEthicalAct::ChippedAHold:
+		return FString::Printf(
+		    TEXT("It goes now. It did not before, and it never will "
+		         "again."));
+	case EDirtbagEthicalAct::ClaimedASend:
+		return FString::Printf(TEXT("%s. Ticked. Nobody was there."),
+		                       *Route.Name);
+	default:
+		return FString(
+		    TEXT("One hang. Nobody saw it. You write it down clean."));
+	}
 }
 
 double UDirtbagGameInstance::HowWatchedYouAre() const

@@ -399,6 +399,17 @@ private:
 	 *  for a guidebook — standing under something, deciding. */
 	void OnGuidebook();
 
+	/** The shortcut nobody would see. T offers what this line will take;
+	 *  1/2/3 does it.
+	 *
+	 *  A prompt state rather than a screen, deliberately: this is a thing
+	 *  you do in a moment at the bottom of a route, not a menu you open. */
+	void OnShortcut();
+	bool TakeShortcut(int32 Which);
+	void OnShortcut1();
+	void OnShortcut2();
+	void OnShortcut3();
+
 	/** Drive the shot: follow the climber, tighten on a hard move, breathe
 	 *  with the pump. Reads the same FDirtbagSessionReadout the HUD reads,
 	 *  so the camera and the bars can never disagree about how hard this
@@ -496,6 +507,11 @@ private:
 
 	/** 0 while the move is a gimme, 1 while it is desperate. Eased rather
 	 *  than set, so the framing settles into a crux. */
+	/** True while T has offered and nothing has been picked. Cleared by
+	 *  walking away and by taking one, so an offer cannot sit open across
+	 *  a session. */
+	bool bShortcutOffered = false;
+
 	float Tension = 0.f;
 	float SwayTime = 0.f;
 
