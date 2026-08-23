@@ -112,6 +112,10 @@ std::vector<const CragLine*> LinesUpTo(const Crag& crag, int grade);
 // The open projects, in book order.
 // unwired-ok: the guidebook page's filter; the engine walks Crag.Lines
 // itself
+// probe-only: the probe picks a project to work from this; the guidebook
+// screen filters the mirrored Crag.Lines it already holds rather than
+// converting the whole crag back to sim types to ask. Same answer, and no
+// balance rule lives in it.
 std::vector<const CragLine*> OpenProjects(const Crag& crag);
 
 // "Diesel V5 ***" / "project, the arete left of Diesel". The guidebook line

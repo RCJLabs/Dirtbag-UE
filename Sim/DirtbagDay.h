@@ -272,6 +272,11 @@ void StartGymSession(PlayerState& player, DayState& day,
 //
 // False if you are not a member — the gym is the one place in this game
 // that checks.
+// probe-only: the probe's one-call shortcut for an indoor day, and the
+// rule inside it -- IsGymMember -- *is* enforced in the played game, at the
+// wall, which is what makes this a shortcut rather than a divergence. It
+// was a real divergence until 2026-08-23: the check lived only here, the
+// engine reached the gym by travel spot and wall, and the gym was free.
 // unwired-ok: the probe's one-call shortcut for an indoor day. The engine
 // reaches the gym the way a player does -- drive there, walk to a wall,
 // press E -- and gates it on IsGymMember at the wall, so wrapping this

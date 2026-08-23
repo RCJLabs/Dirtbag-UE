@@ -63,4 +63,8 @@ echo "== every gameplay verb has a door =="
 python3 tools/check-doors.py
 
 echo
+echo "== the measured game is the played game =="
+python3 tools/check-parity.py
+
+echo
 echo "ALL CHECKS PASSED"

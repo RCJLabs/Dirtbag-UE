@@ -38,6 +38,8 @@ enum class Faction {
 };
 constexpr int kFactionCount = 4;
 
+// probe-only: a formatter for the probe's own report. The engine prints
+// StandingLine, and no balance rule lives in a name.
 const char* FactionName(Faction f);
 
 // Who each faction is set against. Gaining with one costs a little with its
