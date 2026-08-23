@@ -200,6 +200,18 @@ FString ADirtbagDaySpot::PromptText() const
 		// Only when it beats what you already hold: a shop that offers you
 		// the deal you signed last year every time you walk in is a shop
 		// nobody reads.
+		// The physio, when you are carrying something. Said at the counter
+		// because there is no physio *place* yet -- the shop is the town's
+		// one desk, and it already handles rubber, pads, dreams and now a
+		// sponsor's paperwork. When the town becomes somewhere in its own
+		// right this earns its own door.
+		FString Care;
+		const FString Physio = Game->PhysioLine();
+		if (!Physio.IsEmpty())
+		{
+			Care = FString::Printf(TEXT("\n   %s"), *Physio);
+		}
+
 		const EDirtbagSponsorTier Offer = Game->OfferOnTheTable();
 		FString Deal;
 		if (Offer > Game->Player.Sponsor.Tier)
@@ -216,7 +228,7 @@ FString ADirtbagDaySpot::PromptText() const
 		          *Game->ShoeLine(), Grades, Game->Player.Cash)
 		    : FString::Printf(TEXT("Shoes?  (E)  -  %s.  $%.0f"),
 		                      *Game->ShoeLine(), Game->Player.Cash)) +
-		       Deal;
+		       Care + Deal;
 	}
 	case EDirtbagSpotKind::Fire:
 	{
@@ -301,6 +313,8 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnGuidebook);
 			InputComponent->BindKey(EKeys::S, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnSign);
+			InputComponent->BindKey(EKeys::P, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnPhysio);
 			bBoundInput = true;
 		}
 	}
@@ -327,6 +341,31 @@ void ADirtbagDaySpot::OnTriggerEnd(UPrimitiveComponent*, AActor* OtherActor,
 	{
 		DisableInput(PC);
 	}
+}
+
+void ADirtbagDaySpot::OnPhysio()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop)
+	{
+		return;
+	}
+	if (!Game->IsHurt())
+	{
+		return;
+	}
+	if (!Game->SeeAPhysio())
+	{
+		// The reason, not a failure. PhysioLine already knows which of the
+		// three it is -- too soon, too poor, or fine -- so it says it
+		// rather than this branch guessing again.
+		Say(Game->PhysioLine(), FColor::Orange, 6.f);
+		return;
+	}
+	Say(FString::Printf(TEXT("An hour of somebody digging their thumb into "
+	                         "it.  %s  $%.0f left."),
+	                    *Game->InjuryLine(), Game->Player.Cash),
+	    FColor::Green, 8.f);
+	PushPrompt();
 }
 
 void ADirtbagDaySpot::OnSign()

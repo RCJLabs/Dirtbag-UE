@@ -216,6 +216,10 @@ private:
 	 *  same press as buying rubber. */
 	void OnSign();
 
+	/** See a physio, at the counter. Its own key for the same reason
+	 *  signing has one: E is for buying rubber. */
+	void OnPhysio();
+
 	/** While the book is open, 1/2/3 turn the page rather than naming a
 	 *  dream or sizing a stake. Returns true if the book took the key. */
 	bool TurnGuidebookPage(int32 Which);

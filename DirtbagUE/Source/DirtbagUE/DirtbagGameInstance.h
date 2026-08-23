@@ -1242,9 +1242,14 @@ public:
 	 *  one thing money buys that hands climbing back rather than moving it
 	 *  around. False if you are not hurt, cannot afford it, or saw one too
 	 *  recently. */
-	// no-door: physio, the recovery half of injury+physio+aging
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Body")
 	bool SeeAPhysio();
+
+	/** What the physio would be, said at the counter: the price, or how
+	 *  many days until they will see you again. Empty when you are not
+	 *  hurt, because a healthy climber does not need telling. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Body")
+	FString PhysioLine() const;
 
 	// --- The kit ---------------------------------------------------------
 	// Things worth money that buy you climbing. Each returns false if you

@@ -1710,6 +1710,35 @@ bool UDirtbagGameInstance::IsHurt() const
 	return Player.Climber.Injury.bActive;
 }
 
+FString UDirtbagGameInstance::PhysioLine() const
+{
+	if (!IsHurt())
+	{
+		return FString();
+	}
+	const dirtbag::BodyDials Bd;
+	const int32 Since = Player.Day - Player.LastPhysioDay;
+	if (Player.LastPhysioDay > 0 && Since < Bd.physioDaysBetween)
+	{
+		// Said as the reason rather than as a refusal. You cannot buy your
+		// way out of a season in an afternoon, and the game should sound
+		// like a physio saying so rather than like a locked door.
+		return FString::Printf(
+		    TEXT("The physio wants %d more day%s before they see you again."),
+		    Bd.physioDaysBetween - Since,
+		    Bd.physioDaysBetween - Since == 1 ? TEXT("") : TEXT("s"));
+	}
+	if (Player.Cash < Bd.physioCost)
+	{
+		return FString::Printf(TEXT("A physio is $%.0f. You have $%.0f."),
+		                       Bd.physioCost, Player.Cash);
+	}
+	// The trade stated in the only units that matter. Days, not "recovery".
+	return FString::Printf(
+	    TEXT("See a physio?  (P)  -  $%.0f, and about %d days off it."),
+	    Bd.physioCost, Bd.physioDaysSaved);
+}
+
 bool UDirtbagGameInstance::SeeAPhysio()
 {
 	dirtbag::Climber SimClimber = DirtbagConvert::ToSim(Player.Climber);
