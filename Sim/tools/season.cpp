@@ -17,6 +17,7 @@
 #include <vector>
 #include <algorithm>
 
+#include "DirtbagCharacter.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
 #include "DirtbagBody.h"
@@ -277,12 +278,40 @@ int main(int argc, char** argv) {
   FirstAscentDials fd;
   DogDials dog;
 
+  // Arg 6 is the build, as "archetype/origin/flaw/temperament" by index --
+  // e.g. "0/2/4/1" is a Boulderer from the desert with tweaky fingers who
+  // is send-or-bust. Absent means unbuilt, which is neutral in every lane,
+  // so every measurement taken before Phase 7 reproduces exactly.
+  const std::string buildSpec = argc > 6 ? argv[6] : "";
+
   PlayerState player;
   player.name = "Climber 1";
   // Drawn from the world like every life after it -- the flat 50s this
   // replaces were the same climber every seed, which understated how much
   // careers differ before a single day is played.
   player.climber = NewClimber(world);
+
+  if (!buildSpec.empty()) {
+    int part[4] = {0, 0, 0, 0};
+    int at = 0;
+    std::string cur;
+    for (std::size_t i = 0; i <= buildSpec.size(); i++) {
+      if (i == buildSpec.size() || buildSpec[i] == '/') {
+        if (at < 4) part[at++] = std::atoi(cur.c_str());
+        cur.clear();
+      } else {
+        cur += buildSpec[i];
+      }
+    }
+    Build b;
+    b.archetype = static_cast<Archetype>(part[0] % kArchetypeCount);
+    b.origin = static_cast<Origin>(part[1] % kOriginCount);
+    b.flaw = static_cast<Flaw>(part[2] % kFlawCount);
+    b.temperament = static_cast<Temperament>(part[3] % kTemperamentCount);
+    player.character = MakeCharacter(b, world);
+    player.climber = MakeClimber(b, world);
+    player.cash = player.character.startingCash;
+  }
 
   if (startingPads >= 0) player.kit.pads = startingPads;
   // The kept control's float. See the note where its dials are zeroed:

@@ -242,6 +242,34 @@ void MigrateV18ToV19(SaveFields& fields) { fields["dreams.chosen"] = "0"; }
 // nothing, exactly as every career did before names existed.
 void MigrateV19ToV20(SaveFields& fields) { fields["player.name"] = ""; }
 
+// v20 → v21: who your climber is. A v20 career predates the four questions,
+// so it arrives **unbuilt** — and that is exact rather than generous,
+// because an unbuilt character is neutral in every lane. The climber you
+// had keeps the numbers they had, and the creation screen does not ambush
+// somebody twenty years into a career.
+void MigrateV20ToV21(SaveFields& fields) {
+  fields["char.built"] = "0";
+  fields["char.archetype"] = "0";
+  fields["char.origin"] = "0";
+  fields["char.flaw"] = "0";
+  fields["char.temperament"] = "0";
+  fields["char.discipline"] = "0";
+  fields["char.boldness"] = "0";
+  fields["char.social"] = "0";
+  fields["char.purism"] = "0";
+  fields["char.gift"] = "0";
+  fields["char.anti"] = "0";
+  fields["char.giftKnown"] = "0";
+  fields["char.antiKnown"] = "0";
+  fields["char.reps0"] = "0";
+  fields["char.reps1"] = "0";
+  fields["char.reps2"] = "0";
+  fields["char.reps3"] = "0";
+  fields["char.reps4"] = "0";
+  fields["char.startingCash"] = "0";
+  fields["char.agePlus"] = "0";
+}
+
 // v6 → v7: what you owe. A v6 career could not owe anything, because there
 // was nowhere to owe it — the number was simply missing from cash.
 void MigrateV6ToV7(SaveFields& fields) { fields["owed"] = "0"; }
@@ -264,7 +292,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12,
       &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15,
       &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18,
-      &MigrateV18ToV19, &MigrateV19ToV20};
+      &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21};
   return kMigrations;
 }
 
@@ -385,6 +413,33 @@ std::string SerializeSave(const SaveGame& save) {
         << NumToStr(save.player.standing.with[i]) << "\n";
   }
   out << "load=" << NumToStr(save.player.climber.load) << "\n";
+  // Who you are. `built` first, because it is the field the loader has to
+  // believe before any of the others mean anything.
+  {
+    const Character& ch = save.player.character;
+    out << "char.built=" << IntToStr(ch.built ? 1 : 0) << "\n";
+    out << "char.archetype=" << IntToStr(static_cast<int>(ch.build.archetype))
+        << "\n";
+    out << "char.origin=" << IntToStr(static_cast<int>(ch.build.origin))
+        << "\n";
+    out << "char.flaw=" << IntToStr(static_cast<int>(ch.build.flaw)) << "\n";
+    out << "char.temperament="
+        << IntToStr(static_cast<int>(ch.build.temperament)) << "\n";
+    out << "char.discipline=" << NumToStr(ch.personality.discipline) << "\n";
+    out << "char.boldness=" << NumToStr(ch.personality.boldness) << "\n";
+    out << "char.social=" << NumToStr(ch.personality.social) << "\n";
+    out << "char.purism=" << NumToStr(ch.personality.purism) << "\n";
+    out << "char.gift=" << IntToStr(static_cast<int>(ch.gift)) << "\n";
+    out << "char.anti=" << IntToStr(static_cast<int>(ch.antiTalent)) << "\n";
+    out << "char.giftKnown=" << IntToStr(ch.giftKnown ? 1 : 0) << "\n";
+    out << "char.antiKnown=" << IntToStr(ch.antiKnown ? 1 : 0) << "\n";
+    for (int i = 0; i < kSkillCount; i++) {
+      out << "char.reps" << IntToStr(i) << "=" << NumToStr(ch.reps[i])
+          << "\n";
+    }
+    out << "char.startingCash=" << NumToStr(ch.startingCash) << "\n";
+    out << "char.agePlus=" << IntToStr(ch.agePlus) << "\n";
+  }
   out << "injury.active="
       << IntToStr(save.player.climber.injury.active ? 1 : 0) << "\n";
   out << "injury.kind="
@@ -545,6 +600,49 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     return LoadResult::BadFormat;
   }
   int hurt = 0, injuryKind = 0;
+  {
+    Character& ch = save.player.character;
+    int built = 0, arch = 0, orig = 0, flaw = 0, temper = 0, gift = 0,
+        anti = 0, gk = 0, ak = 0;
+    if (!ParseInt(fields, "char.built", built) ||
+        !ParseInt(fields, "char.archetype", arch) ||
+        !ParseInt(fields, "char.origin", orig) ||
+        !ParseInt(fields, "char.flaw", flaw) ||
+        !ParseInt(fields, "char.temperament", temper) ||
+        !ParseDouble(fields, "char.discipline", ch.personality.discipline) ||
+        !ParseDouble(fields, "char.boldness", ch.personality.boldness) ||
+        !ParseDouble(fields, "char.social", ch.personality.social) ||
+        !ParseDouble(fields, "char.purism", ch.personality.purism) ||
+        !ParseInt(fields, "char.gift", gift) ||
+        !ParseInt(fields, "char.anti", anti) ||
+        !ParseInt(fields, "char.giftKnown", gk) ||
+        !ParseInt(fields, "char.antiKnown", ak) ||
+        !ParseDouble(fields, "char.startingCash", ch.startingCash) ||
+        !ParseInt(fields, "char.agePlus", ch.agePlus)) {
+      return LoadResult::BadFormat;
+    }
+    // Clamped rather than trusted. A file is a thing a person can edit, and
+    // an out-of-range enum here indexes off the end of a static table.
+    const auto pick = [](int v, int count) {
+      return (v >= 0 && v < count) ? v : 0;
+    };
+    ch.built = built != 0;
+    ch.build.archetype =
+        static_cast<Archetype>(pick(arch, kArchetypeCount));
+    ch.build.origin = static_cast<Origin>(pick(orig, kOriginCount));
+    ch.build.flaw = static_cast<Flaw>(pick(flaw, kFlawCount));
+    ch.build.temperament =
+        static_cast<Temperament>(pick(temper, kTemperamentCount));
+    ch.gift = static_cast<Talent>(pick(gift, kTalentCount));
+    ch.antiTalent = static_cast<Talent>(pick(anti, kTalentCount));
+    ch.giftKnown = gk != 0;
+    ch.antiKnown = ak != 0;
+    for (int i = 0; i < kSkillCount; i++) {
+      if (!ParseDouble(fields, "char.reps" + IntToStr(i), ch.reps[i])) {
+        return LoadResult::BadFormat;
+      }
+    }
+  }
   if (!ParseDouble(fields, "load", save.player.climber.load) ||
       !ParseInt(fields, "injury.active", hurt) ||
       !ParseInt(fields, "injury.kind", injuryKind) ||

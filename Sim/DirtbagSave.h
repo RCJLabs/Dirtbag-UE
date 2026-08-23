@@ -45,7 +45,13 @@ namespace dirtbag {
 // Version 8: where you stand with the scene, and whether the crag is shut.
 //   A v7 career had no scene to stand with, so it migrates to neutral on
 //   all four and an open crag — which is where a new career starts anyway.
-constexpr int kSaveVersion = 20;
+// Version 21: who your climber is. A v20 career was built before there were
+//   four questions to answer, so it migrates to **unbuilt** — which is not a
+//   compromise: an unbuilt character is neutral in every lane by design, so
+//   an old save loads and plays with exactly the numbers it was measured
+//   with. It also means the creation screen does not ambush somebody
+//   mid-career; a v20 climber stays the climber they were.
+constexpr int kSaveVersion = 21;
 
 struct SaveGame {
   int version = kSaveVersion;

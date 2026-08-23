@@ -1723,6 +1723,90 @@ static void TestCharacter() {
   }
 }
 
+static void TestCharacterSave() {
+  CharacterDials cd;
+  SaveGame save;
+  save.seed = "who-i-am";
+  Build b;
+  b.archetype = Archetype::Technician;
+  b.origin = Origin::TrustFund;
+  b.flaw = Flaw::TweakyFingers;
+  b.temperament = Temperament::Influencer;
+  save.player.character = MakeCharacter(b, Rng::FromSeed(save.seed), cd);
+  save.player.character.giftKnown = true;
+  save.player.character.reps[0] = 12.5;
+  save.player.character.reps[4] = 3.25;
+  save.player.climber = MakeClimber(b, Rng::FromSeed(save.seed), cd);
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  const Character& r = back.player.character;
+  CHECK(r.built);
+  CHECK(r.build.archetype == Archetype::Technician);
+  CHECK(r.build.origin == Origin::TrustFund);
+  CHECK(r.build.flaw == Flaw::TweakyFingers);
+  CHECK(r.build.temperament == Temperament::Influencer);
+  CHECK(r.gift == save.player.character.gift);
+  CHECK(r.antiTalent == save.player.character.antiTalent);
+  CHECK(r.giftKnown && !r.antiKnown);
+  CHECK(r.reps[0] == 12.5);
+  CHECK(r.reps[4] == 3.25);
+  CHECK(r.personality.purism == save.player.character.personality.purism);
+  // And the effects survive the trip, which is the thing that actually
+  // matters -- a build that round-trips its fields but not its consequences
+  // is a save that quietly hands you somebody else's career.
+  CHECK(ShopPriceMultiplier(r) == ShopPriceMultiplier(save.player.character));
+  CHECK(InjuryRiskMultiplier(r, cd) ==
+        InjuryRiskMultiplier(save.player.character, cd));
+
+  // **A v20 save has no character and must not grow one.** It arrives
+  // unbuilt, which is exact rather than generous: unbuilt is neutral in
+  // every lane, so a twenty-year career loads with the numbers it was
+  // measured with and the creation screen does not ambush anybody.
+  std::string v20 = SerializeSave(save);
+  DropSaveLine(v20, "char.built=");
+  DropSaveLine(v20, "char.archetype=");
+  DropSaveLine(v20, "char.origin=");
+  DropSaveLine(v20, "char.flaw=");
+  DropSaveLine(v20, "char.temperament=");
+  DropSaveLine(v20, "char.discipline=");
+  DropSaveLine(v20, "char.boldness=");
+  DropSaveLine(v20, "char.social=");
+  DropSaveLine(v20, "char.purism=");
+  DropSaveLine(v20, "char.gift=");
+  DropSaveLine(v20, "char.anti=");
+  DropSaveLine(v20, "char.giftKnown=");
+  DropSaveLine(v20, "char.antiKnown=");
+  DropSaveLine(v20, "char.reps0=");
+  DropSaveLine(v20, "char.reps1=");
+  DropSaveLine(v20, "char.reps2=");
+  DropSaveLine(v20, "char.reps3=");
+  DropSaveLine(v20, "char.reps4=");
+  DropSaveLine(v20, "char.startingCash=");
+  DropSaveLine(v20, "char.agePlus=");
+  SetSaveVersion(v20, 20);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v20, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(!old.player.character.built);
+  CHECK(SkillGainMultiplier(old.player.character, Skill::Technique, false,
+                            false, 1.0, cd) == 1.0);
+  CHECK(ShiftPayMultiplier(old.player.character, cd) == 1.0);
+  // The rest of the career is untouched.
+  CHECK(old.seed == save.seed);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+
+  // A hand-edited file cannot index off the end of a static table.
+  std::string bogus = SerializeSave(save);
+  DropSaveLine(bogus, "char.origin=");
+  bogus += "char.origin=99\n";
+  SaveGame safe;
+  CHECK(DeserializeSave(bogus, safe) == LoadResult::Ok);
+  CHECK(static_cast<int>(safe.player.character.build.origin) >= 0);
+  CHECK(static_cast<int>(safe.player.character.build.origin) < kOriginCount);
+}
+
 static void TestZones() {
   ZoneDials zd;
 
@@ -8006,6 +8090,7 @@ int main() {
   TestHowClose();
   TestPumpShows();
   TestCharacter();
+  TestCharacterSave();
   TestZones();
   TestWhoTurnsUp();
   TestSandbagsAreSpecific();
