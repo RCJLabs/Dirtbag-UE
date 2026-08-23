@@ -19,6 +19,7 @@
 
 #include "DirtbagCharacter.h"
 #include "DirtbagConditions.h"
+#include "DirtbagRival.h"
 #include "DirtbagCore.h"
 #include "DirtbagBody.h"
 #include "DirtbagCrag.h"
@@ -49,6 +50,8 @@ struct Tally {
   int mealsEaten = 0, dogMeals = 0, brokeDays = 0, starvedNights = 0;
   double cashLow = 1e9, cashHigh = -1e9;
   int linesLostToTheLot = 0;
+  int linesLostToTheRival = 0;
+  int rivalGenerations = 0;
   double peakAllround = 0.0;   // the best this body ever was
   std::vector<std::string> lotNames;   // what they called them
   std::vector<LineTally> perLine;
@@ -278,6 +281,11 @@ int main(int argc, char** argv) {
   FirstAscentDials fd;
   DogDials dog;
 
+  // Arg 7 is "rival" to give the career somebody to beat. Absent means
+  // nobody, which is what every measurement before Phase 8 was taken with,
+  // so those all still reproduce.
+  const bool withRival = argc > 7 && std::string(argv[7]) == "rival";
+
   // Arg 6 is the build, as "archetype/origin/flaw/temperament" by index --
   // e.g. "0/2/4/1" is a Boulderer from the desert with tweaky fingers who
   // is send-or-bust. Absent means unbuilt, which is neutral in every lane,
@@ -318,6 +326,16 @@ int main(int argc, char** argv) {
   // without this it is a control for being broke rather than for being
   // free of money, and it could never afford shoes.
   if (kept) player.cash = 10000.0;
+
+  if (withRival) {
+    const double startGrade =
+        SkillToGrade((player.climber.skills.power +
+                      player.climber.skills.fingers +
+                      player.climber.skills.technique +
+                      player.climber.skills.endurance +
+                      player.climber.skills.head) / 5.0);
+    player.rival = RollRival(world, player.climber.skills, 1, 0, startGrade);
+  }
 
   if (takeTheSalary) TakeSalariedJob(player);
 
@@ -791,6 +809,33 @@ int main(int argc, char** argv) {
                 DisplayName(crag.lines[got]);
       }
     }
+    // **And the rival, through the same machinery the engine uses.** The
+    // Lot's loop above is replicated here because the probe has to run what
+    // the game runs; the rival is no different, and leaving them out would
+    // make every Phase 8 measurement a measurement of a game nobody plays.
+    if (!player.rival.name.empty() && !player.rival.retired &&
+        !player.rival.allied) {
+      std::vector<std::string> offLimits = lotTaken;
+      for (const std::string& s : SpokenFor(player.projects)) {
+        offLimits.push_back(s);
+      }
+      Partner them = AsAClimber(player.rival, world, player.day);
+      const int got = PartnerTakesFirstAscent(world, them, crag, offLimits,
+                                              player.day);
+      if (got >= 0) {
+        lotTaken.push_back(crag.lines[got].route.name);
+        TheyPutUpTheLine(crag.lines[got], player.rival.name);
+        TheyGotThereFirst(player.rival, crag.lines[got].route.name);
+        player.rival.met = true;
+        t.linesLostToTheRival++;
+      }
+      if (WouldPartnerUp(player.rival)) {
+        player.rival.offered = true;
+        player.rival.allied = true;
+      }
+    }
+    t.rivalGenerations = player.rival.generation;
+
     player.bonds = BondsFrom(lot);
 
     // Evening: eat if the day has made you hungry and you can afford it.
@@ -963,10 +1008,10 @@ int main(int argc, char** argv) {
          "\tgrade\tstew\tclosures\tshut\twork%%\tbroke\tstarved"
          "\tmissed\tgym\tboard\tinjuries\thurt\tpeakload\tphysio\tsponsor$"
          "\ttheirdays\tskinregen\tpower\tfingers\ttechnique\tendurance"
-         "\thead\tallround\tshoewear\n");
+         "\thead\tallround\tshoewear\trivallost\trivalgens\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
-         "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\n",
+         "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -1002,7 +1047,7 @@ int main(int argc, char** argv) {
                        player.climber.skills.technique +
                        player.climber.skills.endurance +
                        player.climber.skills.head) / 5.0),
-         player.shoes.wear);
+         player.shoes.wear, t.linesLostToTheRival, t.rivalGenerations);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

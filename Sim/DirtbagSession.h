@@ -160,6 +160,15 @@ struct SessionDials {
 // of this formula would drift, and the drift would be invisible.
 double SkillToGrade(double skill, const SessionDials& dials = SessionDials{});
 
+// The other way round. Needed wherever something is defined by the grade it
+// climbs rather than the skill it has -- the rival, whose whole model is a
+// position on the ladder. Written here beside its inverse rather than
+// open-coded at the call site, because two copies of one conversion is how
+// a rival ends up a beginner: the first version of `AsAClimber` handed a
+// *grade* to a parameter expecting a *skill*, and they took zero first
+// ascents in thirty years without a single test noticing.
+double GradeToSkill(double grade, const SessionDials& dials = SessionDials{});
+
 // How much consequence this move carries, in grade units, before any nerve
 // discounts it: the runout above the last bolt, or the ground under an
 // unpadded boulder. Zero on move one of anything and zero on a well-padded

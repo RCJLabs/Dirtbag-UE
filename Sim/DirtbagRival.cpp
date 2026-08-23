@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "DirtbagSession.h"   // SkillToGrade / GradeToSkill
+
 namespace dirtbag {
 namespace {
 
@@ -203,9 +205,22 @@ Partner AsAClimber(const Rival& r, const Rng& worldRng, int day,
   // rolled again, so the person the book records and the person the HUD
   // reports are the same climber.
   p.ambition = 0.95;
-  p.climber = PartnerOn(worldRng, r.name, r.grade, p.ambition, day);
+  // **Their grade converted to a skill, not handed over as one.**
+  // `PartnerOn` takes skill points, 0..100, and a grade is 0..18 -- the
+  // first version passed the grade straight through, which made the rival a
+  // beginner who took **zero lines in thirty years** while ageing and
+  // retiring perfectly convincingly. Nothing in the suite noticed, because
+  // every test asked whether the machinery ran rather than whether it did
+  // anything.
+  //
+  // Day 1 rather than `day`, because `PartnerOn` adds its own creep for
+  // ambitious partners and the rival's improvement is `RivalDay`'s job.
+  // Letting both run would have them improving twice.
+  p.climber = PartnerOn(worldRng, r.name, GradeToSkill(r.grade), p.ambition,
+                        1);
   p.firstAscents = r.firstAscents;
   (void)dials;
+  (void)day;   // see the note above: their creep is RivalDay's job
   return p;
 }
 

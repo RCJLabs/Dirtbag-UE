@@ -158,6 +158,11 @@ double SkillToGrade(double skill, const SessionDials& dials) {
   return skill / 100.0 * dials.skillGradeSpan + dials.skillGradeFloor;
 }
 
+double GradeToSkill(double grade, const SessionDials& dials) {
+  if (dials.skillGradeSpan == 0.0) return 0.0;
+  return (grade - dials.skillGradeFloor) / dials.skillGradeSpan * 100.0;
+}
+
 double AbilityOnRoute(const Climber& climber, const Route& route,
                       const SessionDials& dials) {
   if (route.moves.empty()) return SkillToGrade(0.0, dials);
