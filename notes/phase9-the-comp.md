@@ -328,3 +328,131 @@ forever**, with a different coach each time.
 - **leagues**, the low end of the same system
 
 The ranking number gates both of the first two, and it is real now.
+
+---
+
+# Pass 4 — the World Cup and the Games (2026-08-23)
+
+`Sim/DirtbagWorldStage.{h,cpp}`, SAVE v27, and the gym wall as the door for
+all three ladders.
+
+## The one design call
+
+**The world stage is absolute and a domestic comp is not.**
+
+A gym comp is set at *your* grade plus a tier offset, because a gym comp is
+your peers — the board follows you up as you improve. The World Cup does
+not. It is set where it is set, the field climbs what it climbs, and getting
+better is what closes the gap.
+
+The first version got this backwards, and the result is the most complete
+failure this project has produced so far: **the entire top of the ladder was
+unwinnable at every skill level in the game, for everyone.** A climber at 95
+skill topped 0.01 of five problems and came thirteenth of thirteen. So did a
+climber at 55. Every test passed. Nothing was broken; the system simply
+could not be played, and no assertion in a 76,000-check suite noticed,
+because they were all orderings and orderings hold fine on a game nobody can
+win.
+
+Found by measuring, exactly like the rival's grade-for-skill bug in Phase 8.
+The lesson is the same one and it has now cost two passes: **a system whose
+tests are all relative needs one test that is absolute.**
+
+## The numbers, and where they came from
+
+`worldStandard = 8.5`, set against what a career actually reaches rather
+than against a feeling. A ten-year career at the crag lands on an allround
+grade of about 6.9 (greedy 6.92, kitted 6.98, sponsored 6.84 over 3650
+days), so the world stage sits a grade and a half above where a good outdoor
+decade finishes.
+
+Measured over 300 rounds per rung:
+
+| your grade | World Cup place (of 13) | tops (of 5) | podium | win |
+|---|---|---|---|---|
+| 9.2  | 10.0 | 1.9 | 0% | 0% |
+| 9.9  | 5.8  | 3.2 | 19% | 4% |
+| 10.6 | 2.5  | 4.3 | 77% | 39% |
+
+Steep, because the odds curve is steep — the whole gap is a grade and a half
+wide and every tenth of it shows.
+
+The Games were tuned the other way and had to be corrected. At
+`olympicGradeBump = 0.5` a grade-9.9 climber medalled at **44%** while
+podiuming a World Cup at 19%, because a podium is three of eight there and
+three of thirteen here. Level boards put it at 18% and 19%, which is the
+intended shape: **a medal is as hard as a World Cup podium, and getting to
+the start line is what makes it rarer.**
+
+## Two calendars that were badly wrong, and the probe that found them
+
+Nothing in the harness could see either, because both are about *how often*
+and a harness assertion asks *whether*.
+
+- **The Games came round every 56 days.** The probe entered **sixty Games in
+  a ten-year career.** Now 1460 — four years, the cycle everybody knows. A
+  thirty-year career sees seven; most see two or three, which is what makes
+  an appearance worth having on its own.
+- **A World Cup season lasted eleven weeks.** Six rounds four days apart plus
+  a 45-day break ran **forty-seven seasons and two hundred and eighty-one
+  rounds in ten years.** Now fourteen to twenty-three days apart with a
+  240-day off-season: about a hundred days of competing and the rest of the
+  year training for it.
+
+Both were found by teaching the probe to play the ladder, which nothing had
+ever done — see below.
+
+## The probe had never entered a comp
+
+`Sim/tools/season.cpp` gained a `comper` policy. Until this pass **the
+entire comp system — the gym comp, the circuit, the ranking tiers, the
+national team, the World Cup and the Games — was measured only by the
+harness.** The measured game was not the played game at the scale of a whole
+subsystem, and the door checker could not see it because every door existed;
+they were simply never opened by anything that plays a career.
+
+`comper` signs in at every comp it can pay for, plays the board easiest
+first, gets on the plane when the federation is paying and the money is
+there, and starts at the Games when it qualifies. The preflight coverage
+count went from 103 sim rules to 127.
+
+## What it found that is not this pass's to fix
+
+Reported rather than changed, because these are Phase 9 pass 2's and pass
+3's dials and moving them re-balances numbers that were tuned deliberately.
+A ten-year `comper` career, seed `crag-1`:
+
+- **Ranking peak 14,633 against a top tier of 2,200.** World-Class is
+  cleared inside the first two years and the ladder has no top after that.
+  The Olympic gate (1200) and the team gate (700) are cleared in months, so
+  neither is really a gate.
+- **The committee sat fifty times in ten years** — a domestic season is about
+  73 days, so the national team is reviewed five times a year. A selection
+  committee that meets every ten weeks is a thermostat, which is the exact
+  thing pass 3's note said it was avoiding.
+- **Zero wins in 247 domestic comps.** The tier gate promotes on ranking, and
+  inflated ranking parks a grade-6 climber permanently at National tier,
+  where the board sits two grades above them forever.
+
+All three are the same root: **ranking points accumulate on a domestic clock
+that runs about five times a year.** The fix is one of `compsPerSeason`,
+`seasonBreakDays`, or `RankingPointsFor`, and which one is a taste call.
+
+## What is left of Phase 9
+
+- **quals → semi → final** at National and above
+- **leagues**, the low end of the same system
+- the domestic clock above
+
+## The door
+
+All three ladders post on the gym wall and all three open with the same key,
+in the order the day matters: **the Games, then a World Cup round, then the
+Tuesday comp.** Two can only collide by coincidence of the calendar, and
+when they do the Games win — nobody skips them for a Tuesday.
+
+`CanFly` and `CanEnterTheGames` return the whole answer — can you, which
+round, what it costs, and why not in the game's voice — from the sim rather
+than the UFUNCTION, because **a rule that lives in an engine door cannot be
+tested from the harness**, and every rule this project has left in one has
+been found late.

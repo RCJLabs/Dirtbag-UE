@@ -11,6 +11,7 @@
 #include "../DirtbagCharacter.h"
 #include "../DirtbagComp.h"
 #include "../DirtbagTeam.h"
+#include "../DirtbagWorldStage.h"
 #include "../DirtbagRival.h"
 #include "../DirtbagZones.h"
 #include "../DirtbagConditions.h"
@@ -2134,6 +2135,551 @@ static void TestNationalTeam() {
   }
 }
 
+// A World Cup scorecard with you in a given place -- the shape `BankRound`
+// requires now that the season table is fed from the card rather than from
+// a second, independent roll. Thirteen names, yours among them, in order.
+static CompResult ARoundYouPlaced(int yourPlace) {
+  CompResult r;
+  r.place = yourPlace;
+  const std::vector<International>& f = TheWorldField();
+  r.fieldSize = static_cast<int>(f.size()) + 1;
+  int taken = 0;
+  for (int place = 1; place <= r.fieldSize; place++) {
+    CompEntrant e;
+    if (place == yourPlace) {
+      e.name = "You";
+      e.isYou = true;
+    } else {
+      e.name = std::string(f[taken].name) + " (" + f[taken].nation + ")";
+      taken++;
+    }
+    e.score = 100.0 - place;
+    r.board.push_back(e);
+  }
+  return r;
+}
+
+static void TestWorldStage() {
+  WorldStageDials wd;
+  const Rng world = Rng::FromSeed("the-world");
+
+  // ---- the schedule -----------------------------------------------------
+  WorldCupSeason s = StartWorldCupSeason(world, 1, 1, wd);
+  CHECK(s.season == 1);
+  CHECK(static_cast<int>(s.schedule.size()) == wd.rounds);
+  // **No venue twice.** A season that visits Innsbruck three times is a
+  // schedule nobody wrote.
+  for (std::size_t i = 0; i < s.schedule.size(); i++) {
+    for (std::size_t j = 0; j < i; j++) {
+      CHECK(s.schedule[i].venue != s.schedule[j].venue);
+    }
+    CHECK(s.schedule[i].venue >= 0);
+    CHECK(s.schedule[i].venue < static_cast<int>(TheVenues().size()));
+  }
+  for (std::size_t i = 1; i < s.schedule.size(); i++) {
+    const int gap = s.schedule[i].day - s.schedule[i - 1].day;
+    CHECK(gap >= wd.roundGapMin);
+    CHECK(gap < wd.roundGapMin + wd.roundGapVariance);
+  }
+  CHECK(RoundToday(s, s.schedule[0].day) == 0);
+  CHECK(RoundToday(s, s.schedule[0].day - 1) == -1);
+  CHECK(DaysUntilRound(s, s.schedule[0].day, wd) == 0);
+
+  // **Travel is the dial that makes a season a budget problem.** Salt Lake
+  // is a domestic ticket and Seoul is most of a month's money -- pinned as
+  // a magnitude, because a flat travel cost turns the whole thing back into
+  // a calendar.
+  {
+    double cheapest = 1e9, dearest = 0.0;
+    for (const WorldCupVenue& v : TheVenues()) {
+      cheapest = std::min(cheapest, v.travel);
+      dearest = std::max(dearest, v.travel);
+      CHECK(std::string(v.city).size() > 0);
+      CHECK(std::string(v.blurb).size() > 30);   // it says something
+    }
+    CHECK(dearest > cheapest * 3.0);
+  }
+
+  // ---- the points table -------------------------------------------------
+  //
+  // **1000 for a win and a cliff after it**, which is why a World Cup year
+  // turns on two or three rounds rather than accumulating evenly.
+  CHECK(WorldCupPoints(1) == 1000.0);
+  CHECK(WorldCupPoints(2) < WorldCupPoints(1) * 0.85);
+  CHECK(WorldCupPoints(4) < WorldCupPoints(1) * 0.65);
+  for (int p = 2; p <= 30; p++) {
+    CHECK(WorldCupPoints(p - 1) >= WorldCupPoints(p));
+  }
+  // Off the end of the table still scores. Coming thirty-fifth at a World
+  // Cup happens to real climbers and it is not worth nothing.
+  CHECK(WorldCupPoints(35) > 0.0);
+
+  // ---- the field flies whether you do or not ---------------------------
+  //
+  // **The whole mechanic.** A round you skip is not a round that did not
+  // happen -- everybody else banks while you are at home, and the table
+  // moves away from you.
+  {
+    WorldCupSeason stayed = StartWorldCupSeason(world, 1, 1, wd);
+    BankRound(stayed, 0, nullptr, world, wd);
+    CHECK(stayed.schedule[0].resolved);
+    CHECK(!stayed.schedule[0].flown);
+    CHECK(stayed.missed == 1);
+    CHECK(stayed.starts == 0);
+    CHECK(stayed.yourPoints == 0.0);
+    double banked = 0.0;
+    for (double p : stayed.fieldPoints) banked += p;
+    CHECK(banked > 0.0);
+    // Somebody won it while you were away.
+    double best = 0.0;
+    for (double p : stayed.fieldPoints) best = std::max(best, p);
+    CHECK(best == 1000.0);
+  }
+
+  // Turning up scores, and winning scores the most there is.
+  //
+  // **The board is what gets banked**, not a hand-typed placing: the season
+  // table is fed from the scorecard the player actually watched, so the
+  // climber the round says won it is the climber the season says won it.
+  {
+    WorldCupSeason went = StartWorldCupSeason(world, 1, 1, wd);
+    const CompResult won = ARoundYouPlaced(1);
+    BankRound(went, 0, &won, world, wd);
+    CHECK(went.schedule[0].flown);
+    CHECK(went.starts == 1);
+    CHECK(went.missed == 0);
+    CHECK(went.yourPoints == 1000.0);
+    CHECK(went.wins == 1);
+    CHECK(went.podiums == 1);
+    CHECK(went.finals == 1);
+    // And nobody else got the win.
+    for (double p : went.fieldPoints) CHECK(p < 1000.0);
+    // Everybody on the card scored, and nobody scored twice: the field is
+    // twelve, the board is thirteen, and the second place through
+    // thirteenth is exactly what the twelve of them took.
+    double theirs = 0.0;
+    for (double p : went.fieldPoints) theirs += p;
+    double expected = 0.0;
+    for (int place = 2; place <= 13; place++) {
+      expected += WorldCupPoints(place);
+    }
+    CHECK(std::fabs(theirs - expected) < 0.001);
+  }
+
+  // ---- the same engine, an absolute setting -----------------------------
+  //
+  // **The load-bearing difference between this file and DirtbagComp.** A
+  // gym comp is set at *your* grade plus a tier offset, so the board
+  // follows you up as you improve. The world stage does not: it is set
+  // where it is set, and getting better is what closes the gap.
+  //
+  // Reading it the other way made the entire system unwinnable at every
+  // skill level in the game -- a climber at 95 skill topped 0.01 of five
+  // problems and came last of thirteen, and so did a climber at 55.
+  {
+    const Rng r = Rng::FromSeed("board");
+    const CompState wc = SetTheWorldBoard(r, 40, wd);
+    CHECK(static_cast<int>(wc.problems.size()) == CompDials{}.problems);
+    CHECK(wc.attemptsLeft == CompDials{}.attempts);
+    // The board sits at the world standard, not at yours. Pinned as an
+    // absolute: the whole defect was a board that moved with the player.
+    double mean = 0.0;
+    for (const CompProblem& p : wc.problems) mean += p.route.trueGrade;
+    mean /= static_cast<double>(wc.problems.size());
+    CHECK(wd.worldStandard == 8.5);
+    CHECK(mean >= 9.0);
+    CHECK(mean <= 10.5);
+    // And the international field is priced off the same standard, so a
+    // beginner and a world-beater meet the identical twelve people.
+    for (const International& c : TheWorldField()) {
+      CHECK(wd.worldStandard + c.gradeOffset >= 7.0);
+      CHECK(wd.worldStandard + c.gradeOffset <= 11.0);
+    }
+    // Different boards, not the same one relabelled. The two bumps are
+    // equal by design, so the only thing that can separate a Games board
+    // from a World Cup board on the same date is the stream -- and the
+    // colours are indexed rather than rolled, so it is the moves that have
+    // to differ.
+    const CompState a = SetTheWorldBoard(r, 40, wd);
+    const CompState b = SetTheOlympicBoard(r, 40, wd);
+    bool differs = false;
+    for (std::size_t i = 0; i < a.problems.size(); i++) {
+      const std::vector<Move>& am = a.problems[i].route.moves;
+      const std::vector<Move>& bm = b.problems[i].route.moves;
+      if (am.size() != bm.size()) { differs = true; break; }
+      for (std::size_t m = 0; m < am.size(); m++) {
+        if (am[m].difficulty != bm[m].difficulty) differs = true;
+      }
+    }
+    CHECK(differs);
+  }
+
+  // The names on the international board are internationals. Having Kai
+  // from the gym win in Innsbruck is the presentation telling a lie the sim
+  // did not, which is why this does not go through `Settle`.
+  {
+    const CompState board = SetTheWorldBoard(world, 40, wd);
+    const CompResult r =
+        SettleWorldRound(board, Rng::FromSeed("innsbruck"), wd);
+    CHECK(static_cast<int>(r.board.size()) ==
+          static_cast<int>(TheWorldField().size()) + 1);
+    CHECK(r.place >= 1);
+    CHECK(r.fieldSize == static_cast<int>(r.board.size()));
+    for (const CompEntrant& e : r.board) {
+      if (e.isYou) continue;
+      bool known = false;
+      for (const International& c : TheWorldField()) {
+        if (e.name.compare(0, std::string(c.name).size(), c.name) == 0) {
+          known = true;
+        }
+      }
+      CHECK(known);
+      // And the nation is on the card, because that is what a World Cup
+      // scoreboard says.
+      CHECK(e.name.find('(') != std::string::npos);
+    }
+    // **The World Cup pays in ranking and nothing else.** The federation
+    // flew you; the cheque goes to the federation.
+    CHECK(r.cash == 0.0);
+    CHECK(r.rep == 0.0);
+
+    const CompResult g =
+        SettleTheGames(SetTheOlympicBoard(world, 40, wd),
+                       Rng::FromSeed("the-final"), wd);
+    CHECK(static_cast<int>(g.board.size()) ==
+          static_cast<int>(TheOlympicField().size()) + 1);
+  }
+
+  // **You do not take a tie at zero.** The same rule the domestic board
+  // learned the hard way: a climber who got nothing up at a World Cup is
+  // not fourth, they are in a room full of people who did not climb.
+  {
+    CompState blank = SetTheWorldBoard(world, 40, wd);
+    const CompResult r =
+        SettleWorldRound(blank, Rng::FromSeed("nothing"), wd);
+    if (r.yourScore == 0.0) {
+      for (std::size_t i = 0; i < r.board.size(); i++) {
+        if (r.board[i].isYou) continue;
+        if (r.board[i].score == 0.0) CHECK(r.place > static_cast<int>(i) + 1);
+      }
+    }
+  }
+
+  // A round resolves once. Banking it twice would double the field's year.
+  {
+    WorldCupSeason once = StartWorldCupSeason(world, 1, 1, wd);
+    BankRound(once, 0, nullptr, world, wd);
+    const double after = once.fieldPoints[0];
+    BankRound(once, 0, nullptr, world, wd);
+    CHECK(once.fieldPoints[0] == after);
+    CHECK(once.missed == 1);
+  }
+
+  // **Missing a season costs you the table**, measured rather than argued.
+  {
+    WorldCupSeason all = StartWorldCupSeason(world, 1, 1, wd);
+    WorldCupSeason none = StartWorldCupSeason(world, 1, 1, wd);
+    const CompResult mid = ARoundYouPlaced(4);
+    for (int i = 0; i < wd.rounds; i++) {
+      BankRound(all, i, &mid, Rng::FromSeed("r#" + std::to_string(i)), wd);
+      BankRound(none, i, nullptr, Rng::FromSeed("r#" + std::to_string(i)), wd);
+    }
+    CHECK(WorldCupSeasonOver(all, wd));
+    CHECK(WorldCupSeasonOver(none, wd));
+    const int placedGoing = CloseWorldCupSeason(all);
+    const int placedHome = CloseWorldCupSeason(none);
+    CHECK(placedGoing < placedHome);
+    CHECK(placedHome == static_cast<int>(WorldTable(none).size()));
+    CHECK(all.bestRank == placedGoing);
+    CHECK(none.titles == 0);
+  }
+
+  // Winning every round takes the title.
+  {
+    WorldCupSeason champ = StartWorldCupSeason(world, 1, 1, wd);
+    const CompResult won = ARoundYouPlaced(1);
+    for (int i = 0; i < wd.rounds; i++) {
+      BankRound(champ, i, &won, Rng::FromSeed("c#" + std::to_string(i)), wd);
+    }
+    CHECK(CloseWorldCupSeason(champ) == 1);
+    CHECK(champ.titles == 1);
+    CHECK(champ.bestRank == 1);
+  }
+
+  // And it reads like something, with the cost in it.
+  {
+    WorldCupSeason line = StartWorldCupSeason(world, 1, 1, wd);
+    CHECK(!WorldCupLine(line, line.schedule[0].day, wd).empty());
+    CHECK(WorldCupLine(WorldCupSeason{}, 1, wd).empty());
+  }
+
+  // ---- the Games --------------------------------------------------------
+  {
+    Olympics o;
+    CHECK(!GamesToday(o, 1));
+    CHECK(DaysUntilGames(o, 1) == -1);
+    SeedTheGames(o, world, 1, wd);
+    // **Never sooner than three weeks from a standing start.** A save
+    // loaded the day before should not open onto the Games, and a fresh
+    // career should not either.
+    //
+    // Pinned as an absolute rather than against the dial it is testing:
+    // `o.nextDay >= 1 + wd.olympicSeedLead` is a tautology, and zeroing the
+    // dial passed it without a murmur. The number is the claim.
+    CHECK(wd.olympicSeedLead >= 21);
+    CHECK(o.nextDay >= 22);
+    for (int seed = 0; seed < 40; seed++) {
+      Olympics probe;
+      SeedTheGames(probe, Rng::FromSeed("g#" + std::to_string(seed)), 1, wd);
+      CHECK(probe.nextDay >= 22);
+      // ...and inside a cycle of it, or the first Games of a career would
+      // be a rumour rather than a date.
+      CHECK(probe.nextDay <= 22 + wd.olympicCycleDays);
+    }
+    CHECK(GamesToday(o, o.nextDay));
+    CHECK(DaysUntilGames(o, o.nextDay) == 0);
+    CHECK(DaysUntilGames(o, o.nextDay - 5) == 5);
+
+    // They come round on a cycle rather than a calendar.
+    const int first = o.nextDay;
+    GamesDay(o, first, wd);
+    CHECK(o.nextDay == first);          // the day itself stays enterable
+    GamesDay(o, first + 1, wd);
+    CHECK(o.nextDay == first + wd.olympicCycleDays);
+
+    // **You have to be an Olympic Hopeful to be there at all.**
+    CHECK(!Qualified(0.0, wd));
+    CHECK(!Qualified(wd.qualifyAt - 1.0, wd));
+    CHECK(Qualified(wd.qualifyAt, wd));
+    CHECK(wd.qualifyAt == 1200.0);   // the ranking's own Olympic Hopeful line
+
+    // The field is above you, every one of them -- which is what makes a
+    // medal worth something and an appearance worth having.
+    CHECK(TheOlympicField().size() == 7);
+    for (const International& c : TheOlympicField()) {
+      CHECK(c.gradeOffset > 0.0);
+      CHECK(std::string(c.nation).size() == 3);
+    }
+
+    // Medals, and one Games per cycle.
+    CHECK(MedalFor(1).gold && !MedalFor(1).silver);
+    CHECK(MedalFor(2).silver);
+    CHECK(MedalFor(3).bronze);
+    CHECK(!MedalFor(4).gold && !MedalFor(4).silver && !MedalFor(4).bronze);
+    BankTheGames(o, MedalFor(1), 0);
+    CHECK(o.appearances == 1 && o.gold == 1);
+    BankTheGames(o, MedalFor(1), 0);   // the same Games twice is not two
+    CHECK(o.appearances == 1 && o.gold == 1);
+    BankTheGames(o, MedalFor(4), 1);
+    CHECK(o.appearances == 2 && o.gold == 1);
+
+    // **Silent unless it is close or you have been.** A countdown to
+    // something you are eight hundred points from is a progress bar for a
+    // system the player has not met.
+    Olympics quiet;
+    SeedTheGames(quiet, world, 1, wd);
+    CHECK(GamesLine(quiet, 0.0, 1, wd).empty());
+    CHECK(GamesLine(quiet, wd.qualifyAt, quiet.nextDay - 1, wd).find(
+              "tomorrow") != std::string::npos);
+    CHECK(!GamesLine(o, 0.0, 1, wd).empty());   // you have been
+
+    // **The door, not just the countdown.** Being qualified and it being
+    // the day are two different things, and the Games can only be entered
+    // once per cycle.
+    Olympics gate;
+    SeedTheGames(gate, world, 1, wd);
+    CHECK(!CanEnterTheGames(gate, 9999.0, gate.nextDay - 1, wd).can);
+    CHECK(CanEnterTheGames(gate, 9999.0, gate.nextDay - 1, wd).why.empty());
+    CHECK(CanEnterTheGames(gate, wd.qualifyAt, gate.nextDay, wd).can);
+    {
+      const GamesCheck no =
+          CanEnterTheGames(gate, wd.qualifyAt - 400.0, gate.nextDay, wd);
+      CHECK(!no.can);
+      // Said as a number, because it is the one thing on this ladder a
+      // player can do something about.
+      CHECK(no.why.find("400") != std::string::npos);
+    }
+    BankTheGames(gate, MedalFor(4), gate.nextDay);
+    CHECK(!CanEnterTheGames(gate, 9999.0, gate.nextDay, wd).can);
+  }
+
+  // ---- and it is actually climbable -------------------------------------
+  //
+  // **The test the ordering tests could not be.** Every check above passed
+  // on a version of this system where a climber at 95 skill topped 0.01 of
+  // five problems and finished thirteenth of thirteen -- and so did a
+  // climber at 55, because the board was pinned to the player's own grade
+  // and followed them up forever. Nothing broke; the whole top of the
+  // ladder was simply unreachable, at every skill level, for everyone.
+  //
+  // So this pins magnitudes: what a good climber gets, what a great one
+  // gets, and that the two are different.
+  {
+    const auto climberAt = [](double skill) {
+      Climber c;
+      c.skills.power = c.skills.fingers = c.skills.technique =
+          c.skills.endurance = c.skills.head = skill;
+      c.skin = 100.0;
+      c.psyche = 0.7;
+      return c;
+    };
+    // Seven goes, easiest first -- the same greedy line a player takes on
+    // their first World Cup.
+    const auto playARound = [&](const Climber& you, int seed) {
+      const Rng w = Rng::FromSeed("round#" + std::to_string(seed));
+      CompState b = SetTheWorldBoard(w, 40 + seed, wd);
+      for (int a = 0; a < CompDials{}.attempts; a++) {
+        int pick = -1;
+        for (std::size_t i = 0; i < b.problems.size(); i++) {
+          if (!b.progress[i].topped) { pick = static_cast<int>(i); break; }
+        }
+        if (pick < 0) break;
+        AttemptProblem(b, pick, you, w.Derive("a#" + std::to_string(a)),
+                       WorldCupCompDials(wd));
+      }
+      int tops = 0;
+      for (const ProblemProgress& p : b.progress) if (p.topped) tops++;
+      const CompResult r = SettleWorldRound(b, w.Derive("s"), wd);
+      return std::pair<int, int>{r.place, tops};
+    };
+
+    const int N = 60;
+    int lastPlace = 0, lastTops = 0;
+    int goodPlace = 0, goodTops = 0, greatPlace = 0, greatTops = 0;
+    for (int s = 0; s < N; s++) {
+      const std::pair<int, int> l = playARound(climberAt(55.0), s);
+      lastPlace += l.first;  lastTops += l.second;
+      const std::pair<int, int> g = playARound(climberAt(85.0), s);
+      goodPlace += g.first;  goodTops += g.second;
+      const std::pair<int, int> b = playARound(climberAt(95.0), s);
+      greatPlace += b.first; greatTops += b.second;
+    }
+    // A gym climber at a World Cup gets nothing up and comes last. That is
+    // correct, and it is what the whole ladder underneath is protecting.
+    CHECK(lastTops == 0);
+    CHECK(lastPlace == N * 13);
+    // Somebody who has spent a career on it tops most of the board and
+    // finishes in the top half.
+    CHECK(goodTops >= N * 2);
+    CHECK(goodPlace < N * 8);
+    // And the exceptional are near the front, not merely less far back.
+    CHECK(greatTops > goodTops);
+    CHECK(greatPlace < goodPlace);
+    CHECK(greatPlace < N * 4);
+  }
+
+  // ---- getting on the plane ---------------------------------------------
+  //
+  // **The federation pays for the plane. That is what the team is for.**
+  // Without the gate the World Cup is a shop you buy placings from and the
+  // whole domestic ladder underneath it stops being the way up.
+  {
+    WorldCupSeason fly = StartWorldCupSeason(world, 1, 1, wd);
+    const int roundDay = fly.schedule[0].day;
+    NationalTeam onIt;
+    onIt.status = TeamStatus::Named;
+    NationalTeam offIt;   // Never
+
+    CHECK(wd.requiresTeam);
+    // Nothing on today is not a refusal, it is silence.
+    {
+      const FlightCheck quiet = CanFly(fly, onIt, 1e6, roundDay - 1, wd);
+      CHECK(!quiet.can && quiet.round == -1 && quiet.why.empty());
+    }
+    {
+      const FlightCheck notNamed = CanFly(fly, offIt, 1e6, roundDay, wd);
+      CHECK(!notNamed.can);
+      CHECK(notNamed.round == 0);
+      CHECK(notNamed.why.find("federation") != std::string::npos);
+    }
+    {
+      const FlightCheck broke = CanFly(fly, onIt, 1.0, roundDay, wd);
+      CHECK(!broke.can);
+      CHECK(broke.cost > 0.0);
+      CHECK(!broke.why.empty());
+    }
+    {
+      const FlightCheck go = CanFly(fly, onIt, 1e6, roundDay, wd);
+      CHECK(go.can);
+      CHECK(go.why.empty());
+      // The ticket is the venue's, not a flat number -- **the dial that
+      // makes a season a budget problem**.
+      CHECK(go.cost == TheVenues()[fly.schedule[0].venue].travel);
+    }
+    // And once it is climbed, the door shuts.
+    const CompResult r = ARoundYouPlaced(3);
+    BankRound(fly, 0, &r, world, wd);
+    CHECK(CanFly(fly, onIt, 1e6, roundDay, wd).round == -1);
+  }
+
+  // ---- one night of it --------------------------------------------------
+  //
+  // The night tick is the whole reason any of this is reachable: a career
+  // that never hears of the World Cup still has one going on around it, and
+  // the rounds it does not fly to are banked by the people who did.
+  {
+    WorldCupSeason s2;
+    Olympics o2;
+    // Night one: a season opens and the Games get a date.
+    WorldStageDay(s2, o2, world, 1, wd);
+    CHECK(s2.season == 1);
+    CHECK(static_cast<int>(s2.schedule.size()) == wd.rounds);
+    CHECK(o2.nextDay >= 22);
+    const int seeded = o2.nextDay;
+
+    // **Rounds you did not fly to are banked by the people who did**, and
+    // the day of a round stays enterable for the whole of that day -- a
+    // round on day D is not a miss until the night of D+1.
+    const int firstRound = s2.schedule[0].day;
+    WorldStageDay(s2, o2, world, firstRound, wd);
+    CHECK(!s2.schedule[0].resolved);
+    WorldStageDay(s2, o2, world, firstRound + 1, wd);
+    CHECK(s2.schedule[0].resolved);
+    CHECK(!s2.schedule[0].flown);
+    CHECK(RoundsMissed(s2) == 1);
+    CHECK(RoundsFlown(s2) == 0);
+
+    // Run the year out. It closes once, says so once, and then sits closed
+    // through the off-season rather than announcing a title forty-five
+    // times.
+    int day = firstRound + 1;
+    int closes = 0;
+    std::string news;
+    const int lastRound = s2.schedule.back().day;
+    while (day <= lastRound + 1) {
+      const WorldStageNight n = WorldStageDay(s2, o2, world, day, wd);
+      if (n.seasonClosed) { closes++; news = n.news; }
+      day++;
+    }
+    CHECK(closes == 1);
+    CHECK(s2.closed);
+    // Finishing last of thirteen because you never got on a plane is a
+    // different sentence from finishing last because you did.
+    CHECK(news.find("without leaving the country") != std::string::npos);
+    CHECK(news == WorldCupSeasonNews(s2));
+    CHECK(s2.lastRank == static_cast<int>(WorldTable(s2).size()));
+
+    // The off-season is real: the next season does not open the next
+    // morning.
+    WorldStageDay(s2, o2, world, lastRound + 2, wd);
+    CHECK(s2.season == 1);
+    for (int i = 0; i < wd.worldSeasonBreakDays + 2; i++) {
+      WorldStageDay(s2, o2, world, lastRound + 2 + i, wd);
+    }
+    CHECK(s2.season == 2);
+    CHECK(!s2.closed);
+    // A table resets and a record does not. Six rounds went by without
+    // you, and the second season starts remembering that.
+    CHECK(s2.missed == wd.rounds);
+    CHECK(RoundsMissed(s2) == 0);
+    CHECK(s2.lastRank > 0);
+
+    // And the Games rolled rather than vanished.
+    CHECK(o2.nextDay >= seeded);
+    CHECK((o2.nextDay - seeded) % wd.olympicCycleDays == 0);
+  }
+}
+
 static void TestRival() {
   RivalDials rd;
   const Rng world = Rng::FromSeed("somebody-to-beat");
@@ -2521,6 +3067,105 @@ static void TestRivalCareer() {
     }
   }
   (void)everFlattened;
+}
+
+static void TestWorldStageSave() {
+  WorldStageDials wd;
+  SaveGame save;
+  save.seed = "innsbruck";
+
+  // A season half run: some rounds flown, some missed, points on the board.
+  WorldCupSeason& s = save.player.worldCup;
+  s = StartWorldCupSeason(Rng::FromSeed(save.seed), 10, 3, wd);
+  s.titles = 1;
+  s.bestRank = 2;
+  const CompResult third = ARoundYouPlaced(3);
+  BankRound(s, 0, &third, Rng::FromSeed("r0"), wd);
+  BankRound(s, 1, nullptr, Rng::FromSeed("r1"), wd);
+
+  Olympics& o = save.player.olympics;
+  SeedTheGames(o, Rng::FromSeed(save.seed), 10, wd);
+  BankTheGames(o, MedalFor(2), o.nextDay);
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  const WorldCupSeason& w = back.player.worldCup;
+  CHECK(w.season == 3);
+  CHECK(w.titles == 1);
+  CHECK(w.bestRank == 2);
+  CHECK(w.yourPoints == s.yourPoints);
+  CHECK(w.starts == 1 && w.missed == 1);
+  CHECK(w.schedule.size() == s.schedule.size());
+  // **Which rounds you flew to is the season.** A save that forgets it
+  // hands back a table you cannot account for -- and one that forgets a
+  // venue hands back a different schedule with the same dates.
+  for (std::size_t i = 0; i < w.schedule.size() && i < s.schedule.size();
+       i++) {
+    CHECK(w.schedule[i].day == s.schedule[i].day);
+    CHECK(w.schedule[i].venue == s.schedule[i].venue);
+    CHECK(w.schedule[i].resolved == s.schedule[i].resolved);
+    CHECK(w.schedule[i].flown == s.schedule[i].flown);
+  }
+  CHECK(w.fieldPoints.size() == TheWorldField().size());
+  for (std::size_t i = 0; i < w.fieldPoints.size(); i++) {
+    CHECK(w.fieldPoints[i] == s.fieldPoints[i]);
+  }
+  // And the medal, which is the one number in this game nobody would
+  // forgive losing.
+  CHECK(back.player.olympics.nextDay == o.nextDay);
+  CHECK(back.player.olympics.silver == 1);
+  CHECK(back.player.olympics.appearances == 1);
+  // `lastCompeted` is what stops the same Games being entered twice, and it
+  // defaults to -1 rather than 0 -- so a save that round-trips it as an
+  // unsigned or clamps it at zero would re-open a Games you have climbed.
+  CHECK(back.player.olympics.lastCompeted == o.nextDay);
+  Olympics fresh;
+  CHECK(fresh.lastCompeted == -1);
+  SaveGame freshBack;
+  SaveGame freshSave;
+  CHECK(DeserializeSave(SerializeSave(freshSave), freshBack) ==
+        LoadResult::Ok);
+  CHECK(freshBack.player.olympics.lastCompeted == -1);
+
+  // **An old save loads, and arrives with a career that never got on a
+  // plane.** Exact rather than generous: giving a v26 career a World Cup
+  // start would be inventing a year it did not have.
+  std::string v26 = SerializeSave(save);
+  DropSaveLine(v26, "wc.season=");
+  DropSaveLine(v26, "wc.you=");
+  DropSaveLine(v26, "wc.closed=");
+  DropSaveLine(v26, "wc.starts=");
+  DropSaveLine(v26, "wc.missed=");
+  DropSaveLine(v26, "wc.finals=");
+  DropSaveLine(v26, "wc.podiums=");
+  DropSaveLine(v26, "wc.wins=");
+  DropSaveLine(v26, "wc.titles=");
+  DropSaveLine(v26, "wc.best=");
+  DropSaveLine(v26, "wc.last=");
+  DropSaveLine(v26, "wc.rounds=");
+  DropSaveLine(v26, "wc.fields=");
+  DropSaveLine(v26, "og.next=");
+  DropSaveLine(v26, "og.appearances=");
+  DropSaveLine(v26, "og.gold=");
+  DropSaveLine(v26, "og.silver=");
+  DropSaveLine(v26, "og.bronze=");
+  DropSaveLine(v26, "og.last=");
+  SetSaveVersion(v26, 26);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v26, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(old.player.worldCup.season == 0);
+  CHECK(old.player.worldCup.schedule.empty());
+  CHECK(old.player.olympics.nextDay == 0);
+  CHECK(old.player.olympics.appearances == 0);
+  // Not zero. `lastCompeted` at 0 would mean "you have climbed the Games
+  // held on day zero", and a migration that quietly says so is the kind of
+  // off-by-one nobody notices until a Games will not open.
+  CHECK(old.player.olympics.lastCompeted == -1);
+  // The rest of the career is untouched.
+  CHECK(old.seed == save.seed);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
 }
 
 static void TestRivalSave() {
@@ -9495,6 +10140,8 @@ int main() {
   TestCircuit();
   TestCircuitCareer();
   TestNationalTeam();
+  TestWorldStage();
+  TestWorldStageSave();
   TestRival();
   TestRivalRace();
   TestRivalCareer();

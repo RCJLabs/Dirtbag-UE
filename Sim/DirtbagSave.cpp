@@ -269,6 +269,37 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // arrives never selected -- exact rather than generous, and it means the
 // first review after loading is a first call rather than a re-announcement
 // of one that never happened.
+// v26 -> v27: the World Cup and the Games. A v26 career had neither, so
+// it arrives with no season and no date -- and the night tick opens a
+// season and seeds the cycle the next morning, which is where a career
+// starts anyway. **Exact rather than generous**: nobody who loads an old
+// save was ever on a plane, and giving them a start would be inventing a
+// year they did not have.
+void MigrateV26ToV27(SaveFields& fields) {
+  fields["wc.season"] = "0";
+  fields["wc.you"] = "0";
+  fields["wc.closed"] = "0";
+  fields["wc.starts"] = "0";
+  fields["wc.missed"] = "0";
+  fields["wc.finals"] = "0";
+  fields["wc.podiums"] = "0";
+  fields["wc.wins"] = "0";
+  fields["wc.titles"] = "0";
+  fields["wc.best"] = "0";
+  fields["wc.last"] = "0";
+  fields["wc.rounds"] = "0";
+  fields["wc.fields"] = "0";
+  fields["og.next"] = "0";
+  fields["og.appearances"] = "0";
+  fields["og.gold"] = "0";
+  fields["og.silver"] = "0";
+  fields["og.bronze"] = "0";
+  // Not "0". `lastCompeted` at zero means "you have climbed the Games held
+  // on day zero", and a migration that quietly says so is an off-by-one
+  // nobody notices until a Games will not open.
+  fields["og.last"] = "-1";
+}
+
 void MigrateV25ToV26(SaveFields& fields) {
   fields["team.status"] = "0";
   fields["team.ever"] = "0";
@@ -366,7 +397,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18,
       &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21,
       &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24,
-      &MigrateV24ToV25, &MigrateV25ToV26};
+      &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27};
   return kMigrations;
 }
 
@@ -552,6 +583,42 @@ std::string SerializeSave(const SaveGame& save) {
         out << "circuit.field" << IntToStr(static_cast<int>(i)) << "="
             << NumToStr(ci.fieldPoints[i]) << "\n";
       }
+
+      const WorldCupSeason& wc = save.player.worldCup;
+      out << "wc.season=" << IntToStr(wc.season) << "\n";
+      out << "wc.you=" << NumToStr(wc.yourPoints) << "\n";
+      out << "wc.closed=" << IntToStr(wc.closed ? 1 : 0) << "\n";
+      out << "wc.starts=" << IntToStr(wc.starts) << "\n";
+      out << "wc.missed=" << IntToStr(wc.missed) << "\n";
+      out << "wc.finals=" << IntToStr(wc.finals) << "\n";
+      out << "wc.podiums=" << IntToStr(wc.podiums) << "\n";
+      out << "wc.wins=" << IntToStr(wc.wins) << "\n";
+      out << "wc.titles=" << IntToStr(wc.titles) << "\n";
+      out << "wc.best=" << IntToStr(wc.bestRank) << "\n";
+      out << "wc.last=" << IntToStr(wc.lastRank) << "\n";
+      out << "wc.rounds=" << IntToStr(static_cast<int>(wc.schedule.size()))
+          << "\n";
+      for (std::size_t i = 0; i < wc.schedule.size(); i++) {
+        const std::string k = "wc.round" + IntToStr(static_cast<int>(i));
+        out << k << "d=" << IntToStr(wc.schedule[i].day) << "\n";
+        out << k << "v=" << IntToStr(wc.schedule[i].venue) << "\n";
+        out << k << "r=" << IntToStr(wc.schedule[i].resolved ? 1 : 0) << "\n";
+        out << k << "f=" << IntToStr(wc.schedule[i].flown ? 1 : 0) << "\n";
+      }
+      out << "wc.fields="
+          << IntToStr(static_cast<int>(wc.fieldPoints.size())) << "\n";
+      for (std::size_t i = 0; i < wc.fieldPoints.size(); i++) {
+        out << "wc.field" << IntToStr(static_cast<int>(i)) << "="
+            << NumToStr(wc.fieldPoints[i]) << "\n";
+      }
+
+      const Olympics& og = save.player.olympics;
+      out << "og.next=" << IntToStr(og.nextDay) << "\n";
+      out << "og.appearances=" << IntToStr(og.appearances) << "\n";
+      out << "og.gold=" << IntToStr(og.gold) << "\n";
+      out << "og.silver=" << IntToStr(og.silver) << "\n";
+      out << "og.bronze=" << IntToStr(og.bronze) << "\n";
+      out << "og.last=" << IntToStr(og.lastCompeted) << "\n";
     }
     out << "rival.race=" << rv.race.routeName << "\n";
     out << "rival.raceby=" << IntToStr(rv.race.byDay) << "\n";
@@ -771,7 +838,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     int style = 0, vibe = 0, allied = 0, offered = 0, met = 0, retired = 0,
         fas = 0, pastCount = 0, raceFa = 0, circuitDates = 0,
         circuitFields = 0, teamStatus = 0, teamEver = 0, teamMates = 0,
-        teamGone = 0;
+        teamGone = 0, wcRounds = 0, wcFields = 0, wcClosed = 0;
     if (!ParseString(fields, "rival.name", rv.name) ||
         !ParseInt(fields, "rival.style", style) ||
         !ParseInt(fields, "rival.vibe", vibe) ||
@@ -811,6 +878,26 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
                   save.player.team.lastReviewSeason) ||
         !ParseInt(fields, "team.mates", teamMates) ||
         !ParseInt(fields, "team.gone", teamGone) ||
+        !ParseInt(fields, "wc.season", save.player.worldCup.season) ||
+        !ParseDouble(fields, "wc.you", save.player.worldCup.yourPoints) ||
+        !ParseInt(fields, "wc.closed", wcClosed) ||
+        !ParseInt(fields, "wc.starts", save.player.worldCup.starts) ||
+        !ParseInt(fields, "wc.missed", save.player.worldCup.missed) ||
+        !ParseInt(fields, "wc.finals", save.player.worldCup.finals) ||
+        !ParseInt(fields, "wc.podiums", save.player.worldCup.podiums) ||
+        !ParseInt(fields, "wc.wins", save.player.worldCup.wins) ||
+        !ParseInt(fields, "wc.titles", save.player.worldCup.titles) ||
+        !ParseInt(fields, "wc.best", save.player.worldCup.bestRank) ||
+        !ParseInt(fields, "wc.last", save.player.worldCup.lastRank) ||
+        !ParseInt(fields, "wc.rounds", wcRounds) ||
+        !ParseInt(fields, "wc.fields", wcFields) ||
+        !ParseInt(fields, "og.next", save.player.olympics.nextDay) ||
+        !ParseInt(fields, "og.appearances",
+                  save.player.olympics.appearances) ||
+        !ParseInt(fields, "og.gold", save.player.olympics.gold) ||
+        !ParseInt(fields, "og.silver", save.player.olympics.silver) ||
+        !ParseInt(fields, "og.bronze", save.player.olympics.bronze) ||
+        !ParseInt(fields, "og.last", save.player.olympics.lastCompeted) ||
         !ParseString(fields, "rival.race", rv.race.routeName) ||
         !ParseInt(fields, "rival.raceby", rv.race.byDay) ||
         !ParseInt(fields, "rival.racefa", raceFa) ||
@@ -867,6 +954,35 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         return LoadResult::BadFormat;
       }
       save.player.circuit.fieldPoints.push_back(p);
+    }
+
+    save.player.worldCup.closed = wcClosed != 0;
+    save.player.worldCup.schedule.clear();
+    for (int i = 0; i < wcRounds; i++) {
+      const std::string k = "wc.round" + IntToStr(i);
+      WorldCupRound r;
+      int resolved = 0, flown = 0;
+      if (!ParseInt(fields, k + "d", r.day) ||
+          !ParseInt(fields, k + "v", r.venue) ||
+          !ParseInt(fields, k + "r", resolved) ||
+          !ParseInt(fields, k + "f", flown)) {
+        return LoadResult::BadFormat;
+      }
+      // Clamped rather than trusted, same as every other index that comes
+      // off a file a person can edit: an out-of-range venue reads off the
+      // end of a static table.
+      r.venue = pick(r.venue, static_cast<int>(TheVenues().size()));
+      r.resolved = resolved != 0;
+      r.flown = flown != 0;
+      save.player.worldCup.schedule.push_back(r);
+    }
+    save.player.worldCup.fieldPoints.clear();
+    for (int i = 0; i < wcFields; i++) {
+      double p = 0.0;
+      if (!ParseDouble(fields, "wc.field" + IntToStr(i), p)) {
+        return LoadResult::BadFormat;
+      }
+      save.player.worldCup.fieldPoints.push_back(p);
     }
     rv.firstAscents.clear();
     for (int i = 0; i < fas; i++) {

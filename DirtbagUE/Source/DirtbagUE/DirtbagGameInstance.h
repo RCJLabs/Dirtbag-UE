@@ -320,6 +320,16 @@ struct FDirtbagCompReadout
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	FString Placing;
+
+	/** Which ladder this board belongs to. The settle reads it to decide
+	 *  where the result goes -- a World Cup round banked into the domestic
+	 *  circuit is a title nobody won. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	EDirtbagStage Stage = EDirtbagStage::Domestic;
+
+	/** Where it is, when it is somewhere. Empty for a comp at the gym. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString Where;
 };
 
 /** The creation flow, as a thing the HUD can draw.
@@ -724,6 +734,64 @@ public:
 	/** Whether your name is on the paper, and who has the squad. */
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
 	FString TeamStandingLine() const;
+
+	// --- the top of the ladder -----------------------------------------
+	//
+	// A World Cup season runs from the first night of a career whether or
+	// not the player has heard of it, and the Games come round on a cycle.
+	// Everything here is a door onto that; the rules themselves live in
+	// Sim/DirtbagWorldStage.h, where they can be tested.
+
+	/** Where the season is, or what is coming, or what it cost to stay
+	 *  home. Empty before a career has a season. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|World")
+	FString WorldCupLine() const;
+
+	/** Days until the next round, or -1 outside the published window. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|World")
+	int32 DaysUntilWorldCupRound() const;
+
+	/** Whether you can get on the plane today, why not, and what the
+	 *  ticket costs. `Round` is -1 when there is simply no round on --
+	 *  silence rather than a refusal. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|World")
+	FDirtbagFlightCheck CanFlyToday() const;
+
+	/** Where today's round is, if there is one. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|World")
+	FDirtbagWorldCupVenue RoundVenue() const;
+
+	/** Get on the plane. Takes the ticket and the day, and puts you on a
+	 *  board set at the world standard rather than at your grade. False
+	 *  when `CanFlyToday` says so. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|World")
+	bool FlyToTheRound();
+
+	/** What the Games have to say, which is nothing at all until they are
+	 *  close or you have been to one. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|World")
+	FString GamesLine() const;
+
+	/** Are they on today, and are you in? */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|World")
+	bool GamesAreToday() const;
+
+	/** Empty when you may start; otherwise why not. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|World")
+	FString WhyNotTheGames() const;
+
+	/** Start the final. Costs the day and nothing else -- the federation
+	 *  got you here. False unless `WhyNotTheGames` is empty. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|World")
+	bool EnterTheGames();
+
+	/** A World Cup season ended. Slow news, said once. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	FString WorldCupNews;
+
+	/** A medal, or a Games you were at. Said once. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	FString GamesNews;
 
 	/** Live session readout for the HUD; the wall keeps this current. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
@@ -1215,6 +1283,12 @@ public:
 
 	/** Rebuild the comp board from the live sim state. */
 	void RefreshComp();
+
+	/** Turn in a World Cup or Games scorecard. Split out of `SettleComp`
+	 *  rather than branching inside it: the domestic settle banks into the
+	 *  circuit, moves the ranking and lets the committee sit, and none of
+	 *  those three things is true up here. */
+	bool SettleTheWorldStage();
 
 	/** The average of your five skills, on the grade ladder. The number the
 	 *  rival chases, and the one the HUD compares them to -- computed once

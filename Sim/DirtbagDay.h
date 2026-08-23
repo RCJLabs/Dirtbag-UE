@@ -13,6 +13,7 @@
 #include "DirtbagCharacter.h"
 #include "DirtbagComp.h"
 #include "DirtbagTeam.h"
+#include "DirtbagWorldStage.h"
 #include "DirtbagCore.h"
 #include "DirtbagRival.h"
 #include "DirtbagCrew.h"
@@ -175,6 +176,17 @@ struct PlayerState {
   // closes and at no other time -- a domestic season is the unit a
   // selection committee actually works in. See Sim/DirtbagTeam.h.
   NationalTeam team;
+
+  // The top of the ladder. A World Cup season is running from the first
+  // night of a career whether or not you have ever heard of it -- **the
+  // field flies whether you do or not**, and a table that only starts
+  // moving once you are good enough to see it is a table that waited for
+  // you. See Sim/DirtbagWorldStage.h.
+  WorldCupSeason worldCup;
+
+  // And the Games, on a cycle rather than a calendar. Seeded on the first
+  // night, and never sooner than three weeks out.
+  Olympics olympics;
 
   double cash = 420.0;  // the war chest you left home with
   int day = 1;

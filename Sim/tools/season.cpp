@@ -53,6 +53,12 @@ struct Tally {
   int linesLostToTheRival = 0;
   int rivalGenerations = 0;
   int racesStarted = 0, racesWon = 0, racesLost = 0;   // won: you got there
+  // The ladder: comps entered, and how far up it a career actually gets.
+  int compsEntered = 0, compWins = 0, compPodiums = 0;
+  double rankingPeak = 0.0;
+  int teamSeasons = 0;
+  int wcStarts = 0, wcMissed = 0, wcPodiums = 0, wcWins = 0, wcTitles = 0;
+  int gamesEntered = 0, medals = 0;
   double peakAllround = 0.0;   // the best this body ever was
   std::vector<std::string> lotNames;   // what they called them
   std::vector<LineTally> perLine;
@@ -232,6 +238,19 @@ int main(int argc, char** argv) {
   const bool stakesClaims =
       (argc > 5 && std::string(argv[5]) == "stakeout") || hoards;
 
+  // **`comper` climbs the ladder.** Every other policy in this probe has
+  // ignored the entire comp system, which means the circuit, the ranking
+  // tiers, the national team, the World Cup and the Games were measured
+  // only by the harness -- and a harness can prove a rule fires without
+  // ever answering whether a career gets near it.
+  //
+  // It signs in at every comp it can pay for, plays the board easiest
+  // first, gets on the plane when the federation is paying and the money is
+  // there, and starts at the Games when it qualifies. Deliberately greedy
+  // and deliberately dumb: the question is whether the ladder is reachable,
+  // not whether it can be optimised.
+  const bool comps = argc > 5 && std::string(argv[5]) == "comper";
+
   // Arg 6 overrides skin regen per night (shipped: 1.5, so nine points of
   // skin is six nights). This is not a balance proposal — it is the knob
   // that answers the one question five measurements have left standing:
@@ -406,6 +425,110 @@ int main(int argc, char** argv) {
         t.dogMeals++;
         t.spentDog += before - player.cash;
       }
+    }
+
+    // **The ladder, before the day is spent on anything else.** A comp
+    // is a whole day and so is a plane, so this comes first -- and it runs
+    // the same functions the engine's doors run, which is the whole point
+    // of the probe existing.
+    if (comps && !IsHurt(player.climber)) {
+      const WorldStageDials wsd;
+      const CompDials cpd;
+      const double yourGrade =
+          SkillToGrade((player.climber.skills.power +
+                        player.climber.skills.fingers +
+                        player.climber.skills.technique +
+                        player.climber.skills.endurance +
+                        player.climber.skills.head) / 5.0);
+
+      // Seven goes at five problems, easiest first.
+      const auto playTheBoard = [&](CompState& board, const CompDials& cdl) {
+        for (int a = 0; a < cdl.attempts; a++) {
+          int pick = -1;
+          for (std::size_t i = 0; i < board.problems.size(); i++) {
+            if (!board.progress[i].topped) {
+              pick = static_cast<int>(i);
+              break;
+            }
+          }
+          if (pick < 0) break;
+          AttemptProblem(board, pick, player.climber,
+                         world.Derive("probe-comp#" + std::to_string(day) +
+                                      "#" + std::to_string(a)),
+                         cdl);
+        }
+      };
+
+      const GamesCheck games =
+          CanEnterTheGames(player.olympics, player.rankingPoints, player.day,
+                           wsd);
+      const FlightCheck flight =
+          CanFly(player.worldCup, player.team, player.cash, player.day, wsd);
+
+      if (games.can) {
+        CompState board =
+            SetTheOlympicBoard(world, player.day, wsd);
+        playTheBoard(board, OlympicCompDials(wsd));
+        const CompResult r = SettleTheGames(
+            board, world.Derive("probe-games#" + std::to_string(day)), wsd);
+        BankTheGames(player.olympics, MedalFor(r.place),
+                     player.olympics.nextDay);
+        t.gamesEntered++;
+        if (r.place <= 3) t.medals++;
+        today.hour = 23.0;
+        note = "THE GAMES: " + std::to_string(r.place);
+      } else if (flight.can) {
+        player.cash -= flight.cost;
+        CompState board = SetTheWorldBoard(world, player.day, wsd);
+        playTheBoard(board, WorldCupCompDials(wsd));
+        const CompResult r = SettleWorldRound(
+            board, world.Derive("probe-wc#" + std::to_string(day)), wsd);
+        BankRound(player.worldCup, flight.round, &r,
+                  world.Derive("probe-bank#" + std::to_string(day)), wsd);
+        today.hour = 23.0;
+        note = "World Cup " +
+               std::string(TheVenues()[
+                   player.worldCup.schedule[flight.round].venue].city) +
+               ": " + std::to_string(r.place);
+      } else if (CompIsToday(player.circuit, player.day) &&
+                 player.cash >= cpd.entryFee) {
+        player.cash -= cpd.entryFee;
+        CompState board = SetTheBoard(world, TierFor(player.rankingPoints),
+                                      yourGrade, player.day);
+        playTheBoard(board, cpd);
+        const bool finals = FinalsToday(player.circuit, player.day);
+        const CompResult r = Settle(
+            board, yourGrade,
+            player.rival.retired ? std::string() : player.rival.name,
+            player.rival.grade,
+            world.Derive("probe-settle#" + std::to_string(day)));
+        player.cash += r.cash;
+        BankResult(player.circuit, r, finals);
+        player.rankingPoints +=
+            RankingPointsFor(r.place, r.fieldSize, finals, false, false,
+                             false);
+        t.compsEntered++;
+        if (r.place == 1) t.compWins++;
+        if (r.place <= 3) t.compPodiums++;
+        if (SeasonOver(player.circuit)) {
+          const SeasonEnd end = CloseSeason(player.circuit);
+          player.cash += end.cash;
+          player.rankingPoints += end.rankingPoints;
+          if (end.title) player.circuit.titles++;
+          const TeamReview review =
+              ReviewTheTeam(player.team, player.rankingPoints,
+                            player.circuit, player.day,
+                            player.circuit.season);
+          player.cash += review.stipend;
+          if (review.changed) {
+            Shift(player.standing, Faction::Scene, review.rep);
+          }
+          if (player.team.status == TeamStatus::Named) t.teamSeasons++;
+        }
+        today.hour = 23.0;
+        note = "comp: " + std::to_string(r.place);
+      }
+      t.rankingPeak = std::max(t.rankingPeak, player.rankingPoints);
     }
 
     // The body, before anything is decided. Being hurt is the first thing
@@ -946,6 +1069,13 @@ int main(int argc, char** argv) {
 
     t.cashLow = std::min(t.cashLow, player.cash);
     t.cashHigh = std::max(t.cashHigh, player.cash);
+    // Read off the season rather than accumulated, because these are the
+    // career counters and they already are the total.
+    t.wcStarts = player.worldCup.starts;
+    t.wcMissed = player.worldCup.missed;
+    t.wcPodiums = player.worldCup.podiums;
+    t.wcWins = player.worldCup.wins;
+    t.wcTitles = player.worldCup.titles;
 
     const int grade = static_cast<int>(SkillToGrade(player.climber.skills.power));
     const bool interesting =
@@ -1078,11 +1208,17 @@ int main(int argc, char** argv) {
          "\tmissed\tgym\tboard\tinjuries\thurt\tpeakload\tphysio\tsponsor$"
          "\ttheirdays\tskinregen\tpower\tfingers\ttechnique\tendurance"
          "\thead\tallround\tshoewear\trivallost\trivalgens"
-         "\traces\traceslost\traceswon\n");
+         "\traces\traceslost\traceswon"
+         "\tcomps\tcompwins\tcomppods\trank\tteamyears"
+         "\twcstarts\twcmissed\twcpods\twcwins\twctitles"
+         "\tgames\tmedals\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
-         "\t%d\t%d\t%d\n",
+         "\t%d\t%d\t%d"
+         "\t%d\t%d\t%d\t%.0f\t%d"
+         "\t%d\t%d\t%d\t%d\t%d"
+         "\t%d\t%d\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -1093,6 +1229,7 @@ int main(int argc, char** argv) {
          : hoards         ? "hoarder"
          : stakesClaims   ? "stakeout"
          : projects       ? "projector"
+         : comps          ? "comper"
          : takesDeals     ? "sponsored"
                           : "greedy",
          restUntilSkin, player.cash, t.cashLow, t.sends, t.firstAscents,
@@ -1119,7 +1256,10 @@ int main(int argc, char** argv) {
                        player.climber.skills.endurance +
                        player.climber.skills.head) / 5.0),
          player.shoes.wear, t.linesLostToTheRival, t.rivalGenerations,
-         t.racesStarted, t.racesLost, t.racesWon);
+         t.racesStarted, t.racesLost, t.racesWon,
+         t.compsEntered, t.compWins, t.compPodiums, t.rankingPeak,
+         t.teamSeasons, t.wcStarts, t.wcMissed, t.wcPodiums, t.wcWins,
+         t.wcTitles, t.gamesEntered, t.medals);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

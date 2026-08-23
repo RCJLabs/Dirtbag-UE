@@ -595,6 +595,55 @@ void ADirtbagClimbWall::PushPrompt()
 	// Indoors only -- nobody posts a competition at a crag.
 	if (!IsOutdoors(Venue))
 	{
+		// **The top of the ladder posts on the same wall**, and it goes
+		// above the local poster because it is the bigger day. The order
+		// here is the order `OnInteract` takes them in: the Games, then a
+		// World Cup round, then the Tuesday comp.
+		const FString Games = Game->GamesLine();
+		if (!Games.IsEmpty())
+		{
+			FDirtbagPromptLine Notice;
+			const FString Why = Game->WhyNotTheGames();
+			Notice.Text = Game->GamesAreToday() && Why.IsEmpty()
+			                  ? Games + TEXT("  (E) to start")
+			              : Why.IsEmpty() ? Games
+			                              : Games + TEXT("  ") + Why;
+			Notice.Tone = Game->GamesAreToday() && !Why.IsEmpty()
+			                  ? EDirtbagPromptTone::Blocked
+			                  : EDirtbagPromptTone::Plain;
+			Lines.Add(Notice);
+		}
+
+		const FString World = Game->WorldCupLine();
+		if (!World.IsEmpty())
+		{
+			const FDirtbagFlightCheck Flight = Game->CanFlyToday();
+			FDirtbagPromptLine Notice;
+			Notice.Text = World;
+			// A round today is either a plane ticket or a reason you are
+			// not on it. **Silence when `Round` is -1**: no round on is not
+			// a refusal, and printing one would make the wall nag about a
+			// competition that is three weeks away.
+			if (Flight.Round >= 0)
+			{
+				const FDirtbagWorldCupVenue V = Game->RoundVenue();
+				Notice.Text = FString::Printf(
+				    TEXT("%s, %s is today.  %s"), *V.City, *V.Country,
+				    *V.Blurb);
+				if (Flight.bCan)
+				{
+					Notice.Text += FString::Printf(
+					    TEXT("  ($%.0f, (E) to fly)"), Flight.Cost);
+				}
+				else
+				{
+					Notice.Text += TEXT("  ") + Flight.Why;
+					Notice.Tone = EDirtbagPromptTone::Blocked;
+				}
+			}
+			Lines.Add(Notice);
+		}
+
 		const FString Poster = Game->CompLine();
 		if (!Poster.IsEmpty())
 		{
@@ -602,6 +651,21 @@ void ADirtbagClimbWall::PushPrompt()
 			Notice.Text = Game->CompIsToday()
 			                  ? Poster + TEXT("  (E) to sign in")
 			                  : Poster;
+			Notice.Tone = EDirtbagPromptTone::Plain;
+			Lines.Add(Notice);
+		}
+
+		// The days-out line, when there is one and no round today. Kept
+		// separate from the poster above so the wall can say "Seoul, in
+		// three days, $790" while the local comp says its own thing.
+		const int32 Until = Game->DaysUntilWorldCupRound();
+		if (Until > 0)
+		{
+			FDirtbagPromptLine Notice;
+			Notice.Text = FString::Printf(
+			    TEXT("The federation wants an answer on the next round in "
+			         "%d day%s."),
+			    Until, Until == 1 ? TEXT("") : TEXT("s"));
 			Notice.Tone = EDirtbagPromptTone::Plain;
 			Lines.Add(Notice);
 		}
@@ -738,18 +802,58 @@ void ADirtbagClimbWall::OnInteract()
 	// **Signing in.** A comp happens at the gym on its day, so the door is
 	// the gym wall -- indoors only, because a competition at a crag is not
 	// a thing.
-	if (Game && bPlayerNear && !IsOutdoors(Venue) && !Game->Comp.bActive &&
-	    Game->CompIsToday())
+	if (Game && bPlayerNear && !IsOutdoors(Venue) && !Game->Comp.bActive)
 	{
-		if (Game->EnterComp())
+		// **Biggest day first.** All three are the same key and the same
+		// wall; what separates them is which one is on. Two can only
+		// collide by coincidence of the calendar, and when they do the
+		// Games win -- nobody skips them for a Tuesday.
+		if (Game->GamesAreToday())
 		{
-			Toast(TEXT("Six hours, five problems, seven goes.  1-5."),
-			      FColor::Yellow, 8.f);
-			PushPrompt();
+			const FString Why = Game->WhyNotTheGames();
+			if (Why.IsEmpty() && Game->EnterTheGames())
+			{
+				Toast(TEXT("The Games. Five problems, seven goes, and the "
+				           "seven best in the world.  1-5."),
+				      FColor::Yellow, 10.f);
+				PushPrompt();
+				return;
+			}
+			if (!Why.IsEmpty())
+			{
+				Toast(Why, FColor::Orange, 6.f);
+				return;
+			}
+		}
+		const FDirtbagFlightCheck Flight = Game->CanFlyToday();
+		if (Flight.Round >= 0)
+		{
+			if (Flight.bCan && Game->FlyToTheRound())
+			{
+				Toast(TEXT("Airport, wall, airport. Five problems, seven "
+				           "goes.  1-5."),
+				      FColor::Yellow, 9.f);
+				PushPrompt();
+				return;
+			}
+			if (!Flight.bCan)
+			{
+				Toast(Flight.Why, FColor::Orange, 6.f);
+				return;
+			}
+		}
+		if (Game->CompIsToday())
+		{
+			if (Game->EnterComp())
+			{
+				Toast(TEXT("Six hours, five problems, seven goes.  1-5."),
+				      FColor::Yellow, 8.f);
+				PushPrompt();
+				return;
+			}
+			Toast(TEXT("You cannot cover the entry."), FColor::Orange, 5.f);
 			return;
 		}
-		Toast(TEXT("You cannot cover the entry."), FColor::Orange, 5.f);
-		return;
 	}
 	if (Phase == EPhase::Idle && bPlayerNear)
 	{

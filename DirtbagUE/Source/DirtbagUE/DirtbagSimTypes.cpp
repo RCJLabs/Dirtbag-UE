@@ -175,6 +175,8 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.rival = ToSim(In.Rival);
 	Out.rankingPoints = In.RankingPoints;
 	Out.circuit = ToSim(In.Circuit);
+	Out.worldCup = ToSim(In.WorldCup);
+	Out.olympics = ToSim(In.Olympics);
 	Out.team = ToSim(In.Team);
 	Out.pastRivals.reserve(In.PastRivals.Num());
 	for (const FDirtbagPastRival& P : In.PastRivals)
@@ -232,6 +234,8 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Rival = FromSim(In.rival);
 	Out.RankingPoints = In.rankingPoints;
 	Out.Circuit = FromSim(In.circuit);
+	Out.WorldCup = FromSim(In.worldCup);
+	Out.Olympics = FromSim(In.olympics);
 	Out.Team = FromSim(In.team);
 	Out.PastRivals.Reset(In.pastRivals.size());
 	for (const dirtbag::PastRival& P : In.pastRivals)
@@ -743,6 +747,109 @@ dirtbag::Circuit ToSim(const FDirtbagCircuit& In)
 	Out.fieldPoints.reserve(In.FieldPoints.Num());
 	for (double P : In.FieldPoints) { Out.fieldPoints.push_back(P); }
 	Out.titles = In.Titles;
+	return Out;
+}
+
+FDirtbagWorldCupSeason FromSim(const dirtbag::WorldCupSeason& In)
+{
+	FDirtbagWorldCupSeason Out;
+	Out.Season = In.season;
+	Out.Schedule.Reset(In.schedule.size());
+	for (const dirtbag::WorldCupRound& R : In.schedule)
+	{
+		FDirtbagWorldCupRound Round;
+		Round.Day = R.day;
+		Round.Venue = R.venue;
+		Round.bResolved = R.resolved;
+		Round.bFlown = R.flown;
+		Out.Schedule.Add(Round);
+	}
+	Out.YourPoints = In.yourPoints;
+	Out.FieldPoints.Reset(In.fieldPoints.size());
+	for (double P : In.fieldPoints) { Out.FieldPoints.Add(P); }
+	Out.Starts = In.starts;
+	Out.Missed = In.missed;
+	Out.Finals = In.finals;
+	Out.Podiums = In.podiums;
+	Out.Wins = In.wins;
+	Out.Titles = In.titles;
+	Out.BestRank = In.bestRank;
+	Out.LastRank = In.lastRank;
+	Out.bClosed = In.closed;
+	return Out;
+}
+
+dirtbag::WorldCupSeason ToSim(const FDirtbagWorldCupSeason& In)
+{
+	dirtbag::WorldCupSeason Out;
+	Out.season = In.Season;
+	Out.schedule.reserve(In.Schedule.Num());
+	for (const FDirtbagWorldCupRound& R : In.Schedule)
+	{
+		dirtbag::WorldCupRound Round;
+		Round.day = R.Day;
+		Round.venue = R.Venue;
+		Round.resolved = R.bResolved;
+		Round.flown = R.bFlown;
+		Out.schedule.push_back(Round);
+	}
+	Out.yourPoints = In.YourPoints;
+	Out.fieldPoints.reserve(In.FieldPoints.Num());
+	for (double P : In.FieldPoints) { Out.fieldPoints.push_back(P); }
+	Out.starts = In.Starts;
+	Out.missed = In.Missed;
+	Out.finals = In.Finals;
+	Out.podiums = In.Podiums;
+	Out.wins = In.Wins;
+	Out.titles = In.Titles;
+	Out.bestRank = In.BestRank;
+	Out.lastRank = In.LastRank;
+	Out.closed = In.bClosed;
+	return Out;
+}
+
+FDirtbagOlympics FromSim(const dirtbag::Olympics& In)
+{
+	FDirtbagOlympics Out;
+	Out.NextDay = In.nextDay;
+	Out.Appearances = In.appearances;
+	Out.Gold = In.gold;
+	Out.Silver = In.silver;
+	Out.Bronze = In.bronze;
+	Out.LastCompeted = In.lastCompeted;
+	return Out;
+}
+
+dirtbag::Olympics ToSim(const FDirtbagOlympics& In)
+{
+	dirtbag::Olympics Out;
+	Out.nextDay = In.NextDay;
+	Out.appearances = In.Appearances;
+	Out.gold = In.Gold;
+	Out.silver = In.Silver;
+	Out.bronze = In.Bronze;
+	Out.lastCompeted = In.LastCompeted;
+	return Out;
+}
+
+FDirtbagWorldCupVenue FromSim(const dirtbag::WorldCupVenue& In)
+{
+	FDirtbagWorldCupVenue Out;
+	Out.City = FString(In.city);
+	Out.Country = FString(In.country);
+	Out.Discipline = static_cast<EDirtbagDiscipline>(In.discipline);
+	Out.Travel = In.travel;
+	Out.Blurb = FString(In.blurb);
+	return Out;
+}
+
+FDirtbagFlightCheck FromSim(const dirtbag::FlightCheck& In)
+{
+	FDirtbagFlightCheck Out;
+	Out.bCan = In.can;
+	Out.Round = In.round;
+	Out.Cost = In.cost;
+	Out.Why = FString(In.why.c_str());
 	return Out;
 }
 

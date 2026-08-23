@@ -90,6 +90,14 @@ void UDirtbagGameInstance::Sleep()
 	// here, where every other piece of overnight news already lives.
 	const int32 YearsBefore = Player.Job.DirtbagYears;
 
+	// And the same trick for the World Cup, which closes its season inside
+	// the same call. A season latches `bClosed` exactly once and then sits
+	// closed through the whole off-season, so the transition is the news
+	// and the flag is not.
+	const bool bWorldClosedBefore = Player.WorldCup.bClosed;
+	WorldCupNews.Reset();
+	GamesNews.Reset();
+
 	// The sim's copy of who you are, kept current before CrewDay runs
 	// inside SleepToNextDay — the crew hash includes your name, so the sync
 	// has to happen on this side of the call or the town would name
@@ -97,6 +105,15 @@ void UDirtbagGameInstance::Sleep()
 	Player.Name = ClimberName;
 
 	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
+
+	// A World Cup year ended overnight. Rebuilt from the season rather than
+	// returned through the Blueprint library, for the reason above.
+	if (Player.WorldCup.bClosed && !bWorldClosedBefore)
+	{
+		WorldCupNews = FString(
+		    dirtbag::WorldCupSeasonNews(DirtbagConvert::ToSim(Player.WorldCup))
+		        .c_str());
+	}
 
 	// The high-water mark, once a day.
 	//
@@ -1541,6 +1558,21 @@ bool UDirtbagGameInstance::SettleComp()
 	{
 		return false;
 	}
+
+	// **Where the result goes is decided by which board this was.**
+	//
+	// One comp engine, three ladders. The domestic path below banks into
+	// the circuit, moves the ranking, and lets the committee sit; a World
+	// Cup round banks into the season table; the Games bank a medal. Doing
+	// all three through one branch here rather than three settle functions
+	// keeps the attempt loop, the scoreboard and the placing text shared,
+	// which is what stops two comps disagreeing about what a flash is
+	// worth.
+	if (Comp.Stage != EDirtbagStage::Domestic)
+	{
+		return SettleTheWorldStage();
+	}
+
 	const dirtbag::Rival R = DirtbagConvert::ToSim(Player.Rival);
 	const dirtbag::CompResult Res = dirtbag::Settle(
 	    GLiveComp, AllroundGrade(), R.retired ? std::string() : R.name,
@@ -1617,6 +1649,193 @@ bool UDirtbagGameInstance::SettleComp()
 		Beat.met = true;
 		Player.Rival = DirtbagConvert::FromSim(Beat);
 	}
+
+	Comp.bSettled = true;
+	Comp.Placing = FString(dirtbag::PlacingText(Res).c_str());
+	Comp.Board.Reset(Res.board.size());
+	for (const dirtbag::CompEntrant& E : Res.board)
+	{
+		Comp.Board.Add(FString::Printf(TEXT("%s%s   %.0f"),
+		                               E.isYou ? TEXT("> ") : TEXT("  "),
+		                               UTF8_TO_TCHAR(E.name.c_str()),
+		                               E.score));
+	}
+	RefreshComp();
+	return true;
+}
+
+// --- the top of the ladder ---------------------------------------------
+
+FString UDirtbagGameInstance::WorldCupLine() const
+{
+	return FString(dirtbag::WorldCupLine(
+	                   DirtbagConvert::ToSim(Player.WorldCup), Player.Day)
+	                   .c_str());
+}
+
+int32 UDirtbagGameInstance::DaysUntilWorldCupRound() const
+{
+	return dirtbag::DaysUntilRound(DirtbagConvert::ToSim(Player.WorldCup),
+	                               Player.Day);
+}
+
+FDirtbagFlightCheck UDirtbagGameInstance::CanFlyToday() const
+{
+	return DirtbagConvert::FromSim(
+	    dirtbag::CanFly(DirtbagConvert::ToSim(Player.WorldCup),
+	                    DirtbagConvert::ToSim(Player.Team), Player.Cash,
+	                    Player.Day));
+}
+
+FDirtbagWorldCupVenue UDirtbagGameInstance::RoundVenue() const
+{
+	const dirtbag::WorldCupSeason S = DirtbagConvert::ToSim(Player.WorldCup);
+	const int Round = dirtbag::RoundToday(S, Player.Day);
+	if (Round < 0)
+	{
+		return FDirtbagWorldCupVenue{};
+	}
+	return DirtbagConvert::FromSim(
+	    dirtbag::TheVenues()[S.schedule[Round].venue]);
+}
+
+bool UDirtbagGameInstance::FlyToTheRound()
+{
+	if (Comp.bActive)
+	{
+		return false;
+	}
+	const dirtbag::WorldCupSeason S = DirtbagConvert::ToSim(Player.WorldCup);
+	const dirtbag::FlightCheck Check =
+	    dirtbag::CanFly(S, DirtbagConvert::ToSim(Player.Team), Player.Cash,
+	                    Player.Day);
+	if (!Check.can)
+	{
+		return false;
+	}
+
+	const dirtbag::WorldStageDials WD;
+	// The ticket, and then the day. The federation covers the entry; it
+	// does not cover the flight, which is the whole of what makes a season
+	// a budget problem.
+	Player.Cash -= Check.cost;
+	PassHours(dirtbag::CompDials{}.hours + WD.travelHours);
+	// Airports, time zones, a bad night on a hotel mattress -- on top of
+	// what the comp itself takes.
+	Day.Energy = FMath::Max(
+	    0.0, Day.Energy - dirtbag::CompDials{}.energy - WD.tripEnergy);
+	Day.Hunger = FMath::Min(100.0, Day.Hunger + WD.tripHunger);
+
+	GLiveComp = dirtbag::SetTheWorldBoard(
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day, WD);
+	Comp = FDirtbagCompReadout{};
+	Comp.bActive = true;
+	Comp.Stage = EDirtbagStage::WorldCup;
+	const dirtbag::WorldCupVenue& V =
+	    dirtbag::TheVenues()[S.schedule[Check.round].venue];
+	Comp.Where = FString::Printf(TEXT("%s, %s"), UTF8_TO_TCHAR(V.city),
+	                             UTF8_TO_TCHAR(V.country));
+	RefreshComp();
+	return true;
+}
+
+FString UDirtbagGameInstance::GamesLine() const
+{
+	return FString(dirtbag::GamesLine(DirtbagConvert::ToSim(Player.Olympics),
+	                                  Player.RankingPoints, Player.Day)
+	                   .c_str());
+}
+
+bool UDirtbagGameInstance::GamesAreToday() const
+{
+	return dirtbag::GamesToday(DirtbagConvert::ToSim(Player.Olympics),
+	                           Player.Day);
+}
+
+FString UDirtbagGameInstance::WhyNotTheGames() const
+{
+	return FString(dirtbag::CanEnterTheGames(
+	                   DirtbagConvert::ToSim(Player.Olympics),
+	                   Player.RankingPoints, Player.Day)
+	                   .why.c_str());
+}
+
+bool UDirtbagGameInstance::EnterTheGames()
+{
+	if (Comp.bActive)
+	{
+		return false;
+	}
+	const dirtbag::Olympics O = DirtbagConvert::ToSim(Player.Olympics);
+	if (!dirtbag::CanEnterTheGames(O, Player.RankingPoints, Player.Day).can)
+	{
+		return false;
+	}
+	const dirtbag::WorldStageDials WD;
+	// No ticket and no entry fee. **You are on the national team and this
+	// is what the national team is for** -- the cost of being here was the
+	// twelve hundred ranking points it took to qualify.
+	PassHours(dirtbag::CompDials{}.hours + WD.travelHours);
+	Day.Energy = FMath::Max(
+	    0.0, Day.Energy - dirtbag::CompDials{}.energy - WD.tripEnergy);
+	Day.Hunger = FMath::Min(100.0, Day.Hunger + WD.tripHunger);
+
+	GLiveComp = dirtbag::SetTheOlympicBoard(
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day, WD);
+	Comp = FDirtbagCompReadout{};
+	Comp.bActive = true;
+	Comp.Stage = EDirtbagStage::Games;
+	Comp.Where = TEXT("The Games");
+	RefreshComp();
+	return true;
+}
+
+bool UDirtbagGameInstance::SettleTheWorldStage()
+{
+	const dirtbag::WorldStageDials WD;
+	const bool bGames = Comp.Stage == EDirtbagStage::Games;
+	const dirtbag::Rng SettleRng = dirtbag::Rng::FromSeed(
+	    TCHAR_TO_UTF8(*Seed) + std::string(bGames ? "#games#" : "#wc#") +
+	    std::to_string(Player.Day));
+
+	const dirtbag::CompResult Res =
+	    bGames ? dirtbag::SettleTheGames(GLiveComp, SettleRng, WD)
+	           : dirtbag::SettleWorldRound(GLiveComp, SettleRng, WD);
+
+	if (bGames)
+	{
+		dirtbag::Olympics O = DirtbagConvert::ToSim(Player.Olympics);
+		const dirtbag::Medal M = dirtbag::MedalFor(Res.place);
+		// Keyed on the day the Games were held, which is unique per cycle
+		// and never zero -- so a Games cannot be entered twice and a
+		// default `lastCompeted` of -1 never collides with one.
+		dirtbag::BankTheGames(O, M, O.nextDay);
+		Player.Olympics = DirtbagConvert::FromSim(O);
+		GamesNews =
+		    M.gold     ? TEXT("Gold. There is nothing above this.")
+		    : M.silver ? TEXT("Silver. One person climbed better today.")
+		    : M.bronze ? TEXT("Bronze. You are on the podium at the Games.")
+		               : FString::Printf(
+		                     TEXT("%d%s at the Games. You were there."),
+		                     Res.place,
+		                     Res.place == 1   ? TEXT("st")
+		                     : Res.place == 2 ? TEXT("nd")
+		                     : Res.place == 3 ? TEXT("rd")
+		                                      : TEXT("th"));
+	}
+	else
+	{
+		dirtbag::WorldCupSeason S = DirtbagConvert::ToSim(Player.WorldCup);
+		const int Round = dirtbag::RoundToday(S, Player.Day);
+		dirtbag::BankRound(S, Round, &Res, SettleRng, WD);
+		Player.WorldCup = DirtbagConvert::FromSim(S);
+	}
+
+	// **No prize money and no ranking points.** The World Cup pays in the
+	// world table and the Games pay in a medal; the domestic ranking is
+	// what got you here and is not what this is for. Said here rather than
+	// left implicit, because the domestic branch does the opposite three
+	// lines up and the difference is deliberate.
 
 	Comp.bSettled = true;
 	Comp.Placing = FString(dirtbag::PlacingText(Res).c_str());

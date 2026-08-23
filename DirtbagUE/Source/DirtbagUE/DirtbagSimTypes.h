@@ -12,6 +12,7 @@
 #include "DirtbagCharacter.h"
 #include "DirtbagComp.h"
 #include "DirtbagTeam.h"
+#include "DirtbagWorldStage.h"
 #include "DirtbagRival.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
@@ -576,6 +577,175 @@ struct FDirtbagNationalTeam
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	int32 LastReviewSeason = 0;
+};
+
+/** Which ladder the live board belongs to. Mirrors dirtbag::Stage.
+ *
+ *  The engine holds one comp at a time and the settle has to know where the
+ *  result goes: a World Cup round banked into the domestic circuit is a
+ *  title nobody won. */
+UENUM(BlueprintType)
+enum class EDirtbagStage : uint8
+{
+	Domestic UMETA(DisplayName = "The circuit"),
+	WorldCup UMETA(DisplayName = "World Cup"),
+	Games    UMETA(DisplayName = "The Games"),
+};
+
+/** A city you fly to. Mirrors dirtbag::WorldCupVenue.
+ *
+ *  Named for the sim's struct rather than shortened to `FDirtbagVenue`,
+ *  because `DirtbagTown.h` already has a `Venue` and it means something
+ *  else entirely: a town venue is a place at home that opens at nine. */
+USTRUCT(BlueprintType)
+struct FDirtbagWorldCupVenue
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	FString City;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	FString Country;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	EDirtbagDiscipline Discipline = EDirtbagDiscipline::Boulder;
+
+	/** What getting there costs. The dial that makes a season a budget
+	 *  problem: Salt Lake is a domestic ticket and Seoul is most of a
+	 *  month's money. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	double Travel = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	FString Blurb;
+};
+
+/** One round. Mirrors dirtbag::WorldCupRound. */
+USTRUCT(BlueprintType)
+struct FDirtbagWorldCupRound
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Day = 0;
+
+	/** Index into the venue table. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Venue = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	bool bResolved = false;
+
+	/** Whether you actually went. A resolved round you did not fly to is
+	 *  the whole mechanic: the field banked while you were at home. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	bool bFlown = false;
+};
+
+/** A World Cup season. Mirrors dirtbag::WorldCupSeason. */
+USTRUCT(BlueprintType)
+struct FDirtbagWorldCupSeason
+{
+	GENERATED_BODY()
+
+	/** 1-based. Zero means none has started. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Season = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	TArray<FDirtbagWorldCupRound> Schedule;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	double YourPoints = 0.0;
+
+	/** Parallel to the international field. They fly whether you do or
+	 *  not, which is why this is banked per round rather than derived. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	TArray<double> FieldPoints;
+
+	/** Career totals -- these carry across seasons. Anything about the
+	 *  year you are in has to be counted off the schedule instead. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Starts = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Missed = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Finals = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Podiums = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Wins = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Titles = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 BestRank = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 LastRank = 0;
+
+	/** Whether the table has been read out. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	bool bClosed = false;
+};
+
+/** The Games. Mirrors dirtbag::Olympics. */
+USTRUCT(BlueprintType)
+struct FDirtbagOlympics
+{
+	GENERATED_BODY()
+
+	/** The day they are held. Zero means not seeded yet. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 NextDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Appearances = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Gold = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Silver = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Bronze = 0;
+
+	/** Which cycle the last one you competed in was, so a Games cannot be
+	 *  entered twice. **Minus one, not zero** -- zero would mean you had
+	 *  climbed the Games held on day zero. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 LastCompeted = -1;
+};
+
+/** Whether you can get on the plane. Mirrors dirtbag::FlightCheck --
+ *  everything the door has to check, in one answer, decided sim-side so
+ *  the rule can be tested from the harness. */
+USTRUCT(BlueprintType)
+struct FDirtbagFlightCheck
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	bool bCan = false;
+
+	/** Which round, or -1 when there is none today. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	int32 Round = -1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	double Cost = 0.0;
+
+	/** Why not, in the game's voice. Empty when you can, and empty when
+	 *  there is simply no round on -- silence is not a refusal. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	FString Why;
 };
 
 /** A season of the circuit. Mirrors dirtbag::Circuit -- five firm dates,
@@ -1316,6 +1486,14 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	FDirtbagNationalTeam Team;
 
+	/** The top of the ladder. A World Cup season is running from the first
+	 *  night of a career whether or not you have ever heard of it. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	FDirtbagWorldCupSeason WorldCup;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
+	FDirtbagOlympics Olympics;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gear")
 	FDirtbagShoes Shoes;
 
@@ -1583,6 +1761,12 @@ namespace DirtbagConvert
 	dirtbag::NationalTeam ToSim(const FDirtbagNationalTeam& In);
 	FDirtbagCircuit FromSim(const dirtbag::Circuit& In);
 	dirtbag::Circuit ToSim(const FDirtbagCircuit& In);
+	FDirtbagWorldCupSeason FromSim(const dirtbag::WorldCupSeason& In);
+	dirtbag::WorldCupSeason ToSim(const FDirtbagWorldCupSeason& In);
+	FDirtbagOlympics FromSim(const dirtbag::Olympics& In);
+	dirtbag::Olympics ToSim(const FDirtbagOlympics& In);
+	FDirtbagWorldCupVenue FromSim(const dirtbag::WorldCupVenue& In);
+	FDirtbagFlightCheck FromSim(const dirtbag::FlightCheck& In);
 	FDirtbagRival FromSim(const dirtbag::Rival& In);
 	dirtbag::Rival ToSim(const FDirtbagRival& In);
 	FDirtbagPastRival FromSim(const dirtbag::PastRival& In);

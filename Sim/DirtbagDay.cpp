@@ -435,6 +435,14 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
     }
   }
 
+  // **And the top of the ladder, which runs whether you can see it or
+  // not.** A World Cup season opens on the first night of a career, the
+  // rounds you did not fly to are banked by the people who did, and the
+  // Games are seeded onto their cycle. All of it in one call, here with
+  // everything else that counts down at night -- see the note on
+  // `WorldStageDay` for why it is one call and not five.
+  WorldStageDay(player.worldCup, player.olympics, worldRng, player.day);
+
   // Rent, and a bought year running down. Rent lands here with the other
   // things that happen to you overnight rather than at the shop, because
   // that is what rent does.
