@@ -17,6 +17,16 @@ Checked every item against `Sim/`. Fifteen of the nineteen are built and
 measured. **Four were never ported**, and nothing in the repo records a
 decision to drop them.
 
+> **Corrected 2026-08-23 — read `notes/the-2d-audit.md` instead.**
+> Everything below is accurate about §4's nineteen-item list. It is badly
+> wrong about *"what the 2D game still has"*, which is the title and the
+> claim. §4 is a paragraph written from memory; the real game is 48,447
+> lines with a 497-field save and about ninety systems. Auditing against
+> the summary and reporting it as the game is the same error as testing an
+> ordering when the question was a magnitude — the check passes and tells
+> you nothing. The four gaps named here are real and are now built. They
+> were never the whole gap.
+
 | missing | evidence | needs the editor? |
 |---|---|---|
 | ~~**Dreams** (Rig / War Chest / Home Base)~~ | **built 2026-08-22** — `notes/dreams.md` | no |
