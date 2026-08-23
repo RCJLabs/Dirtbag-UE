@@ -1751,6 +1751,18 @@ bool UDirtbagGameInstance::SettleComp()
 	return true;
 }
 
+FString UDirtbagGameInstance::ZoneNameOf(EDirtbagZone Which) const
+{
+	return FString(UTF8_TO_TCHAR(
+	    dirtbag::ZoneName(static_cast<dirtbag::Zone>(Which))));
+}
+
+FString UDirtbagGameInstance::ZoneBlurbOf(EDirtbagZone Which) const
+{
+	return FString(UTF8_TO_TCHAR(
+	    dirtbag::ZoneBlurb(static_cast<dirtbag::Zone>(Which))));
+}
+
 // --- and the rest of what is wrong with you ----------------------------
 
 FString UDirtbagGameInstance::SickLine() const

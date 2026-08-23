@@ -143,6 +143,55 @@ list stays complete rather than living in somebody's memory.
    playtest (ROADMAP.md Phase 0).
 5. Pump bar UI. Then the Done-when playtest (ROADMAP.md Phase 0).
 
+## 4b. Zone volumes — place these as you sculpt (Phase 6)
+
+**Do this while you are making ground, not after.** One `ADirtbagZoneVolume`
+per walkable zone, dropped over that zone's patch of the landscape and
+scaled to cover it.
+
+Two properties, both on the actor:
+
+| property | what |
+|---|---|
+| **Zone** | which zone this patch of ground is |
+| **bAnnounceOnEntry** | says the zone's name and its one line the first time you walk in each day. Leave it on for everything except the Lot |
+
+**Why it matters, and it is not cosmetic.** `CurrentZone` is written by
+exactly one line in the whole project: a travel spot's arrival. That is
+correct today because every zone is a pocket you press E to reach. The
+moment the Lot and downtown are one continuous landscape, a player can walk
+from one into the other without pressing anything — and `CurrentZone` still
+says the Lot.
+
+That is not a crash and it is not visible. `WalkHours` reads `CurrentZone`
+as the **origin** of the next walk, so every walk after the first would be
+priced from wherever you last *travelled* rather than from where you are. A
+twenty-minute walk costs somebody else's twenty minutes. It is the same
+silent-wrong-number the map widening introduced, one layer further out.
+
+Rules of thumb:
+
+- **Overlapping at the borders is fine and expected.** The last one entered
+  wins, which is what crossing a border means.
+- **Van-only destinations do not need one** — Roadside, the Cave, the
+  Terrace, the Olympic Village, the farm. You arrive there by travelling and
+  the travel spot already says so. Placing one anyway is harmless.
+- **Size generously.** The default box is 80m × 80m, which is a district
+  rather than a doorway. A volume you have to resize before it does anything
+  is a volume somebody forgets to resize.
+- The volume the player spawns inside counts at `BeginPlay`, so the first
+  frame of a career is already right.
+
+**Eleven walkable zones**, in the grid order `Sim/DirtbagZones.cpp` uses:
+the Lot, downtown, Old Town, Midtown, the Trailhead, the Outskirts, Uptown,
+Market Row, Grand Plaza, Greenwood Park, Trout Lake.
+
+Nine of those have no content and will not for months. They get a
+walk-through, a name and one line — which is what a real town has anyway
+between the places you go.
+
+---
+
 ## 5. House rules that carry over (from landnam-ue / CLAUDE.md discipline)
 
 - `FMath::Rand` / `Math.random` equivalents stay banned in sim code — named

@@ -699,6 +699,15 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	EDirtbagZone CurrentZone = EDirtbagZone::Lot;
 
+	/** What a zone is called, and what it is. Read by the zone volumes
+	 *  that tell the world where the player is standing -- see
+	 *  DirtbagZoneVolume.h for the bug they exist to prevent. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Zone")
+	FString ZoneNameOf(EDirtbagZone Which) const;
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Zone")
+	FString ZoneBlurbOf(EDirtbagZone Which) const;
+
 	/** The creation flow. Active from the first frame of a fresh career
 	 *  until all four questions are answered. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Creation")

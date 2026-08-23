@@ -2497,6 +2497,35 @@ static Climber HurtClimber(InjuryKind kind, double severity) {
   return c;
 }
 
+// A map you cannot tell apart is not a map.
+static void TestEveryZoneIsSomewhere() {
+  // **Nine of the eleven walkable zones have no content and will not have
+  // any for months.** That was always the plan -- a zone gets a
+  // walk-through and a name until something wants to live there, which is
+  // what a real town has between the places you go. What is not the plan
+  // is a zone with nothing to say: the wider map would be eleven identical
+  // grey boxes.
+  std::vector<std::string> blurbs;
+  for (int i = 0; i < kZoneCount; i++) {
+    const Zone z = static_cast<Zone>(i);
+    const std::string name = ZoneName(z);
+    const std::string blurb = ZoneBlurb(z);
+    CHECK(!name.empty());
+    // Long enough to be a sentence about a place rather than a label.
+    CHECK(blurb.size() > 25);
+    // And it says something, rather than restating the name.
+    CHECK(blurb != name);
+    blurbs.push_back(blurb);
+  }
+  // **All sixteen different.** A copied line is the same grey box with a
+  // different sign on it.
+  for (std::size_t i = 0; i < blurbs.size(); i++) {
+    for (std::size_t j = 0; j < i; j++) {
+      CHECK(blurbs[i] != blurbs[j]);
+    }
+  }
+}
+
 static void TestCraft() {
   CraftDials cd;
   const Rng world = Rng::FromSeed("a-second-career");
@@ -12047,6 +12076,7 @@ int main() {
   TestMedical();
   TestAilments();
   TestCraft();
+  TestEveryZoneIsSomewhere();
   TestWorldStageSave();
   TestRival();
   TestRivalRace();

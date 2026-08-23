@@ -180,4 +180,17 @@ bool IsACrag(Zone zone);
 
 const char* ZoneName(Zone zone);
 
+// What the place is, in one line, said when you arrive somewhere you have
+// not been today.
+//
+// **Nine of the eleven walkable zones have no content and will not have any
+// for months.** That is fine and was always the plan -- a zone gets a
+// walk-through and a name until something wants to live there, which is
+// what a real town has anyway between the places you go. What is *not* fine
+// is a zone with no content and nothing to say: the wider map would be
+// eleven identical grey boxes, and a map you cannot tell apart is not a
+// map. A line each costs nothing and is the difference between walking
+// through somewhere and walking through nowhere.
+const char* ZoneBlurb(Zone zone);
+
 }  // namespace dirtbag

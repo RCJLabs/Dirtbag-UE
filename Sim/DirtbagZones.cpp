@@ -156,4 +156,45 @@ const char* ZoneName(Zone zone) {
   }
 }
 
+const char* ZoneBlurb(Zone zone) {
+  switch (zone) {
+    case Zone::Lot:
+      return "Gravel, a fire ring, and whoever else is parked up.";
+    case Zone::Town:
+      return "The gym, the shop, the diner, and somewhere to work a shift.";
+    case Zone::Roadside:
+      return "Boulders in the trees, forty feet from where you parked.";
+    case Zone::Cave:
+      return "Steep, dark and dry when everywhere else is not.";
+    case Zone::Terrace:
+      return "It gets the afternoon sun, which is the whole point of it.";
+    case Zone::OldTown:
+      return "Narrow streets, and half the shutters have been down for "
+             "years.";
+    case Zone::Midtown:
+      return "Offices and a chain coffee place. Nobody is from here.";
+    case Zone::Trailhead:
+      return "Where the tarmac gives up. Cars with roof boxes and mud.";
+    case Zone::Outskirts:
+      return "Lock-ups, a tyre place, and the road out.";
+    case Zone::Uptown:
+      return "Money lives up here. The pavements are swept.";
+    case Zone::MarketRow:
+      return "Fruit, hardware, a man who sharpens things. Loud until two.";
+    case Zone::GrandPlaza:
+      return "Flagstones and pigeons, and it is where the town puts on a "
+             "face.";
+    case Zone::Park:
+      return "Grass, a bandstand, and people who are not in a hurry.";
+    case Zone::Lake:
+      return "Cold, deep, and worth the walk on the days it is too hot to "
+             "climb.";
+    case Zone::Village:
+      return "Flags, accreditation lanyards, and a wall you can see from "
+             "the road.";
+    default:
+      return "Your folks' place. The dog knows the way to the gate.";
+  }
+}
+
 }  // namespace dirtbag
