@@ -131,3 +131,106 @@ The six things that sit **on top** of a comp, all of which read a
 Plus **leagues**, the low end of the same system.
 
 The ladder is the phase; this is the rung everything else stands on.
+
+---
+
+# Pass 2 — the circuit season and the ranking ladder
+
+**2026-08-23, same day.** Evan: *"Take circuit and tiers now"*.
+
+## A season has a shape
+
+Five comps on firm dates six to eight days apart, and **the last one is the
+finals** — not a sixth event but the same format worth half as much again.
+That multiplier is the only thing that makes peaking for a date a decision.
+
+**Firm is the point.** A schedule you can plan around is the whole
+difference between a comp and a random event, and it is what makes *not*
+turning up a decision rather than an accident.
+
+## Everybody scores
+
+A table that only tracked your points would be a personal best with other
+names printed near it. The field and the rival bank from their own placings
+every comp, so the standings are a season rather than your season — and the
+rival can win one off you while you are away at a crag.
+
+## The placement curve, and the number it replaced
+
+Pass 1 fed the ranking with the comp's prize `rep` — 10 for a win. Against
+tiers that gate at 350 and 1200, that is thirty-five wins to reach Regional.
+The real curve:
+
+**1st takes 100 and the back of the field still takes 5**, linear in *how
+many people you beat* rather than in where you finished. A big field is worth
+more to win, which is what makes stepping up a tier attractive rather than
+merely harder.
+
+The prize rep did not go away; it went where it belonged. **`rep` is what the
+scene thinks and feeds standing; ranking points are what the federation
+records.** Two different numbers about the same afternoon, and conflating
+them was the pass-1 shortcut.
+
+## Six tiers, with somebody else's numbers on purpose
+
+Unranked · Regional Climber (120) · National Prospect (350) · **National Team
+(700)** · **Olympic Hopeful (1200)** · World-Class (2200).
+
+Those two are pinned by a test rather than left to drift, because they are
+load-bearing for systems that do not exist yet: 700 is where a national team
+calls you and 1200 is where the Games become reachable. Moving them later
+moves two things silently.
+
+## What not turning up costs
+
+The rival banks **sixty** and you lose standing. The asymmetry is the
+commitment — a firm schedule you can ignore for free is a suggestion.
+
+## Two real bugs found while wiring it
+
+**The forfeit fired the day after every comp, including the ones you won.**
+The night tick checked only `compsDone < compsPerSeason`, and after your
+first victory one done is still fewer than five. **What separates a comp you
+climbed from one you skipped is not the date — both are in the past — it is
+whether the ledger caught up with the calendar.** `CompsDueBy` is that count,
+and the fix forfeits the *difference* rather than firing on a date.
+
+**And `CloseSeason` had a guard that was never the mechanism.** Each podium
+branch also checked "you scored something", which reads as prudence and was
+dead: `SeasonTable` already sorts a zero behind every other zero, so a career
+that entered nothing is last and never reaches those branches.
+
+Removing the guard **changed nothing and failed no test** — which is the
+honest signal that it was never doing the work. Two mechanisms for one
+invariant is how they drift, so the redundant one went and the tie-break
+kept its test.
+
+## Doors
+
+The poster and the sign-in are pass 1's. New: **the season standings and
+your rank** in the HUD's slow lines — a rank is a state and not an event —
+and both are **silent until you have entered something**, because *"Unranked,
+120 to the next"* on day one is a progress bar for a system the player has
+not met.
+
+A season closes the moment the finals are turned in rather than at Sleep,
+because the table is complete then and hearing about it tomorrow morning
+would be the game telling you something you watched happen.
+
+SAVE v25 carries the season, dates and all — without it you would wake up in
+a season with no schedule and the night tick would forfeit its way through
+the year.
+
+## What is left of Phase 9
+
+- **quals → semi → final** at National and above
+- **the national team** — five teammates, a head coach, a $180 taxable
+  stipend, a review that can take it back
+- **the World Cup** — ten venues, travel costs, a field that flies whether
+  you do or not
+- **the Games** — a 56-day cycle, declared disciplines, problems a grade
+  above yours
+- **leagues**, the low end of the same system
+
+All four of the remaining systems read the ranking number this pass just made
+real. That was the point of doing it second.
