@@ -31,7 +31,15 @@ go first; §2–§6 are just reading and pressing keys.
    translation unit — but signatures are still only provable on your
    compiler. **If it fails, paste me the full log before touching
    anything.**
-4. Load your save. Save version is still **v20** — nothing since the 22nd
+4. Load your save. **Save version is now v21** — the character (below).
+   A v20 career migrates to **unbuilt**, which is exactly neutral in every
+   lane, so **your existing climber loads with the numbers they had** and
+   the creation screen does **not** ambush them twenty years in. Same rule
+   as always: it migrates in memory, the file keeps saying v20 until you
+   sleep, and **if anything is missing, stop and tell me; do not overwrite
+   the save.**
+
+   *(Was v20)* — nothing since the 22nd
    has changed the save shape, so if you already slept once after the last
    session, this load is uneventful. If you have not, the same rule applies
    as before: it migrates in memory, the file on disk keeps saying the old
@@ -60,6 +68,7 @@ wire.** They only respond where they mean something.
 | **M** | the shop counter | **buy or renew gym membership** ← new |
 | **H** | counter · van | **buy a hangboard · use it** ← new |
 | **J** | the shift desk | **take (or quit) the salaried job** ← new |
+| **4 5 6** | creation only | the extra origin choices ← new |
 
 **At a climb wall:**
 
@@ -136,6 +145,50 @@ the board; the numbers take a gig; E deliberately does not, because a key
 that silently picked the best would hand you a standing hit you never chose.
 
 ---
+
+## 3b. A new career now opens with four questions · ~5 min
+
+**Start a fresh game** (rename your save file rather than deleting it) and
+you get a screen that did not exist: *"What kind of climber are you?"*, then
+where you came from, then what is wrong with you, then what you are like.
+**1–6 answers, E moves on from the last screen.** It saves the moment you
+finish.
+
+Every climber in this game was previously identical at birth — five skills
+within ±6 of fifty, and nothing else. What each answer does:
+
+- **Archetype** is a shape and never a score: the five offsets of every
+  archetype sum to zero. Measured over 24 paired seeds, a Boulderer
+  out-grades a Rope Gun **on every single seed** by over a full grade, and
+  their average of five skills comes out identical. You climb different
+  things, not better ones.
+- **Origin** is a life rather than a build, so these are *not* balanced
+  against each other — each holds one permanent perk in a lane no other
+  origin touches, and **none of them touches send odds.** Ten points of
+  power spread on day one, about a grade and a half.
+- **Flaw** is the only thing here allowed near odds, and only Happy Feet
+  uses it.
+- **Temperament** sets four axes. Two of them are wired (discipline, purism)
+  and two are not yet (boldness, social) — see the note.
+
+**And two things are rolled that nobody tells you about**: a gift and an
+anti-talent, on different skills. They are **live from your first move** and
+you find out only by working that lane for about forty sessions, at which
+point one grey line says so. A gift in a skill you never train stays hidden
+for the whole career. **Do not go looking for them in the HUD — that is the
+design.**
+
+Worth trying on purpose: **make two fresh saves with opposite builds** (a
+Boulderer from the desert, and a Rope Gun trust-fund kid) and play each a
+week. The question is criterion 3 of the phase gate, which is the one I
+cannot answer: **can you say who your climber is in one sentence that is not
+a stat line?**
+
+`notes/phase7-who-you-are.md` has the measurements, including two findings
+recorded rather than fixed — rate flaws are much weaker than risk flaws
+because diminishing returns eat them, and origin money never shows up in
+your bank because 98% of everything earned goes straight back out (it shows
+up in **19% less worn rubber** instead).
 
 ## 4. The map went from five zones to sixteen · nothing to do, but read it
 
