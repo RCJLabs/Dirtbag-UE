@@ -397,7 +397,7 @@ a bigger one.
 
 ---
 
-## Phase 7 — Who Your Climber Is   ⚠️ BUILT 2026-08-23, TWO AXES UNWIRED
+## Phase 7 — Who Your Climber Is   ⚠️ BUILT 2026-08-23, ONE AXIS UNWIRED
 
 **Every climber in this game is currently identical at birth.** The 2D
 game's creation flow picks an **origin**, an **archetype**, a **flaw**, a
@@ -440,13 +440,20 @@ v21, and a v20 career migrates to *unbuilt*, which is exactly neutral, so it
 loads with the numbers it was measured with. **Gate 3 is a play gate and is
 outstanding.**
 
-**Two of the four personality axes have no reader.** `discipline` and
-`purism` are wired; `social` and `boldness` want seams in the partner and
-sport models this phase does not touch, so they are stored, saved and
-checked but not consumed — recorded rather than shipped as multipliers
-nothing multiplies. **Quirks, habits and personality drift are not here
-either**: all three are earned from a tally of how you actually climb, which
-needs instrumentation in every session and is a coherent second pass.
+**Three of the four personality axes are wired.** `discipline` bends what a
+session teaches you, `purism` what a shift pays, and `boldness` what you
+will commit to above the last piece — worth **+10.4% sends at your limit on
+unpadded ground** and nothing at all to a boulderer who owns pads, because
+crash pads price fear at exactly zero. **`social` has no reader and the
+reason is not that nobody wrote one**: it is *whether people turn up*, and
+nobody ever fails to turn up — `LotRegulars` hands back all three regulars
+every day for ninety years. That is the roadmap's own standing design
+question (*"the Lot never varies"*), not a wiring job, so the axis is
+stored, saved and asserted to separate the temperaments, and wiring it the
+day turnout exists is one line. **Quirks, habits and personality drift are
+not here either**: all three are earned from a tally of how you actually
+climb, which needs instrumentation in every session and is a coherent second
+pass.
 
 **One finding worth carrying forward**: diminishing returns eat most of a
 *rate* flaw. Gumby trains technique at half rate and lands 5% lower after a
