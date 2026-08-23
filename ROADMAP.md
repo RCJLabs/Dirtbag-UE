@@ -28,8 +28,10 @@ rest of the game, named.
 
 **Where the systems stand.** Of ~88 systems checked by name against
 comment-stripped `Sim/` code: **30 present and real, 50 absent.** Fifteen of
-the fifty are **recorded cuts** from §4's *"cut or defer past 1.0"* list and
-are not gaps. **Thirty-five are gaps nothing in this repo had recorded.**
+the fifty were **recorded cuts** from §4's *"cut or defer past 1.0"* list;
+**eight of those fifteen came back on 2026-08-23** when the comps cut was
+reversed. So the standing count is **seven recorded cuts and 43 gaps**, of
+which **35 were gaps nothing in this repo had recorded at all.**
 
 | bucket | status | where |
 |---|---|---|
@@ -41,28 +43,36 @@ are not gaps. **Thirty-five are gaps nothing in this repo had recorded.**
 | **the world** | **not built** — trigger volumes on Epic's template | **Phase 6, current** |
 | **who your climber is** — origin, archetype, flaw, personality, talents, quirks, habits, scars | **gap, unrecorded** | Phase 7 |
 | **somebody to beat** — the rival as a person, aged, inherited, taking your lines | **gap, unrecorded** | Phase 8 |
-| **the body's real ledger** — diagnosis, insurance, cortisone, surgery, sickness, dental, prehab, the comeback | **gap, unrecorded** | Phase 9 |
-| **a life outside it** — romance, family, hobbies, grime, bivy, hitchers, the caravan, regulars with memory | **gap, unrecorded** | Phase 10 |
-| **work as craft** — ten job skills, employer standing, work identity | **gap, unrecorded** | Phase 11 |
-| **trad** | **gap, recorded** — cut-ladder rung 3, still open | Phase 12 |
-| comps · Olympics · expeditions · big wall · DWS · photography economy · gym ownership · Solo mode · Notown | **recorded cuts, unchanged** | past 1.0 |
+| **the ladder** — gym comps, the circuit, national ranking, the national team, the World Cup, the Games, leagues | **gap — cut, then reinstated 2026-08-23** | Phase 9 |
+| **the body's real ledger** — diagnosis, insurance, cortisone, surgery, sickness, dental, prehab, the comeback | **gap, unrecorded** | Phase 10 |
+| **a life outside it** — romance, family, hobbies, grime, bivy, hitchers, the caravan, regulars with memory | **gap, unrecorded** | Phase 11 |
+| **work as craft** — ten job skills, employer standing, work identity | **gap, unrecorded** | Phase 12 |
+| **trad** | **gap, recorded** — cut-ladder rung 3, still open | Phase 13 |
+| expeditions · big wall · DWS · photography economy · gym ownership · Solo mode · Notown | **recorded cuts, unchanged** | past 1.0 |
 
-**One tension the re-scope surfaces and does not resolve.** §4 cuts
-*comps/Olympics* past 1.0, but the 2D game's zone graph has an **Olympic
-Village** in it, and Evan named it unprompted when describing how travel
-works — *"crags and the olympics which you needed to use the van to get
-to."* The comp ladder is the 2D game's entire mid-to-late-game arc and the
-reason that zone exists. The cut still stands; it is now flagged rather than
-assumed, and reversing it is a pivot for `concepts/`, not a roadmap edit.
+**The tension the re-scope surfaced is now resolved, the other way.**
+§4 cut *comps/Olympics* past 1.0, but the 2D zone graph has an **Olympic
+Village** in it and Evan named it unprompted when describing travel —
+*"crags and the olympics which you needed to use the van to get to."*
+Flagged on 2026-08-23 and reversed the same day: **Evan — *"wait comps were
+cut??? ok bring them back and the olympics. that's a huge part of the
+game."*** The pivot is logged in `concepts/DECISION-comps-are-back.md`, §4's
+entry is struck, and the ladder is **Phase 9**. The rest of §4's defer list
+stands unchanged — the *"the 2D game took years to accrete these"* reasoning
+is right about expeditions and gym ownership and was wrong about the arc
+that gives a career an ending.
 
 **One place the port over-delivered:** §4 says *"minigames — keep ONE
 campfire game."* `Sim/DirtbagCampfire` has two (liar's dice, blackjack).
 Recorded, not a problem.
 
-**Phases 7–11 are independent of each other and re-orderable.** Unlike 0–6,
-none of them blocks another; the numbering is a recommendation, not a
-dependency chain. All five are engine-free sim work — which is what this
-container is good at and what needs no desk time.
+**Phases 7–13 are near-independent and mostly re-orderable.** Unlike 0–6,
+almost none of them blocks another; the numbering is a recommendation. **The
+one real dependency is 8 → 9**: the ladder is entangled with the rival
+throughout (season points, head-to-head, scouting, the points they bank when
+you no-show), and **comps without somebody to lose to are a leaderboard.**
+All of it is engine-free sim work — what this container is good at, and what
+needs no desk time.
 
 ---
 
@@ -379,7 +389,7 @@ spline line up with real rock features. Do one wall first and find out how
 much fuss it is before committing to twenty-five.
 
 **Deliberately not in this phase:** trad, still — it has a phase of its own
-now (Phase 12). A deeper game with no place to play it is a worse game, not
+now (Phase 13). A deeper game with no place to play it is a worse game, not
 a bigger one.
 
 ---
@@ -445,7 +455,88 @@ The port has partners, factions, a crew and a scene, and nobody to lose to.
 
 ---
 
-## Phase 9 — The Body Keeps Score
+## Phase 9 — The Ladder
+
+**Reinstated 2026-08-23** — Evan: *"wait comps were cut??? ok bring them back
+and the olympics. that's a huge part of the game."* The pivot and its
+reasoning are in `concepts/DECISION-comps-are-back.md`; §4's cut-list entry
+is struck and points there.
+
+**A climbing career in the 2D game has two arcs and the port has one.**
+Outdoors it is grades, projects and first ascents, and all of that is built.
+Indoors it is Local → Regional → National → the national team → the World
+Cup → the Games, and none of it is. Cutting comps did not remove a feature;
+it removed **the half of the career that has an ending** — which is also what
+`natlPts` was for, and why the 2D zone graph gives the Olympic Village one of
+only three van-only destinations.
+
+Seven things come back, all of them scoped from the 2D source rather than
+from memory:
+
+1. **The gym comp**, and the format is the point: **five problems, seven
+   attempts across the whole session, an eighty-second clock.** You spend
+   attempts, not time. That is a resource-allocation minigame played with
+   verbs the session sim already has — *2D minigames, 3D staging*, exactly.
+   Announced 3–5 days out, $20, six hours. Nerves are one dial:
+   `COMP_PRESSURE = 0.8` keeps 80% of your normal margin, and psych work buys
+   back half of it.
+2. **The circuit season** — five comps on firm dates 6–8 days apart, **the
+   last is the finals at 1.5× points**, with a champion, a runner-up and a
+   bronze. No-showing hands the rival 60 points and costs standing: the
+   schedule is a commitment, like the job.
+3. **Three tiers that mean three different things** — Local (yours to lose),
+   Regional (a fight), National (the mountain), at 0 / 350 / 1200 national
+   points, National and up running a real quals → semi → final.
+4. **A field of people, not a sorted list.** Seven named climbers at stable
+   grade offsets, each with **a discipline they are known for and one they
+   are soft on** — a redistribution rather than a buff, so the results start
+   to mean something: Kai takes the dyno problem off you every time, and you
+   take the crimpy one back off him.
+5. **The national ranking** — Unranked / Regional Climber / National
+   Prospect / **National Team (700)** / **Olympic Hopeful (1200)** /
+   World-Class, reading the best of your boulder, sport and speed ranks.
+6. **The national team as a roster, not a threshold** — five teammates on the
+   paper, a head coach with opinions, a **$180 taxable stipend that does not
+   cover rent**, a review every season that can take it back (named at 700,
+   held to 560, cut below), and **a climber you went past to get on it who
+   knows.**
+7. **The World Cup and the Games** — ten real venues with travel costs and an
+   **international field that flies whether you do or not**, so rounds you
+   skip are counted against you; then a 56-day Olympic cycle, qualification
+   at 1200, arrival three days early to **declare your disciplines**, and
+   problems a grade above yours.
+
+**Leagues come with it** as the same system's low end: a weekly gym night
+with a personal best to chase rather than a ranking. Cheap, and it gives the
+gym something to be between comps.
+
+**Why it sits after Phase 8 and not before:** the ladder is entangled with
+the rival throughout — season points, head-to-head record, scouting them
+before a comp, the points they bank when you no-show. **Comps without
+somebody to lose to are a leaderboard.**
+
+**Done when:**
+1. A comp is a **contest you can lose by spending attempts badly**, not a
+   number that resolves — measured: two identical climbers with different
+   attempt policies place differently, by more than form noise.
+2. The three tiers measurably mean different things. The 2D game's own
+   balance failure is the specific thing to avoid and it is already
+   diagnosed: a field symmetric around your grade measured **5th on average,
+   2.2% podiums, 0% wins, forever.** Local must be winnable.
+3. A career can reach the Games and can fail to, and the difference is
+   choices rather than seed.
+4. Being cut from the national team costs something a stipend does not
+   explain.
+5. Old saves migrate: a climber with no ranking gets Unranked and plays
+   exactly as before.
+
+**Deliberately not in this phase:** speed as a trained discipline beyond a
+personal best, and the comp *venue* as a built place — the Olympic Village is
+Phase 6's zone graph and a blockout, not this phase's problem.
+
+---
+
+## Phase 10 — The Body Keeps Score
 
 §4 ports *"injury + physio + aging"* as one line, and the port is that line:
 you get hurt, you buy days back, you heal. The 2D game has the rest of it —
@@ -472,7 +563,7 @@ restated gate wanted and got only narrowly.
 
 ---
 
-## Phase 10 — A Life Outside It
+## Phase 11 — A Life Outside It
 
 The 2D game is a **life**-sim and the port is a climbing sim with bills.
 Missing, all of it unrecorded: **romance** (spark → strain → breakup →
@@ -500,7 +591,7 @@ name and that is a recorded cut.
 
 ---
 
-## Phase 11 — Work Is A Craft
+## Phase 12 — Work Is A Craft
 
 §4 ports *"odd-jobs board, salaried-job trap"* and both are built and wired.
 What it did not port is that in the 2D game **every job has a craft skill**
@@ -522,7 +613,7 @@ second career you are also having.
 
 ---
 
-## Phase 12 — Trad
+## Phase 13 — Trad
 
 The cut ladder's last systemic rung (`concepts/DIRTBAG.md` §6, rung 3), open
 since Phase 3 and deferred four times on the same correct reasoning: a
@@ -545,23 +636,25 @@ well.
 
 ## Past 1.0 — recorded cuts, unchanged
 
-`concepts/DIRTBAG.md` §4's cut list stands as written: **comps and the
-Olympics**, **expeditions** (El Cap tier — THE WALL's design, fold in
-later), **deep-water solo**, **big-wall multi-day**, **the
-filmmaking/photography economy**, **gym ownership**, **Solo mode**, and
-**Notown/Halloween**. The 2D game took years to accrete these and the 3D
-game earns them the same way.
+`concepts/DIRTBAG.md` §4's cut list stands as written **minus one entry**:
+**expeditions** (El Cap tier — THE WALL's design, fold in later),
+**deep-water solo**, **big-wall multi-day**, **the filmmaking/photography
+economy**, **gym ownership**, **Solo mode**, and **Notown/Halloween**. The 2D
+game took years to accrete these and the 3D game earns them the same way.
 
-**Flagged, not reopened:** the Olympic Village is in the 2D zone graph and
-Evan named it unprompted when describing travel. Reversing the comps cut
-would be a pivot logged in `concepts/`, not a roadmap edit — but the zone
-graph should leave room for it, since a zone that is never built costs
-nothing and a graph with no room for one costs a rebuild.
+**~~comps and the Olympics~~ — REVERSED 2026-08-23.** Now Phase 9, with the
+pivot logged in `concepts/DECISION-comps-are-back.md`. The cut list's one
+stated reason — *the 2D game took years to accrete these* — is correct about
+every other entry and was wrong about this one: expeditions and gym ownership
+really are late accretions on a game that already worked, and **the comp
+ladder is the half of a career that has an ending.** Leagues came back with
+it, being the same system's low end.
 
 ---
 
 ## Changelog
 
+- 2026-08-23 - **Comps and the Olympics are back, and the cut list was wrong about exactly one thing** (`concepts/DECISION-comps-are-back.md`, **Phase 9 — The Ladder**). Evan: *"wait comps were cut??? ok bring them back and the olympics. that's a huge part of the game."* The re-scope had flagged this tension the same day and **declined to resolve it**, on the grounds that reversing a `concepts/` decision is a pivot and not a roadmap edit. This is that pivot, logged and dated, with §4's entry struck in place and pointing at it. **The cut list's reasoning was sound and its scope was not.** §4 gives one justification for all nine deferred entries — *"the 2D game took years to accrete these; the 3D game earns them the same way"* — and it is right about expeditions, deep-water solo, big wall, the photography economy and gym ownership, which really are late accretions on a game that already worked without them. It is wrong about comps for four reasons that are checkable rather than arguable: **a climbing career in the 2D game has two arcs and the port has one** — outdoors is grades, projects and first ascents and all of it is built, indoors is Local → Regional → National → the team → the World Cup → the Games and none of it is, so cutting comps did not remove a feature, it removed **the half of the career that has an ending**; `natlPts` exists so the numbers have somewhere to point, and without it a career's ceiling is *harder grades, more of them*; **the 2D zone graph gives the Olympic Village one of only three van-only destinations**, and a cut system does not get a zone; and **Evan named it unprompted** describing the world from memory, which is the strongest evidence there is. **Scoped from the source rather than from memory**, because that is the mistake this entire week has been about. **The format is the reason it is worth porting**: a gym comp is **five problems, seven attempts across the whole session, an eighty-second clock** — you spend attempts, not time, which makes it a resource-allocation minigame played with verbs the session sim already has. That is *2D minigames, 3D staging* exactly, and `COMP_PRESSURE = 0.8` (a comp keeps 80% of your normal margin, psych work buys back half) is one dial on a resolver that is already tested and has golden vectors. Also back: **the circuit season** (five comps on firm dates, the last a 1.5× finals, and no-showing hands the rival 60 points because a schedule is a commitment like the job); **three tiers that mean three different things**; **a field of people rather than a sorted list** — seven named climbers each with a discipline they are known for and one they are soft on, a *redistribution* rather than a buff, so Kai takes the dyno problem off you every time and you take the crimpy one back; **the national ranking** across boulder, sport and speed; **the national team as a roster and not a threshold** — five teammates on the paper, a head coach with opinions, a **$180 taxable stipend that does not cover rent**, a review that can take it all back, and **a climber you went past to get on it who knows**; **the World Cup** across ten real venues with **an international field that flies whether you do or not**, so the rounds you skip are counted against you; and **the Games** on a 56-day cycle where you arrive three days early to declare your disciplines and the problems sit a grade above yours. Leagues came with it as the same system's low end. **One balance failure is inherited pre-diagnosed and written into the gate**: the 2D field was originally symmetric around your grade, so four entrants sat above you before every comp *at every tier*, and it measured **5th on average, 2.2% podiums and 0% wins, forever** — gating three downstream systems behind an event that happened one comp in fifty. Local must be winnable. **The ladder sits at 9 rather than earlier because of a real dependency**: it is entangled with the rival throughout — season points, head-to-head record, scouting them before a comp, the points they bank on a no-show — and **comps without somebody to lose to are a leaderboard**, so rivals ship first. The old Phases 9–12 renumber to 10–13, and the standing cut count drops from fifteen systems to seven.
 - 2026-08-23 - **The roadmap re-scoped: it planned a sixth of the game** (`## Scope — the honest ledger`, Phases 7–12). Evan: *"re scope"*. Everything through Phase 6 was sized against `concepts/DIRTBAG.md` §4 — a nineteen-item paragraph written from memory — and yesterday's audit put the real game at **48,447 lines, a 497-field save and ~450 numbered features across 122 tag families**. **So every estimate this roadmap ever made was sized against about a sixth of the thing.** The phases themselves are not wrong and none is rewritten; **the plan simply stopped six phases early**, which read as *the systems are done, only the world is left* — the exact claim Evan pushed back on and the exact claim that was false. **The ledger is the fix**: a table at the top of the file placing all ~88 checked systems, with **30 present, 50 absent, 15 of the fifty recorded cuts from §4's own defer list, and 35 gaps nothing in this repo had ever recorded.** Recording them is most of the value — a gap in a table is debt and a gap in nobody's notes is a surprise, and this project has now shipped six silent holes and found every one of them late and by accident. **Six phases added, each with a Done-when gate in house style.** **Phase 7 — Who Your Climber Is**: the biggest single unrecorded gap, and the cheapest to close because every consumer already exists — **every climber in this game is currently identical at birth**, where the 2D game picks an origin, an archetype, a flaw and a temperament on four axes, then rolls **two hidden talents that surface only through play** and quirks you *earn* from how you actually climb. **Phase 8 — Somebody To Beat**: §4 ports *"projecting/nemesis tracking"* and **that is the route, not the person** — `nemesis` is built and is the unsent line you have fed the most burns, while the 2D game's **rival** is a named climber born when you are, ageing on their own clock, **taking first ascents of open lines and keeping their name on them forever**, remembering how you treated them while they were hurt, winnable into a partner, and replaced across generations. The port has partners, factions, a crew and a scene, and **nobody to lose to**. **Phase 9 — The Body Keeps Score**: §4 ports *injury + physio + aging* as one line and the port is that line, missing the half that makes it a decision — **an injury that hides its grade until you pay to look at it**, insurance bought before it is needed, **cortisone that works now and degrades the joint forever**, surgery and aftercare, dental as a clock that only escalates, prehab, undertreated care when you were broke at the desk, **scars that flare under load for the rest of a career**, and a staged comeback rather than a timer. **Phase 10 — A Life Outside It**: the port is a climbing sim with bills and the original is a **life**-sim — romance with neglect as the mechanism, family, music, reading, the garden, fishing, cooking, crafting, grime, propane, bivy spots, hitchhikers, the caravan, and regulars who remember you between visits. **Phase 11 — Work Is A Craft**: the board and the trap are built and wired, but the 2D game gives **all ten jobs a craft skill** that grows only by doing that work, plus employer standing, an emergent work identity and gym sets that stay up — work as a second career rather than a lever you pull for money. **Phase 12 — Trad**, the cut ladder's last systemic rung, deferred four times on reasoning that expires when Phase 6 lands. **7–11 are marked re-orderable** — none blocks another and all five are engine-free sim work, which is what the container is good at and what needs no desk time. **Phase 6 gains a fourth settled item**: `world.ts` has **twelve walkable zones in one connected graph** (a 3-wide, 4-deep city with Notown's graveyard hill at the top and Trout Lake at the bottom), four walk-in interiors, three van-only destinations and 57 buildings, against `DirtbagZones.h`'s five — so **widen the enum before the blockout, not after**, because topology is data and costs an afternoon now whereas re-cutting a built level costs the level. **One tension surfaced and deliberately not resolved**: §4 cuts comps and the Olympics past 1.0, but the Olympic Village is a zone in the 2D graph and **Evan named it unprompted** when describing how travel works. The cut stands and is now flagged rather than assumed — reversing it is a pivot for `concepts/`, not a roadmap edit — but the zone graph is told to leave room, since a zone never built costs nothing and a graph with no room for one costs a rebuild. **And one place the port over-delivered, recorded so it stops looking like an accident**: §4 says keep ONE campfire game and `DirtbagCampfire` has two.
 - 2026-08-23 - **The 2D audit, and the last audit was checking the wrong list** (`notes/the-2d-audit.md`). Evan: *"Wait, so everything other than the actual built world is finished?? How's that possible? The dirtbag original game had a ton of features and systems."* **He was right and I was wrong**, and the error has a name this project keeps rediscovering. `notes/what-the-2d-game-still-has.md` audited **`concepts/DIRTBAG.md` §4's nineteen-item paragraph** against `Sim/` and reported the result under the title *what the 2D game still has*. §4 is not the 2D game; it is a summary of it written from memory, and it is short by about two orders of magnitude. **Auditing against the summary and reporting it as the game is the same error as testing an ordering when the question was a magnitude** — the check passes and tells you nothing. That note now carries the correction at the top. **The zips Evan supplied settled it**, and the second one is the prize: `dirtbagmain` is a 12.5 MB `index.html` with the whole game minified onto line 79, but `dirtbag_v0957` is **the source project** — `App.tsx` at **44,171 lines**, `world.ts` at 1,844, **48,447 total** against this repo's 9,709 lines of `Sim/`. Two structures in it make the audit checkable rather than impressionistic: **`GameState` carries 497 persisted fields**, most with a comment naming the feature that owns them, and the source is tagged with a **feature taxonomy of 122 families, 2,122 references and roughly 450 numbered features** (`CLB-16`, `MED-6`, `SETTER-B`, `WRLD-27`). **The audit had to be run twice because the first pass lied the way a grep lies.** A naive substring sweep of `Sim/` scored 31 systems present; **twenty-six were false** — `quest` matched *"the day becomes a real question"*, `rival` matched *"arrival"*, `trad` matched *"trade"*, `achievement` matched `DirtbagJobs.h`'s *"days is not an achievement, it is a fortnight"*, and `olympic` matched the one line of `DirtbagZones.h` that **quotes Evan's own message back**. Prose about a mechanic is not the mechanic; stripping comments before matching is the whole fix. **Verified result: 30 systems present and real, 50 absent with no code at all** — the comp circuit, leagues, national ranking, the national team, the World Cup, the Olympics; mentees, a persistent coaching roster, the youth team, gym ownership; **rivals** entirely; character creation (origin, archetype, flaw, personality, talents, quirks, habits, scars, marks); insurance, diagnosis tiers, cortisone, surgery, sickness, **dental**; per-job craft skills for ten jobs; the media economy (camera, portfolio, commissions, followers, the scene's discourse, the documentary); music, reading, the garden, fishing, cooking, crafting; romance, family, achievements, the life list, challenges, quests, clubs, tax; van build-outs, propane, bivy spots, hitchhikers, the caravan, grime; trad, deep water solo, soloing, expeditions, guidebook publishing, grade consensus. Plus **five minigames** to the campfire's two. **And the world is bigger than the description I built from.** `world.ts` has **twelve walkable zones in one connected graph** — a 3×4 city with a graveyard hill at the top and a lake at the bottom — **four walk-in interiors**, **three van-only destinations** (crag, Olympic Village, the folks' farm) and **57 buildings**. `Sim/DirtbagZones.h` has five. The two-tier walk-vs-van model is right, being the 2D game's actual rule; the map under it is a sixth the size. **What is true and what is not**: the port is not behind on the systems it has — thirty systems measured rather than assumed, with a 7,695-line harness, eleven checkers and frozen vectors, and genuinely deeper per system than the original. **But "everything but the world is finished" was wrong.** Every system *the roadmap names* is built and wired, and **the roadmap names a sixth of the game.** Recommended next, in order and not yet done: re-scope the roadmap against this file rather than §4; **widen the zone graph from 5 to 12 while it is still enum values** (an afternoon now, a level-rebuild later — topology is data, art is not); then build the place; then pick from the fifty in tiers, sim-first and one door per system, starting with **rivals**, **character creation** and **the comp ladder**.
 - 2026-08-23 - **The measured game is provably the played game** (`tools/check-parity.py`, `notes/the-measured-game.md`). **The recommendation this replaced was wrong and the correction is the finding.** I had said the probe never signed a sponsor and never saw a physio, and recommended a career-scale re-measurement on that basis. It does both, and runs `ReviewSeason` besides — the sim economy did not change while five doors were built, so re-running it would have reproduced numbers that had not moved. **The useful question was never *what do the numbers say now*; it was *whether the numbers were ever about this game*.** Three findings in two days shared one shape — **a rule living in a sim function the engine never called, with a reachable path around the side**: `WorkOddJob` took gigs with their standing effects while the engine called a flat `WorkShift` with none, `GoToTheGym` checked `IsGymMember` while the engine reached the gym by travel spot and wall, and `ObligationToday` took the sponsor's days while the engine asked nobody. Every balance note in this project comes from `season.cpp`, so a rule the probe runs and the engine skips means **the career being measured is not the career being played**: work and reputation were joined in every measured career and disconnected in every played one, and the gym cost $75 a month in the notes and $0 in the build. None of the ten existing checkers could see it — they check that declarations are *reachable*, and this is about whether the sim's two consumers **agree on which rules apply.** Checker eleven answers it, and **reports zero**: for the first time, the measured game and the played game are provably the same. **Getting it right took three tries and two of them passed while blind.** It saw **33 rules out of 92** — the declaration regex excluded `{` to avoid function bodies, which made it blind to every declaration with a braced default argument (`= DayDials{}`), which is most of this sim; it reported zero problems and all three divergences were in the part it could not see. **A checker that passes because it is not looking is worse than no checker.** Then it flagged `FactionDay` and `KitDay`, which are called inside `SleepToNextDay` and were working exactly as designed. Then counting any sim call as reach excused rules reachable only from `GoToTheGym`, which only the probe calls — a rule reached only from a dead function is not reached. It does proper fixed-point reachability now. **And the limit is recorded rather than papered over**: it catches *the probe runs a rule the game never runs*, not *the game runs the rule and ignores the answer* — which has a live example in this very finding, since `IsGymMember` was **always** reached (`KitLine` calls it, so the HUD printed *"gym membership: 12 days left"* the whole time nothing enforced it). The gate was what was missing, and the checker found it under the gate's name, which is luck as much as design.

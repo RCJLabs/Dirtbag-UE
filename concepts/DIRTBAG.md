@@ -53,7 +53,7 @@ factions (4, opposed), persistent partners with their own careers, the Lot neigh
 
 **Redesigned for 3D:** the climbing loop itself (above); skin/pump embodiment; morphology; weather/light as world state, not a modifier line.
 
-**Cut or defer past 1.0:** comps/Olympics, expeditions (El Cap tier — this is THE WALL's design, fold in later), deep-water solo, big-wall multi-day, filmmaking/photography economy, minigames (poker etc. — keep ONE campfire game), gym ownership, Solo mode, Notown/Halloween. The 2D game took years to accrete these; the 3D game earns them the same way.
+**Cut or defer past 1.0:** ~~comps/Olympics~~ (**REVERSED 2026-08-23 — back in scope, see [DECISION-comps-are-back.md](DECISION-comps-are-back.md).** Evan: *"wait comps were cut??? ok bring them back and the olympics. that's a huge part of the game."* The cut list's stated reasoning — *the 2D game took years to accrete these* — is right about the rest of this line and wrong about comps: the ladder is not an accretion, it is the half of a climbing career that has an ending, it is what the national ranking points at, the 2D zone graph gives the Olympic Village one of only three van-only destinations, and Evan named it unprompted when describing the world from memory. **Leagues come with it** as the same system's low end.), expeditions (El Cap tier — this is THE WALL's design, fold in later), deep-water solo, big-wall multi-day, filmmaking/photography economy, minigames (poker etc. — keep ONE campfire game), gym ownership, Solo mode, Notown/Halloween. The 2D game took years to accrete these; the 3D game earns them the same way.
 
 ## 5. The session proof (replaces the old FBIK pathfinder)
 
