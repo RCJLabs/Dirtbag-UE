@@ -139,9 +139,16 @@ picking deliberately rather than by inventory.
 
 What I would do instead, in order:
 
-1. **Re-scope the roadmap against this file, not §4.** One pass, honest
-   numbers, phases that reach the end of the actual game. Cheap, and it stops
-   every future estimate from being wrong the same way.
+1. ~~**Re-scope the roadmap against this file, not §4.**~~ **DONE
+   2026-08-23.** ROADMAP.md opens with a **scope ledger** — 30 present, 50
+   absent, 15 of those recorded cuts and **35 gaps nothing had recorded** —
+   and the plan now runs to **Phase 12** instead of stopping at 6: *Who Your
+   Climber Is*, *Somebody To Beat*, *The Body Keeps Score*, *A Life Outside
+   It*, *Work Is A Craft*, *Trad*. Each has a Done-when gate in house style,
+   and 7–11 are marked re-orderable because none of them blocks another —
+   all five are engine-free sim work. The Olympics tension is flagged in the
+   ledger and in the cut list rather than resolved: §4 cuts comps, the 2D
+   zone graph has an Olympic Village, and Evan named it unprompted.
 2. **Widen the zone graph now, while it is still five enum values.** Going
    from 5 to 12 zones is an afternoon in `Sim/DirtbagZones.cpp` today and a
    level-rebuild later. The topology is data; the art is not.
