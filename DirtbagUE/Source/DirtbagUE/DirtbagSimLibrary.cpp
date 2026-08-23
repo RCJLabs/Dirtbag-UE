@@ -283,7 +283,7 @@ UDirtbagLiveAttempt* UDirtbagSimLibrary::BeginDayLiveAttempt(
 	    dirtbag::BuildSessionAttemptInput(
 	        SimDay.session, Memory,
 	        dirtbag::ClimberForSession(SimPlayer, SimDay), SimRoute,
-	        Conditions));
+	        Conditions, {}, 0.72, SimPlayer.character));
 	return Attempt;
 }
 

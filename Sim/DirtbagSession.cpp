@@ -93,6 +93,7 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
   const bool edging = move.hold == HoldType::Crimp ||
                       move.hold == HoldType::Pocket ||
                       move.hold == HoldType::Pinch;
+  effective -= input.oddsPenalty;
   effective -= ShoePenaltyFor(input.shoeWear, edging,
                               dials.deadShoeGradePenalty,
                               dials.shoeBiteOnGoodHolds);

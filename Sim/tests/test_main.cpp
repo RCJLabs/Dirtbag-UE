@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "../DirtbagCampfire.h"
+#include "../DirtbagCharacter.h"
 #include "../DirtbagZones.h"
 #include "../DirtbagConditions.h"
 #include "../DirtbagCore.h"
@@ -1418,6 +1419,306 @@ static void TestWhoTurnsUp() {
       for (const Partner& p : lot) {
         CHECK(name != p.name);
       }
+    }
+  }
+}
+
+static void TestCharacter() {
+  CharacterDials cd;
+
+  // ---- an unbuilt character is nobody, and nobody changes anything ----
+  //
+  // **The most important check in this file, and it exists because the
+  // first version of it did not.** `Build` has to default to something, and
+  // whatever it defaults to carries that origin's perk and that flaw's
+  // cost. It defaulted to an All-Rounder who Sold It All with Gumby, which
+  // meant **every existing caller -- the probe, the golden vectors, every
+  // measurement in every note -- silently trained technique at half rate
+  // and got paid 12% more per shift.**
+  //
+  // All 75,027 checks passed. The training tests are orderings ("the
+  // grinder ends stronger than the cruiser") and halving both sides
+  // preserves an ordering, which is this project's own recorded lesson
+  // arriving from a direction nobody was watching.
+  //
+  // So every effect is pinned at *exactly* neutral for a default. Not
+  // "close to" -- exactly, because the whole point is that adding identity
+  // to this game must not move a single number that was measured without
+  // it.
+  {
+    const Character nobody;
+    CHECK(!nobody.built);
+    for (int lane = 0; lane < kSkillCount; lane++) {
+      const Skill s = static_cast<Skill>(lane);
+      CHECK(SkillGainMultiplier(nobody, s, false, false, 1.0, cd) == 1.0);
+      CHECK(SkillGainMultiplier(nobody, s, true, true, 0.0, cd) == 1.0);
+    }
+    for (int t = 0; t <= static_cast<int>(RouteType::Crack); t++) {
+      CHECK(OddsPenalty(nobody, static_cast<RouteType>(t), cd) == 0.0);
+    }
+    CHECK(InjuryRiskMultiplier(nobody, cd) == 1.0);
+    CHECK(ShiftPayMultiplier(nobody, cd) == 1.0);
+    CHECK(DailyCostMultiplier(nobody) == 1.0);
+    CHECK(ShopPriceMultiplier(nobody) == 1.0);
+    CHECK(PhysioPriceMultiplier(nobody) == 1.0);
+    CHECK(TalentSurfaced(Talent::None).empty());
+    // And nobody learns anything about themselves, because there is nobody.
+    Character n2;
+    CHECK(WorkedOn(n2, Skill::Power, 10000.0, cd) == Talent::None);
+    CHECK(!n2.giftKnown && !n2.antiKnown);
+  }
+
+  // ...and a built one is not neutral, or the flag would be doing the whole
+  // job. This is the other half of the pin: `built` must gate the effects,
+  // not delete them.
+  {
+    Build b;
+    b.flaw = Flaw::Gumby;
+    b.origin = Origin::SoldItAll;
+    const Character somebody = MakeCharacter(b, Rng::FromSeed("someone"), cd);
+    CHECK(somebody.built);
+    CHECK(SkillGainMultiplier(somebody, Skill::Technique, false, false, 1.0,
+                              cd) < 1.0);
+    CHECK(ShiftPayMultiplier(somebody, cd) > 1.0);
+  }
+
+  // ---- archetypes redistribute and never add -------------------------
+  //
+  // **The load-bearing check in this file.** A set of offsets that is not
+  // zero-sum is a difficulty setting wearing a costume: one archetype ends
+  // up simply better and the choice stops being a choice. The 2D game
+  // learned this on its competition field, measured it, and fixed it by
+  // shifting the offsets -- so the rule arrives here already paid for.
+  for (int a = 0; a < kArchetypeCount; a++) {
+    const ArchetypeDef& d = Describe(static_cast<Archetype>(a));
+    const double sum =
+        d.power + d.fingers + d.technique + d.endurance + d.head;
+    CHECK(std::abs(sum) < 1e-9);
+  }
+
+  // ---- origins own separate lanes ------------------------------------
+  //
+  // Each origin holds exactly one permanent multiplier, and no two origins
+  // hold theirs in the same lane. That is what stops them being comparable
+  // on one number, and it is a property of the table rather than of any one
+  // row -- so it is checked across the whole table rather than per origin.
+  int laneUsed[6] = {0, 0, 0, 0, 0, 0};
+  for (int o = 0; o < kOriginCount; o++) {
+    const OriginDef& d = Describe(static_cast<Origin>(o));
+    const double lanes[6] = {d.shiftPay,  d.indoorGain, d.trainingGain,
+                             d.dailyCost, d.shopPrice,  d.physioPrice};
+    int bent = 0;
+    for (int i = 0; i < 6; i++) {
+      if (std::abs(lanes[i] - 1.0) < 1e-9) continue;
+      bent++;
+      laneUsed[i]++;
+    }
+    CHECK(bent == 1);  // exactly one perk, never two
+  }
+  for (int i = 0; i < 6; i++) CHECK(laneUsed[i] == 1);  // and never shared
+
+  // Nothing in an origin touches send odds. This is the rule that keeps
+  // "where you came from" out of the resolver, and the only way to check it
+  // is that the odds function has no origin arm at all -- so it is checked
+  // by asking, for every origin, with everything else held equal.
+  for (int o = 0; o < kOriginCount; o++) {
+    Build b;
+    b.origin = static_cast<Origin>(o);
+    b.flaw = Flaw::Gumby;  // a flaw that is not the odds one
+    const Character c = MakeCharacter(b, Rng::FromSeed("odds"), cd);
+    for (int t = 0; t <= static_cast<int>(RouteType::Crack); t++) {
+      CHECK(OddsPenalty(c, static_cast<RouteType>(t), cd) == 0.0);
+    }
+  }
+
+  // ---- talents: one gift, one anti-talent, never the same lane -------
+  //
+  // A climber whose fingers both come fast and come slow is a wash, which
+  // is not a character. Swept over seeds rather than checked once, because
+  // the collision is a rare roll and a single seed proves nothing.
+  int gifts[kTalentCount] = {0};
+  int antis[kTalentCount] = {0};
+  for (int s = 0; s < 400; s++) {
+    Character c;
+    RollTalents(c, Rng::FromSeed("talent#" + std::to_string(s)));
+    CHECK(c.gift != Talent::None);
+    CHECK(c.antiTalent != Talent::None);
+    CHECK(Describe(c.gift).gift);
+    CHECK(!Describe(c.antiTalent).gift);
+    CHECK(Describe(c.gift).skill != Describe(c.antiTalent).skill);
+    gifts[static_cast<int>(c.gift)]++;
+    antis[static_cast<int>(c.antiTalent)]++;
+  }
+  // Every talent is reachable. A table entry that never rolls is content
+  // nobody will ever see, and it fails silently.
+  for (int t = 1; t < kTalentCount; t++) {
+    CHECK(gifts[t] + antis[t] > 0);
+  }
+  // Same seed, same person. The whole save model depends on it.
+  Character a1, a2;
+  RollTalents(a1, Rng::FromSeed("same"));
+  RollTalents(a2, Rng::FromSeed("same"));
+  CHECK(a1.gift == a2.gift && a1.antiTalent == a2.antiTalent);
+
+  // ---- the build actually shapes the climber -------------------------
+  //
+  // Pinned as magnitudes rather than orderings. "A Boulderer has more power
+  // than endurance" passes on a build where the offsets are 0.1 apart, and
+  // that is exactly what a flattened table looks like.
+  const Rng world = Rng::FromSeed("build-me");
+  Build boulderer;
+  boulderer.archetype = Archetype::Boulderer;
+  boulderer.origin = Origin::SoldItAll;
+  Build ropegun = boulderer;
+  ropegun.archetype = Archetype::RopeGun;
+
+  const Climber b = MakeClimber(boulderer, world, cd);
+  const Climber r = MakeClimber(ropegun, world, cd);
+  // Same seed, so the +/-6 of luck is identical and the gap is the build.
+  CHECK(b.skills.power - r.skills.power == 10.0);       // +6 against -4
+  CHECK(r.skills.endurance - b.skills.endurance == 11.0);  // +7 against -4
+  // And a career's shape is legible: a Boulderer's strongest is power.
+  CHECK(b.skills.power > b.skills.endurance + 8.0);
+  CHECK(r.skills.endurance > r.skills.power + 8.0);
+
+  // Nobody starts unable to pull on, whatever the build.
+  for (int ar = 0; ar < kArchetypeCount; ar++) {
+    for (int o = 0; o < kOriginCount; o++) {
+      Build bb;
+      bb.archetype = static_cast<Archetype>(ar);
+      bb.origin = static_cast<Origin>(o);
+      const Climber cc = MakeClimber(bb, Rng::FromSeed("floor"), cd);
+      CHECK(cc.skills.power >= 1.0 && cc.skills.power <= 99.0);
+      CHECK(cc.skills.head >= 1.0 && cc.skills.head <= 99.0);
+    }
+  }
+
+  // ---- flaws cost something, and the cost is where it says -----------
+  Build gumby;
+  gumby.flaw = Flaw::Gumby;
+  gumby.temperament = Temperament::Lifer;
+  const Character g = MakeCharacter(gumby, Rng::FromSeed("g"), cd);
+  // Half rate on footwork, and only on footwork.
+  const double gTech =
+      SkillGainMultiplier(g, Skill::Technique, false, false, 1.0, cd);
+  const double gPow =
+      SkillGainMultiplier(g, Skill::Power, false, false, 1.0, cd);
+  CHECK(gTech < gPow * 0.75);
+
+  // Fair-Weather is the only flaw you can do something about, which is why
+  // it is the interesting one: climb rested and it costs you nothing.
+  Build fw = gumby;
+  fw.flaw = Flaw::FairWeather;
+  const Character f = MakeCharacter(fw, Rng::FromSeed("f"), cd);
+  const double rested =
+      SkillGainMultiplier(f, Skill::Power, false, false, 0.9, cd);
+  const double wrecked =
+      SkillGainMultiplier(f, Skill::Power, false, false, 0.2, cd);
+  CHECK(wrecked < rested * 0.6);
+
+  // Happy Feet is the one flaw allowed near odds, and only on technical.
+  Build hf = gumby;
+  hf.flaw = Flaw::HappyFeet;
+  const Character h = MakeCharacter(hf, Rng::FromSeed("h"), cd);
+  CHECK(OddsPenalty(h, RouteType::Technical, cd) > 0.05);
+  CHECK(OddsPenalty(h, RouteType::Power, cd) == 0.0);
+
+  // Tweaky Fingers is a real multiplier on getting hurt, not a flavour
+  // line. Compared against the same build with a different flaw so the
+  // rolled tendon talents do not muddy it.
+  Build tw = gumby;
+  tw.flaw = Flaw::TweakyFingers;
+  const Character t1 = MakeCharacter(tw, Rng::FromSeed("tw"), cd);
+  const Character t2 = MakeCharacter(gumby, Rng::FromSeed("tw"), cd);
+  CHECK(InjuryRiskMultiplier(t1, cd) > InjuryRiskMultiplier(t2, cd) * 1.5);
+
+  // ---- personality bends four different mechanics --------------------
+  //
+  // Four axes, four lanes, and no axis is allowed to reach into another's.
+  // Checked as a grid: change one axis, and exactly the lanes that axis
+  // owns are allowed to move.
+  Build pur = gumby, imp = gumby;
+  pur.temperament = Temperament::Purist;
+  imp.temperament = Temperament::SendOrBust;
+  const Character cp = MakeCharacter(pur, Rng::FromSeed("p"), cd);
+  const Character ci = MakeCharacter(imp, Rng::FromSeed("p"), cd);
+
+  // Disciplined keeps more of a session than impulsive does.
+  CHECK(SkillGainMultiplier(cp, Skill::Power, false, false, 1.0, cd) >
+        SkillGainMultiplier(ci, Skill::Power, false, false, 1.0, cd) * 1.1);
+  // A purist works for less, because they take the work that leaves the
+  // days free.
+  CHECK(ShiftPayMultiplier(cp, cd) < ShiftPayMultiplier(ci, cd) * 0.95);
+
+  // **Two of the four axes have readers in this phase and two do not**, and
+  // the two that do not are still stored, saved and set -- what is missing
+  // is a partner model and a runout seam to read them, not the numbers.
+  // Checked here so the gap is a fact in the suite rather than a comment:
+  // the axes differ between temperaments even though nothing consumes them
+  // yet, which is what makes wiring them later a one-line change rather
+  // than an archaeology exercise.
+  CHECK(ci.personality.boldness > cp.personality.boldness + 20.0);
+  Build inf = gumby;
+  inf.temperament = Temperament::Influencer;
+  const Character cf = MakeCharacter(inf, Rng::FromSeed("p"), cd);
+  CHECK(cf.personality.social > cp.personality.social + 40.0);
+
+  // The line the game says the day a talent stops being a secret: a
+  // sentence about noticing something, not a stat readout.
+  const std::string surfaced = TalentSurfaced(Talent::BomberTendons);
+  CHECK(!surfaced.empty());
+  CHECK(surfaced.find("Bomber Tendons") != std::string::npos);
+  CHECK(surfaced.find("fingers") != std::string::npos);
+  for (char ch : surfaced) CHECK(!(ch >= '0' && ch <= '9'));
+
+  // ---- discovery: you learn what you are by what you do --------------
+  Character disc;
+  disc.built = true;  // a real climber, hand-built so the talents are known
+  disc.gift = Talent::Explosive;      // power
+  disc.antiTalent = Talent::NoEngine; // endurance
+  // A lane you never touch never tells you anything.
+  CHECK(WorkedOn(disc, Skill::Technique, 500.0, cd) == Talent::None);
+  CHECK(!disc.giftKnown);
+  // Work builds toward it and it lands exactly once.
+  CHECK(WorkedOn(disc, Skill::Power, cd.repsToSurface - 1.0, cd) ==
+        Talent::None);
+  CHECK(WorkedOn(disc, Skill::Power, 2.0, cd) == Talent::Explosive);
+  CHECK(disc.giftKnown);
+  CHECK(WorkedOn(disc, Skill::Power, 100.0, cd) == Talent::None);
+  // The anti-talent surfaces on its own lane and its own clock.
+  CHECK(WorkedOn(disc, Skill::Endurance, cd.repsToSurface + 1.0, cd) ==
+        Talent::NoEngine);
+  CHECK(disc.antiKnown);
+
+  // **The effect is live before the knowing.** This is the design stated
+  // as a test: nobody is told they have good tendons, they find out over
+  // ten years of having had them.
+  Character quiet;
+  quiet.built = true;
+  quiet.gift = Talent::Explosive;
+  quiet.antiTalent = Talent::Stiff;
+  CHECK(!quiet.giftKnown);
+  CHECK(SkillGainMultiplier(quiet, Skill::Power, false, false, 1.0, cd) >
+        1.3);
+
+  // ---- who you are, in a sentence ------------------------------------
+  //
+  // The gate for this phase is that a player can say who their climber is
+  // without reading a stat line. This is the game's own attempt at it; the
+  // test can only check that it is a sentence about this climber and not a
+  // form.
+  for (int o = 0; o < kOriginCount; o++) {
+    for (int ar = 0; ar < kArchetypeCount; ar++) {
+      Build bb;
+      bb.origin = static_cast<Origin>(o);
+      bb.archetype = static_cast<Archetype>(ar);
+      const Character cc = MakeCharacter(bb, Rng::FromSeed("say"), cd);
+      const std::string line = WhoYouAre(cc);
+      CHECK(line.size() > 20);
+      CHECK(line.find(OriginName(bb.origin)) != std::string::npos);
+      CHECK(line.back() == '.');
+      // Not a stat line: no digits anywhere in it.
+      for (char ch : line) CHECK(!(ch >= '0' && ch <= '9'));
     }
   }
 }
@@ -7704,6 +8005,7 @@ int main() {
   TestTheTable();
   TestHowClose();
   TestPumpShows();
+  TestCharacter();
   TestZones();
   TestWhoTurnsUp();
   TestSandbagsAreSpecific();

@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "DirtbagCharacter.h"
 #include "DirtbagCore.h"
 #include "DirtbagRng.h"
 #include "DirtbagSession.h"
@@ -141,10 +142,18 @@ const char* SessionAdviceText(SessionAdvice advice);
 // AttemptInSession is exactly these three around a batch ResolveAttempt.
 Rng DeriveAttemptRng(const Rng& sessionRng, const ProjectMemory& memory,
                      const Route& route);
+// `who` is the person rather than the body. The only thing read off it here
+// is the flaw's odds penalty, because a flaw is the one part of identity
+// allowed anywhere near send odds -- see Sim/DirtbagCharacter.h, where
+// origins are deliberately kept out of the resolver so that where you came
+// from can never be a difficulty setting. Defaulted to nobody, and nobody is
+// neutral, so every existing caller and every golden vector resolves exactly
+// as it did.
 AttemptInput BuildSessionAttemptInput(
     const SessionState& session, const ProjectMemory& memory,
     const Climber& climber, const Route& route, const Conditions& conditions,
-    const std::vector<double>& execution = {}, double botExecution = 0.72);
+    const std::vector<double>& execution = {}, double botExecution = 0.72,
+    const Character& who = Character{});
 void CommitAttempt(SessionState& session, ProjectMemory& memory,
                    const Route& route, const AttemptResult& result,
                    const SessionLoopDials& loop = SessionLoopDials{});

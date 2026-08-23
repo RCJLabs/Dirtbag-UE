@@ -233,6 +233,59 @@ struct FDirtbagGuidebookReadout
 
 /** Which part of the handover is on screen. */
 UENUM(BlueprintType)
+/** The four questions a career opens with, in order. See
+ *  Sim/DirtbagCharacter.h — the first three are a build and the fourth is a
+ *  disposition, and none of them is optional: a climber with no answers is
+ *  the template everybody used to be. */
+UENUM(BlueprintType)
+enum class EDirtbagCreationStep : uint8
+{
+	/** What kind of climber. Four, and the offsets sum to zero. */
+	Archetype,
+	/** Where you came from. Six, each with a perk in its own lane. */
+	Origin,
+	/** What is wrong with you. Five, and you have to pick one. */
+	Flaw,
+	/** What you are like. Four. */
+	Temperament,
+	/** Who that turned out to be. */
+	Done,
+};
+
+/** The creation flow, as a thing the HUD can draw.
+ *
+ *  Deliberately the same shape as the handover, and for the same reason:
+ *  **in this game a new career is an arrival.** The first climber and the
+ *  one who turns up after you retire are answering the same question, so
+ *  they go through one door rather than two that will drift apart. */
+USTRUCT(BlueprintType)
+struct FDirtbagCreationReadout
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Creation")
+	bool bActive = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Creation")
+	EDirtbagCreationStep Step = EDirtbagCreationStep::Archetype;
+
+	/** The question, in the game's voice rather than as a field label. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Creation")
+	FString Question;
+
+	/** What you can pick. Up to six; the key is the index plus one. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Creation")
+	TArray<FString> Options;
+
+	/** One line each, saying what it means rather than what it does. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Creation")
+	TArray<FString> Blurbs;
+
+	/** Who you turned out to be, once every question is answered. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Creation")
+	FString WhoYouAre;
+};
+
 enum class EDirtbagHandoverStep : uint8
 {
 	/** What the career was, and what survives it. */
@@ -547,6 +600,11 @@ public:
 	 *  anyway, so the two agree. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	EDirtbagZone CurrentZone = EDirtbagZone::Lot;
+
+	/** The creation flow. Active from the first frame of a fresh career
+	 *  until all four questions are answered. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Creation")
+	FDirtbagCreationReadout Creation;
 
 	/** Live session readout for the HUD; the wall keeps this current. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
@@ -1020,6 +1078,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Legacy")
 	void NameTheClimber(const FString& Name);
 
+	/** Open the four questions. Called on a fresh career; a loaded one whose
+	 *  climber was already built skips it, which is what makes old saves
+	 *  work — see BeginCreation's body. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Creation")
+	void BeginCreation();
+
+	/** Answer the question on screen. `Which` is zero-based; the key the
+	 *  player pressed is one more than that. Returns false when creation is
+	 *  not up or the index names nothing, so the caller knows the key was
+	 *  not spent here. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Creation")
+	bool ChooseInCreation(int32 Which);
+
+	/** Rebuild the on-screen options for the current question. */
+	void RefreshCreation();
+
+	/** What the counter charges this climber, as a multiplier. One for
+	 *  everybody except the Trust-Fund Kid, whose family money still quietly
+	 *  covers it. Read here rather than inside the sim, because a price is a
+	 *  fact about the shop and who is standing at it. */
+	double ShopPrice() const;
+
 	/** How many came before. */
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Legacy")
 	int32 GenerationsBefore() const;
@@ -1416,6 +1496,16 @@ public:
 	 *  wake up and everyone already knows. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Ethics")
 	FString EthicsNews;
+
+	/** What you just found out about yourself. Set on the burn where a
+	 *  rolled talent becomes obvious, and never again — a gift surfaces
+	 *  once in a career.
+	 *
+	 *  It is a *notice*, not a stat: the effect has been live since your
+	 *  first move, and all that changed is that you noticed. See
+	 *  Sim/DirtbagCharacter.h. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	FString TalentNews;
 
 	/** What the sponsor did overnight: the month's money, or the once-a-year
 	 *  verdict on whether they are keeping you. Empty on any night neither

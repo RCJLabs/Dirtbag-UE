@@ -37,6 +37,7 @@ private:
 	/** The end of a career, and the start of the next one. Takes the whole
 	 *  screen: there is nothing else happening. */
 	void DrawHandover(class UDirtbagGameInstance* Game, float W, float H);
+	void DrawCreation(class UDirtbagGameInstance* Game, float W, float H);
 
 	/** The crag's page. */
 	void DrawGuidebook(class UDirtbagGameInstance* Game, float W, float H);

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "DirtbagAge.h"
+#include "DirtbagCharacter.h"
 #include "DirtbagCore.h"
 #include "DirtbagCrew.h"
 #include "DirtbagDreams.h"
@@ -138,6 +139,15 @@ struct PlayerState {
   std::string name;
 
   Climber climber;
+
+  // Who this climber is, as opposed to what they can do. Chosen at
+  // creation, and the origin's money is what `cash` starts as -- see
+  // `Sim/DirtbagCharacter.h`. Default-constructed it is an All-Rounder who
+  // Sold It All with Gumby and the Lifer's temperament, which is a real
+  // person rather than a blank, so every existing caller keeps working and
+  // keeps meaning something.
+  Character character;
+
   double cash = 420.0;  // the war chest you left home with
   int day = 1;
 

@@ -9,6 +9,7 @@
 
 #include "DirtbagCampfire.h"
 #include "DirtbagZones.h"
+#include "DirtbagCharacter.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
@@ -330,6 +331,142 @@ enum class EDirtbagVanPart : uint8
 	Battery,
 	Radiator,
 	Clutch
+};
+
+/** What kind of climber you are on day one. Mirrors dirtbag::Archetype —
+ *  the five offsets of every archetype sum to zero, so this is a shape and
+ *  never a score. */
+UENUM(BlueprintType)
+enum class EDirtbagArchetype : uint8
+{
+	Boulderer  UMETA(DisplayName = "The Boulderer"),
+	RopeGun    UMETA(DisplayName = "The Rope Gun"),
+	Technician UMETA(DisplayName = "The Technician"),
+	AllRounder UMETA(DisplayName = "The All-Rounder"),
+};
+
+/** Where you came from. Mirrors dirtbag::Origin — each holds one permanent
+ *  perk in a lane no other origin touches, and none of them goes near send
+ *  odds. */
+UENUM(BlueprintType)
+enum class EDirtbagOrigin : uint8
+{
+	SoldItAll    UMETA(DisplayName = "Sold It All"),
+	GymRat       UMETA(DisplayName = "Gym Rat"),
+	DesertLocal  UMETA(DisplayName = "Desert Local"),
+	ExGymnast    UMETA(DisplayName = "Ex-Gymnast"),
+	LateBloomer  UMETA(DisplayName = "Late Bloomer"),
+	TrustFund    UMETA(DisplayName = "Trust-Fund Kid"),
+};
+
+/** The one you chose, knowing. Mirrors dirtbag::Flaw. */
+UENUM(BlueprintType)
+enum class EDirtbagFlaw : uint8
+{
+	Gumby         UMETA(DisplayName = "Gumby"),
+	HardGainer    UMETA(DisplayName = "Hard Gainer"),
+	FairWeather   UMETA(DisplayName = "Fair-Weather Trainer"),
+	HappyFeet     UMETA(DisplayName = "Happy Feet"),
+	TweakyFingers UMETA(DisplayName = "Tweaky Fingers"),
+};
+
+/** What you are like. Mirrors dirtbag::Temperament — it seeds four
+ *  personality axes, each of which bends a different mechanic. */
+UENUM(BlueprintType)
+enum class EDirtbagTemperament : uint8
+{
+	Purist     UMETA(DisplayName = "The Purist"),
+	SendOrBust UMETA(DisplayName = "Send-or-Bust"),
+	Lifer      UMETA(DisplayName = "The Lifer"),
+	Influencer UMETA(DisplayName = "The Influencer"),
+};
+
+/** What you were born with. Mirrors dirtbag::Talent — one gift and one
+ *  anti-talent, rolled at birth, on different skills, and **live from the
+ *  first session whether or not you know about them.** */
+UENUM(BlueprintType)
+enum class EDirtbagTalent : uint8
+{
+	None             UMETA(DisplayName = "—"),
+	NaturalCrimper   UMETA(DisplayName = "Natural Crimper"),
+	Explosive        UMETA(DisplayName = "Explosive"),
+	SlowTwitchEngine UMETA(DisplayName = "Slow-Twitch Engine"),
+	QuietFeet        UMETA(DisplayName = "Quiet Feet"),
+	IceInTheVeins    UMETA(DisplayName = "Ice in the Veins"),
+	BomberTendons    UMETA(DisplayName = "Bomber Tendons"),
+	GlassTendons     UMETA(DisplayName = "Glass Tendons"),
+	NoPop            UMETA(DisplayName = "No Pop"),
+	NoEngine         UMETA(DisplayName = "No Engine"),
+	Stiff            UMETA(DisplayName = "Stiff"),
+	Skittish         UMETA(DisplayName = "Skittish"),
+};
+
+/** Who your climber is, as opposed to what they can do. Mirrors
+ *  dirtbag::Character.
+ *
+ *  **`bBuilt` is the load-bearing field.** Every effect in the sim returns
+ *  exactly neutral while it is false, which is what keeps a
+ *  default-constructed player from silently carrying an origin's perk and a
+ *  flaw's cost — see Sim/DirtbagCharacter.h for what that cost was when it
+ *  did. */
+USTRUCT(BlueprintType)
+struct FDirtbagCharacter
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	bool bBuilt = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	EDirtbagArchetype Archetype = EDirtbagArchetype::AllRounder;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	EDirtbagOrigin Origin = EDirtbagOrigin::SoldItAll;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	EDirtbagFlaw Flaw = EDirtbagFlaw::Gumby;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	EDirtbagTemperament Temperament = EDirtbagTemperament::Lifer;
+
+	/** -100..100 each. Disciplined keeps more of a session; bold commits
+	 *  further above the gear; social decides who turns up; a purist works
+	 *  for less and their outdoor sends say more. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	double Discipline = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	double Boldness = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	double Social = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	double Purism = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	EDirtbagTalent Gift = EDirtbagTalent::None;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	EDirtbagTalent AntiTalent = EDirtbagTalent::None;
+
+	/** Whether it has surfaced yet. The effect does not wait for this. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	bool bGiftKnown = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	bool bAntiKnown = false;
+
+	/** Sessions worked in each lane, power/fingers/technique/endurance/head.
+	 *  A gift in a lane you never train stays a secret forever. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	TArray<double> Reps;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	double StartingCash = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	int32 AgePlus = 0;
 };
 
 /** What is on your feet, and how much of it is left. */
@@ -903,6 +1040,10 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Dog")
 	FDirtbagDog Dog;
 
+	/** Who you are, as opposed to what you can do. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
+	FDirtbagCharacter Character;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gear")
 	FDirtbagShoes Shoes;
 
@@ -1164,6 +1305,8 @@ namespace DirtbagConvert
 	dirtbag::Dog ToSim(const FDirtbagDog& In);
 	FDirtbagShoes FromSim(const dirtbag::Shoes& In);
 	dirtbag::Shoes ToSim(const FDirtbagShoes& In);
+	FDirtbagCharacter FromSim(const dirtbag::Character& In);
+	dirtbag::Character ToSim(const FDirtbagCharacter& In);
 	FDirtbagVan FromSim(const dirtbag::Van& In);
 	dirtbag::Van ToSim(const FDirtbagVan& In);
 	FDirtbagPartnerBond FromSim(const dirtbag::PartnerBond& In);

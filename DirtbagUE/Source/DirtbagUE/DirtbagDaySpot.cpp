@@ -330,6 +330,13 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnChoose2);
 			InputComponent->BindKey(EKeys::Three, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnChoose3);
+			// Creation only; see OnChoose4.
+			InputComponent->BindKey(EKeys::Four, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnChoose4);
+			InputComponent->BindKey(EKeys::Five, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnChoose5);
+			InputComponent->BindKey(EKeys::Six, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnChoose6);
 			// Its own key, nowhere near E. See OnRetire.
 			InputComponent->BindKey(EKeys::R, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnRetire);
@@ -696,6 +703,18 @@ void ADirtbagDaySpot::OnInteract()
 {
 	if (SkipTravel())
 	{
+		return;
+	}
+	// Creation owns E while it is up: on the last screen it is the only way
+	// out, and on the four questions it does nothing, because "press any
+	// key" on a question with a right answer is how people skip past the
+	// choice they were meant to make.
+	if (Game && Game->Creation.bActive)
+	{
+		if (Game->Creation.Step == EDirtbagCreationStep::Done)
+		{
+			Game->Creation.bActive = false;
+		}
 		return;
 	}
 	// The handover owns E while it is up, the same way the road owns every
@@ -1300,8 +1319,13 @@ bool ADirtbagDaySpot::SetStakeNotch(int32 Notch)
 // The same three keys, and the same question in both places: how much of
 // the float is this worth. At the shop it buys a life; at the fire it buys
 // a hand.
+// **Creation is asked before anything else and without `bPlayerNear`**,
+// because it is up from the first frame of a career and the player is not
+// standing anywhere yet. Same reason the road owns every key while it is on
+// screen: there is nothing else to be doing.
 void ADirtbagDaySpot::OnChoose1()
 {
+	if (Game && Game->ChooseInCreation(0)) { return; }
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(0)) { return; }
 	if (TurnGuidebookPage(0)) { return; }
@@ -1310,6 +1334,7 @@ void ADirtbagDaySpot::OnChoose1()
 }
 void ADirtbagDaySpot::OnChoose2()
 {
+	if (Game && Game->ChooseInCreation(1)) { return; }
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(1)) { return; }
 	if (TurnGuidebookPage(1)) { return; }
@@ -1318,11 +1343,31 @@ void ADirtbagDaySpot::OnChoose2()
 }
 void ADirtbagDaySpot::OnChoose3()
 {
+	if (Game && Game->ChooseInCreation(2)) { return; }
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(2)) { return; }
 	if (TurnGuidebookPage(2)) { return; }
 	if (TakeGig(2)) { return; }
 	if (!SetStakeNotch(2)) { ChooseDreamAt(EDirtbagDream::HomeBase); }
+}
+
+// **Three more keys, and they exist for exactly one question.** Six origins
+// need six keys, and a question that offers a sixth option with no way to
+// press it is the bug the wall's ethics prompt had a day ago. They do
+// nothing outside creation on purpose -- a number key that quietly means
+// something at the shop and something else at the fire is how a player
+// buys a dream trying to fold a hand.
+void ADirtbagDaySpot::OnChoose4()
+{
+	if (Game) { Game->ChooseInCreation(3); }
+}
+void ADirtbagDaySpot::OnChoose5()
+{
+	if (Game) { Game->ChooseInCreation(4); }
+}
+void ADirtbagDaySpot::OnChoose6()
+{
+	if (Game) { Game->ChooseInCreation(5); }
 }
 
 void ADirtbagDaySpot::ChooseDreamAt(EDirtbagDream Which)

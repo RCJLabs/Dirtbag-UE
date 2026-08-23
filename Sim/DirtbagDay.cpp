@@ -53,7 +53,10 @@ bool WorkOddJob(PlayerState& player, DayState& day, const OddJob& job,
 
   PassHours(day, job.hours, dials);
   day.energy = std::max(0.0, day.energy - job.energy);
-  Pay(player, job.pay);
+  // What the work pays *you*. Two different things meet here: the origin's
+  // CV, which is a fact, and how much of a purist you are, which is a
+  // choice -- a purist takes the worse-paid work that leaves the days free.
+  Pay(player, job.pay * ShiftPayMultiplier(player.character));
   player.job.daysWorked++;
 
   // What the work says about you. The board was written with these in
@@ -260,7 +263,8 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
     // read from the session because the cold first burn is the classic.
     TweakSomething(player.climber, worldRng, player.day,
                    day.session.attemptsMade, challenge, hardest,
-                   day.session.warmth);
+                   day.session.warmth, BodyDials{}, AgeDials{},
+                   InjuryRiskMultiplier(player.character));
   }
 
   // Diminishing returns: the same session that builds a beginner barely
@@ -281,19 +285,38 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
 
   const double amount = dials.trainingRate * challenge * engagement;
 
+  // **What a session teaches you depends on who you are.** Talents (the two
+  // you were born with and may not know about), the flaw you picked, your
+  // origin and how disciplined you are all land here, per lane, as one
+  // multiplier -- so this is the single seam where identity meets progress
+  // rather than eleven scattered ones.
+  //
+  // `WorkedOn` is called with the same amount, because the thing that
+  // surfaces a talent has to be the thing the talent affects: a gift in a
+  // lane you never train stays a secret forever, which is the design.
+  const bool indoor = day.atGym;
+  const auto teach = [&](Skill lane, double base) {
+    const double mult = SkillGainMultiplier(player.character, lane, indoor,
+                                           false, player.climber.psyche);
+    WorkedOn(player.character, lane, base > 0.0 ? 1.0 : 0.0);
+    return base * mult;
+  };
+
   Gain(player.climber.skills.power,
-       amount * w.power * 3.0 * headroom(s.power));
+       teach(Skill::Power, amount * w.power * 3.0 * headroom(s.power)));
   Gain(player.climber.skills.fingers,
-       amount * w.fingers * 3.0 * headroom(s.fingers));
+       teach(Skill::Fingers, amount * w.fingers * 3.0 * headroom(s.fingers)));
   Gain(player.climber.skills.technique,
-       amount * w.technique * 3.0 * headroom(s.technique));
+       teach(Skill::Technique,
+             amount * w.technique * 3.0 * headroom(s.technique)));
   // Endurance trains by mileage — moves climbed, whatever the grade — but
   // mileage is a slower teacher than trying hard, so it stays below the
   // targeted skills rather than outrunning them.
   Gain(player.climber.skills.endurance,
-       dials.trainingRate * dials.enduranceMileageRate *
-           static_cast<double>(result.timeline.size()) *
-           headroom(s.endurance));
+       teach(Skill::Endurance,
+             dials.trainingRate * dials.enduranceMileageRate *
+                 static_cast<double>(result.timeline.size()) *
+                 headroom(s.endurance)));
 
   // And head, on the boldest thing you committed to rather than the hardest.
   // Falling counts: this reads the highpoint reached, not whether it went,
@@ -309,7 +332,8 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
     boldest = std::max(boldest, ExposureAt(route, i, day.session.padding));
   }
   Gain(player.climber.skills.head,
-       dials.headExposureRate * boldest * headroom(s.head));
+       teach(Skill::Head,
+             dials.headExposureRate * boldest * headroom(s.head)));
 }
 
 void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
@@ -376,7 +400,9 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // Bills land on their morning, every billsEveryDays-th day after day 1.
   if (dials.billsEveryDays > 0 && player.day > 1 &&
       (player.day - 1) % dials.billsEveryDays == 0) {
-    Charge(player, dials.billsAmount);
+    // What living costs *you*. The Desert Local's lane: you know how to
+    // live on nothing, and it never stops being true.
+    Charge(player, dials.billsAmount * DailyCostMultiplier(player.character));
   }
 
   // A hungry night is a bad night: recovery scales down toward the floor.

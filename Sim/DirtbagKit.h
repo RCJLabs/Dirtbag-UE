@@ -143,9 +143,16 @@ struct Kit {
 
 // Buying. Each returns false if you cannot afford it, and changes nothing
 // when it does — the caller never has to unwind a half-purchase.
-bool BuyPad(Kit& kit, double& cash, const KitDials& dials = KitDials{});
-bool BuyHangboard(Kit& kit, double& cash, const KitDials& dials = KitDials{});
-bool RenewMembership(Kit& kit, double& cash, const KitDials& dials = KitDials{});
+// `priceMult` is what the counter charges *this* climber -- the Trust-Fund
+// Kid's family money, and nobody else's, at 0.7. Trailing and neutral by
+// default so every existing caller and every golden vector is untouched.
+bool BuyPad(Kit& kit, double& cash, const KitDials& dials = KitDials{},
+            double priceMult = 1.0);
+bool BuyHangboard(Kit& kit, double& cash, const KitDials& dials = KitDials{},
+                  double priceMult = 1.0);
+bool RenewMembership(Kit& kit, double& cash,
+                     const KitDials& dials = KitDials{},
+                     double priceMult = 1.0);
 
 // Lapses at midnight like everything else that runs out.
 void KitDay(Kit& kit);

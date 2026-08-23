@@ -748,9 +748,11 @@ void ADirtbagClimbWall::StartAttempt()
 		const dirtbag::ProjectMemory SimMemory = DirtbagConvert::ToSim(Memory);
 		Live = dirtbag::BeginAttempt(
 		    dirtbag::DeriveAttemptRng(SessionRng, SimMemory, SimRoute),
-		    dirtbag::BuildSessionAttemptInput(SimSession, SimMemory,
-		                                      DirtbagConvert::ToSim(ClimberStats),
-		                                      SimRoute, dirtbag::Conditions{}));
+		    dirtbag::BuildSessionAttemptInput(
+		        SimSession, SimMemory, DirtbagConvert::ToSim(ClimberStats),
+		        SimRoute, dirtbag::Conditions{}, {}, 0.72,
+		        Game ? DirtbagConvert::ToSim(Game->Player.Character)
+		             : dirtbag::Character{}));
 	}
 	else
 	{

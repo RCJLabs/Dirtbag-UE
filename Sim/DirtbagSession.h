@@ -202,6 +202,13 @@ struct AttemptInput {
   // fully padded so that every caller who has not heard of pads - the
   // golden vectors included - resolves exactly as it always did.
   double padding = 1.0;
+  // Straight off the odds, in grade units, for who this climber is. Only a
+  // *flaw* ever fills this -- see Sim/DirtbagCharacter.h, where nothing
+  // else is allowed near send odds, which is what keeps where-you-came-from
+  // from being a difficulty setting. Defaults to zero so every caller that
+  // has not heard of it -- the golden vectors included -- resolves exactly
+  // as it always did.
+  double oddsPenalty = 0.0;
   // Per-move minigame quality, 0..1. Missing entries fall back to botExecution.
   std::vector<double> execution;
   double botExecution = 0.72;

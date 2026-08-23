@@ -171,6 +171,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	dirtbag::PlayerState Out;
 	Out.name = TCHAR_TO_UTF8(*In.Name);
 	Out.climber = ToSim(In.Climber);
+	Out.character = ToSim(In.Character);
 	Out.cash = In.Cash;
 	Out.day = In.Day;
 	Out.dog = ToSim(In.Dog);
@@ -218,6 +219,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 {
 	FDirtbagPlayerState Out;
 	Out.Name = FString(In.name.c_str());
+	Out.Character = FromSim(In.character);
 	Out.Climber.Power = In.climber.skills.power;
 	Out.Climber.Fingers = In.climber.skills.fingers;
 	Out.Climber.Technique = In.climber.skills.technique;
@@ -639,6 +641,60 @@ dirtbag::Dog ToSim(const FDirtbagDog& In)
 	Out.adopted = In.bAdopted;
 	Out.bond = In.Bond;
 	Out.fed = In.Fed;
+	return Out;
+}
+
+FDirtbagCharacter FromSim(const dirtbag::Character& In)
+{
+	FDirtbagCharacter Out;
+	Out.bBuilt = In.built;
+	Out.Archetype = static_cast<EDirtbagArchetype>(In.build.archetype);
+	Out.Origin = static_cast<EDirtbagOrigin>(In.build.origin);
+	Out.Flaw = static_cast<EDirtbagFlaw>(In.build.flaw);
+	Out.Temperament = static_cast<EDirtbagTemperament>(In.build.temperament);
+	Out.Discipline = In.personality.discipline;
+	Out.Boldness = In.personality.boldness;
+	Out.Social = In.personality.social;
+	Out.Purism = In.personality.purism;
+	Out.Gift = static_cast<EDirtbagTalent>(In.gift);
+	Out.AntiTalent = static_cast<EDirtbagTalent>(In.antiTalent);
+	Out.bGiftKnown = In.giftKnown;
+	Out.bAntiKnown = In.antiKnown;
+	Out.Reps.Reset(dirtbag::kSkillCount);
+	for (int32 i = 0; i < dirtbag::kSkillCount; i++)
+	{
+		Out.Reps.Add(In.reps[i]);
+	}
+	Out.StartingCash = In.startingCash;
+	Out.AgePlus = In.agePlus;
+	return Out;
+}
+
+dirtbag::Character ToSim(const FDirtbagCharacter& In)
+{
+	dirtbag::Character Out;
+	Out.built = In.bBuilt;
+	Out.build.archetype = static_cast<dirtbag::Archetype>(In.Archetype);
+	Out.build.origin = static_cast<dirtbag::Origin>(In.Origin);
+	Out.build.flaw = static_cast<dirtbag::Flaw>(In.Flaw);
+	Out.build.temperament = static_cast<dirtbag::Temperament>(In.Temperament);
+	Out.personality.discipline = In.Discipline;
+	Out.personality.boldness = In.Boldness;
+	Out.personality.social = In.Social;
+	Out.personality.purism = In.Purism;
+	Out.gift = static_cast<dirtbag::Talent>(In.Gift);
+	Out.antiTalent = static_cast<dirtbag::Talent>(In.AntiTalent);
+	Out.giftKnown = In.bGiftKnown;
+	Out.antiKnown = In.bAntiKnown;
+	// A mirror arriving with the wrong number of lanes is a mirror from
+	// another version; take what is there and leave the rest at zero rather
+	// than reading off the end of it.
+	for (int32 i = 0; i < dirtbag::kSkillCount && i < In.Reps.Num(); i++)
+	{
+		Out.reps[i] = In.Reps[i];
+	}
+	Out.startingCash = In.StartingCash;
+	Out.agePlus = In.AgePlus;
 	return Out;
 }
 

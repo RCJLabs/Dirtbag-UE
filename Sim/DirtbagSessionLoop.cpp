@@ -50,7 +50,8 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
                                       const Route& route,
                                       const Conditions& conditions,
                                       const std::vector<double>& execution,
-                                      double botExecution) {
+                                      double botExecution,
+                                      const Character& who) {
   AttemptInput in;
   in.climber = climber;
   in.climber.skin = session.skinLeft;    // the body as it is now,
@@ -63,6 +64,8 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
   in.cleanliness = memory.cleanliness;   // how much of it you have uncovered
   in.shoeWear = session.shoeWear;        // what is left of the rubber
   in.padding = session.padding;          // what you dragged up the hill
+  // Happy Feet, and nothing else in this game, touches this.
+  in.oddsPenalty = OddsPenalty(who, route.type);
   in.execution = execution;
   in.botExecution = botExecution;
   return in;

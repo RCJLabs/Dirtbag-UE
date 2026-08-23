@@ -113,7 +113,7 @@ bool RollForInjury(Climber& climber, const Rng& worldRng, int day,
 bool TweakSomething(Climber& climber, const Rng& worldRng, int day,
                     int attempt, double challenge, HoldType hardestHold,
                     double warmth, const BodyDials& dials,
-                    const AgeDials& ageDials) {
+                    const AgeDials& ageDials, double risk) {
   // Already hurt is ClimbOnIt's question, not this one's.
   if (climber.injury.active) return false;
   if (challenge < dials.tweakChallengeFloor) return false;
@@ -138,6 +138,11 @@ bool TweakSomething(Climber& climber, const Rng& worldRng, int day,
   // and nothing here may shift how any attempt resolves.
   Rng rng = worldRng.Derive("tweak#" + std::to_string(day) + "#" +
                             std::to_string(attempt));
+  // Who you are, last: the tendons you were born with and the flaw you
+  // picked scale the whole roll rather than any one term of it, because
+  // Glass Tendons are not "worse at cold crimps", they are worse at all of
+  // it.
+  chance *= std::max(0.0, risk);
   if (!rng.Chance(chance)) return false;
 
   climber.injury.active = true;
@@ -181,15 +186,16 @@ bool ClimbOnIt(Climber& climber, const Rng& worldRng, int day, int attempt,
 }
 
 bool Physio(Climber& climber, double& cash, int& lastPhysioDay, int today,
-            const BodyDials& dials) {
+            const BodyDials& dials, double priceMult) {
+  const double price = dials.physioCost * priceMult;
   if (!climber.injury.active) return false;
-  if (cash < dials.physioCost) return false;
+  if (cash < price) return false;
   // No buying your way out of a season in an afternoon.
   if (lastPhysioDay > 0 && today - lastPhysioDay < dials.physioDaysBetween) {
     return false;
   }
 
-  cash -= dials.physioCost;
+  cash -= price;
   lastPhysioDay = today;
   climber.injury.daysLeft =
       std::max(1, climber.injury.daysLeft - dials.physioDaysSaved);

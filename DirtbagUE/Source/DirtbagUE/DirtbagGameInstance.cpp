@@ -32,6 +32,12 @@ void UDirtbagGameInstance::Init()
 	}
 
 	Day = UDirtbagSimLibrary::WakeUp(Player);
+
+	// **A career opens with four questions.** Skipped for a save whose
+	// climber has already answered them, which is the whole of the old-save
+	// story: an unbuilt character is neutral in every lane, so a v20 save
+	// loads and plays exactly as it did until the day it is rebuilt.
+	BeginCreation();
 }
 
 bool UDirtbagGameInstance::EatMeal()
@@ -533,7 +539,28 @@ FDirtbagAttemptResult UDirtbagGameInstance::CommitLiveFor(
 	dirtbag::CommitAttempt(SimDay.session,
 	                       dirtbag::MemoryFor(SimPlayer, SimRoute), SimRoute,
 	                       Result);
+
+	// **The day a talent stops being a secret.** `ApplyAttemptToDay` books
+	// the session's work in each lane and flips the flag when one becomes
+	// obvious; nothing inside the sim says so out loud, because a sim
+	// function that formats a sentence for a HUD is a sim function that
+	// knows about a HUD. So it is noticed here, by the transition -- which
+	// also means it can only ever be said once.
+	const bool bKnewGift = SimPlayer.character.giftKnown;
+	const bool bKnewAnti = SimPlayer.character.antiKnown;
+
 	dirtbag::ApplyAttemptToDay(SimPlayer, SimDay, SimRoute, Result, Live.rng);
+
+	if (!bKnewGift && SimPlayer.character.giftKnown)
+	{
+		TalentNews = FString(
+		    dirtbag::TalentSurfaced(SimPlayer.character.gift).c_str());
+	}
+	else if (!bKnewAnti && SimPlayer.character.antiKnown)
+	{
+		TalentNews = FString(
+		    dirtbag::TalentSurfaced(SimPlayer.character.antiTalent).c_str());
+	}
 
 	Player = DirtbagConvert::FromSim(SimPlayer);
 	Day = DirtbagConvert::FromSim(SimDay);
@@ -1256,6 +1283,176 @@ TArray<FString> UDirtbagGameInstance::WhoCouldTurnUp() const
 	return Out;
 }
 
+namespace
+{
+// The question, in the game's voice. Not "Select Archetype": you are
+// standing in a car park at the start of a life, and the game should sound
+// like it knows that.
+const TCHAR* CreationQuestion(EDirtbagCreationStep Step)
+{
+	switch (Step)
+	{
+	case EDirtbagCreationStep::Archetype:
+		return TEXT("What kind of climber are you?");
+	case EDirtbagCreationStep::Origin:
+		return TEXT("How did you end up here?");
+	case EDirtbagCreationStep::Flaw:
+		return TEXT("And what is wrong with you?");
+	default:
+		return TEXT("What are you like?");
+	}
+}
+}  // namespace
+
+void UDirtbagGameInstance::RefreshCreation()
+{
+	FDirtbagCreationReadout& C = Creation;
+	C.Options.Reset();
+	C.Blurbs.Reset();
+	if (!C.bActive || C.Step == EDirtbagCreationStep::Done)
+	{
+		return;
+	}
+	C.Question = CreationQuestion(C.Step);
+
+	// The catalogue is the sim's, read rather than restated. A second copy
+	// of six origins in engine code is two lists that disagree by Christmas.
+	const auto Add = [&C](const TCHAR* Name, const TCHAR* Blurb)
+	{
+		C.Options.Add(FString(Name));
+		C.Blurbs.Add(FString(Blurb));
+	};
+	switch (C.Step)
+	{
+	case EDirtbagCreationStep::Archetype:
+		for (int32 i = 0; i < dirtbag::kArchetypeCount; i++)
+		{
+			const dirtbag::ArchetypeDef& D =
+			    dirtbag::Describe(static_cast<dirtbag::Archetype>(i));
+			Add(UTF8_TO_TCHAR(D.name), UTF8_TO_TCHAR(D.blurb));
+		}
+		break;
+	case EDirtbagCreationStep::Origin:
+		for (int32 i = 0; i < dirtbag::kOriginCount; i++)
+		{
+			const dirtbag::OriginDef& D =
+			    dirtbag::Describe(static_cast<dirtbag::Origin>(i));
+			// The perk is said with the blurb, because an origin that does
+			// not say what it permanently buys you is a flavour text.
+			Add(UTF8_TO_TCHAR(D.name),
+			    *FString::Printf(TEXT("%s  %s"), UTF8_TO_TCHAR(D.blurb),
+			                     UTF8_TO_TCHAR(D.perk)));
+		}
+		break;
+	case EDirtbagCreationStep::Flaw:
+		for (int32 i = 0; i < dirtbag::kFlawCount; i++)
+		{
+			const dirtbag::FlawDef& D =
+			    dirtbag::Describe(static_cast<dirtbag::Flaw>(i));
+			Add(UTF8_TO_TCHAR(D.name), UTF8_TO_TCHAR(D.blurb));
+		}
+		break;
+	default:
+		for (int32 i = 0; i < dirtbag::kTemperamentCount; i++)
+		{
+			const dirtbag::TemperamentDef& D =
+			    dirtbag::Describe(static_cast<dirtbag::Temperament>(i));
+			Add(UTF8_TO_TCHAR(D.name), UTF8_TO_TCHAR(D.blurb));
+		}
+		break;
+	}
+}
+
+double UDirtbagGameInstance::ShopPrice() const
+{
+	return dirtbag::ShopPriceMultiplier(
+	    DirtbagConvert::ToSim(Player.Character));
+}
+
+void UDirtbagGameInstance::BeginCreation()
+{
+	// Already answered. A loaded career walks straight past this, and so
+	// does a second call.
+	if (Player.Character.bBuilt)
+	{
+		Creation.bActive = false;
+		return;
+	}
+	Creation = FDirtbagCreationReadout{};
+	Creation.bActive = true;
+	Creation.Step = EDirtbagCreationStep::Archetype;
+	RefreshCreation();
+}
+
+bool UDirtbagGameInstance::ChooseInCreation(int32 Which)
+{
+	FDirtbagCreationReadout& C = Creation;
+	if (!C.bActive || C.Step == EDirtbagCreationStep::Done)
+	{
+		return false;
+	}
+	if (!C.Options.IsValidIndex(Which))
+	{
+		// The key belonged to creation even though it named nobody --
+		// otherwise pressing 5 at a four-way question would fall through to
+		// whatever else is listening.
+		return true;
+	}
+
+	switch (C.Step)
+	{
+	case EDirtbagCreationStep::Archetype:
+		Player.Character.Archetype = static_cast<EDirtbagArchetype>(Which);
+		C.Step = EDirtbagCreationStep::Origin;
+		break;
+	case EDirtbagCreationStep::Origin:
+		Player.Character.Origin = static_cast<EDirtbagOrigin>(Which);
+		C.Step = EDirtbagCreationStep::Flaw;
+		break;
+	case EDirtbagCreationStep::Flaw:
+		Player.Character.Flaw = static_cast<EDirtbagFlaw>(Which);
+		C.Step = EDirtbagCreationStep::Temperament;
+		break;
+	default:
+	{
+		Player.Character.Temperament =
+		    static_cast<EDirtbagTemperament>(Which);
+
+		// Everything answered, so the sim builds the person: the archetype's
+		// shape, the origin's life, the temperament leaned by where you came
+		// from, and **the two talents you do not get told about.**
+		dirtbag::Build Build;
+		Build.archetype =
+		    static_cast<dirtbag::Archetype>(Player.Character.Archetype);
+		Build.origin = static_cast<dirtbag::Origin>(Player.Character.Origin);
+		Build.flaw = static_cast<dirtbag::Flaw>(Player.Character.Flaw);
+		Build.temperament =
+		    static_cast<dirtbag::Temperament>(Player.Character.Temperament);
+
+		const dirtbag::Rng World =
+		    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed));
+		const dirtbag::Character Made = dirtbag::MakeCharacter(Build, World);
+		Player.Character = DirtbagConvert::FromSim(Made);
+		Player.Climber =
+		    DirtbagConvert::FromSim(dirtbag::MakeClimber(Build, World));
+		// The origin's money is what you arrive with, not a bonus on top of
+		// the old flat start -- otherwise a Trust-Fund Kid gets $820.
+		Player.Cash = Made.startingCash;
+
+		C.WhoYouAre = FString(dirtbag::WhoYouAre(Made).c_str());
+		C.Step = EDirtbagCreationStep::Done;
+		C.Options.Reset();
+		C.Blurbs.Reset();
+		// Written down straight away: four answers is enough of a decision
+		// that losing it to an alt-F4 would be a real annoyance.
+		SaveNow();
+		return true;
+	}
+	}
+	RefreshCreation();
+	return true;
+}
+
 void UDirtbagGameInstance::NameTheClimber(const FString& Name)
 {
 	if (Name.IsEmpty())
@@ -1771,7 +1968,15 @@ bool UDirtbagGameInstance::SeeAPhysio()
 	dirtbag::Climber SimClimber = DirtbagConvert::ToSim(Player.Climber);
 	double Cash = Player.Cash;
 	int LastDay = Player.LastPhysioDay;
-	if (!dirtbag::Physio(SimClimber, Cash, LastDay, Player.Day)) return false;
+	// What the physio charges *you*. The Late Bloomer's lane, and the only
+	// origin that touches it.
+	const double PhysioPrice =
+	    dirtbag::PhysioPriceMultiplier(DirtbagConvert::ToSim(Player.Character));
+	if (!dirtbag::Physio(SimClimber, Cash, LastDay, Player.Day,
+	                     dirtbag::BodyDials{}, PhysioPrice))
+	{
+		return false;
+	}
 	Player.Climber = DirtbagConvert::FromSim(SimClimber);
 	Player.Cash = Cash;
 	Player.LastPhysioDay = LastDay;
@@ -1798,14 +2003,21 @@ namespace
 
 bool UDirtbagGameInstance::BuyCrashPad()
 {
+	// What the counter charges *you*. The Trust-Fund Kid's lane, and nobody
+	// else's -- read once here rather than inside the sim, because a price
+	// is a fact about the shop and who is standing at it.
+	const double Price = ShopPrice();
 	return BuyWith(Player.Kit, Player.Cash,
-	               [](dirtbag::Kit& K, double& M) { return dirtbag::BuyPad(K, M); });
+	               [Price](dirtbag::Kit& K, double& M)
+	               { return dirtbag::BuyPad(K, M, dirtbag::KitDials{}, Price); });
 }
 
 bool UDirtbagGameInstance::BuyHangboard()
 {
-	return BuyWith(Player.Kit, Player.Cash, [](dirtbag::Kit& K, double& M) {
-		return dirtbag::BuyHangboard(K, M);
+	const double Price = ShopPrice();
+	return BuyWith(Player.Kit, Player.Cash,
+	               [Price](dirtbag::Kit& K, double& M) {
+		return dirtbag::BuyHangboard(K, M, dirtbag::KitDials{}, Price);
 	});
 }
 
@@ -1839,8 +2051,10 @@ FString UDirtbagGameInstance::HangboardLine() const
 
 bool UDirtbagGameInstance::RenewGymMembership()
 {
-	return BuyWith(Player.Kit, Player.Cash, [](dirtbag::Kit& K, double& M) {
-		return dirtbag::RenewMembership(K, M);
+	const double Price = ShopPrice();
+	return BuyWith(Player.Kit, Player.Cash,
+	               [Price](dirtbag::Kit& K, double& M) {
+		return dirtbag::RenewMembership(K, M, dirtbag::KitDials{}, Price);
 	});
 }
 

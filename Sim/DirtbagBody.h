@@ -184,17 +184,24 @@ bool RollForInjury(Climber& climber, const Rng& worldRng, int day,
 // true on the burn that hurt you. Distinct from RollForInjury (the chronic
 // path, rolled nightly on load) and from ClimbOnIt (the gamble of pulling
 // on something already wrong).
+// `risk` multiplies the whole roll and is where the tendons you were born
+// with and the flaw you picked land -- Bomber Tendons at 0.55, Glass at
+// 1.7, Tweaky Fingers at 1.8. Neutral by default, so every existing caller
+// keeps the numbers it was measured with.
 bool TweakSomething(Climber& climber, const Rng& worldRng, int day,
                     int attempt, double challenge, HoldType hardestHold,
                     double warmth, const BodyDials& dials = BodyDials{},
-                    const AgeDials& ageDials = AgeDials{});
+                    const AgeDials& ageDials = AgeDials{},
+                    double risk = 1.0);
 
 bool ClimbOnIt(Climber& climber, const Rng& worldRng, int day, int attempt,
                const BodyDials& dials = BodyDials{});
 
 // Money for time. False if you cannot afford it or it is not due yet.
+// `priceMult` is the Late Bloomer's lane: your affairs are in order and
+// getting fixed costs less. Trailing and neutral by default.
 bool Physio(Climber& climber, double& cash, int& lastPhysioDay, int today,
-            const BodyDials& dials = BodyDials{});
+            const BodyDials& dials = BodyDials{}, double priceMult = 1.0);
 
 bool IsHurt(const Climber& climber);
 

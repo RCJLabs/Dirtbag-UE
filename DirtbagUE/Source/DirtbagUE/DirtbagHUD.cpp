@@ -218,6 +218,17 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	// And what came out about you. Same size and colour as the Lot's news
 	// because it arrives the same way — overnight, already true, and about
 	// something you did rather than something you are choosing.
+	// Said in the same slow slot as a secret coming out, and in the same
+	// register: something you found out rather than something you won.
+	if (!Game->TalentNews.IsEmpty())
+	{
+		for (const FString& Line : WrapToWidth(Game->TalentNews, 62))
+		{
+			DrawText(Line, FLinearColor(0.65f, 0.80f, 0.62f, 1.f), X, Y,
+			         GEngine->GetSmallFont(), 1.f);
+			Y += 18.f;
+		}
+	}
 	if (!Game->EthicsNews.IsEmpty())
 	{
 		Y += 22.f;
@@ -601,6 +612,59 @@ void ADirtbagHUD::DrawTravel(UDirtbagGameInstance* Game, float W, float H)
 	         W - 190.f, H - 46.f, GEngine->GetSmallFont(), 1.f);
 }
 
+void ADirtbagHUD::DrawCreation(UDirtbagGameInstance* Game, float W, float H)
+{
+	const FDirtbagCreationReadout& O = Game->Creation;
+	const float X = W * 0.5f - 380.f;
+	float Y = H * 0.20f;
+
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.92f), 0.f, 0.f, W, H);
+
+	if (O.Step == EDirtbagCreationStep::Done)
+	{
+		// One sentence, and deliberately not a stat block. The gate for
+		// this phase is that a player can say who their climber is without
+		// reading numbers -- so the game says it that way first, and the
+		// numbers are on the HUD from the next frame anyway.
+		DrawText(TEXT("So that is who you are."), kDim, X, Y,
+		         GEngine->GetMediumFont(), 1.f);
+		Y += 44.f;
+		for (const FString& Line : WrapToWidth(O.WhoYouAre, 68))
+		{
+			DrawText(Line, kInk, X, Y, GEngine->GetLargeFont(), 1.f);
+			Y += 32.f;
+		}
+		Y += 30.f;
+		// **Nothing here mentions the talents.** Two were rolled and they
+		// are live from the first move; you find out what they were by
+		// climbing for a season, which is the entire design and would be
+		// undone by a line here listing them.
+		DrawText(TEXT("E to get on with it."), kInk, X, Y,
+		         GEngine->GetMediumFont(), 1.f);
+		return;
+	}
+
+	DrawText(O.Question, kInk, X, Y, GEngine->GetLargeFont(), 1.f);
+	Y += 50.f;
+
+	for (int32 i = 0; i < O.Options.Num(); i++)
+	{
+		DrawText(FString::Printf(TEXT("(%d)  %s"), i + 1, *O.Options[i]),
+		         kInk, X, Y, GEngine->GetMediumFont(), 1.f);
+		Y += 26.f;
+		if (O.Blurbs.IsValidIndex(i))
+		{
+			for (const FString& Line : WrapToWidth(O.Blurbs[i], 74))
+			{
+				DrawText(Line, kDim, X + 34.f, Y, GEngine->GetSmallFont(),
+				         1.f);
+				Y += 20.f;
+			}
+		}
+		Y += 12.f;
+	}
+}
+
 void ADirtbagHUD::DrawHandover(UDirtbagGameInstance* Game, float W, float H)
 {
 	const FDirtbagHandoverReadout& O = Game->Handover;
@@ -810,6 +874,14 @@ void ADirtbagHUD::DrawHUD()
 	    !Game->TravelReadout.bActive)
 	{
 		DrawGuidebook(Game, W, H);
+		return;
+	}
+
+	// **Creation outranks even the handover**, because it is the only screen
+	// that can be up before there is a climber to draw anything else about.
+	if (Game->Creation.bActive)
+	{
+		DrawCreation(Game, W, H);
 		return;
 	}
 

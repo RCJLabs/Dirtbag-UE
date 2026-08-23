@@ -16,21 +16,24 @@ bool Afford(double& cash, double price) {
 
 }  // namespace
 
-bool BuyPad(Kit& kit, double& cash, const KitDials& dials) {
-  if (!Afford(cash, dials.padCost)) return false;
+bool BuyPad(Kit& kit, double& cash, const KitDials& dials,
+            double priceMult) {
+  if (!Afford(cash, dials.padCost * priceMult)) return false;
   kit.pads++;
   return true;
 }
 
-bool BuyHangboard(Kit& kit, double& cash, const KitDials& dials) {
+bool BuyHangboard(Kit& kit, double& cash, const KitDials& dials,
+                  double priceMult) {
   if (kit.hangboard) return false;   // you only need the one
-  if (!Afford(cash, dials.hangboardCost)) return false;
+  if (!Afford(cash, dials.hangboardCost * priceMult)) return false;
   kit.hangboard = true;
   return true;
 }
 
-bool RenewMembership(Kit& kit, double& cash, const KitDials& dials) {
-  if (!Afford(cash, dials.membershipCost)) return false;
+bool RenewMembership(Kit& kit, double& cash, const KitDials& dials,
+                     double priceMult) {
+  if (!Afford(cash, dials.membershipCost * priceMult)) return false;
   // Renewing early stacks rather than resets, because losing the days you
   // already paid for would be a punishment for being organised.
   kit.membershipDaysLeft += dials.membershipDays;

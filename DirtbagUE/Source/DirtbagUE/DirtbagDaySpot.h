@@ -187,6 +187,13 @@ private:
 	void OnChoose1();
 	void OnChoose2();
 	void OnChoose3();
+	UFUNCTION()
+	void OnChoose4();
+	UFUNCTION()
+	void OnChoose5();
+	UFUNCTION()
+	void OnChoose6();
+
 	void ChooseDreamAt(EDirtbagDream Which);
 	/** Returns true if it handled the key, i.e. this is the fire. */
 	bool SetStakeNotch(int32 Notch);
