@@ -444,6 +444,18 @@ void ADirtbagClimbWall::PushPrompt()
 		Lines.Add(Rope);
 	}
 
+	// Indoors, whether the desk will let you on at all. Said at the wall
+	// rather than discovered by pressing E, so nobody drives across town to
+	// find out.
+	if (Game && !IsOutdoors(Venue) && !Game->IsGymMember())
+	{
+		FDirtbagPromptLine Desk;
+		Desk.Text = TEXT("Not a member. The desk will want $75 before you "
+		                 "get on anything.");
+		Desk.Tone = EDirtbagPromptTone::Blocked;
+		Lines.Add(Desk);
+	}
+
 	// And where the body is, which is the half a player cannot see. Only
 	// once a session is under way — before that everyone is cold and
 	// saying so is noise.
@@ -674,6 +686,27 @@ void ADirtbagClimbWall::StartAttempt()
 		Toast(FString::Printf(
 		          TEXT("SETUP: %s has no HoldLine spline points."), *GetName()),
 		      FColor::Red, 30.f, kToastSetup);
+		return;
+	}
+
+	// No membership, no plastic.
+	//
+	// **The gym was free.** `dirtbag::GoToTheGym` checks `IsGymMember` and
+	// nothing called it -- the reachable path to the gym is a travel spot
+	// and a wall, and neither asked. So the membership system was
+	// decorative: `RenewMembership` had no door, `KitDay` ticked a counter
+	// nobody read, and the save carried a field that changed nothing.
+	//
+	// `Sim/DirtbagKit.h` calls the membership **"the load-bearing one"** --
+	// 157 days a season that never come good, converted into climbing --
+	// and `notes/phase3-kit.md` measured a probe *paying* for it. So the
+	// measured economy bought a membership and the played one got the gym
+	// for nothing, which is the second time in two days that those have
+	// turned out to be different games.
+	if (Game && !IsOutdoors(Venue) && !Game->IsGymMember())
+	{
+		Toast(TEXT("The desk wants to see a membership."), FColor::Orange,
+		      5.f);
 		return;
 	}
 

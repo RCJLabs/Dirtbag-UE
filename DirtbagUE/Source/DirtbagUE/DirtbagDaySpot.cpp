@@ -118,6 +118,15 @@ FString ADirtbagDaySpot::PromptText() const
 			return FString(TEXT("Stop climbing, for good?  R again to mean "
 			                    "it.  Anything else walks away."));
 		}
+		// The hangboard lives over the side door, so this is where it gets
+		// used. Only offered when there is something to offer: owned, and
+		// not already hung on today.
+		FString Board;
+		if (Game->Player.Kit.bHangboard && !Game->Day.bHangboardDone)
+		{
+			Board = TEXT("\n   The board is over the door.  (H)");
+		}
+
 		const FString What = Game->VanLine();
 		FString Line =
 		    What.IsEmpty()
@@ -141,7 +150,7 @@ FString ADirtbagDaySpot::PromptText() const
 		{
 			Line += TEXT("\n   Nobody has asked your name.  (R)");
 		}
-		return Line;
+		return Line + Board;
 	}
 	case EDirtbagSpotKind::GearShop:
 	{
@@ -205,6 +214,17 @@ FString ADirtbagDaySpot::PromptText() const
 		// one desk, and it already handles rubber, pads, dreams and now a
 		// sponsor's paperwork. When the town becomes somewhere in its own
 		// right this earns its own door.
+		// The kit counter: the membership always, the hangboard until you
+		// own one. Both are indoor answers to a day the weather has
+		// already decided, which is why they sit together.
+		FString Kit = FString::Printf(TEXT("\n   %s"),
+		                              *Game->MembershipLine());
+		const FString Board = Game->HangboardLine();
+		if (!Board.IsEmpty())
+		{
+			Kit += FString::Printf(TEXT("\n   %s"), *Board);
+		}
+
 		FString Care;
 		const FString Physio = Game->PhysioLine();
 		if (!Physio.IsEmpty())
@@ -228,7 +248,7 @@ FString ADirtbagDaySpot::PromptText() const
 		          *Game->ShoeLine(), Grades, Game->Player.Cash)
 		    : FString::Printf(TEXT("Shoes?  (E)  -  %s.  $%.0f"),
 		                      *Game->ShoeLine(), Game->Player.Cash)) +
-		       Care + Deal;
+		       Kit + Care + Deal;
 	}
 	case EDirtbagSpotKind::Fire:
 	{
@@ -315,6 +335,10 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnSign);
 			InputComponent->BindKey(EKeys::P, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnPhysio);
+			InputComponent->BindKey(EKeys::M, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnMembership);
+			InputComponent->BindKey(EKeys::H, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnHangboard);
 			bBoundInput = true;
 		}
 	}
@@ -341,6 +365,75 @@ void ADirtbagDaySpot::OnTriggerEnd(UPrimitiveComponent*, AActor* OtherActor,
 	{
 		DisableInput(PC);
 	}
+}
+
+void ADirtbagDaySpot::OnMembership()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop)
+	{
+		return;
+	}
+	if (!Game->RenewGymMembership())
+	{
+		Say(FString::Printf(TEXT("$%.0f, and you have $%.0f."),
+		                    dirtbag::KitDials{}.membershipCost,
+		                    Game->Player.Cash),
+		    FColor::Orange, 5.f);
+		return;
+	}
+	Say(FString::Printf(TEXT("Signed up.  %s"), *Game->MembershipLine()),
+	    FColor::Green, 6.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnHangboard()
+{
+	if (!bPlayerNear || !Game)
+	{
+		return;
+	}
+
+	// At the counter it is a purchase; at the van it is a session. One
+	// object, and where you are standing says which you meant.
+	if (Kind == EDirtbagSpotKind::GearShop)
+	{
+		if (Game->Player.Kit.bHangboard)
+		{
+			return;
+		}
+		if (!Game->BuyHangboard())
+		{
+			Say(FString::Printf(TEXT("$%.0f, and you have $%.0f."),
+			                    dirtbag::KitDials{}.hangboardCost,
+			                    Game->Player.Cash),
+			    FColor::Orange, 5.f);
+			return;
+		}
+		Say(TEXT("It goes in the van, over the side door."), FColor::Green,
+		    6.f);
+		PushPrompt();
+		return;
+	}
+
+	if (Kind != EDirtbagSpotKind::Van || !Game->Player.Kit.bHangboard)
+	{
+		return;
+	}
+	if (!Game->HangboardSession())
+	{
+		// The two refusals the sim has, said as themselves: once a day, and
+		// not on skin that is already gone.
+		Say(Game->Day.bHangboardDone
+		        ? TEXT("You have already hung today.")
+		        : TEXT("Not on this skin. That is how you take a week off."),
+		    FColor::Orange, 5.f);
+		return;
+	}
+	Say(FString::Printf(TEXT("Twenty minutes on the board.  It's %.0f:00, "
+	                         "energy %.0f."),
+	                    Game->Day.Hour, Game->Day.Energy),
+	    FColor::Green, 6.f);
+	PushPrompt();
 }
 
 void ADirtbagDaySpot::OnPhysio()

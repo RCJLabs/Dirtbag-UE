@@ -220,6 +220,14 @@ private:
 	 *  signing has one: E is for buying rubber. */
 	void OnPhysio();
 
+	/** The gym membership, at the counter. */
+	void OnMembership();
+
+	/** Buy a hangboard at the counter; use it at the van. One key, two
+	 *  spots, because it is one object and where you are says which you
+	 *  meant. */
+	void OnHangboard();
+
 	/** While the book is open, 1/2/3 turn the page rather than naming a
 	 *  dream or sizing a stake. Returns true if the book took the key. */
 	bool TurnGuidebookPage(int32 Which);

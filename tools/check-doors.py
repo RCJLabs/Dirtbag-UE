@@ -63,7 +63,19 @@ def call_sites(text, name):
     apart by what follows the parameter list: a definition is followed by
     an opening brace."""
     calls = 0
-    for m in re.finditer(r"\b" + re.escape(name) + r"\s*\(", text):
+    for m in re.finditer(r"(\w+\s*::\s*)?\b" + re.escape(name) + r"\s*\(",
+                         text):
+        # A call qualified by some *other* scope is a different function that
+        # happens to share the name.
+        #
+        # This blind spot bit three times before it got fixed:
+        # UDirtbagGameInstance::WorkShift looked called because its own body
+        # called UDirtbagSimLibrary::WorkShift; GoToTheGym and
+        # RenewGymMembership looked called because theirs called
+        # dirtbag::GoToTheGym and dirtbag::RenewMembership. Every instance
+        # was a verb whose only "caller" was itself, forwarding to the sim.
+        if m.group(1):
+            continue
         i = m.end() - 1
         depth = 0
         while i < len(text):

@@ -272,6 +272,10 @@ void StartGymSession(PlayerState& player, DayState& day,
 //
 // False if you are not a member — the gym is the one place in this game
 // that checks.
+// unwired-ok: the probe's one-call shortcut for an indoor day. The engine
+// reaches the gym the way a player does -- drive there, walk to a wall,
+// press E -- and gates it on IsGymMember at the wall, so wrapping this
+// would be a second path to the same place with its own copy of the rule.
 bool GoToTheGym(PlayerState& player, DayState& day,
                 const KitDials& kit = KitDials{},
                 const DayDials& dials = DayDials{});

@@ -1782,6 +1782,34 @@ bool UDirtbagGameInstance::BuyHangboard()
 	});
 }
 
+FString UDirtbagGameInstance::MembershipLine() const
+{
+	const dirtbag::KitDials Kd;
+	const int32 Left = Player.Kit.MembershipDaysLeft;
+	if (Left > 0)
+	{
+		return FString::Printf(
+		    TEXT("Gym membership: %d day%s left.  (M) tops it up, $%.0f."),
+		    Left, Left == 1 ? TEXT("") : TEXT("s"), Kd.membershipCost);
+	}
+	return FString::Printf(
+	    TEXT("Not a member.  (M)  -  $%.0f for %d days of weather nobody "
+	         "can take off you."),
+	    Kd.membershipCost, Kd.membershipDays);
+}
+
+FString UDirtbagGameInstance::HangboardLine() const
+{
+	if (Player.Kit.bHangboard)
+	{
+		return FString();
+	}
+	const dirtbag::KitDials Kd;
+	return FString::Printf(
+	    TEXT("A hangboard?  (H)  -  $%.0f, once, and it lives in the van."),
+	    Kd.hangboardCost);
+}
+
 bool UDirtbagGameInstance::RenewGymMembership()
 {
 	return BuyWith(Player.Kit, Player.Cash, [](dirtbag::Kit& K, double& M) {
@@ -1806,15 +1834,6 @@ FString UDirtbagGameInstance::KitLine() const
 	    dirtbag::KitText(DirtbagConvert::ToSim(Player.Kit)).c_str());
 }
 
-bool UDirtbagGameInstance::GoToTheGym()
-{
-	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
-	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
-	if (!dirtbag::GoToTheGym(SimPlayer, SimDay)) return false;
-	Player = DirtbagConvert::FromSim(SimPlayer);
-	Day = DirtbagConvert::FromSim(SimDay);
-	return true;
-}
 
 bool UDirtbagGameInstance::HangboardSession()
 {

@@ -769,6 +769,7 @@ public:
 	FString ClaimText(int32 BoardIndex, double GainedThisPress);
 
 	/** Whether it is worth pulling on yet. */
+	// blueprint-only: an accessor for Blueprint; the wall reads cleanliness directly
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|FirstAscent")
 	bool IsWorkable(int32 BoardIndex);
 
@@ -1026,6 +1027,7 @@ public:
 	FString StandingLine() const;
 
 	/** -1 they will not have you .. +1 you are one of theirs. */
+	// blueprint-only: an accessor for Blueprint; the HUD prints StandingLine
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Standing")
 	double StandingWith(EDirtbagFaction Faction) const;
 
@@ -1200,9 +1202,11 @@ public:
 	 *  Returns the days of streak this cost, so the game can be honest at
 	 *  the moment of signing rather than in a summary nobody reads. Zero if
 	 *  there was nothing to lose. */
+	// no-door: the salaried job, the trap the whole work system is built around
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
 	int32 TakeSalariedJob();
 
+	// no-door: the salaried job; you cannot take it, so you cannot leave it
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
 	void QuitSalariedJob();
 
@@ -1268,9 +1272,19 @@ public:
 	bool BuyHangboard();
 
 	/** A month of plastic. The only climbing that ignores the weather. */
-	// no-door: gym membership, which gates the board and the kit
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
 	bool RenewGymMembership();
+
+	/** The membership at the counter: what is left on it, or what it
+	 *  costs. Always says something — unlike the physio line, because
+	 *  whether you are a member is a standing fact rather than a symptom. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Kit")
+	FString MembershipLine() const;
+
+	/** The hangboard: the broke answer to a day you cannot climb. Empty
+	 *  once you own one, because it is bought once and never again. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Kit")
+	FString HangboardLine() const;
 
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Kit")
 	bool IsGymMember() const;
@@ -1290,9 +1304,6 @@ public:
 
 	/** A day on plastic. False if you are not a member — the gym is the one
 	 *  place in this game that checks. */
-	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
-	bool GoToTheGym();
-
 	/** An hour on the board. False without one, or on skin already gone. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Kit")
 	bool HangboardSession();
