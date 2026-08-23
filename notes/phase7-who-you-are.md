@@ -171,16 +171,85 @@ any key" on a question with a right answer is how people skip past the choice
 they were meant to make. It saves immediately: four answers is enough of a
 decision that losing it to an alt-F4 would be a real annoyance.
 
+## Boldness, and where fear is actually priced
+
+*(Added the same day, closing debt this phase created.)*
+
+`boldness` is wired: it shifts the resolver's `nerve`, which is otherwise
+your head skill mapped off fifty. **Head is how well you handle being up
+there; boldness is how much it bothers you.** They are different questions
+and they add.
+
+It is not a buff, and both halves are pinned by a test — Send-or-Bust buys
+**+55 boldness with −30 discipline**, so it commits to more and keeps less of
+every session it ever has. The temperament is the choice; the axis is not.
+
+**Measuring it turned up something about the fear model that outranks the
+wiring.** Exposure, which is the only thing nerve spends, comes out at:
+
+| | max exposure, in grade units |
+|---|---|
+| unpadded boulder | **0.900** |
+| on a rope | 0.367 |
+| **padded boulder** | **0.000** |
+
+Nerve is worth half of that at most. So boldness is felt **at your limit, on
+unpadded ground, and essentially nowhere else**:
+
+| grade vs the climber | bold's advantage |
+|---|---|
+| two below | +0.2% |
+| one below | +1.8% |
+| **at the limit** | **+10.4%** |
+| above | 0% — you fall off before the height |
+
+That is a good sentence about climbing rather than a problem: **fear costs
+you exactly when the margin is thin, and crash pads buy it away entirely.**
+The last part is not new — it is `mostFoamCanDo`, measured in Phase 3, where
+*"a well-padded highball is still a highball"* was the deliberate call. It
+does mean a bold temperament is worth nothing to a boulderer who owns pads,
+which is worth knowing before anybody tunes it.
+
+**Two test failures on the way there, and both were the test.** The first
+measured on a 5.12a pitch where the mean highpoint was **0.27 of sixteen
+moves** — the climber fell off the first move every time and never reached
+the exposed ground, so the check failed with the wiring perfectly correct.
+The second hard-coded grade 5, which is inside the band for one generated
+route and outside it for another; it now walks the grades and measures at
+the first one where a cautious climber sends between a tenth and three
+quarters of the time, which is what "at your limit" means.
+
+**And the first version of the boldness test was worthless.** Deleting the
+one line that plumbs `NerveShift` into `AttemptInput` passed the entire
+suite, because the test only checked that `NerveShift` computed different
+numbers — never that anything read them. This project's oldest bug, wearing
+a test's clothes. Both halves are pinned now: the builder fills the field
+and the resolver spends it, and killing either fails.
+
+## The purism bug this uncovered
+
+`ShiftPayMultiplier` clamped the axis at zero — `max(0.0, Axis(purism))` — so
+**a purist worked for less and a pragmatist worked for exactly the same.**
+The whole negative half of the axis was free, and the Influencer (−40 purism)
+was collecting the boldness, the audience and full pay for a −10 discipline
+ticket. A pragmatist takes the money now, which is what being a pragmatist
+is.
+
+Caught by a test that then failed for a *different* reason worth keeping: a
+Purist who Sold It All still clears 1.0, because **a 12% CV beats an 8%
+conscience.** The absolute check needed an origin whose own pay lane is
+neutral, or the perk sits on top of the axis and hides its sign.
+
 ## What is not in this phase
 
-**Two of the four personality axes have readers and two do not.**
-`discipline` bends what a session teaches you (Purist beats Send-or-Bust on
-technique 19/24) and `purism` bends what a shift pays. `social` (whether
-people turn up) and `boldness` (what you commit to above the last piece)
-want seams in the partner and sport models this phase does not touch — so
-they are **stored, saved, set and checked, but not consumed.** Written down
-here and asserted in the suite rather than shipped as two multipliers nothing
-multiplies. Wiring them later is a one-line change each, not archaeology.
+**One of the four personality axes still has no reader, and the reason is not
+that nobody wrote one.** `social` is *whether people turn up*, and in this
+game **nobody ever fails to turn up**: `LotRegulars` hands back all three
+regulars, every day, for ninety years. There is nothing for the axis to bend
+until turnout exists — and turnout is a design question already standing on
+the roadmap (*"the Lot never varies"*) rather than a wiring job. The axis is
+stored, saved, set, and asserted in the suite to separate the temperaments,
+so wiring it the day turnout arrives is one line rather than archaeology.
 
 **Quirks and habits are not here.** They are earned from a tally of how you
 actually climb rather than chosen, which needs instrumentation in every

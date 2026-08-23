@@ -316,6 +316,11 @@ Climber MakeClimber(const Build& build, const Rng& rng,
 // Effects
 // ---------------------------------------------------------------------
 
+double NerveShift(const Character& c, const CharacterDials& dials) {
+  if (!c.built) return 0.0;
+  return dials.boldnessNerve * Axis(c.personality.boldness);
+}
+
 double SkillGainMultiplier(const Character& c, Skill lane, bool indoor,
                            bool deliberateTraining, double psyche,
                            const CharacterDials& dials) {
@@ -385,8 +390,14 @@ double ShiftPayMultiplier(const Character& c, const CharacterDials& dials) {
   // Two lanes meet here and they are different things: the origin's perk is
   // a fact about your CV, and purism is a choice about what you will do for
   // money. A purist takes the worse-paid work that leaves the days free.
+  // **Symmetric, and it was not.** This clamped the axis at zero, so a
+  // purist worked for less and a pragmatist worked for exactly the same --
+  // which made the whole negative half of the axis free. The Influencer is
+  // -40 purism and was collecting the boldness, the audience and full pay
+  // for a -10 discipline ticket. A pragmatist takes the money now, which is
+  // what being a pragmatist is.
   const double purist =
-      1.0 - dials.purismShiftPay * std::max(0.0, Axis(c.personality.purism));
+      1.0 - dials.purismShiftPay * Axis(c.personality.purism);
   return Describe(c.build.origin).shiftPay * purist;
 }
 

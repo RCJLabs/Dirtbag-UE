@@ -295,6 +295,19 @@ struct CharacterDials {
   // What a full axis of personality is worth in its own lane. Each is the
   // value at +/-100; the effect is linear between.
   double disciplineTraining = 0.20;  // +/-20% skill from a session
+
+  // What a full axis of boldness is worth, in nerve. Nerve runs 0..1 and is
+  // otherwise your head skill mapped off fifty, so **0.25 is worth about
+  // twenty-five points of head** at the extremes -- over three grades'
+  // worth, which is a lot and is meant to be: temperament should be felt on
+  // the sharp end or it is a label.
+  //
+  // It reads as a straight buff on its own and is not one, because **the
+  // temperament is the choice and the axis is not**: Send-or-Bust buys +55
+  // boldness with -30 discipline, so it commits to more and keeps less of
+  // every session it ever has. The Lifer takes that trade the other way. A
+  // test pins both halves.
+  double boldnessNerve = 0.25;
   double purismShiftPay = 0.15;      // a purist works for less
 };
 
@@ -346,15 +359,26 @@ double DailyCostMultiplier(const Character& c);
 double ShopPriceMultiplier(const Character& c);
 double PhysioPriceMultiplier(const Character& c);
 
-// **Two of the four personality axes land in this phase and two do not**,
-// and that is recorded here rather than shipped as three multipliers
-// nothing multiplies. `discipline` bends what a session teaches you and
-// `purism` bends what a shift pays, and both are wired. `social` (whether
-// people turn up) and `boldness` (what you commit to above the last piece)
-// want seams in the partner and sport models that this phase does not
-// touch, so their readers arrive with those systems rather than sitting
-// here unread. The axes are still stored, still saved and still drift-ready
-// -- what is missing is two consumers, not two numbers.
+// How steady (or twitchy) this climber is above the last piece, as a shift
+// on the resolver's `nerve`, which runs 0..1. Positive is bold. Fed into
+// `AttemptInput` rather than read inside the resolver, because the resolver
+// takes a `Climber` and knows nothing about who is in it.
+double NerveShift(const Character& c,
+                  const CharacterDials& dials = CharacterDials{});
+
+// **Three of the four personality axes have readers. The fourth does not,
+// and the reason is not that nobody wrote one.** `discipline` bends what a
+// session teaches you, `purism` bends what a shift pays, `boldness` bends
+// what you will commit to above the last piece.
+//
+// `social` is *whether people turn up*, and in this game **nobody ever
+// fails to turn up**: `LotRegulars` hands back all three regulars, every
+// day, for ninety years. There is nothing for the axis to bend until
+// turnout exists, and turnout is a design question already standing on the
+// roadmap -- *"the Lot never varies, the same three neighbours across
+// ninety years"* -- rather than a wiring job. The axis is stored, saved and
+// set, and a test asserts it separates the temperaments, so wiring it the
+// day turnout arrives is one line rather than archaeology.
 
 // Record a session's work in a lane, and surface a talent if this is the
 // session that makes it obvious. Returns the talent that just surfaced, or

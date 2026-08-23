@@ -1461,6 +1461,7 @@ static void TestCharacter() {
     CHECK(DailyCostMultiplier(nobody) == 1.0);
     CHECK(ShopPriceMultiplier(nobody) == 1.0);
     CHECK(PhysioPriceMultiplier(nobody) == 1.0);
+    CHECK(NerveShift(nobody, cd) == 0.0);
     CHECK(TalentSurfaced(Talent::None).empty());
     // And nobody learns anything about themselves, because there is nobody.
     Character n2;
@@ -1650,17 +1651,116 @@ static void TestCharacter() {
   // days free.
   CHECK(ShiftPayMultiplier(cp, cd) < ShiftPayMultiplier(ci, cd) * 0.95);
 
-  // **Two of the four axes have readers in this phase and two do not**, and
-  // the two that do not are still stored, saved and set -- what is missing
-  // is a partner model and a runout seam to read them, not the numbers.
-  // Checked here so the gap is a fact in the suite rather than a comment:
-  // the axes differ between temperaments even though nothing consumes them
-  // yet, which is what makes wiring them later a one-line change rather
-  // than an archaeology exercise.
-  CHECK(ci.personality.boldness > cp.personality.boldness + 20.0);
+  // **Boldness is a trade and not a buff, and both halves are pinned.**
+  // Send-or-Bust is steadier above the last piece than the Purist is *and*
+  // keeps less of every session -- +55 boldness bought with -30 discipline.
+  // Checking only the first half would pass on a temperament table where
+  // one row is simply better, which is the same failure the zero-sum
+  // archetype check exists to prevent.
+  CHECK(NerveShift(ci, cd) > NerveShift(cp, cd) + 0.05);
+  CHECK(SkillGainMultiplier(ci, Skill::Power, false, false, 1.0, cd) <
+        SkillGainMultiplier(cp, Skill::Power, false, false, 1.0, cd));
+
+  // And purism pays in both directions. It used to clamp at zero, so a
+  // purist worked for less and a pragmatist worked for the same -- the
+  // negative half of the axis was free, and the Influencer was collecting
+  // it. A pragmatist out-earns neutral now, not just the purist.
   Build inf = gumby;
   inf.temperament = Temperament::Influencer;
   const Character cf = MakeCharacter(inf, Rng::FromSeed("p"), cd);
+  CHECK(cf.personality.purism < 0.0);
+  CHECK(ShiftPayMultiplier(cf, cd) > ShiftPayMultiplier(cp, cd) * 1.1);
+
+  // The absolute claim needs an origin whose own pay lane is neutral, or
+  // the origin's perk sits on top of the axis and hides its sign -- which
+  // is exactly what this check caught on its first run: a Purist who Sold
+  // It All still clears 1.0, because a 12% CV beats an 8% conscience.
+  Build purePay = gumby, pragPay = gumby;
+  purePay.origin = pragPay.origin = Origin::GymRat;  // shiftPay 1.0
+  purePay.temperament = Temperament::Purist;
+  pragPay.temperament = Temperament::Influencer;
+  CHECK(ShiftPayMultiplier(MakeCharacter(purePay, Rng::FromSeed("w"), cd),
+                           cd) < 1.0);
+  CHECK(ShiftPayMultiplier(MakeCharacter(pragPay, Rng::FromSeed("w"), cd),
+                           cd) > 1.0);
+
+  // **And boldness has to actually reach the wall.** The check above only
+  // proves `NerveShift` computes a different number for two temperaments;
+  // it says nothing about whether anything reads it. Deleting the one line
+  // that plumbs it into `AttemptInput` passed the entire suite, which is
+  // this project's oldest bug wearing a test's clothes -- so both halves of
+  // the plumbing are pinned: the builder fills the field, and the resolver
+  // spends it.
+  //
+  // **Where it is measured matters and the first attempt got it wrong.** A
+  // 5.12a pitch put the mean highpoint at 0.27 of sixteen moves -- the
+  // climber fell off the first move every time and never reached the
+  // exposed ground, so the check failed with the wiring perfectly correct.
+  // Measured properly, exposure is **0.900 on unpadded rock, 0.367 on a
+  // rope and exactly 0.000 once you own pads**, and nerve is worth half of
+  // it -- so boldness is felt **at your limit, unpadded**, and essentially
+  // nowhere else: +0.2% at two grades below, **+10.4% at the limit**, and
+  // zero above it because you fall off before the height. That is a good
+  // sentence about climbing and it is why this test is a highball.
+  {
+    Climber body = NewClimber(Rng::FromSeed("bold-body"));
+    SessionState sess = StartSession(body);
+    sess.padding = 0.0;   // no pads: fear is priced at zero with them
+    ProjectMemory mem;
+    Rng w0 = Rng::FromStream("bold-rock", Stream::Worldgen);
+    const Route sample = BuildRoute(w0, "Sample", 5, 5, RouteType::Power,
+                                    Discipline::Boulder);
+
+    // One: the builder carries it out of the character.
+    const AttemptInput boldSample = BuildSessionAttemptInput(
+        sess, mem, body, sample, Conditions{}, {}, 0.72, ci);
+    const AttemptInput shySample = BuildSessionAttemptInput(
+        sess, mem, body, sample, Conditions{}, {}, 0.72, cp);
+    CHECK(boldSample.boldness > shySample.boldness + 0.05);
+    // ...and nobody carries nothing, which is what protects the vectors.
+    const Character nobody2;
+    CHECK(BuildSessionAttemptInput(sess, mem, body, sample, Conditions{}, {},
+                                   0.72, nobody2)
+              .boldness == 0.0);
+
+    // Two: the resolver spends it.
+    //
+    // **The test locates its own band rather than naming a grade**, because
+    // the band is narrow and moves with the route seed -- a hard-coded
+    // grade 5 passed against one generated route and produced zero sends
+    // against another, which is a flaky test rather than a finding. So it
+    // walks the grades and measures at the first one where a cautious
+    // climber sends somewhere between a tenth and three quarters of the
+    // time, which is the definition of "at your limit".
+    int boldSends = 0, shySends = 0, band = 0;
+    for (int g = 3; g <= 8 && band == 0; g++) {
+      Rng w = Rng::FromStream("bold-rock", Stream::Worldgen);
+      const Route r = BuildRoute(w, "Highball", g, g, RouteType::Power,
+                                 Discipline::Boulder);
+      const AttemptInput bIn = BuildSessionAttemptInput(
+          sess, mem, body, r, Conditions{}, {}, 0.72, ci);
+      const AttemptInput sIn = BuildSessionAttemptInput(
+          sess, mem, body, r, Conditions{}, {}, 0.72, cp);
+      int bs = 0, ss = 0;
+      for (int i = 0; i < 2000; i++) {
+        Rng r1 = Rng::FromSeed("burn#" + std::to_string(i));
+        Rng r2 = Rng::FromSeed("burn#" + std::to_string(i));
+        bs += ResolveAttempt(r1, bIn).sent ? 1 : 0;
+        ss += ResolveAttempt(r2, sIn).sent ? 1 : 0;
+      }
+      if (ss > 200 && ss < 1500) { band = g; boldSends = bs; shySends = ss; }
+    }
+    // There has to *be* a limit band, or fear is priced out of the game.
+    CHECK(band != 0);
+    // And a magnitude, not an ordering: winning by one send would pass on a
+    // build where the wiring is dead and the rng happened to lean.
+    CHECK(boldSends > shySends + shySends / 40);
+  }
+
+  // **`social` has no reader, and the reason is that nobody ever fails to
+  // turn up.** Asserted rather than commented, so the day `LotRegulars`
+  // learns to leave somebody at home the axis is already here and already
+  // separating the temperaments.
   CHECK(cf.personality.social > cp.personality.social + 40.0);
 
   // The line the game says the day a talent stops being a secret: a

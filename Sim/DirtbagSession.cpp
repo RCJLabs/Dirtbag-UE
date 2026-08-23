@@ -114,7 +114,10 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
   // What you would hit, which is a different question on a rope than on a
   // pad. Both are paid out of head — a bold climber is still bolder — but
   // they are not the same fear and they must not both apply.
-  const double nerve = Clamp01(0.5 + (c.skills.head - 50.0) / 100.0);
+  // Head is how well you handle being up there; boldness is how much it
+  // bothers you. They are different questions and they add.
+  const double nerve =
+      Clamp01(0.5 + (c.skills.head - 50.0) / 100.0 + input.boldness);
   effective -= ExposureAt(input.route, index, input.padding, dials) *
                (1.0 - 0.5 * nerve);
 

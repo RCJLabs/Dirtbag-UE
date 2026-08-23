@@ -66,6 +66,7 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
   in.padding = session.padding;          // what you dragged up the hill
   // Happy Feet, and nothing else in this game, touches this.
   in.oddsPenalty = OddsPenalty(who, route.type);
+  in.boldness = NerveShift(who);
   in.execution = execution;
   in.botExecution = botExecution;
   return in;

@@ -209,6 +209,11 @@ struct AttemptInput {
   // has not heard of it -- the golden vectors included -- resolves exactly
   // as it always did.
   double oddsPenalty = 0.0;
+  // How steady this climber is above the last piece, over and above what
+  // their head skill says -- temperament rather than ability. Shifts the
+  // resolver's `nerve`, which is otherwise head mapped off fifty. Zero for
+  // anybody without a temperament, so the golden vectors are untouched.
+  double boldness = 0.0;
   // Per-move minigame quality, 0..1. Missing entries fall back to botExecution.
   std::vector<double> execution;
   double botExecution = 0.72;
