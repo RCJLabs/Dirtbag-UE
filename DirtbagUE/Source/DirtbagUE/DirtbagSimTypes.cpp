@@ -678,6 +678,9 @@ FDirtbagRival FromSim(const dirtbag::Rival& In)
 		Out.FirstAscents.Add(FString(Key.c_str()));
 	}
 	Out.bRetired = In.retired;
+	Out.Race.RouteName = FString(In.race.routeName.c_str());
+	Out.Race.ByDay = In.race.byDay;
+	Out.Race.bForFirstAscent = In.race.forFirstAscent;
 	return Out;
 }
 
@@ -703,6 +706,9 @@ dirtbag::Rival ToSim(const FDirtbagRival& In)
 		Out.firstAscents.push_back(TCHAR_TO_UTF8(*Key));
 	}
 	Out.retired = In.bRetired;
+	Out.race.routeName = TCHAR_TO_UTF8(*In.Race.RouteName);
+	Out.race.byDay = In.Race.ByDay;
+	Out.race.forFirstAscent = In.Race.bForFirstAscent;
 	return Out;
 }
 

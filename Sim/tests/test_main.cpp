@@ -1624,6 +1624,136 @@ static void TestRival() {
   }
 }
 
+static void TestRivalRace() {
+  RivalDials rd;
+  const Rng world = Rng::FromSeed("a-line-with-a-clock");
+  const Crag crag = RoadsideCrag(world);
+  Skills you;
+  you.power = 50; you.fingers = 50; you.technique = 50;
+  you.endurance = 50; you.head = 50;
+  Rival r = RollRival(world, you, 1, 0, 5.0, rd);
+  const std::vector<std::string> nobodyOn;
+
+  CHECK(!RaceIsOn(r));
+  CHECK(RaceLine(r, 1).empty());
+
+  // ---- when one does not start -----------------------------------------
+  //
+  // Being raced for a V2 in your first season is the game picking on you.
+  {
+    Rival beginner = r;
+    bool any = false;
+    for (int d = 1; d <= 400; d++) {
+      if (StartARace(beginner, crag, 1.0, nobodyOn, world, d, rd)) any = true;
+    }
+    CHECK(!any);
+  }
+  // Nor once they are on your rope.
+  {
+    Rival friendly = r;
+    friendly.allied = true;
+    bool any = false;
+    for (int d = 1; d <= 400; d++) {
+      if (StartARace(friendly, crag, 8.0, nobodyOn, world, d, rd)) any = true;
+    }
+    CHECK(!any);
+  }
+  // And asking twice on one day is one answer, not two rolls at it.
+  {
+    Rival twice = r;
+    for (int d = 1; d <= 60; d++) {
+      const bool first = StartARace(twice, crag, 8.0, nobodyOn, world, d, rd);
+      if (first) {
+        // Already running: a second call cannot start another.
+        CHECK(!StartARace(twice, crag, 8.0, nobodyOn, world, d, rd));
+        break;
+      }
+      CHECK(!StartARace(twice, crag, 8.0, nobodyOn, world, d, rd));
+    }
+  }
+
+  // ---- when one does ----------------------------------------------------
+  int started = 0, faRaces = 0, startDay = 0;
+  Rival racer = r;
+  for (int d = 1; d <= 400 && started == 0; d++) {
+    if (StartARace(racer, crag, 8.0, nobodyOn, world, d, rd)) {
+      started++;
+      startDay = d;
+      if (racer.race.forFirstAscent) faRaces++;
+    }
+  }
+  CHECK(started == 1);
+  CHECK(RaceIsOn(racer));
+  CHECK(!racer.race.routeName.empty());
+  CHECK(racer.race.byDay == startDay + rd.raceDays);
+  // You cannot be raced by a stranger.
+  CHECK(racer.met);
+
+  // The clock is a clock.
+  CHECK(!RaceRanOut(racer, startDay));
+  CHECK(!RaceRanOut(racer, racer.race.byDay - 1));
+  CHECK(RaceRanOut(racer, racer.race.byDay));
+  CHECK(RaceRanOut(racer, racer.race.byDay + 10));
+
+  // It says something, and it says it without a number.
+  const std::string said = RaceLine(racer, startDay);
+  CHECK(!said.empty());
+  CHECK(said.find(racer.name) != std::string::npos);
+  CHECK(said.find(racer.race.routeName) != std::string::npos);
+  for (char ch : said) CHECK(!(ch >= '0' && ch <= '9'));
+  // The last day reads differently from the first.
+  CHECK(RaceLine(racer, racer.race.byDay - 1) != said);
+
+  // ---- and how it ends --------------------------------------------------
+  {
+    Rival won = racer;
+    const double before = won.rivalry;
+    YouWonTheRace(won, rd);
+    CHECK(!RaceIsOn(won));
+    CHECK(won.rivalry > before);
+    // Winning twice off one race is not a thing.
+    const double after = won.rivalry;
+    YouWonTheRace(won, rd);
+    CHECK(won.rivalry == after);
+  }
+  {
+    // **Losing an open line is not the same as being repeated.** Pinned as
+    // a magnitude, because an ordering passes on a build where the two
+    // swings differ by a hundredth.
+    Rival lostRepeat = racer;
+    lostRepeat.race.forFirstAscent = false;
+    Rival lostFa = racer;
+    lostFa.race.forFirstAscent = true;
+    TheyWonTheRace(lostRepeat, rd);
+    TheyWonTheRace(lostFa, rd);
+    CHECK(lostFa.rivalry < lostRepeat.rivalry * 2.0);
+    // And the open line is gone, with their name against it.
+    CHECK(lostFa.firstAscents.size() == 1);
+    CHECK(lostRepeat.firstAscents.empty());
+  }
+
+  // ---- how often, across a career ---------------------------------------
+  //
+  // A race nobody ever sees is a system that does not exist; one every week
+  // is noise. Measured over ten careers rather than asserted.
+  {
+    int total = 0;
+    for (int s = 0; s < 10; s++) {
+      const Rng w = Rng::FromSeed("races#" + std::to_string(s));
+      Rival cand = RollRival(w, you, 1, 0, 5.0, rd);
+      for (int d = 1; d <= 365; d++) {
+        if (StartARace(cand, crag, 8.0, nobodyOn, w, d, rd)) total++;
+        if (RaceRanOut(cand, d)) TheyWonTheRace(cand, rd);
+      }
+    }
+    // Ten careers of a year each. At a tenth a day with a five-day lockout
+    // this lands in the tens, not the hundreds and not zero.
+    CHECK(total > 20);
+    CHECK(total < 400);
+  }
+  (void)faRaces;
+}
+
 static void TestRivalCareer() {
   // **The night tick, which nothing covered.** Killing the whole rival
   // block in `SleepToNextDay` passed the entire suite -- the rival's career
@@ -1735,6 +1865,34 @@ static void TestRivalSave() {
     CHECK(back.player.pastRivals[0].peakGrade == 11.25);
   }
 
+  // The line they are on survives a reload -- a race that forgot its
+  // deadline would hand you back days you had already spent.
+  save.player.rival.race.routeName = "The Prow";
+  save.player.rival.race.byDay = 412;
+  save.player.rival.race.forFirstAscent = true;
+  SaveGame raced;
+  CHECK(DeserializeSave(SerializeSave(save), raced) == LoadResult::Ok);
+  CHECK(raced.player.rival.race.routeName == "The Prow");
+  CHECK(raced.player.rival.race.byDay == 412);
+  CHECK(raced.player.rival.race.forFirstAscent);
+  CHECK(RaceIsOn(raced.player.rival));
+  save.player.rival.race = Race{};
+
+  // A v22 career predates the race, and migrates to nothing running.
+  {
+    std::string v22 = SerializeSave(save);
+    DropSaveLine(v22, "rival.race=");
+    DropSaveLine(v22, "rival.raceby=");
+    DropSaveLine(v22, "rival.racefa=");
+    SetSaveVersion(v22, 22);
+    SaveGame old22;
+    CHECK(DeserializeSave(v22, old22) == LoadResult::Ok);
+    CHECK(old22.version == kSaveVersion);
+    CHECK(!RaceIsOn(old22.player.rival));
+    // ...and the rest of the rival is untouched.
+    CHECK(old22.player.rival.name == save.player.rival.name);
+  }
+
   // **A v21 career had nobody, and must not have a stranger appear.** It
   // migrates to an empty rival, and the night tick skips a rival with no
   // name -- so the career plays exactly as it did.
@@ -1743,7 +1901,8 @@ static void TestRivalSave() {
                         "rival.gen=", "rival.born=", "rival.startage=",
                         "rival.grade=", "rival.laststep=", "rival.peak=",
                         "rival.rivalry=", "rival.allied=", "rival.offered=",
-                        "rival.met=", "rival.retired=", "rival.fas=",
+                        "rival.met=", "rival.retired=", "rival.race=",
+                        "rival.raceby=", "rival.racefa=", "rival.fas=",
                         "rival.fa0=", "rival.fa1=", "pastrivals=",
                         "pastrival0.name=", "pastrival0.role=",
                         "pastrival0.style=", "pastrival0.day=",
@@ -8541,6 +8700,7 @@ int main() {
   TestHowClose();
   TestPumpShows();
   TestRival();
+  TestRivalRace();
   TestRivalCareer();
   TestRivalSave();
   TestCharacter();

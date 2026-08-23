@@ -221,6 +221,19 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	// leaderboard rather than a rival.
 	{
 		const dirtbag::Rival R = DirtbagConvert::ToSim(Game->Player.Rival);
+		// **A race outranks where you stand.** One is a state you have had
+		// for years and the other is a thing that ends on Friday.
+		const std::string Racing = dirtbag::RaceLine(R, Game->Player.Day);
+		if (!Racing.empty())
+		{
+			Y += 22.f;
+			for (const FString& L : WrapToWidth(FString(Racing.c_str()), 62))
+			{
+				DrawText(L, FLinearColor(0.90f, 0.70f, 0.35f, 1.f), X, Y,
+				         GEngine->GetMediumFont(), 1.f);
+				Y += 20.f;
+			}
+		}
 		const std::string Line =
 		    dirtbag::RivalLine(R, Game->AllroundGrade(), Game->Player.Day);
 		if (!Line.empty())

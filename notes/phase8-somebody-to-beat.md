@@ -145,3 +145,103 @@ happens.
 **The probe now runs the rival**, for the reason `check-parity.py` exists:
 the engine's `AdvanceTheLot` takes lines for them, so a probe that did not
 would make every Phase 8 measurement a measurement of a game nobody plays.
+
+---
+
+# The two open gates, closed — and what the numbers say
+
+**2026-08-23, same day.** Evan: *"Do them next"*.
+
+## Gate 1: the race
+
+A rival who only takes lines removes them from the world. Measured, that
+changed nothing about a career: **1.38 first ascents with or without one**,
+because nothing about them made you *choose* differently.
+
+A **race** does. They are on a named line, you have until a stated day, and
+everything else you might have climbed this week becomes a decision. Five
+days, from the 2D game and kept: a fortnight is a background hum you would
+have got round to anyway, and two days is a coin toss the weather decides.
+Five is one bad-weather week away from impossible.
+
+Two kinds. Most are for a line already in the book — losing one is a shrug.
+**Forty percent are for an open project**, and those cannot be undone: they
+finish it, their name goes on it by the same path as any other ascent of
+theirs, and the head-to-head takes two and a half times the hit.
+
+**To measure the gate I had to build a player who answers.** Every policy in
+the probe is a fixed heuristic and none of them reads the rival — which is
+*why* the rival measured as changing nothing. `racer` is `projector` with one
+branch added: drop what you are on and go to the contested line while the
+clock runs. The pair is the gate.
+
+**Thirty years, twenty-four seeds:**
+
+| | projector | **racer** |
+|---|---|---|
+| first ascents | 0.96 | **1.29** (+34%) |
+| races won | 0.12 | **5.46** (45×) |
+| races lost | 500.5 | 471.7 |
+| net first ascents | 0.50 | **0.88** (+76%) |
+
+**Gate 1 passes.** A career that answers the rival ends with **76% more
+first ascents** than the same career that ignores them, on the same seeds
+and the same money. The rival changes what you climb, and answering is worth
+doing.
+
+## And the balance finding, which is bigger than the gate
+
+**502 races in thirty years, and even the player who drops everything wins
+5.5 of them.** A one percent win rate.
+
+Both dials point the same way and neither is obviously the culprit:
+
+- `raceChancePerDay = 0.10` puts a race roughly every fifteen days, so about
+  a third of all days have one running. That is not an event, it is weather.
+- `raceDays = 5` against a crag that is shut for rain, skin that runs out and
+  a contested line that may be at your limit means most races are lost before
+  they start.
+
+The 2D game uses the same two numbers, so this is not a porting error — it is
+what those numbers do *in this build*, where the weather closes the crag far
+more than the 2D game's does. **Recorded rather than tuned**: it is a taste
+call about how often you should be losing, and it is Evan's. The measurement
+above is the same either way, because it is a paired comparison — halving the
+frequency would move both columns together.
+
+My own reading, offered and not acted on: **fewer races and a longer clock.**
+One every month or two, with a week to answer, makes each one a thing that
+happened rather than a hum, and the win rate would rise off the floor without
+touching what a win is worth.
+
+## Gate 3: the offer is an offer now
+
+`WouldPartnerUp` was wired and the engine set `allied = true` in the same
+breath — **you could not decline.** The no-door bug with the door installed
+and nailed open.
+
+**C takes it, F does not**, at the van and only at the van — C/F belong to
+the card table at the fire, and a key that means *call the lie* in one
+trigger and *take a partner for life* in the next is how somebody agrees to
+rope up trying to fold a hand. The prompt states the offer and both keys and
+**nothing anywhere says which one is right**.
+
+**Declining costs nothing.** No standing, no head-to-head, no line of
+reproach — the game does not have an opinion about which of you was right.
+What it changes is that they go back to racing you, which is the whole point:
+saying no keeps the rival. Walking away without answering leaves the offer
+standing, because *"I have not decided"* is a real answer to this one.
+
+The offer still fires once ever. What you do with it is yours.
+
+## Two more parity fixes on the way
+
+Both the same shape as the one Phase 8 already found, and both caught by
+asking *does the probe run what the game runs*:
+
+- **The probe now runs the race.** Without it every measurement above would
+  have been of a game with no races in it.
+- **The probe now calls `YouWonTheRace`.** Before that it climbed the
+  contested line and still recorded the race as lost, which reported the
+  racer as winning 1.4 races — the same as a player who never noticed. The
+  real number is 5.46.

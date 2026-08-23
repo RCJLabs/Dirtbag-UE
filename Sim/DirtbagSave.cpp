@@ -251,6 +251,16 @@ void MigrateV19ToV20(SaveFields& fields) { fields["player.name"] = ""; }
 // an **empty** rival -- and `SleepToNextDay` skips a rival with no name, so
 // the career plays exactly as it did rather than having a stranger appear
 // twenty years in.
+// v22 -> v23: the line they are on. v22 shipped a day before the race
+// existed, so a v22 career migrates to nothing running -- which is where a
+// career sits most of the time anyway, and the roll starts it again the next
+// morning.
+void MigrateV22ToV23(SaveFields& fields) {
+  fields["rival.race"] = "";
+  fields["rival.raceby"] = "0";
+  fields["rival.racefa"] = "0";
+}
+
 void MigrateV21ToV22(SaveFields& fields) {
   fields["rival.name"] = "";
   fields["rival.style"] = "0";
@@ -316,7 +326,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15,
       &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18,
       &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21,
-      &MigrateV21ToV22};
+      &MigrateV21ToV22, &MigrateV22ToV23};
   return kMigrations;
 }
 
@@ -457,6 +467,10 @@ std::string SerializeSave(const SaveGame& save) {
     out << "rival.offered=" << IntToStr(rv.offered ? 1 : 0) << "\n";
     out << "rival.met=" << IntToStr(rv.met ? 1 : 0) << "\n";
     out << "rival.retired=" << IntToStr(rv.retired ? 1 : 0) << "\n";
+    out << "rival.race=" << rv.race.routeName << "\n";
+    out << "rival.raceby=" << IntToStr(rv.race.byDay) << "\n";
+    out << "rival.racefa=" << IntToStr(rv.race.forFirstAscent ? 1 : 0)
+        << "\n";
     out << "rival.fas=" << IntToStr(static_cast<int>(rv.firstAscents.size()))
         << "\n";
     for (std::size_t i = 0; i < rv.firstAscents.size(); i++) {
@@ -669,7 +683,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   {
     Rival& rv = save.player.rival;
     int style = 0, vibe = 0, allied = 0, offered = 0, met = 0, retired = 0,
-        fas = 0, pastCount = 0;
+        fas = 0, pastCount = 0, raceFa = 0;
     if (!ParseString(fields, "rival.name", rv.name) ||
         !ParseInt(fields, "rival.style", style) ||
         !ParseInt(fields, "rival.vibe", vibe) ||
@@ -684,6 +698,9 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseInt(fields, "rival.offered", offered) ||
         !ParseInt(fields, "rival.met", met) ||
         !ParseInt(fields, "rival.retired", retired) ||
+        !ParseString(fields, "rival.race", rv.race.routeName) ||
+        !ParseInt(fields, "rival.raceby", rv.race.byDay) ||
+        !ParseInt(fields, "rival.racefa", raceFa) ||
         !ParseInt(fields, "rival.fas", fas) ||
         !ParseInt(fields, "pastrivals", pastCount)) {
       return LoadResult::BadFormat;
@@ -700,6 +717,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     rv.offered = offered != 0;
     rv.met = met != 0;
     rv.retired = retired != 0;
+    rv.race.forFirstAscent = raceFa != 0;
     rv.firstAscents.clear();
     for (int i = 0; i < fas; i++) {
       std::string key;

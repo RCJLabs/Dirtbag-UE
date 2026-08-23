@@ -1518,6 +1518,22 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
 	FString RivalNews;
 
+	/** They have asked to rope up and you have not answered. Non-empty is
+	 *  the prompt state: **C takes it, F does not**, and walking away leaves
+	 *  it standing rather than declining for you. The offer fires once ever;
+	 *  what you do with it is yours. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	FString RivalOffer;
+
+	/** Take them up on it. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Rival")
+	bool AcceptTheRival();
+
+	/** Or do not. Declining is a real answer: they stop asking, they keep
+	 *  racing you, and the head-to-head stays exactly where it was. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Rival")
+	bool DeclineTheRival();
+
 	/** What the sponsor did overnight: the month's money, or the once-a-year
 	 *  verdict on whether they are keeping you. Empty on any night neither
 	 *  happened. Not saved — it is news, and news is for the morning it

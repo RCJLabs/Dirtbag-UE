@@ -194,6 +194,10 @@ private:
 	UFUNCTION()
 	void OnChoose6();
 
+	/** C or F at the van, when they have asked. Returns true if the key was
+	 *  spent here. */
+	bool AnswerTheRival(bool bYes);
+
 	void ChooseDreamAt(EDirtbagDream Which);
 	/** Returns true if it handled the key, i.e. this is the fire. */
 	bool SetStakeNotch(int32 Notch);

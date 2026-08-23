@@ -1363,6 +1363,41 @@ void UDirtbagGameInstance::RefreshCreation()
 	}
 }
 
+bool UDirtbagGameInstance::AcceptTheRival()
+{
+	if (RivalOffer.IsEmpty())
+	{
+		return false;
+	}
+	Player.Rival.bAllied = true;
+	// Clearing the race with it: you do not keep racing somebody you have
+	// just agreed to tie in with.
+	Player.Rival.Race = FDirtbagRace{};
+	RivalNews = FString::Printf(
+	    TEXT("You are climbing with %s now. You are not sure when that "
+	         "changed."),
+	    *Player.Rival.Name);
+	RivalOffer.Empty();
+	return true;
+}
+
+bool UDirtbagGameInstance::DeclineTheRival()
+{
+	if (RivalOffer.IsEmpty())
+	{
+		return false;
+	}
+	// **Nothing is taken away.** Declining costs no standing and no
+	// head-to-head -- it is a real answer rather than a worse one, and the
+	// only thing it changes is that they go back to racing you. Said
+	// without editorial, because the game does not have an opinion about
+	// which of you was right.
+	RivalNews = FString::Printf(TEXT("You said no. %s did not seem surprised."),
+	                            *Player.Rival.Name);
+	RivalOffer.Empty();
+	return true;
+}
+
 double UDirtbagGameInstance::AllroundGrade() const
 {
 	const FDirtbagClimber& C = Player.Climber;
@@ -2553,16 +2588,62 @@ void UDirtbagGameInstance::AdvanceTheLot()
 				    UTF8_TO_TCHAR(Got.description.c_str()));
 			}
 
+			// **The clock, before the roll for a new one.** If it ran out
+			// they finished it, and an open line is gone -- written into
+			// the book by the same path as any other ascent of theirs, so
+			// there is no version of this the guidebook does not know
+			// about.
+			if (dirtbag::RaceRanOut(R, Player.Day))
+			{
+				const FString Line =
+				    FString(R.race.routeName.c_str());
+				const bool bWasFa = R.race.forFirstAscent;
+				if (bWasFa)
+				{
+					for (dirtbag::CragLine& L : SimCrag.lines)
+					{
+						if (L.route.name == R.race.routeName)
+						{
+							dirtbag::TheyPutUpTheLine(L, R.name);
+							break;
+						}
+					}
+				}
+				dirtbag::TheyWonTheRace(R);
+				RivalNews = FString::Printf(
+				    bWasFa ? TEXT("%s did %s. It was never yours to lose, "
+				                  "and it is theirs now.")
+				           : TEXT("%s did %s. You had five days."),
+				    UTF8_TO_TCHAR(R.name.c_str()), *Line);
+			}
+			else if (!dirtbag::RaceIsOn(R))
+			{
+				// **A line with a deadline on it**, which is the whole
+				// answer to "does the rival change what you climb". Rolled
+				// against the same off-limits list the FA path uses, so
+				// they cannot race you for something already claimed.
+				std::vector<std::string> Off = Taken;
+				for (const std::string& S :
+				     dirtbag::SpokenFor(DirtbagConvert::ToSim(Player).projects))
+				{
+					Off.push_back(S);
+				}
+				if (dirtbag::StartARace(R, SimCrag, AllroundGrade(), Off,
+				                        World, Player.Day))
+				{
+					RivalNews = FString(
+					    dirtbag::RaceLine(R, Player.Day).c_str());
+				}
+			}
+
 			// They come around, once, when the head-to-head says you have
-			// earned it. Recorded as offered whether or not anything is
-			// done with it, because being asked twice is not how it works.
+			// earned it. **Offered, not taken** -- the answer is C or F at
+			// the van, like every other choice in this build.
 			if (dirtbag::WouldPartnerUp(R))
 			{
 				R.offered = true;
-				R.allied = true;
-				RivalNews = FString::Printf(
-				    TEXT("%s asked if you wanted to rope up. You are not "
-				         "sure when that changed."),
+				RivalOffer = FString::Printf(
+				    TEXT("%s asked if you wanted to rope up."),
 				    UTF8_TO_TCHAR(R.name.c_str()));
 			}
 		}
@@ -2646,6 +2727,14 @@ bool UDirtbagGameInstance::NameFirstAscent(int32 BoardIndex,
 	{
 		dirtbag::Rival R = DirtbagConvert::ToSim(Player.Rival);
 		dirtbag::YouGotThereFirst(R);
+		// And if this was the line they were on, you beat them to it.
+		if (dirtbag::RaceIsOn(R) && R.race.routeName == SimLine.route.name)
+		{
+			dirtbag::YouWonTheRace(R);
+			RivalNews = FString::Printf(
+			    TEXT("You got there first. %s will have heard by tonight."),
+			    UTF8_TO_TCHAR(R.name.c_str()));
+		}
 		// Beating somebody to a line is a way of meeting them.
 		R.met = true;
 		Player.Rival = DirtbagConvert::FromSim(R);

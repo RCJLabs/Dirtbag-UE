@@ -195,6 +195,101 @@ bool WouldPartnerUp(const Rival& r, const RivalDials& dials) {
   return !r.retired && !r.allied && !r.offered && r.rivalry >= dials.allyAt;
 }
 
+bool RaceIsOn(const Rival& r) { return !r.race.routeName.empty(); }
+
+bool StartARace(Rival& r, const Crag& crag, double yourGrade,
+                const std::vector<std::string>& spokenFor, const Rng& worldRng,
+                int day, const RivalDials& dials) {
+  if (r.retired || r.allied) return false;
+  if (RaceIsOn(r)) return false;
+  if (yourGrade < dials.raceMinGrade) return false;
+
+  // Its own stream, per day. A race starting must never shift the rng an
+  // attempt resolves on, and asking twice in one day must be one answer.
+  Rng rng = worldRng.Derive("race#" + std::to_string(day));
+  if (!rng.Chance(dials.raceChancePerDay)) return false;
+
+  const bool wantFa = rng.Chance(dials.raceForFaChance);
+
+  // A line worth racing for is one **you could plausibly do** -- within a
+  // grade of you either way. Racing you for something three grades up is
+  // not a race, it is an announcement.
+  std::vector<int> candidates;
+  for (std::size_t i = 0; i < crag.lines.size(); i++) {
+    const CragLine& line = crag.lines[i];
+    if (line.isProject != wantFa) continue;
+    if (wantFa &&
+        std::find(spokenFor.begin(), spokenFor.end(), line.route.name) !=
+            spokenFor.end()) {
+      continue;
+    }
+    if (!wantFa && !line.firstAscentBy.empty() &&
+        line.firstAscentBy == r.name) {
+      continue;   // they are not racing you for their own line
+    }
+    const double g = static_cast<double>(line.route.grade);
+    if (g > yourGrade + 1.0 || g < yourGrade - 1.5) continue;
+    candidates.push_back(static_cast<int>(i));
+  }
+  if (candidates.empty()) return false;
+
+  const CragLine& pick =
+      crag.lines[candidates[rng.IntRange(
+          0, static_cast<int>(candidates.size()) - 1)]];
+  r.race.routeName = pick.route.name;
+  r.race.byDay = day + dials.raceDays;
+  r.race.forFirstAscent = pick.isProject;
+  r.met = true;   // you cannot be raced by a stranger
+  return true;
+}
+
+bool RaceRanOut(const Rival& r, int day) {
+  return RaceIsOn(r) && day >= r.race.byDay;
+}
+
+void YouWonTheRace(Rival& r, const RivalDials& dials) {
+  if (!RaceIsOn(r)) return;
+  r.rivalry += dials.raceWinSwing;
+  r.race = Race{};
+}
+
+void TheyWonTheRace(Rival& r, const RivalDials& dials) {
+  if (!RaceIsOn(r)) return;
+  // An open line is gone rather than merely climbed by somebody else first,
+  // and the head-to-head says so.
+  if (r.race.forFirstAscent) {
+    r.rivalry -= dials.raceLoseFaSwing;
+    TheyGotThereFirst(r, r.race.routeName, dials);
+  } else {
+    r.rivalry -= dials.raceLoseSwing;
+  }
+  r.race = Race{};
+}
+
+std::string RaceLine(const Rival& r, int day) {
+  if (!RaceIsOn(r)) return std::string();
+  const int left = r.race.byDay - day;
+  std::string s = r.name;
+  s += r.race.forFirstAscent ? " has been looking at " : " is working ";
+  s += r.race.routeName;
+  s += ".";
+  // Days in words rather than a number, like everything else the HUD says
+  // slowly. A countdown is a timer; this is a thing somebody told you.
+  if (left <= 0) {
+    s += " You are out of time.";
+  } else if (left == 1) {
+    s += " You have got today.";
+  } else if (left == 2) {
+    s += " A couple of days, at most.";
+  } else {
+    s += " Not for much longer.";
+  }
+  if (r.race.forFirstAscent) {
+    s += " Nobody has done it yet.";
+  }
+  return s;
+}
+
 Partner AsAClimber(const Rival& r, const Rng& worldRng, int day,
                    const RivalDials& dials) {
   Partner p;

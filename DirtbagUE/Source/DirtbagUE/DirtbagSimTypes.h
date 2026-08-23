@@ -489,6 +489,24 @@ enum class EDirtbagRivalRole : uint8
 	Gone   UMETA(DisplayName = "Gone"),
 };
 
+/** A line with a deadline on it. Mirrors dirtbag::Race. */
+USTRUCT(BlueprintType)
+struct FDirtbagRace
+{
+	GENERATED_BODY()
+
+	/** Empty means no race is on. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	FString RouteName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	int32 ByDay = 0;
+
+	/** An open line, which is the version that cannot be undone. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	bool bForFirstAscent = false;
+};
+
 /** Somebody to beat. Mirrors dirtbag::Rival.
  *
  *  **Not the nemesis.** `FDirtbagPlayerState::Nemesis` is the unsent *line*
@@ -547,6 +565,10 @@ struct FDirtbagRival
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
 	bool bRetired = false;
+
+	/** What they are on right now, if anything. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	FDirtbagRace Race;
 };
 
 /** One who came before, and what became of them. */

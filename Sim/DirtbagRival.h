@@ -66,6 +66,21 @@ enum class RivalRole {
 };
 const char* RoleText(RivalRole r);
 
+// A line with a deadline on it.
+//
+// **This is the answer to Phase 8's first gate.** A rival who only takes
+// lines removes them from the world; measured, a career's first ascents came
+// out at 1.38 with or without one, because nothing about them made you
+// *choose* differently. A race does: they are on a named line, you have
+// until a stated day, and everything else you might have climbed this week
+// is now a decision rather than a default.
+struct Race {
+  std::string routeName;   // empty means no race is on
+  int byDay = 0;           // the day they finish it if you have not
+  bool forFirstAscent = false;  // an open line, which is the version that
+                                // cannot be undone
+};
+
 struct Rival {
   std::string name;
   RouteType style = RouteType::Power;  // what they are best at
@@ -92,6 +107,9 @@ struct Rival {
   std::vector<std::string> firstAscents;
 
   bool retired = false;
+
+  // What they are on right now, if anything.
+  Race race;
 };
 
 // The ones who came before, and what became of them.
@@ -162,6 +180,26 @@ struct RivalDials {
   double allyAt = 6.0;
   // What one first ascent is worth to it, either way.
   double faSwing = 1.0;
+
+  // --- the race -------------------------------------------------------
+  // How long you get. **Five days, and the five is the whole mechanic**: a
+  // fortnight is a background hum you would have got round to anyway, and
+  // two days is a coin toss the weather decides. Five is one bad-weather
+  // week away from impossible, which is exactly the pressure wanted.
+  int raceDays = 5;
+  // Chance per morning that one starts, when none is running.
+  double raceChancePerDay = 0.10;
+  // No races until you are climbing real grades -- being raced for a V2 in
+  // your first season is the game picking on you.
+  double raceMinGrade = 3.0;
+  // Of the races that start, this share are for an **open line**. Those are
+  // the ones that cannot be undone, which is why they are the minority.
+  double raceForFaChance = 0.40;
+  // What winning and losing move the head-to-head by. Losing a repeat is a
+  // shrug; losing a first ascent is the thing you remember.
+  double raceWinSwing = 3.0;
+  double raceLoseSwing = 2.0;
+  double raceLoseFaSwing = 5.0;
 };
 
 // Roll one. `yours` leans their style toward **whatever you are weakest at**
@@ -200,6 +238,31 @@ PastRival Retire(const Rival& r, const Rng& worldRng, int day,
 Rival Succeed(const Rng& worldRng, const Skills& yours, double yourGrade,
               int day, int generation,
               const RivalDials& dials = RivalDials{});
+
+// Is one on right now?
+bool RaceIsOn(const Rival& r);
+
+// Start one, if the conditions are right and the dice agree. Picks a line
+// they can do and you might: an open project when the roll says so and one
+// is in reach, otherwise something already in the book. Returns true if a
+// race began, and leaves `r.race` untouched otherwise.
+bool StartARace(Rival& r, const Crag& crag, double yourGrade,
+                const std::vector<std::string>& spokenFor, const Rng& worldRng,
+                int day, const RivalDials& dials = RivalDials{});
+
+// Has the clock run out? True on the day they finish it, and after.
+bool RaceRanOut(const Rival& r, int day);
+
+// You got there first. Clears the race and swings the head-to-head.
+void YouWonTheRace(Rival& r, const RivalDials& dials = RivalDials{});
+
+// They did. Swings it the other way -- much harder for an open line, which
+// is gone rather than merely climbed by somebody else first.
+void TheyWonTheRace(Rival& r, const RivalDials& dials = RivalDials{});
+
+// What the race says, in the game's voice, with the days left in words
+// rather than a number. Empty when nothing is on.
+std::string RaceLine(const Rival& r, int day);
 
 // They got to a line before you did. Records it and moves the rivalry.
 void TheyGotThereFirst(Rival& r, const std::string& routeName,

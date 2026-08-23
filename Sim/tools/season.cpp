@@ -52,6 +52,7 @@ struct Tally {
   int linesLostToTheLot = 0;
   int linesLostToTheRival = 0;
   int rivalGenerations = 0;
+  int racesStarted = 0, racesWon = 0, racesLost = 0;   // won: you got there
   double peakAllround = 0.0;   // the best this body ever was
   std::vector<std::string> lotNames;   // what they called them
   std::vector<LineTally> perLine;
@@ -80,7 +81,25 @@ struct Tally {
 // climbable, preferring an open project — a player chases the thing that
 // could be theirs.
 const CragLine* PickLine(const Crag& crag, const Climber& c,
-                         const PlayerState& player) {
+                         const PlayerState& player, bool racesBack = false) {
+  // **A player who races.** Every other policy in this probe is a fixed
+  // heuristic that ignores the rival entirely, which is exactly why the
+  // rival measured as changing nothing about what a career climbs: they
+  // took lines out of the world and nobody reacted. This one drops what it
+  // is on and goes to the contested line while the clock is running -- and
+  // the difference between it and the same policy without this branch is
+  // the only honest answer to "does the rival change what you climb".
+  if (racesBack && RaceIsOn(player.rival)) {
+    for (const CragLine& l : crag.lines) {
+      if (l.route.name != player.rival.race.routeName) continue;
+      if (ReadRoute(c, l.route) == RouteRead::NotThisYear) break;
+      bool done = false;
+      for (const ProjectMemory& m : player.projects)
+        if (m.routeName == l.route.name && m.sent) done = true;
+      if (!done) return &l;
+      break;
+    }
+  }
   const CragLine* best = nullptr;
   for (const CragLine& l : crag.lines) {
     const RouteRead read = ReadRoute(c, l.route);
@@ -187,7 +206,12 @@ int main(int argc, char** argv) {
   // thirds" is the projecting loop the game is built around, and no probe
   // policy had ever run it -- so ninety years of careers concluded the
   // valley was exhausted when it was only unbrushed.
-  const bool projects = argc > 5 && std::string(argv[5]) == "projector";
+  const bool projects = argc > 5 && (std::string(argv[5]) == "projector" ||
+                                     std::string(argv[5]) == "racer");
+  // "racer" is `projector` that answers the rival: same money, same brushing,
+  // same everything -- and it drops what it is on when a race starts. The
+  // pair is the measurement Phase 8's first gate asks for.
+  const bool racesBack = argc > 5 && std::string(argv[5]) == "racer";
   // `stakeout` is `projector` plus one habit every real dirtbag has and no
   // probe policy has ever modelled: brushing a line you cannot climb yet.
   //
@@ -689,7 +713,7 @@ int main(int argc, char** argv) {
         }
       }
 
-      const CragLine* line = PickLine(crag, body, player);
+      const CragLine* line = PickLine(crag, body, player, racesBack);
       if (line) {
         ProjectMemory& mem = LedgerFor(player, *line);
 
@@ -741,6 +765,15 @@ int main(int argc, char** argv) {
           }
           if (r.sent) {
             t.sends++;
+            // **Beating them to it.** The engine does this on the naming
+            // path; a probe that did not would report the racer as losing
+            // every race it actually won, which is a measurement of a game
+            // nobody plays.
+            if (RaceIsOn(player.rival) &&
+                player.rival.race.routeName == line->route.name) {
+              YouWonTheRace(player.rival);
+              t.racesWon++;
+            }
             if (CanName(*line, mem)) {
               // ClaimFirstAscent, not NameFirstAscent: the probe had the
               // same half-a-verb bug the engine did, so every simulated
@@ -829,8 +862,44 @@ int main(int argc, char** argv) {
         player.rival.met = true;
         t.linesLostToTheRival++;
       }
+      // **The race, which is the thing that is supposed to change what you
+      // climb.** The probe's policies are fixed heuristics and none of them
+      // reads it -- that is exactly the finding, and the counters here are
+      // what say so with a number rather than an opinion.
+      if (RaceRanOut(player.rival, player.day)) {
+        for (CragLine& L : crag.lines) {
+          if (L.route.name == player.rival.race.routeName &&
+              player.rival.race.forFirstAscent) {
+            TheyPutUpTheLine(L, player.rival.name);
+            lotTaken.push_back(L.route.name);
+            break;
+          }
+        }
+        TheyWonTheRace(player.rival);
+        t.racesLost++;
+      } else if (!RaceIsOn(player.rival)) {
+        std::vector<std::string> raceOff = lotTaken;
+        for (const std::string& s : SpokenFor(player.projects)) {
+          raceOff.push_back(s);
+        }
+        const double yours =
+            SkillToGrade((player.climber.skills.power +
+                          player.climber.skills.fingers +
+                          player.climber.skills.technique +
+                          player.climber.skills.endurance +
+                          player.climber.skills.head) / 5.0);
+        if (StartARace(player.rival, crag, yours, raceOff, world,
+                       player.day)) {
+          t.racesStarted++;
+        }
+      }
+
       if (WouldPartnerUp(player.rival)) {
         player.rival.offered = true;
+        // The probe takes it, and that is a *policy* rather than the rule:
+        // the game offers it on two keys at the van. A probe that always
+        // said no would never measure what an ally does to a career, and
+        // one that could not answer at all would be the old bug back.
         player.rival.allied = true;
       }
     }
@@ -1008,10 +1077,12 @@ int main(int argc, char** argv) {
          "\tgrade\tstew\tclosures\tshut\twork%%\tbroke\tstarved"
          "\tmissed\tgym\tboard\tinjuries\thurt\tpeakload\tphysio\tsponsor$"
          "\ttheirdays\tskinregen\tpower\tfingers\ttechnique\tendurance"
-         "\thead\tallround\tshoewear\trivallost\trivalgens\n");
+         "\thead\tallround\tshoewear\trivallost\trivalgens"
+         "\traces\traceslost\traceswon\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
-         "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d\n",
+         "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
+         "\t%d\t%d\t%d\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -1047,7 +1118,8 @@ int main(int argc, char** argv) {
                        player.climber.skills.technique +
                        player.climber.skills.endurance +
                        player.climber.skills.head) / 5.0),
-         player.shoes.wear, t.linesLostToTheRival, t.rivalGenerations);
+         player.shoes.wear, t.linesLostToTheRival, t.rivalGenerations,
+         t.racesStarted, t.racesLost, t.racesWon);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

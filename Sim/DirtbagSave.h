@@ -55,7 +55,10 @@ namespace dirtbag {
 //   **an empty one** -- and `SleepToNextDay` skips a rival with no name, so
 //   an old save plays exactly as it did. It gets one the next time a career
 //   starts rather than having a stranger appear mid-life.
-constexpr int kSaveVersion = 22;
+// Version 23: the line they are on. v22 shipped the rival a day before the
+//   race existed; a v22 career migrates to **no race running**, which is the
+//   state a career spends most of its time in anyway.
+constexpr int kSaveVersion = 23;
 
 struct SaveGame {
   int version = kSaveVersion;

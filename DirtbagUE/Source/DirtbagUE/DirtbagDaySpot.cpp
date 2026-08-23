@@ -95,8 +95,22 @@ FString ADirtbagDaySpot::PromptText() const
 		return Line;
 	}
 	case EDirtbagSpotKind::Sleep:
-		return FString::Printf(TEXT("Call it a day?  (E)  -  day %d, $%.0f"),
-		                       Game->Player.Day, Game->Player.Cash);
+	{
+		FString Line = FString::Printf(
+		    TEXT("Call it a day?  (E)  -  day %d, $%.0f"), Game->Player.Day,
+		    Game->Player.Cash);
+		// **The offer, said in full and offered rather than urged.** It
+		// states what it is and both keys, and nothing anywhere says which
+		// one is right -- declining costs nothing and the prompt does not
+		// hint otherwise. Walking away leaves it standing, because "I have
+		// not decided" is a real answer to this one.
+		if (!Game->RivalOffer.IsEmpty())
+		{
+			Line += FString::Printf(TEXT("\n   %s  (C) yes   (F) no"),
+			                        *Game->RivalOffer);
+		}
+		return Line;
+	}
 	case EDirtbagSpotKind::Travel:
 	{
 		// The verb is the whole difference between the two travel rules, so
@@ -1156,9 +1170,36 @@ void ADirtbagDaySpot::RefreshFireTable()
 	}
 }
 
+// **The rival's offer answers on the same two keys as everything else**, and
+// only at the van. C/F belong to the card table at the fire, and a key that
+// means "call the lie" in one trigger and "take a partner for life" in the
+// next is how somebody agrees to rope up trying to fold a hand.
+bool ADirtbagDaySpot::AnswerTheRival(bool bYes)
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Sleep)
+	{
+		return false;
+	}
+	if (Game->RivalOffer.IsEmpty())
+	{
+		return false;
+	}
+	if (bYes ? Game->AcceptTheRival() : Game->DeclineTheRival())
+	{
+		Say(Game->RivalNews, FColor::Yellow, 8.f);
+		PushPrompt();
+		return true;
+	}
+	return false;
+}
+
 void ADirtbagDaySpot::OnCommit()
 {
 	if (SkipTravel())
+	{
+		return;
+	}
+	if (AnswerTheRival(true))
 	{
 		return;
 	}
@@ -1246,6 +1287,10 @@ void ADirtbagDaySpot::SettleFireHand(const FString& Line)
 void ADirtbagDaySpot::OnBackDown()
 {
 	if (SkipTravel())
+	{
+		return;
+	}
+	if (AnswerTheRival(false))
 	{
 		return;
 	}
