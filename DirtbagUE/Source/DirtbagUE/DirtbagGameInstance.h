@@ -604,9 +604,6 @@ public:
 	bool EatMeal();
 
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
-	void WorkShift();
-
-	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
 	void PassHours(double Hours);
 
 	/** Sit it out. Hours pass, hunger with them, and a little energy comes
@@ -1037,7 +1034,6 @@ public:
 	// --- Work ------------------------------------------------------------
 
 	/** Today's board: three gigs, deterministic per world and day. */
-	// no-door: the odd-jobs board (DIRTBAG.md s4, port-wholesale)
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
 	TArray<FDirtbagOddJob> TodaysJobBoard() const;
 
@@ -1045,7 +1041,6 @@ public:
 	 *  and says something about you — the best-paying gig on the board is
 	 *  shooting guidebook photos, and it costs you the old guard and the
 	 *  stewards both. False if the van is dead and the gig needed it. */
-	// no-door: the odd-jobs board (DIRTBAG.md s4, port-wholesale)
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
 	bool TakeOddJob(const FDirtbagOddJob& Job);
 

@@ -39,26 +39,6 @@ bool UDirtbagGameInstance::EatMeal()
 	return UDirtbagSimLibrary::EatMeal(Player, Day);
 }
 
-void UDirtbagGameInstance::WorkShift()
-{
-	// A dog does not come to the belay desk, so a shift is the one thing
-	// that leaves it behind for four hours. On a cool day that costs
-	// nothing; on a warm one the van is an oven and you knew it.
-	const double Guilt =
-	    dirtbag::VanGuilt(DirtbagConvert::ToSim(Player.Dog), VanTempF());
-
-	UDirtbagSimLibrary::WorkShift(Player, Day);
-	bWorkedToday = true;
-
-	if (Guilt > 0.0)
-	{
-		Player.Climber.Psyche = FMath::Max(0.05, Player.Climber.Psyche - Guilt);
-		DogWorry = FString::Printf(
-		    TEXT("You could hear it from the desk. The van hit %.0fF."),
-		    VanTempF());
-	}
-}
-
 void UDirtbagGameInstance::PassHours(double Hours)
 {
 	UDirtbagSimLibrary::PassHours(Day, Hours);
@@ -1287,13 +1267,32 @@ bool UDirtbagGameInstance::TakeOddJob(const FDirtbagOddJob& Job)
 	SimJob.energy = Job.Energy;
 	SimJob.needsVan = Job.bNeedsVan;
 
+	// Taken before the work, because working changes the day and the guilt
+	// is about the van you left it in this morning.
+	const double Guilt =
+	    dirtbag::VanGuilt(DirtbagConvert::ToSim(Player.Dog), VanTempF());
+
 	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
 	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
 	if (!dirtbag::WorkOddJob(SimPlayer, SimDay, SimJob)) return false;
 	Player = DirtbagConvert::FromSim(SimPlayer);
 	Day = DirtbagConvert::FromSim(SimDay);
-	// A shift is a shift: the dog did not come to it either.
 	bWorkedToday = true;
+
+	// The dog does not come to a gig any more than it comes to a shift.
+	//
+	// This was in `WorkShift` and not here, so the two ways of working
+	// disagreed about whether the dog existed -- and the board was about to
+	// become the only way to work, which would have quietly deleted the
+	// whole van-guilt system by making its one caller unreachable.
+	if (Guilt > 0.0)
+	{
+		Player.Climber.Psyche = FMath::Max(0.05, Player.Climber.Psyche - Guilt);
+		DogWorry = FString::Printf(
+		    TEXT("You could hear it from the far side of the car park. The "
+		         "van hit %.0fF."),
+		    VanTempF());
+	}
 	return true;
 }
 

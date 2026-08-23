@@ -31,6 +31,18 @@ Two escapes, and both must give a reason:
 
 `no-door` counts are printed every run, so recorded debt stays visible
 instead of quietly becoming permanent.
+
+## What this cannot see
+
+Name collisions. It counts `Name(` across the module, so a game-instance
+verb sharing a name with a `UDirtbagSimLibrary` static is reported as
+called even when its only "caller" is its own body calling the other one.
+`UDirtbagGameInstance::WorkShift` was exactly that and had to be found by
+hand when the jobs board replaced it -- the same blind spot check-cues.py
+has, for the same reason: a grep sees names, not scopes.
+
+Naming a verb something the library does not also have is the cheap fix,
+and worth preferring when there is a choice.
 """
 
 import re

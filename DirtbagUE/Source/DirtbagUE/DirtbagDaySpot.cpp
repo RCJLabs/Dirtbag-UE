@@ -63,8 +63,33 @@ FString ADirtbagDaySpot::PromptText() const
 		return FString::Printf(TEXT("Eat something?  (E)  -  hunger %.0f, $%.0f"),
 		                       Game->Day.Hunger, Game->Player.Cash);
 	case EDirtbagSpotKind::Shift:
-		return FString::Printf(TEXT("Take a shift?  (E)  -  it's %.0f:00, $%.0f"),
-		                       Game->Day.Hour, Game->Player.Cash);
+	{
+		// The board, not a shift.
+		//
+		// "Take a shift? (E)" was a placeholder for this and it flattened
+		// the whole system: every gig became the same gig, and the choice
+		// the board exists to offer -- fast money against cheap hours,
+		// and the one that pays best because nobody else will do it --
+		// never reached the player at all.
+		FString Line = FString::Printf(
+		    TEXT("The board.  It's %.0f:00, $%.0f, energy %.0f."),
+		    Game->Day.Hour, Game->Player.Cash, Game->Day.Energy);
+		const TArray<FDirtbagOddJob> Board = Game->TodaysJobBoard();
+		for (int32 i = 0; i < Board.Num() && i < 3; i++)
+		{
+			const FDirtbagOddJob& Gig = Board[i];
+			// Pay, hours and energy, because those are the three things
+			// you are actually choosing between. The van requirement is
+			// said only when it bites -- a gig that needs a van you have
+			// is not worth a word.
+			Line += FString::Printf(
+			    TEXT("\n   %d  %s  -  $%.0f, %.0fh, %.0f energy%s"), i + 1,
+			    *Gig.Name, Gig.Pay, Gig.Hours, Gig.Energy,
+			    (Gig.bNeedsVan && !Game->VanRuns()) ? TEXT("  (needs the van)")
+			                                        : TEXT(""));
+		}
+		return Line;
+	}
 	case EDirtbagSpotKind::Sleep:
 		return FString::Printf(TEXT("Call it a day?  (E)  -  day %d, $%.0f"),
 		                       Game->Player.Day, Game->Player.Cash);
@@ -494,12 +519,12 @@ void ADirtbagDaySpot::OnInteract()
 	}
 	case EDirtbagSpotKind::Shift:
 	{
-		const double Before = Game->Player.Cash;
-		Game->WorkShift();
-		Say(FString::Printf(TEXT("Shift done. +$%.0f. It's %.0f:00, energy %.0f."),
-		                    Game->Player.Cash - Before, Game->Day.Hour,
-		                    Game->Day.Energy),
-		    FColor::Green);
+		// Deliberately not "take the best one". The board's whole point is
+		// that the gigs are not interchangeable -- the best-paying one
+		// costs you the old guard and the stewards both -- so a key that
+		// silently picked would hand somebody a standing hit they never
+		// chose. E says where to look; the numbers do the work.
+		Say(TEXT("It's all on the board.  1, 2 or 3."), FColor::Cyan, 5.f);
 		break;
 	}
 	case EDirtbagSpotKind::Travel:
@@ -714,6 +739,47 @@ double ADirtbagDaySpot::DriveHours() const
 		}
 	}
 	return TravelHours;
+}
+
+bool ADirtbagDaySpot::TakeGig(int32 Which)
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Shift)
+	{
+		return false;
+	}
+	const TArray<FDirtbagOddJob> Board = Game->TodaysJobBoard();
+	if (!Board.IsValidIndex(Which))
+	{
+		return true;
+	}
+	const FDirtbagOddJob& Gig = Board[Which];
+
+	if (!Game->TakeOddJob(Gig))
+	{
+		// The only reason it refuses. Said as the reason rather than as a
+		// failure, because the van being dead is a thing the player is
+		// already living with and this is one more place it bites: the
+		// breakdown costs you the fix *and* the work that would have paid
+		// for it.
+		Say(FString::Printf(TEXT("%s needs the van, and the van is off the "
+		                         "road."),
+		                    *Gig.Name),
+		    FColor::Orange, 6.f);
+		PushPrompt();
+		return true;
+	}
+
+	Say(FString::Printf(TEXT("%s.  +$%.0f, %.0f hours gone.  It's %.0f:00."),
+	                    *Gig.Name, Gig.Pay, Gig.Hours, Game->Day.Hour),
+	    FColor::Green, 6.f);
+	// What the gig did to the dog, if it did anything. Said separately
+	// because it is not part of the transaction.
+	if (!Game->DogWorry.IsEmpty())
+	{
+		Say(Game->DogWorry, FColor::Orange, 6.f);
+	}
+	PushPrompt();
+	return true;
 }
 
 void ADirtbagDaySpot::PushPrompt()
@@ -1028,6 +1094,7 @@ void ADirtbagDaySpot::OnChoose1()
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(0)) { return; }
 	if (TurnGuidebookPage(0)) { return; }
+	if (TakeGig(0)) { return; }
 	if (!SetStakeNotch(0)) { ChooseDreamAt(EDirtbagDream::Rig); }
 }
 void ADirtbagDaySpot::OnChoose2()
@@ -1035,6 +1102,7 @@ void ADirtbagDaySpot::OnChoose2()
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(1)) { return; }
 	if (TurnGuidebookPage(1)) { return; }
+	if (TakeGig(1)) { return; }
 	if (!SetStakeNotch(1)) { ChooseDreamAt(EDirtbagDream::WarChest); }
 }
 void ADirtbagDaySpot::OnChoose3()
@@ -1042,6 +1110,7 @@ void ADirtbagDaySpot::OnChoose3()
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(2)) { return; }
 	if (TurnGuidebookPage(2)) { return; }
+	if (TakeGig(2)) { return; }
 	if (!SetStakeNotch(2)) { ChooseDreamAt(EDirtbagDream::HomeBase); }
 }
 

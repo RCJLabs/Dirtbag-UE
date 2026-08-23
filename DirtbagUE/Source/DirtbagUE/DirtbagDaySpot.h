@@ -191,6 +191,12 @@ private:
 	/** Returns true if it handled the key, i.e. this is the fire. */
 	bool SetStakeNotch(int32 Notch);
 
+	/** Take a gig off today's board. Returns true if the key belonged to
+	 *  the board, whether or not the gig could actually be taken — a
+	 *  number pressed at a work spot must never fall through to a dream or
+	 *  a stake. */
+	bool TakeGig(int32 Which);
+
 	/** Stop climbing for good, at the van, on its own key.
 	 *
 	 *  **Its own key and its own confirm**, because it is the single most
