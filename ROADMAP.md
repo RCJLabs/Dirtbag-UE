@@ -524,7 +524,7 @@ acted on: fewer races, longer clock.
 
 ---
 
-## Phase 9 — The Ladder
+## Phase 9 — The Ladder   ⚠️ THE COMP BUILT 2026-08-23, THE LADDER ABOVE IT IS NOT
 
 **Reinstated 2026-08-23** — Evan: *"wait comps were cut??? ok bring them back
 and the olympics. that's a huge part of the game."* The pivot and its
@@ -598,6 +598,23 @@ somebody to lose to are a leaderboard.**
    explain.
 5. Old saves migrate: a climber with no ranking gets Unranked and plays
    exactly as before.
+
+**Pass 1 built and measured 2026-08-23** (`notes/phase9-the-comp.md`):
+**items 1, 3 and 4** — the gym comp, the three tiers, and the field of seven
+— plus the national ranking *number* that everything above reads. **Gate 1
+passes**: a comp is a contest you can lose by spending attempts badly, and
+form makes the scoreboard different every time. **Gate 2 passes on Local**:
+flashing an entire local board wins **48 of 60 and podiums 60 of 60**, which
+is "yours to lose" rather than a formality — after a fix, because without a
+per-tier field shift it won **16 of 60** and you could not beat a climber a
+grade above you by climbing better, only by them having a bad day. **Gate 5
+passes** — SAVE v24, and a v23 career migrates to unranked, which is Local.
+
+**Still to build: items 2, 5, 6 and 7** — the circuit season with its finals
+and forfeits, quals → semi → final at National and above, the six named
+ranking tiers and what they unlock, the national team, the World Cup, the
+Games, and leagues. **All of them read a `CompResult` and none changes what a
+comp is**, which is why the comp came first. Gates 3 and 4 are theirs.
 
 **Deliberately not in this phase:** speed as a trained discipline beyond a
 personal best, and the comp *venue* as a built place — the Olympic Village is
