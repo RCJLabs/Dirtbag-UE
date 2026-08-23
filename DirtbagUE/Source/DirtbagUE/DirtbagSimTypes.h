@@ -11,6 +11,7 @@
 #include "DirtbagZones.h"
 #include "DirtbagCharacter.h"
 #include "DirtbagComp.h"
+#include "DirtbagTeam.h"
 #include "DirtbagRival.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
@@ -502,6 +503,79 @@ enum class EDirtbagRankTier : uint8
 	NationalTeam     UMETA(DisplayName = "National Team"),
 	OlympicHopeful   UMETA(DisplayName = "Olympic Hopeful"),
 	WorldClass       UMETA(DisplayName = "World-Class"),
+};
+
+/** Whether your name is on the paper. Mirrors dirtbag::TeamStatus. */
+UENUM(BlueprintType)
+enum class EDirtbagTeamStatus : uint8
+{
+	Never UMETA(DisplayName = "Unselected"),
+	Named UMETA(DisplayName = "On the national team"),
+	Cut   UMETA(DisplayName = "Off the national team"),
+};
+
+/** Somebody else on the paper. A teammate is a person before a number. */
+USTRUCT(BlueprintType)
+struct FDirtbagTeammate
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString Name;
+
+	/** What they are in the room -- the crimper, the engine, the junior. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString Role;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	double Points = 0.0;
+};
+
+/** The national team. Mirrors dirtbag::NationalTeam -- a roster with your
+ *  name typed on it, five other people, a head coach who has opinions, a
+ *  stipend that does not cover rent, and a review that can take it back. */
+USTRUCT(BlueprintType)
+struct FDirtbagNationalTeam
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	EDirtbagTeamStatus Status = EDirtbagTeamStatus::Never;
+
+	/** Getting the call once never un-happens. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	bool bEverNamed = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 Seasons = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 Cuts = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 NamedOnDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString Coach;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString CoachKnownFor;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	TArray<FDirtbagTeammate> Roster;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	TArray<FString> Gone;
+
+	/** The climber you went past to get on it. They know. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString Passed;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	double LastReviewPoints = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 LastReviewSeason = 0;
 };
 
 /** A season of the circuit. Mirrors dirtbag::Circuit -- five firm dates,
@@ -1238,6 +1312,10 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	FDirtbagCircuit Circuit;
 
+	/** Whether your name is on the paper. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FDirtbagNationalTeam Team;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gear")
 	FDirtbagShoes Shoes;
 
@@ -1501,6 +1579,8 @@ namespace DirtbagConvert
 	dirtbag::Shoes ToSim(const FDirtbagShoes& In);
 	FDirtbagCharacter FromSim(const dirtbag::Character& In);
 	dirtbag::Character ToSim(const FDirtbagCharacter& In);
+	FDirtbagNationalTeam FromSim(const dirtbag::NationalTeam& In);
+	dirtbag::NationalTeam ToSim(const FDirtbagNationalTeam& In);
 	FDirtbagCircuit FromSim(const dirtbag::Circuit& In);
 	dirtbag::Circuit ToSim(const FDirtbagCircuit& In);
 	FDirtbagRival FromSim(const dirtbag::Rival& In);

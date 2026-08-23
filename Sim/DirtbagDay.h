@@ -12,6 +12,7 @@
 #include "DirtbagAge.h"
 #include "DirtbagCharacter.h"
 #include "DirtbagComp.h"
+#include "DirtbagTeam.h"
 #include "DirtbagCore.h"
 #include "DirtbagRival.h"
 #include "DirtbagCrew.h"
@@ -169,6 +170,11 @@ struct PlayerState {
   // has not started, which is where a career begins and where an old save
   // lands.
   Circuit circuit;
+
+  // Whether your name is on the paper. Reviewed when a circuit season
+  // closes and at no other time -- a domestic season is the unit a
+  // selection committee actually works in. See Sim/DirtbagTeam.h.
+  NationalTeam team;
 
   double cash = 420.0;  // the war chest you left home with
   int day = 1;

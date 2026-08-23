@@ -205,6 +205,19 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		         GEngine->GetMediumFont(), 1.f);
 	}
 
+	// The committee sat. Its own line rather than folded into the season's,
+	// because being named is a different size of news from finishing third.
+	if (!Game->TeamNews.IsEmpty())
+	{
+		Y += 22.f;
+		for (const FString& L : WrapToWidth(Game->TeamNews, 60))
+		{
+			DrawText(L, FLinearColor(0.90f, 0.80f, 0.45f, 1.f), X, Y,
+			         GEngine->GetMediumFont(), 1.f);
+			Y += 20.f;
+		}
+	}
+
 	// A season ended. Same treatment as the Lot's news, because it arrives
 	// the same way: already decided, and you watched it happen.
 	if (!Game->CompNews.IsEmpty())
@@ -228,6 +241,15 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		{
 			Y += 18.f;
 			DrawText(Standing, kDim, X, Y, GEngine->GetSmallFont(), 1.f);
+		}
+		// And whether your name is on the paper. Silent until it ever has
+		// been, because a team you have never been near is not a status.
+		const FString Squad = Game->TeamStandingLine();
+		if (!Squad.IsEmpty())
+		{
+			Y += 18.f;
+			DrawText(Squad, FLinearColor(0.78f, 0.82f, 0.60f, 1.f), X, Y,
+			         GEngine->GetSmallFont(), 1.f);
 		}
 	}
 

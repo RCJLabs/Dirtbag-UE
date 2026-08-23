@@ -717,6 +717,14 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	FString CompNews;
 
+	/** The committee named you, or did not. Said once, at a season's close. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString TeamNews;
+
+	/** Whether your name is on the paper, and who has the squad. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
+	FString TeamStandingLine() const;
+
 	/** Live session readout for the HUD; the wall keeps this current. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	FDirtbagSessionReadout SessionReadout;

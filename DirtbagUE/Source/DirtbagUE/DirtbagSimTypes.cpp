@@ -175,6 +175,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.rival = ToSim(In.Rival);
 	Out.rankingPoints = In.RankingPoints;
 	Out.circuit = ToSim(In.Circuit);
+	Out.team = ToSim(In.Team);
 	Out.pastRivals.reserve(In.PastRivals.Num());
 	for (const FDirtbagPastRival& P : In.PastRivals)
 	{
@@ -231,6 +232,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Rival = FromSim(In.rival);
 	Out.RankingPoints = In.rankingPoints;
 	Out.Circuit = FromSim(In.circuit);
+	Out.Team = FromSim(In.team);
 	Out.PastRivals.Reset(In.pastRivals.size());
 	for (const dirtbag::PastRival& P : In.pastRivals)
 	{
@@ -657,6 +659,60 @@ dirtbag::Dog ToSim(const FDirtbagDog& In)
 	Out.adopted = In.bAdopted;
 	Out.bond = In.Bond;
 	Out.fed = In.Fed;
+	return Out;
+}
+
+FDirtbagNationalTeam FromSim(const dirtbag::NationalTeam& In)
+{
+	FDirtbagNationalTeam Out;
+	Out.Status = static_cast<EDirtbagTeamStatus>(In.status);
+	Out.bEverNamed = In.everNamed;
+	Out.Seasons = In.seasons;
+	Out.Cuts = In.cuts;
+	Out.NamedOnDay = In.namedOnDay;
+	Out.Coach = FString(In.coach.c_str());
+	Out.CoachKnownFor = FString(In.coachKnownFor.c_str());
+	Out.Roster.Reset(In.roster.size());
+	for (const dirtbag::Teammate& M : In.roster)
+	{
+		FDirtbagTeammate T;
+		T.Name = FString(M.name.c_str());
+		T.Role = FString(M.role.c_str());
+		T.Points = M.points;
+		Out.Roster.Add(T);
+	}
+	Out.Gone.Reset(In.gone.size());
+	for (const std::string& G : In.gone) { Out.Gone.Add(FString(G.c_str())); }
+	Out.Passed = FString(In.passed.c_str());
+	Out.LastReviewPoints = In.lastReviewPoints;
+	Out.LastReviewSeason = In.lastReviewSeason;
+	return Out;
+}
+
+dirtbag::NationalTeam ToSim(const FDirtbagNationalTeam& In)
+{
+	dirtbag::NationalTeam Out;
+	Out.status = static_cast<dirtbag::TeamStatus>(In.Status);
+	Out.everNamed = In.bEverNamed;
+	Out.seasons = In.Seasons;
+	Out.cuts = In.Cuts;
+	Out.namedOnDay = In.NamedOnDay;
+	Out.coach = TCHAR_TO_UTF8(*In.Coach);
+	Out.coachKnownFor = TCHAR_TO_UTF8(*In.CoachKnownFor);
+	Out.roster.reserve(In.Roster.Num());
+	for (const FDirtbagTeammate& T : In.Roster)
+	{
+		dirtbag::Teammate M;
+		M.name = TCHAR_TO_UTF8(*T.Name);
+		M.role = TCHAR_TO_UTF8(*T.Role);
+		M.points = T.Points;
+		Out.roster.push_back(M);
+	}
+	Out.gone.reserve(In.Gone.Num());
+	for (const FString& G : In.Gone) { Out.gone.push_back(TCHAR_TO_UTF8(*G)); }
+	Out.passed = TCHAR_TO_UTF8(*In.Passed);
+	Out.lastReviewPoints = In.LastReviewPoints;
+	Out.lastReviewSeason = In.LastReviewSeason;
 	return Out;
 }
 

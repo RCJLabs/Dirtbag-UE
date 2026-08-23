@@ -10,6 +10,7 @@
 #include "../DirtbagCampfire.h"
 #include "../DirtbagCharacter.h"
 #include "../DirtbagComp.h"
+#include "../DirtbagTeam.h"
 #include "../DirtbagRival.h"
 #include "../DirtbagZones.h"
 #include "../DirtbagConditions.h"
@@ -1974,6 +1975,165 @@ static void TestCircuitCareer() {
   }
 }
 
+static void TestNationalTeam() {
+  TeamDials td;
+  CompDials cd;
+  const Rng world = Rng::FromSeed("the-call");
+  Circuit season = StartSeason(world, 1, 1, cd);
+  // Give the field some points so the roster has an order to it.
+  for (std::size_t i = 0; i < season.fieldPoints.size(); i++) {
+    season.fieldPoints[i] = 400.0 - 40.0 * static_cast<double>(i);
+  }
+
+  // ---- the line, and the lower line you are held to -------------------
+  //
+  // **A national team is not a threshold**, but it does have one, and the
+  // interesting part is that there are two: you have to clear 700 to be
+  // named and you hold all the way down to 560. That gap is the grace a
+  // committee gives a returning athlete, and without it a season spent
+  // hovering is a coin flip taken five times.
+  CHECK(td.selectAt == 700.0);
+  CHECK(td.holdAt < td.selectAt);
+  // ...and the same number behaves differently depending on which side of
+  // the door you are on, which is the thing the dial comparison above only
+  // implies. Without this, collapsing the two lines passes everything that
+  // is not a tautology.
+  {
+    NationalTeam outsider, insider;
+    ReviewTheTeam(insider, td.selectAt, season, 1, 1, td);
+    CHECK(insider.status == TeamStatus::Named);
+    // At exactly the holding line: the one already on it stays, the one
+    // outside is not let in.
+    ReviewTheTeam(outsider, td.holdAt, season, 2, 2, td);
+    ReviewTheTeam(insider, td.holdAt, season, 2, 2, td);
+    CHECK(outsider.status == TeamStatus::Never);
+    CHECK(insider.status == TeamStatus::Named);
+  }
+  {
+    NationalTeam t;
+    CHECK(t.status == TeamStatus::Never);
+    CHECK(TeamLine(t, td).empty());   // never been near it is not a status
+
+    // Just short is just short.
+    TeamReview r = ReviewTheTeam(t, td.selectAt - 1.0, season, 100, 1, td);
+    CHECK(!r.changed);
+    CHECK(t.status == TeamStatus::Never);
+    CHECK(r.stipend == 0.0);
+
+    // And clearing it is the call.
+    r = ReviewTheTeam(t, td.selectAt, season, 100, 1, td);
+    CHECK(r.changed);
+    CHECK(t.status == TeamStatus::Named);
+    CHECK(t.everNamed);
+    CHECK(r.rep == td.namedRep);
+    CHECK(r.stipend == td.stipend);
+    CHECK(!r.news.empty());
+    CHECK(!TeamLine(t, td).empty());
+
+    // **The coach is a person and they say something.**
+    CHECK(!t.coach.empty());
+    CHECK(!t.coachKnownFor.empty());
+    CHECK(r.news.find(t.coach) != std::string::npos);
+
+    // **The roster is the top of the field you have been chasing**, in
+    // order, and it is people rather than a count.
+    CHECK(static_cast<int>(t.roster.size()) == td.size);
+    for (std::size_t i = 1; i < t.roster.size(); i++) {
+      CHECK(t.roster[i - 1].points >= t.roster[i].points);
+    }
+    for (const Teammate& m : t.roster) {
+      CHECK(!m.name.empty());
+      CHECK(!m.role.empty());   // a teammate is a person before a number
+    }
+    // The roles are not all the same word.
+    bool distinct = false;
+    for (std::size_t i = 1; i < t.roster.size(); i++) {
+      if (t.roster[i].role != t.roster[0].role) distinct = true;
+    }
+    CHECK(distinct);
+
+    // **You hold below the line you were picked on.**
+    const int wasSeasons = t.seasons;
+    r = ReviewTheTeam(t, td.holdAt, season, 200, 2, td);
+    CHECK(!r.changed);
+    CHECK(t.status == TeamStatus::Named);
+    CHECK(t.seasons > wasSeasons);      // another season on the paper
+    CHECK(r.stipend == td.stipend);     // and it pays every year
+
+    // ...but not below *that*.
+    r = ReviewTheTeam(t, td.holdAt - 1.0, season, 300, 3, td);
+    CHECK(r.changed);
+    CHECK(t.status == TeamStatus::Cut);
+    CHECK(t.cuts == 1);
+    CHECK(r.rep < 0.0);                 // being dropped costs you
+    CHECK(r.stipend == 0.0);            // and the money stops
+    // **Getting the call once never un-happens.**
+    CHECK(t.everNamed);
+    CHECK(!TeamLine(t, td).empty());
+    CHECK(TeamLine(t, td) != std::string());
+
+    // Coming back is news too, and quieter -- and you keep the coach you
+    // arrived with.
+    const std::string firstCoach = t.coach;
+    r = ReviewTheTeam(t, td.selectAt, season, 400, 4, td);
+    CHECK(r.changed);
+    CHECK(t.status == TeamStatus::Named);
+    CHECK(r.rep == td.renamedRep);
+    CHECK(r.rep < td.namedRep);
+    CHECK(t.coach == firstCoach);
+  }
+
+  // ---- being cut is not the same as never being called ----------------
+  {
+    NationalTeam never;
+    NationalTeam cut;
+    ReviewTheTeam(cut, td.selectAt, season, 10, 1, td);
+    ReviewTheTeam(cut, 0.0, season, 20, 2, td);
+    CHECK(cut.status == TeamStatus::Cut);
+    CHECK(TeamLine(never, td).empty());
+    CHECK(!TeamLine(cut, td).empty());
+    CHECK(std::string(StatusText(TeamStatus::Named)) !=
+          StatusText(TeamStatus::Cut));
+    CHECK(std::string(StatusText(TeamStatus::Cut)) !=
+          StatusText(TeamStatus::Never));
+  }
+
+  // ---- the coach is fixed by when you arrived -------------------------
+  //
+  // Deterministic from the season, so a reload cannot hand you a different
+  // one for the same call-up -- and so the coach you got is a fact about
+  // *when* you got there.
+  {
+    CHECK(std::string(CoachFor(1).name) == CoachFor(1).name);
+    bool varies = false;
+    for (int s = 2; s < 8; s++) {
+      if (std::string(CoachFor(s).name) != CoachFor(1).name) varies = true;
+    }
+    CHECK(varies);
+    for (const Coach& c : TheCoaches()) {
+      CHECK(std::string(c.name).size() > 0);
+      CHECK(std::string(c.knownFor).size() > 20);   // they say something
+    }
+  }
+
+  // ---- and the roster turns over under you ----------------------------
+  //
+  // People come and go whether or not your own status changed, because the
+  // roster is rebuilt from the field at every review.
+  {
+    NationalTeam t;
+    ReviewTheTeam(t, td.selectAt, season, 10, 1, td);
+    const std::string wasTop = t.roster.front().name;
+    // The field reshuffles: the bottom of it has the season now.
+    for (std::size_t i = 0; i < season.fieldPoints.size(); i++) {
+      season.fieldPoints[i] = 40.0 * static_cast<double>(i);
+    }
+    ReviewTheTeam(t, td.selectAt, season, 110, 2, td);
+    CHECK(t.roster.front().name != wasTop);
+    CHECK(!t.gone.empty());   // and the game knows who is not on it now
+  }
+}
+
 static void TestRival() {
   RivalDials rd;
   const Rng world = Rng::FromSeed("somebody-to-beat");
@@ -2415,6 +2575,43 @@ static void TestRivalSave() {
     CHECK(back.player.pastRivals[0].peakGrade == 11.25);
   }
 
+  // **The team survives a reload -- roster, coach and all.** Without it a
+  // career would be re-announced onto the national team at every season's
+  // close, forever, and the coach who has opinions about you would be a
+  // different person every time you loaded.
+  {
+    TeamDials ttd;
+    CompDials tcd;
+    Circuit s = StartSeason(Rng::FromSeed("tm"), 1, 2, tcd);
+    for (std::size_t i = 0; i < s.fieldPoints.size(); i++) {
+      s.fieldPoints[i] = 300.0 - 30.0 * static_cast<double>(i);
+    }
+    ReviewTheTeam(save.player.team, ttd.selectAt, s, 77, 2, ttd);
+    save.player.team.gone.push_back("Bowen");
+    CHECK(save.player.team.status == TeamStatus::Named);
+
+    SaveGame back2;
+    CHECK(DeserializeSave(SerializeSave(save), back2) == LoadResult::Ok);
+    const NationalTeam& t2 = back2.player.team;
+    CHECK(t2.status == TeamStatus::Named);
+    CHECK(t2.everNamed);
+    CHECK(t2.seasons == save.player.team.seasons);
+    CHECK(t2.coach == save.player.team.coach);
+    CHECK(!t2.coach.empty());
+    CHECK(t2.coachKnownFor == save.player.team.coachKnownFor);
+    CHECK(t2.roster.size() == save.player.team.roster.size());
+    if (t2.roster.size() == save.player.team.roster.size() &&
+        !t2.roster.empty()) {
+      CHECK(t2.roster[0].name == save.player.team.roster[0].name);
+      CHECK(t2.roster[0].role == save.player.team.roster[0].role);
+      CHECK(t2.roster[0].points == save.player.team.roster[0].points);
+    }
+    CHECK(t2.gone == save.player.team.gone);
+    // And what the HUD says is the same sentence.
+    CHECK(TeamLine(t2, ttd) == TeamLine(save.player.team, ttd));
+    save.player.team = NationalTeam{};
+  }
+
   // **A season survives a reload**, dates and all. Without it you would
   // wake up in a season with no schedule, the night tick would see every
   // date as missing and forfeit its way through the year.
@@ -2492,6 +2689,10 @@ static void TestRivalSave() {
                         "circuit.season=", "circuit.done=", "circuit.you=",
                         "circuit.rival=", "circuit.titles=",
                         "circuit.dates=", "circuit.fields=",
+                        "team.status=", "team.ever=", "team.seasons=",
+                        "team.cuts=", "team.namedday=", "team.coach=",
+                        "team.coachfor=", "team.passed=", "team.lastpts=",
+                        "team.lastseason=", "team.mates=", "team.gone=",
                         "rival.race=",
                         "rival.raceby=", "rival.racefa=", "rival.fas=",
                         "rival.fa0=", "rival.fa1=", "pastrivals=",
@@ -9293,6 +9494,7 @@ int main() {
   TestComp();
   TestCircuit();
   TestCircuitCareer();
+  TestNationalTeam();
   TestRival();
   TestRivalRace();
   TestRivalCareer();

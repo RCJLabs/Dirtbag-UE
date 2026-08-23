@@ -265,6 +265,25 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // morning, which is where a career begins anyway. The points it already had
 // are kept: they were earned at comps and a season boundary does not undo
 // them.
+// v25 -> v26: the national team. A v25 career was never called, so it
+// arrives never selected -- exact rather than generous, and it means the
+// first review after loading is a first call rather than a re-announcement
+// of one that never happened.
+void MigrateV25ToV26(SaveFields& fields) {
+  fields["team.status"] = "0";
+  fields["team.ever"] = "0";
+  fields["team.seasons"] = "0";
+  fields["team.cuts"] = "0";
+  fields["team.namedday"] = "0";
+  fields["team.coach"] = "";
+  fields["team.coachfor"] = "";
+  fields["team.passed"] = "";
+  fields["team.lastpts"] = "0";
+  fields["team.lastseason"] = "0";
+  fields["team.mates"] = "0";
+  fields["team.gone"] = "0";
+}
+
 void MigrateV24ToV25(SaveFields& fields) {
   fields["circuit.season"] = "0";
   fields["circuit.done"] = "0";
@@ -347,7 +366,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18,
       &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21,
       &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24,
-      &MigrateV24ToV25};
+      &MigrateV24ToV25, &MigrateV25ToV26};
   return kMigrations;
 }
 
@@ -501,6 +520,31 @@ std::string SerializeSave(const SaveGame& save) {
       for (std::size_t i = 0; i < ci.schedule.size(); i++) {
         out << "circuit.date" << IntToStr(static_cast<int>(i)) << "="
             << IntToStr(ci.schedule[i]) << "\n";
+      }
+      const NationalTeam& tm = save.player.team;
+      out << "team.status=" << IntToStr(static_cast<int>(tm.status)) << "\n";
+      out << "team.ever=" << IntToStr(tm.everNamed ? 1 : 0) << "\n";
+      out << "team.seasons=" << IntToStr(tm.seasons) << "\n";
+      out << "team.cuts=" << IntToStr(tm.cuts) << "\n";
+      out << "team.namedday=" << IntToStr(tm.namedOnDay) << "\n";
+      out << "team.coach=" << tm.coach << "\n";
+      out << "team.coachfor=" << tm.coachKnownFor << "\n";
+      out << "team.passed=" << tm.passed << "\n";
+      out << "team.lastpts=" << NumToStr(tm.lastReviewPoints) << "\n";
+      out << "team.lastseason=" << IntToStr(tm.lastReviewSeason) << "\n";
+      out << "team.mates=" << IntToStr(static_cast<int>(tm.roster.size()))
+          << "\n";
+      for (std::size_t i = 0; i < tm.roster.size(); i++) {
+        const std::string k = "team.mate" + IntToStr(static_cast<int>(i));
+        out << k << "n=" << tm.roster[i].name << "\n";
+        out << k << "r=" << tm.roster[i].role << "\n";
+        out << k << "p=" << NumToStr(tm.roster[i].points) << "\n";
+      }
+      out << "team.gone=" << IntToStr(static_cast<int>(tm.gone.size()))
+          << "\n";
+      for (std::size_t i = 0; i < tm.gone.size(); i++) {
+        out << "team.gone" << IntToStr(static_cast<int>(i)) << "="
+            << tm.gone[i] << "\n";
       }
       out << "circuit.fields="
           << IntToStr(static_cast<int>(ci.fieldPoints.size())) << "\n";
@@ -726,7 +770,8 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     Rival& rv = save.player.rival;
     int style = 0, vibe = 0, allied = 0, offered = 0, met = 0, retired = 0,
         fas = 0, pastCount = 0, raceFa = 0, circuitDates = 0,
-        circuitFields = 0;
+        circuitFields = 0, teamStatus = 0, teamEver = 0, teamMates = 0,
+        teamGone = 0;
     if (!ParseString(fields, "rival.name", rv.name) ||
         !ParseInt(fields, "rival.style", style) ||
         !ParseInt(fields, "rival.vibe", vibe) ||
@@ -751,6 +796,21 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseInt(fields, "circuit.titles", save.player.circuit.titles) ||
         !ParseInt(fields, "circuit.dates", circuitDates) ||
         !ParseInt(fields, "circuit.fields", circuitFields) ||
+        !ParseInt(fields, "team.status", teamStatus) ||
+        !ParseInt(fields, "team.ever", teamEver) ||
+        !ParseInt(fields, "team.seasons", save.player.team.seasons) ||
+        !ParseInt(fields, "team.cuts", save.player.team.cuts) ||
+        !ParseInt(fields, "team.namedday", save.player.team.namedOnDay) ||
+        !ParseString(fields, "team.coach", save.player.team.coach) ||
+        !ParseString(fields, "team.coachfor",
+                     save.player.team.coachKnownFor) ||
+        !ParseString(fields, "team.passed", save.player.team.passed) ||
+        !ParseDouble(fields, "team.lastpts",
+                     save.player.team.lastReviewPoints) ||
+        !ParseInt(fields, "team.lastseason",
+                  save.player.team.lastReviewSeason) ||
+        !ParseInt(fields, "team.mates", teamMates) ||
+        !ParseInt(fields, "team.gone", teamGone) ||
         !ParseString(fields, "rival.race", rv.race.routeName) ||
         !ParseInt(fields, "rival.raceby", rv.race.byDay) ||
         !ParseInt(fields, "rival.racefa", raceFa) ||
@@ -778,6 +838,27 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         return LoadResult::BadFormat;
       }
       save.player.circuit.schedule.push_back(d);
+    }
+    save.player.team.status = static_cast<TeamStatus>(pick(teamStatus, 3));
+    save.player.team.everNamed = teamEver != 0;
+    save.player.team.roster.clear();
+    for (int i = 0; i < teamMates; i++) {
+      const std::string k = "team.mate" + IntToStr(i);
+      Teammate m;
+      if (!ParseString(fields, k + "n", m.name) ||
+          !ParseString(fields, k + "r", m.role) ||
+          !ParseDouble(fields, k + "p", m.points)) {
+        return LoadResult::BadFormat;
+      }
+      save.player.team.roster.push_back(m);
+    }
+    save.player.team.gone.clear();
+    for (int i = 0; i < teamGone; i++) {
+      std::string g;
+      if (!ParseString(fields, "team.gone" + IntToStr(i), g)) {
+        return LoadResult::BadFormat;
+      }
+      save.player.team.gone.push_back(g);
     }
     save.player.circuit.fieldPoints.clear();
     for (int i = 0; i < circuitFields; i++) {

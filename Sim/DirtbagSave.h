@@ -64,7 +64,11 @@ namespace dirtbag {
 // Version 25: the circuit season. A v24 career had ranking points and no
 //   season, so it migrates to **none started** -- and the night tick opens
 //   one the next morning, which is where a career begins anyway.
-constexpr int kSaveVersion = 25;
+// Version 26: the national team. A v25 career was never called, so it
+//   migrates to **never selected** -- which is exact rather than generous,
+//   and means the first review after loading is the first call rather than
+//   a re-announcement of one that never happened.
+constexpr int kSaveVersion = 26;
 
 struct SaveGame {
   int version = kSaveVersion;

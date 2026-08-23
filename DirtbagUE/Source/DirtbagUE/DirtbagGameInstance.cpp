@@ -1434,6 +1434,12 @@ FString UDirtbagGameInstance::RankLine() const
 	return Line;
 }
 
+FString UDirtbagGameInstance::TeamStandingLine() const
+{
+	return FString(
+	    dirtbag::TeamLine(DirtbagConvert::ToSim(Player.Team)).c_str());
+}
+
 FString UDirtbagGameInstance::CircuitStandingLine() const
 {
 	return FString(
@@ -1576,6 +1582,30 @@ bool UDirtbagGameInstance::SettleComp()
 		    : End.place == 3 ? TEXT("rd")
 		                     : TEXT("th"),
 		    End.title ? TEXT("  That is a title.") : TEXT(""));
+
+		// **And the committee sits.** Here and nowhere else: a domestic
+		// season is the unit a selection committee actually works in, and
+		// reviewing you every night would make the team a thermostat.
+		//
+		// After the season's own podium points are banked, because they are
+		// part of the year the committee is looking at.
+		dirtbag::NationalTeam Team = DirtbagConvert::ToSim(Player.Team);
+		const dirtbag::TeamReview Review = dirtbag::ReviewTheTeam(
+		    Team, Player.RankingPoints, Season, Player.Day, Season.season);
+		Player.Team = DirtbagConvert::FromSim(Team);
+		Player.Cash += Review.stipend;
+		if (Review.changed)
+		{
+			// Standing rather than ranking: being named is what the *scene*
+			// makes of you, and the federation already had its say in the
+			// number that got you there. The Scene is the faction this
+			// belongs to by its own definition -- "comps, sponsors, media,
+			// the gym".
+			dirtbag::Standing S = DirtbagConvert::ToSim(Player.Standing);
+			dirtbag::Shift(S, dirtbag::Faction::Scene, Review.rep);
+			Player.Standing = DirtbagConvert::FromSim(S);
+			TeamNews = FString(Review.news.c_str());
+		}
 	}
 	Player.Circuit = DirtbagConvert::FromSim(Season);
 
