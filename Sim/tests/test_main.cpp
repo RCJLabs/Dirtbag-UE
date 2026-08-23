@@ -9,6 +9,7 @@
 
 #include "../DirtbagCampfire.h"
 #include "../DirtbagCharacter.h"
+#include "../DirtbagRival.h"
 #include "../DirtbagZones.h"
 #include "../DirtbagConditions.h"
 #include "../DirtbagCore.h"
@@ -1420,6 +1421,356 @@ static void TestWhoTurnsUp() {
         CHECK(name != p.name);
       }
     }
+  }
+}
+
+static void TestRival() {
+  RivalDials rd;
+  const Rng world = Rng::FromSeed("somebody-to-beat");
+  Skills you;
+  you.power = 50; you.fingers = 50; you.technique = 50;
+  you.endurance = 50; you.head = 50;
+
+  // ---- they are built against you --------------------------------------
+  //
+  // **The detail that stops a rival being a flavour generator.** Their style
+  // leans toward whatever you are weakest at, so they are somebody who beats
+  // you where it hurts rather than somebody with a random adjective.
+  // Checked per weakness rather than once, because a single seed proves
+  // nothing about a table.
+  {
+    Skills weakFingers = you; weakFingers.fingers = 20;
+    Skills weakEnd = you;     weakEnd.endurance = 20;
+    int crimpers = 0, engines = 0;
+    for (int s = 0; s < 40; s++) {
+      const Rng w = Rng::FromSeed("style#" + std::to_string(s));
+      if (RollRival(w, weakFingers, 1, 0, 5.0, rd).style ==
+          RouteType::Crimp) {
+        crimpers++;
+      }
+      if (RollRival(w, weakEnd, 1, 0, 5.0, rd).style ==
+          RouteType::Endurance) {
+        engines++;
+      }
+    }
+    // Weak fingers always draws a crimper; weak endurance always draws an
+    // engine. Both are single-option lanes, so this is exact.
+    CHECK(crimpers == 40);
+    CHECK(engines == 40);
+  }
+
+  // ---- the chase, and the ceiling that is yours -------------------------
+  Rival r = RollRival(world, you, 1, 0, 5.0, rd);
+  CHECK(!r.name.empty());
+  CHECK(r.generation == 0);
+  // They were already here and already better. That is the head start that
+  // makes them a benchmark rather than a twin.
+  CHECK(r.grade > 5.0);
+  CHECK(std::abs(r.grade - 6.0) < 1e-9);
+
+  // They chase, they do not teleport. Jumping straight to your grade plus
+  // the lead would delete the season of being ahead that is the whole point
+  // of catching them.
+  Rival chaser = r;
+  chaser.grade = 5.0;
+  int steps = 0;
+  for (int day = 2; day <= 40; day++) {
+    if (RivalDay(chaser, 12.0, day, rd)) steps++;
+  }
+  CHECK(steps > 5);                 // they are moving
+  CHECK(chaser.grade < 12.0);       // and they have not arrived
+  CHECK(chaser.grade > 5.0);
+
+  // **The top of the ladder is yours.** A rival who could reach the mythical
+  // grades would eventually take the one thing a career is for, so the cap
+  // is checked against a player who is already above it.
+  Rival capped = r;
+  for (int day = 2; day <= 4000; day++) RivalDay(capped, 18.0, day, rd);
+  CHECK(capped.grade <= rd.gradeCap + 1e-9);
+  CHECK(capped.grade >= rd.gradeCap - 1e-9);   // and it does get there
+
+  // ---- they age, which is what stops them being a metronome ------------
+  //
+  // A rival who ticks up forever is a difficulty slider with a name. Theirs
+  // is a career: it flattens at the peak age and then it is over.
+  CHECK(RivalAge(r, 1, rd) == rd.rivalStartAge);
+  CHECK(std::abs(RivalAge(r, 1 + rd.daysPerYear, rd) - (rd.rivalStartAge + 1.0)) <
+        1e-9);
+  CHECK(CanImprove(r, 1, rd));
+  const int pastPeak =
+      1 + static_cast<int>((rd.peakAge - rd.rivalStartAge + 1.0) * rd.daysPerYear);
+  CHECK(!CanImprove(r, pastPeak, rd));
+  {
+    // Pinned as a magnitude: an old rival gains *nothing*, not merely less.
+    Rival old = r;
+    old.grade = 6.0;
+    const double before = old.grade;
+    for (int d = pastPeak; d < pastPeak + 200; d++) {
+      RivalDay(old, 15.0, d, rd);
+    }
+    CHECK(old.grade == before);
+  }
+
+  // ---- and then they hang it up ----------------------------------------
+  //
+  // Not before the age, ever -- and asking twice in one season is the same
+  // answer, because a caller that checks daily must not get ninety-one rolls
+  // at it. That is the difference between a 28% season and a certainty.
+  CHECK(!ThinkingAboutIt(r, world, 1, rd));
+  const int retireDay =
+      1 + static_cast<int>((rd.retireAge - rd.rivalStartAge + 1.0) * rd.daysPerYear);
+  const bool first = ThinkingAboutIt(r, world, retireDay, rd);
+  for (int d = retireDay; d < retireDay + rd.seasonDays &&
+                          d / rd.seasonDays == retireDay / rd.seasonDays;
+       d++) {
+    CHECK(ThinkingAboutIt(r, world, d, rd) == first);
+  }
+  // Over enough seasons it does happen, and it happens to most careers.
+  {
+    int retiredIn = 0;
+    for (int s = 0; s < 60; s++) {
+      Rival cand = RollRival(Rng::FromSeed("ret#" + std::to_string(s)), you, 1,
+                             0, 5.0, rd);
+      const Rng w = Rng::FromSeed("ret#" + std::to_string(s));
+      for (int season = 0; season < 8; season++) {
+        const int d = retireDay + season * rd.seasonDays;
+        if (ThinkingAboutIt(cand, w, d, rd)) { retiredIn++; break; }
+      }
+    }
+    // Eight seasons at 28% is ~92% in theory; the check is loose enough to
+    // be about the design rather than the arithmetic.
+    CHECK(retiredIn > 45);
+  }
+
+  // ---- they do not leave the world -------------------------------------
+  //
+  // The whole reason for ageing them. **An ally stays close; somebody who
+  // beat you and left is the one that stings**, and only that branch makes
+  // "gone" likely.
+  {
+    int alliedGone = 0, beatenGone = 0;
+    for (int s = 0; s < 200; s++) {
+      const Rng w = Rng::FromSeed("role#" + std::to_string(s));
+      Rival a = r; a.allied = true; a.generation = s;
+      Rival b = r; b.rivalry = -20.0; b.generation = s;
+      if (Retire(a, w, retireDay, rd).role == RivalRole::Gone) alliedGone++;
+      if (Retire(b, w, retireDay, rd).role == RivalRole::Gone) beatenGone++;
+    }
+    CHECK(alliedGone == 0);            // a friend never just vanishes
+    CHECK(beatenGone > 60);            // and being beaten often ends it
+  }
+
+  // ---- somebody steps up ------------------------------------------------
+  //
+  // The moment a career turns over: for the first time somebody is chasing
+  // *you*, and they are gaining twice as fast as the last one did.
+  {
+    const Rival next = Succeed(world, you, 9.0, 500, 1, rd);
+    CHECK(next.generation == 1);
+    CHECK(next.grade < 9.0);                       // below you, not ahead
+    CHECK(std::abs(next.grade - 6.0) < 1e-9);      // exactly the lag
+    CHECK(next.startAge < r.startAge);             // and younger
+
+    // Twice as fast, pinned as a magnitude rather than an ordering.
+    Rival young = next, oldGuard = next;
+    oldGuard.generation = 0;
+    int youngSteps = 0, oldSteps = 0;
+    for (int d = 501; d <= 560; d++) {
+      if (RivalDay(young, 30.0, d, rd)) youngSteps++;
+      if (RivalDay(oldGuard, 30.0, d, rd)) oldSteps++;
+    }
+    CHECK(youngSteps > oldSteps * 3 / 2);
+  }
+
+  // ---- what moves the rivalry ------------------------------------------
+  {
+    Rival h = r;
+    CHECK(h.rivalry == 0.0);
+    TheyGotThereFirst(h, "The Prow", rd);
+    CHECK(h.rivalry < 0.0);
+    CHECK(h.firstAscents.size() == 1);
+    // Taking the same line twice is not two defeats.
+    TheyGotThereFirst(h, "The Prow", rd);
+    CHECK(h.firstAscents.size() == 1);
+    CHECK(h.rivalry == -rd.faSwing);
+
+    // The ally arc opens on the head-to-head and fires once.
+    CHECK(!WouldPartnerUp(h, rd));
+    for (int i = 0; i < 20; i++) YouGotThereFirst(h, rd);
+    CHECK(WouldPartnerUp(h, rd));
+    h.offered = true;
+    CHECK(!WouldPartnerUp(h, rd));   // asked is asked
+  }
+
+  // ---- what the game says about them ------------------------------------
+  {
+    Rival q = r;
+    // Silent until you have been introduced. A number for a stranger is a
+    // leaderboard, not a rival.
+    CHECK(RivalLine(q, 5.0, 10, rd).empty());
+    q.met = true;
+    CHECK(!RivalLine(q, 5.0, 10, rd).empty());
+    CHECK(RivalLine(q, 5.0, 10, rd).find(q.name) != std::string::npos);
+    // The three states read differently.
+    const std::string ahead = RivalLine(q, 2.0, 10, rd);
+    const std::string level = RivalLine(q, q.grade, 10, rd);
+    const std::string behind = RivalLine(q, 15.0, 10, rd);
+    CHECK(ahead != level && level != behind && ahead != behind);
+    // Past their best is its own sentence, because it changes what the
+    // chase means: you stop catching them and start outlasting them.
+    CHECK(RivalLine(q, 2.0, pastPeak, rd) != ahead);
+    // No numbers anywhere in it.
+    for (char ch : level) CHECK(!(ch >= '0' && ch <= '9'));
+  }
+}
+
+static void TestRivalCareer() {
+  // **The night tick, which nothing covered.** Killing the whole rival
+  // block in `SleepToNextDay` passed the entire suite -- the rival's career
+  // existed and never ran, which is this project's oldest bug and the sixth
+  // layer it has been found at. So the test is a career rather than a unit:
+  // sleep for thirty years and check that somebody had a life.
+  RivalDials rd;
+  PlayerState player;
+  DayState day;
+  const Rng world = Rng::FromSeed("a-life");
+  player.climber = NewClimber(world);
+  player.rival = RollRival(world, player.climber.skills, 1, 0, 5.0, rd);
+
+  const std::string firstName = player.rival.name;
+  const double firstGrade = player.rival.grade;
+  const int years = 30;
+
+  double lastGrade = firstGrade;
+  bool everImproved = false, everFlattened = false;
+  for (int i = 0; i < years * rd.daysPerYear; i++) {
+    SleepToNextDay(player, day, world);
+    if (player.rival.grade > lastGrade) everImproved = true;
+    lastGrade = player.rival.grade;
+  }
+
+  // They chased. Without the night tick this is the check that fires.
+  CHECK(everImproved);
+  CHECK(player.rival.grade > 0.0);
+
+  // **Somebody had a career and it ended.** Thirty years is four or five
+  // rival lifetimes at these dials, so a career that saw none of them
+  // retire means the retirement roll never ran.
+  CHECK(!player.pastRivals.empty());
+  CHECK(player.rival.generation > 0);
+  CHECK(player.rival.name != firstName || player.pastRivals.size() > 1);
+
+  // They did not leave the world. Most of them are still around, on the
+  // other side of a counter or with their name on a guidebook.
+  int stayed = 0;
+  for (const PastRival& p : player.pastRivals) {
+    CHECK(!p.name.empty());
+    CHECK(p.age >= rd.retireAge);
+    CHECK(p.peakGrade > 0.0);
+    if (p.role != RivalRole::Gone) stayed++;
+  }
+  CHECK(stayed > 0);
+
+  // And the generations are in order, oldest first, with no gaps -- the
+  // record is a lineage rather than a bag.
+  for (std::size_t i = 0; i < player.pastRivals.size(); i++) {
+    CHECK(player.pastRivals[i].generation == static_cast<int>(i));
+    if (i > 0) {
+      CHECK(player.pastRivals[i].retiredOnDay >=
+            player.pastRivals[i - 1].retiredOnDay);
+    }
+  }
+  (void)everFlattened;
+}
+
+static void TestRivalSave() {
+  RivalDials rd;
+  SaveGame save;
+  save.seed = "the-one-who-beat-me";
+  Skills you;
+  you.power = 50; you.fingers = 20; you.technique = 50;
+  you.endurance = 50; you.head = 50;
+  save.player.rival = RollRival(Rng::FromSeed(save.seed), you, 1, 0, 5.0, rd);
+  save.player.rival.met = true;
+  save.player.rival.rivalry = -3.0;
+  TheyGotThereFirst(save.player.rival, "The Prow", rd);
+  TheyGotThereFirst(save.player.rival, "Slab of Regret", rd);
+  PastRival gone;
+  gone.name = "Silas Mott";
+  gone.role = RivalRole::Author;
+  gone.style = RouteType::Crack;
+  gone.retiredOnDay = 900;
+  gone.age = 35.5;
+  gone.peakGrade = 11.25;
+  gone.generation = 0;
+  save.player.pastRivals.push_back(gone);
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  const Rival& r = back.player.rival;
+  CHECK(r.name == save.player.rival.name);
+  CHECK(r.style == save.player.rival.style);
+  CHECK(r.vibe == save.player.rival.vibe);
+  CHECK(r.grade == save.player.rival.grade);
+  CHECK(r.rivalry == save.player.rival.rivalry);
+  CHECK(r.met);
+  // **The lines they took are the part that must not be lost.** Their name
+  // is on those in the guidebook forever; a save that forgets them leaves
+  // the book saying one thing and the career record another.
+  //
+  // Guarded rather than indexed straight: the first version of this asserted
+  // the size and then read `[0]` regardless, so dropping the count from the
+  // save **segfaulted the harness instead of failing the check.** A test
+  // that crashes tells you less than one that fails, and it takes the rest
+  // of the suite with it.
+  CHECK(r.firstAscents.size() == 2);
+  if (r.firstAscents.size() == 2) {
+    CHECK(r.firstAscents[0] == "The Prow");
+    CHECK(r.firstAscents[1] == "Slab of Regret");
+  }
+  CHECK(back.player.pastRivals.size() == 1);
+  if (back.player.pastRivals.size() == 1) {
+    CHECK(back.player.pastRivals[0].name == "Silas Mott");
+    CHECK(back.player.pastRivals[0].role == RivalRole::Author);
+    CHECK(back.player.pastRivals[0].peakGrade == 11.25);
+  }
+
+  // **A v21 career had nobody, and must not have a stranger appear.** It
+  // migrates to an empty rival, and the night tick skips a rival with no
+  // name -- so the career plays exactly as it did.
+  std::string v21 = SerializeSave(save);
+  for (const char* k : {"rival.name=", "rival.style=", "rival.vibe=",
+                        "rival.gen=", "rival.born=", "rival.startage=",
+                        "rival.grade=", "rival.laststep=", "rival.peak=",
+                        "rival.rivalry=", "rival.allied=", "rival.offered=",
+                        "rival.met=", "rival.retired=", "rival.fas=",
+                        "rival.fa0=", "rival.fa1=", "pastrivals=",
+                        "pastrival0.name=", "pastrival0.role=",
+                        "pastrival0.style=", "pastrival0.day=",
+                        "pastrival0.age=", "pastrival0.peak=",
+                        "pastrival0.gen="}) {
+    DropSaveLine(v21, k);
+  }
+  SetSaveVersion(v21, 21);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v21, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(old.player.rival.name.empty());
+  CHECK(old.player.pastRivals.empty());
+  CHECK(old.seed == save.seed);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+
+  // And an empty rival is genuinely inert: thirty days of nights change
+  // nothing, which is what "plays exactly as it did" has to mean.
+  {
+    DayState d;
+    const Rng w = Rng::FromSeed("quiet");
+    old.player.climber = NewClimber(w);
+    for (int i = 0; i < 30; i++) SleepToNextDay(old.player, d, w);
+    CHECK(old.player.rival.name.empty());
+    CHECK(old.player.rival.grade == 0.0);
+    CHECK(old.player.pastRivals.empty());
   }
 }
 
@@ -8189,6 +8540,9 @@ int main() {
   TestTheTable();
   TestHowClose();
   TestPumpShows();
+  TestRival();
+  TestRivalCareer();
+  TestRivalSave();
   TestCharacter();
   TestCharacterSave();
   TestZones();

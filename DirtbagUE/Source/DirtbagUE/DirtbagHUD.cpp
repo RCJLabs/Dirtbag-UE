@@ -205,6 +205,51 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		         GEngine->GetMediumFont(), 1.f);
 	}
 
+	// The rival came around, or one of them hung it up. Same treatment as
+	// the Lot's, because it is the same kind of news: it happened while you
+	// were asleep and nobody asked you.
+	if (!Game->RivalNews.IsEmpty())
+	{
+		Y += 22.f;
+		DrawText(Game->RivalNews, FLinearColor(0.85f, 0.55f, 0.35f, 1.f), X,
+		         Y, GEngine->GetMediumFont(), 1.f);
+	}
+
+	// **Where you stand against them**, in the slow lines rather than the
+	// news, because it is a state and not an event -- and silent until you
+	// have been introduced, because a number for a stranger is a
+	// leaderboard rather than a rival.
+	{
+		const dirtbag::Rival R = DirtbagConvert::ToSim(Game->Player.Rival);
+		const std::string Line =
+		    dirtbag::RivalLine(R, Game->AllroundGrade(), Game->Player.Day);
+		if (!Line.empty())
+		{
+			Y += 22.f;
+			// Warmer when you are ahead, cool when you are not. The colour
+			// is the only place the number lives -- the sentence never
+			// says a grade.
+			const bool bBehind =
+			    dirtbag::AreTheyAhead(R, Game->AllroundGrade());
+			DrawText(FString(Line.c_str()),
+			         bBehind ? FLinearColor(0.62f, 0.66f, 0.75f, 1.f)
+			                 : FLinearColor(0.72f, 0.80f, 0.62f, 1.f),
+			         X, Y, GEngine->GetSmallFont(), 1.f);
+		}
+		// And what became of the last one, once there has been a last one.
+		if (!Game->Player.PastRivals.IsEmpty())
+		{
+			const FDirtbagPastRival& P =
+			    Game->Player.PastRivals.Last();
+			Y += 18.f;
+			DrawText(FString::Printf(
+			             TEXT("%s: %s."), *P.Name,
+			             UTF8_TO_TCHAR(dirtbag::RoleText(
+			                 static_cast<dirtbag::RivalRole>(P.Role)))),
+			         kDim, X, Y, GEngine->GetSmallFont(), 1.f);
+		}
+	}
+
 	// The sponsor's news: the month's money, or the yearly verdict. Same
 	// treatment as the Lot's, because it arrives the same way — overnight,
 	// already decided.

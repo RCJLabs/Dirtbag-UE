@@ -372,6 +372,33 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   CrewDay(player.crew, player.name, player.bonds, player.standing, worldRng,
           player.day);
 
+  // A day of their career, which is the same night as yours. They chase
+  // your grade if they still can; they stop when they are past it; and one
+  // season they hang it up and somebody else steps up -- which is the whole
+  // point of ageing them, because a rival who ticks up forever is a
+  // difficulty slider with a name.
+  //
+  // Here rather than in a call the engine remembers to make, for the reason
+  // the four ticks below it are here: **anything that counts down, counts
+  // down at night.** Three per-day rules in this project have been written
+  // and left uncalled, and every one was found late.
+  if (!player.rival.name.empty()) {
+    const double yourGrade =
+        SkillToGrade((player.climber.skills.power +
+                      player.climber.skills.fingers +
+                      player.climber.skills.technique +
+                      player.climber.skills.endurance +
+                      player.climber.skills.head) / 5.0);
+    RivalDay(player.rival, yourGrade, player.day);
+    if (!player.rival.retired &&
+        ThinkingAboutIt(player.rival, worldRng, player.day)) {
+      player.pastRivals.push_back(
+          Retire(player.rival, worldRng, player.day));
+      player.rival = Succeed(worldRng, player.climber.skills, yourGrade,
+                             player.day, player.rival.generation + 1);
+    }
+  }
+
   // Rent, and a bought year running down. Rent lands here with the other
   // things that happen to you overnight rather than at the shop, because
   // that is what rent does.

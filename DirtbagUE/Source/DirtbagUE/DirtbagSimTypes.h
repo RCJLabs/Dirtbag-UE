@@ -10,6 +10,7 @@
 #include "DirtbagCampfire.h"
 #include "DirtbagZones.h"
 #include "DirtbagCharacter.h"
+#include "DirtbagRival.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
@@ -467,6 +468,113 @@ struct FDirtbagCharacter
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
 	int32 AgePlus = 0;
+};
+
+/** What kind of rival they are. Mirrors dirtbag::RivalVibe. */
+UENUM(BlueprintType)
+enum class EDirtbagRivalVibe : uint8
+{
+	Foil      UMETA(DisplayName = "A friendly foil"),
+	Nemesis   UMETA(DisplayName = "A bitter nemesis"),
+	Benchmark UMETA(DisplayName = "A quiet benchmark"),
+};
+
+/** What becomes of them. Mirrors dirtbag::RivalRole — they do not leave the
+ *  world, which is the entire point of ageing them. */
+UENUM(BlueprintType)
+enum class EDirtbagRivalRole : uint8
+{
+	Coach  UMETA(DisplayName = "Coaching at the gym"),
+	Author UMETA(DisplayName = "Writing the guidebook"),
+	Gone   UMETA(DisplayName = "Gone"),
+};
+
+/** Somebody to beat. Mirrors dirtbag::Rival.
+ *
+ *  **Not the nemesis.** `FDirtbagPlayerState::Nemesis` is the unsent *line*
+ *  you have fed the most burns; this is a *person*. §4 called them one
+ *  thing and they are two. */
+USTRUCT(BlueprintType)
+struct FDirtbagRival
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	FString Name;
+
+	/** What they are best at — leaned toward whatever you are weakest at. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	EDirtbagRouteType Style = EDirtbagRouteType::Power;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	EDirtbagRivalVibe Vibe = EDirtbagRivalVibe::Benchmark;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	int32 Generation = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	int32 BornOnDay = 1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	double StartAge = 26.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	double Grade = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	int32 LastStepDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	double PeakGrade = 0.0;
+
+	/** Net head-to-head. Positive is you. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	double Rivalry = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	bool bAllied = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	bool bOffered = false;
+
+	/** Before this they are a name and a number. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	bool bMet = false;
+
+	/** Open lines they got to before you. Their name is on them forever. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	TArray<FString> FirstAscents;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	bool bRetired = false;
+};
+
+/** One who came before, and what became of them. */
+USTRUCT(BlueprintType)
+struct FDirtbagPastRival
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	EDirtbagRivalRole Role = EDirtbagRivalRole::Gone;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	EDirtbagRouteType Style = EDirtbagRouteType::Power;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	int32 RetiredOnDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	double Age = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	double PeakGrade = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	int32 Generation = 0;
 };
 
 /** What is on your feet, and how much of it is left. */
@@ -1044,6 +1152,14 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
 	FDirtbagCharacter Character;
 
+	/** Somebody to beat. Not the nemesis, which is a route. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	FDirtbagRival Rival;
+
+	/** And the ones who came before. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	TArray<FDirtbagPastRival> PastRivals;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gear")
 	FDirtbagShoes Shoes;
 
@@ -1307,6 +1423,10 @@ namespace DirtbagConvert
 	dirtbag::Shoes ToSim(const FDirtbagShoes& In);
 	FDirtbagCharacter FromSim(const dirtbag::Character& In);
 	dirtbag::Character ToSim(const FDirtbagCharacter& In);
+	FDirtbagRival FromSim(const dirtbag::Rival& In);
+	dirtbag::Rival ToSim(const FDirtbagRival& In);
+	FDirtbagPastRival FromSim(const dirtbag::PastRival& In);
+	dirtbag::PastRival ToSim(const FDirtbagPastRival& In);
 	FDirtbagVan FromSim(const dirtbag::Van& In);
 	dirtbag::Van ToSim(const FDirtbagVan& In);
 	FDirtbagPartnerBond FromSim(const dirtbag::PartnerBond& In);

@@ -1363,6 +1363,13 @@ void UDirtbagGameInstance::RefreshCreation()
 	}
 }
 
+double UDirtbagGameInstance::AllroundGrade() const
+{
+	const FDirtbagClimber& C = Player.Climber;
+	return dirtbag::SkillToGrade(
+	    (C.Power + C.Fingers + C.Technique + C.Endurance + C.Head) / 5.0);
+}
+
 double UDirtbagGameInstance::ShopPrice() const
 {
 	return dirtbag::ShopPriceMultiplier(
@@ -2508,6 +2515,75 @@ void UDirtbagGameInstance::AdvanceTheLot()
 		    UTF8_TO_TCHAR(dirtbag::DisplayName(Got).c_str()));
 	}
 	StoreBonds(Lot);
+
+	// **And the rival, who goes for the hard ones.**
+	//
+	// Through the Lot's own machinery rather than a roll of their own:
+	// `AsAClimber` hands back a `Partner` built from their grade, so the
+	// same `PartnerTakesFirstAscent` and `TheyPutUpTheLine` that write a
+	// neighbour's ascent into the book write theirs. Two paths to "somebody
+	// got there first" would drift, and the drift shows up as a guidebook
+	// that knows about one and not the other.
+	{
+		dirtbag::Rival R = DirtbagConvert::ToSim(Player.Rival);
+		const bool bWasMet = R.met;
+		if (!R.name.empty() && !R.retired && !R.allied)
+		{
+			dirtbag::Partner Them =
+			    dirtbag::AsAClimber(R, World, Player.Day);
+			const int Line = dirtbag::PartnerTakesFirstAscent(
+			    World, Them, SimCrag, Taken, Player.Day);
+			if (Line >= 0)
+			{
+				dirtbag::CragLine& Got = SimCrag.lines[Line];
+				dirtbag::TheyPutUpTheLine(Got, R.name);
+				dirtbag::TheyGotThereFirst(R, Got.route.name);
+				// Losing a line to somebody is a way of meeting them.
+				R.met = true;
+				if (!LotNews.IsEmpty())
+				{
+					LotNews += TEXT("   ");
+				}
+				// Said differently from a neighbour's, because it is a
+				// different thing: a neighbour got lucky, this one was
+				// after it.
+				LotNews += FString::Printf(
+				    TEXT("%s got to %s first. It has their name on it now."),
+				    UTF8_TO_TCHAR(R.name.c_str()),
+				    UTF8_TO_TCHAR(Got.description.c_str()));
+			}
+
+			// They come around, once, when the head-to-head says you have
+			// earned it. Recorded as offered whether or not anything is
+			// done with it, because being asked twice is not how it works.
+			if (dirtbag::WouldPartnerUp(R))
+			{
+				R.offered = true;
+				R.allied = true;
+				RivalNews = FString::Printf(
+				    TEXT("%s asked if you wanted to rope up. You are not "
+				         "sure when that changed."),
+				    UTF8_TO_TCHAR(R.name.c_str()));
+			}
+		}
+		// **Introduced.** Before this they were a name and a number; you
+		// find out what they are by losing a line to them or taking one
+		// off them, which is the only honest way to learn it. Said once,
+		// ever, and prepended so the introduction reads before the thing
+		// that caused it.
+		if (!bWasMet && R.met)
+		{
+			const FString Intro = FString::Printf(
+			    TEXT("%s. %s, and %s."), UTF8_TO_TCHAR(R.name.c_str()),
+			    UTF8_TO_TCHAR(dirtbag::StyleText(R.style)),
+			    UTF8_TO_TCHAR(dirtbag::VibeText(R.vibe)));
+			RivalNews = RivalNews.IsEmpty()
+			                ? Intro
+			                : Intro + TEXT("   ") + RivalNews;
+		}
+		Player.Rival = DirtbagConvert::FromSim(R);
+	}
+
 	bClimbedToday = false;
 }
 
@@ -2563,6 +2639,17 @@ bool UDirtbagGameInstance::NameFirstAscent(int32 BoardIndex,
 	// anything the rest of this frame had already changed.
 	Player.Standing = DirtbagConvert::FromSim(SimPlayer.standing);
 	*Ledger = DirtbagConvert::FromSim(SimLedger);
+
+	// **You got there first.** The head-to-head is what opens the ally arc,
+	// and a first ascent is the highest stake this game currently has --
+	// their side of it is in AdvanceTheLot, and this is yours.
+	{
+		dirtbag::Rival R = DirtbagConvert::ToSim(Player.Rival);
+		dirtbag::YouGotThereFirst(R);
+		// Beating somebody to a line is a way of meeting them.
+		R.met = true;
+		Player.Rival = DirtbagConvert::FromSim(R);
+	}
 
 	// The book is loaded and stale by one line. EnsureCrag would fix it on
 	// the next venue change, which is far too late: the player is standing

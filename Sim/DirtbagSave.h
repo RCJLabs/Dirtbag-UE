@@ -51,7 +51,11 @@ namespace dirtbag {
 //   an old save loads and plays with exactly the numbers it was measured
 //   with. It also means the creation screen does not ambush somebody
 //   mid-career; a v20 climber stays the climber they were.
-constexpr int kSaveVersion = 21;
+// Version 22: somebody to beat. A v21 career had no rival, so it migrates to
+//   **an empty one** -- and `SleepToNextDay` skips a rival with no name, so
+//   an old save plays exactly as it did. It gets one the next time a career
+//   starts rather than having a stranger appear mid-life.
+constexpr int kSaveVersion = 22;
 
 struct SaveGame {
   int version = kSaveVersion;

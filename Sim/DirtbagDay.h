@@ -12,6 +12,7 @@
 #include "DirtbagAge.h"
 #include "DirtbagCharacter.h"
 #include "DirtbagCore.h"
+#include "DirtbagRival.h"
 #include "DirtbagCrew.h"
 #include "DirtbagDreams.h"
 #include "DirtbagDog.h"
@@ -147,6 +148,13 @@ struct PlayerState {
   // person rather than a blank, so every existing caller keeps working and
   // keeps meaning something.
   Character character;
+
+  // Somebody to beat, and the ones who came before. Rolled at the start of
+  // a career and replaced when they retire -- see Sim/DirtbagRival.h, and
+  // note that this is a *person* and `nemesis` above is a *route*. They are
+  // different things and §4 conflated them.
+  Rival rival;
+  std::vector<PastRival> pastRivals;
 
   double cash = 420.0;  // the war chest you left home with
   int day = 1;

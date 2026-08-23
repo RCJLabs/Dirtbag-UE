@@ -172,6 +172,12 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.name = TCHAR_TO_UTF8(*In.Name);
 	Out.climber = ToSim(In.Climber);
 	Out.character = ToSim(In.Character);
+	Out.rival = ToSim(In.Rival);
+	Out.pastRivals.reserve(In.PastRivals.Num());
+	for (const FDirtbagPastRival& P : In.PastRivals)
+	{
+		Out.pastRivals.push_back(ToSim(P));
+	}
 	Out.cash = In.Cash;
 	Out.day = In.Day;
 	Out.dog = ToSim(In.Dog);
@@ -220,6 +226,12 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	FDirtbagPlayerState Out;
 	Out.Name = FString(In.name.c_str());
 	Out.Character = FromSim(In.character);
+	Out.Rival = FromSim(In.rival);
+	Out.PastRivals.Reset(In.pastRivals.size());
+	for (const dirtbag::PastRival& P : In.pastRivals)
+	{
+		Out.PastRivals.Add(FromSim(P));
+	}
 	Out.Climber.Power = In.climber.skills.power;
 	Out.Climber.Fingers = In.climber.skills.fingers;
 	Out.Climber.Technique = In.climber.skills.technique;
@@ -641,6 +653,82 @@ dirtbag::Dog ToSim(const FDirtbagDog& In)
 	Out.adopted = In.bAdopted;
 	Out.bond = In.Bond;
 	Out.fed = In.Fed;
+	return Out;
+}
+
+FDirtbagRival FromSim(const dirtbag::Rival& In)
+{
+	FDirtbagRival Out;
+	Out.Name = FString(In.name.c_str());
+	Out.Style = static_cast<EDirtbagRouteType>(In.style);
+	Out.Vibe = static_cast<EDirtbagRivalVibe>(In.vibe);
+	Out.Generation = In.generation;
+	Out.BornOnDay = In.bornOnDay;
+	Out.StartAge = In.startAge;
+	Out.Grade = In.grade;
+	Out.LastStepDay = In.lastStepDay;
+	Out.PeakGrade = In.peakGrade;
+	Out.Rivalry = In.rivalry;
+	Out.bAllied = In.allied;
+	Out.bOffered = In.offered;
+	Out.bMet = In.met;
+	Out.FirstAscents.Reset(In.firstAscents.size());
+	for (const std::string& Key : In.firstAscents)
+	{
+		Out.FirstAscents.Add(FString(Key.c_str()));
+	}
+	Out.bRetired = In.retired;
+	return Out;
+}
+
+dirtbag::Rival ToSim(const FDirtbagRival& In)
+{
+	dirtbag::Rival Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.style = static_cast<dirtbag::RouteType>(In.Style);
+	Out.vibe = static_cast<dirtbag::RivalVibe>(In.Vibe);
+	Out.generation = In.Generation;
+	Out.bornOnDay = In.BornOnDay;
+	Out.startAge = In.StartAge;
+	Out.grade = In.Grade;
+	Out.lastStepDay = In.LastStepDay;
+	Out.peakGrade = In.PeakGrade;
+	Out.rivalry = In.Rivalry;
+	Out.allied = In.bAllied;
+	Out.offered = In.bOffered;
+	Out.met = In.bMet;
+	Out.firstAscents.reserve(In.FirstAscents.Num());
+	for (const FString& Key : In.FirstAscents)
+	{
+		Out.firstAscents.push_back(TCHAR_TO_UTF8(*Key));
+	}
+	Out.retired = In.bRetired;
+	return Out;
+}
+
+FDirtbagPastRival FromSim(const dirtbag::PastRival& In)
+{
+	FDirtbagPastRival Out;
+	Out.Name = FString(In.name.c_str());
+	Out.Role = static_cast<EDirtbagRivalRole>(In.role);
+	Out.Style = static_cast<EDirtbagRouteType>(In.style);
+	Out.RetiredOnDay = In.retiredOnDay;
+	Out.Age = In.age;
+	Out.PeakGrade = In.peakGrade;
+	Out.Generation = In.generation;
+	return Out;
+}
+
+dirtbag::PastRival ToSim(const FDirtbagPastRival& In)
+{
+	dirtbag::PastRival Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.role = static_cast<dirtbag::RivalRole>(In.Role);
+	Out.style = static_cast<dirtbag::RouteType>(In.Style);
+	Out.retiredOnDay = In.RetiredOnDay;
+	Out.age = In.Age;
+	Out.peakGrade = In.PeakGrade;
+	Out.generation = In.Generation;
 	return Out;
 }
 

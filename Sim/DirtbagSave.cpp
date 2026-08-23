@@ -247,6 +247,29 @@ void MigrateV19ToV20(SaveFields& fields) { fields["player.name"] = ""; }
 // because an unbuilt character is neutral in every lane. The climber you
 // had keeps the numbers they had, and the creation screen does not ambush
 // somebody twenty years into a career.
+// v21 -> v22: somebody to beat. A v21 career had nobody, so it migrates to
+// an **empty** rival -- and `SleepToNextDay` skips a rival with no name, so
+// the career plays exactly as it did rather than having a stranger appear
+// twenty years in.
+void MigrateV21ToV22(SaveFields& fields) {
+  fields["rival.name"] = "";
+  fields["rival.style"] = "0";
+  fields["rival.vibe"] = "0";
+  fields["rival.gen"] = "0";
+  fields["rival.born"] = "1";
+  fields["rival.startage"] = "26";
+  fields["rival.grade"] = "0";
+  fields["rival.laststep"] = "0";
+  fields["rival.peak"] = "0";
+  fields["rival.rivalry"] = "0";
+  fields["rival.allied"] = "0";
+  fields["rival.offered"] = "0";
+  fields["rival.met"] = "0";
+  fields["rival.retired"] = "0";
+  fields["rival.fas"] = "0";
+  fields["pastrivals"] = "0";
+}
+
 void MigrateV20ToV21(SaveFields& fields) {
   fields["char.built"] = "0";
   fields["char.archetype"] = "0";
@@ -292,7 +315,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV9ToV10, &MigrateV10ToV11, &MigrateV11ToV12,
       &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15,
       &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18,
-      &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21};
+      &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21,
+      &MigrateV21ToV22};
   return kMigrations;
 }
 
@@ -413,6 +437,48 @@ std::string SerializeSave(const SaveGame& save) {
         << NumToStr(save.player.standing.with[i]) << "\n";
   }
   out << "load=" << NumToStr(save.player.climber.load) << "\n";
+  // Somebody to beat, and the ones who came before. The name goes first
+  // because it is the field that says whether there is anybody at all --
+  // `SleepToNextDay` skips an empty one, which is what makes a v21 career
+  // load unchanged.
+  {
+    const Rival& rv = save.player.rival;
+    out << "rival.name=" << rv.name << "\n";
+    out << "rival.style=" << IntToStr(static_cast<int>(rv.style)) << "\n";
+    out << "rival.vibe=" << IntToStr(static_cast<int>(rv.vibe)) << "\n";
+    out << "rival.gen=" << IntToStr(rv.generation) << "\n";
+    out << "rival.born=" << IntToStr(rv.bornOnDay) << "\n";
+    out << "rival.startage=" << NumToStr(rv.startAge) << "\n";
+    out << "rival.grade=" << NumToStr(rv.grade) << "\n";
+    out << "rival.laststep=" << IntToStr(rv.lastStepDay) << "\n";
+    out << "rival.peak=" << NumToStr(rv.peakGrade) << "\n";
+    out << "rival.rivalry=" << NumToStr(rv.rivalry) << "\n";
+    out << "rival.allied=" << IntToStr(rv.allied ? 1 : 0) << "\n";
+    out << "rival.offered=" << IntToStr(rv.offered ? 1 : 0) << "\n";
+    out << "rival.met=" << IntToStr(rv.met ? 1 : 0) << "\n";
+    out << "rival.retired=" << IntToStr(rv.retired ? 1 : 0) << "\n";
+    out << "rival.fas=" << IntToStr(static_cast<int>(rv.firstAscents.size()))
+        << "\n";
+    for (std::size_t i = 0; i < rv.firstAscents.size(); i++) {
+      out << "rival.fa" << IntToStr(static_cast<int>(i)) << "="
+          << rv.firstAscents[i] << "\n";
+    }
+    out << "pastrivals=" << IntToStr(static_cast<int>(
+                                save.player.pastRivals.size()))
+        << "\n";
+    for (std::size_t i = 0; i < save.player.pastRivals.size(); i++) {
+      const PastRival& p = save.player.pastRivals[i];
+      const std::string k = "pastrival" + IntToStr(static_cast<int>(i)) + ".";
+      out << k << "name=" << p.name << "\n";
+      out << k << "role=" << IntToStr(static_cast<int>(p.role)) << "\n";
+      out << k << "style=" << IntToStr(static_cast<int>(p.style)) << "\n";
+      out << k << "day=" << IntToStr(p.retiredOnDay) << "\n";
+      out << k << "age=" << NumToStr(p.age) << "\n";
+      out << k << "peak=" << NumToStr(p.peakGrade) << "\n";
+      out << k << "gen=" << IntToStr(p.generation) << "\n";
+    }
+  }
+
   // Who you are. `built` first, because it is the field the loader has to
   // believe before any of the others mean anything.
   {
@@ -600,6 +666,67 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     return LoadResult::BadFormat;
   }
   int hurt = 0, injuryKind = 0;
+  {
+    Rival& rv = save.player.rival;
+    int style = 0, vibe = 0, allied = 0, offered = 0, met = 0, retired = 0,
+        fas = 0, pastCount = 0;
+    if (!ParseString(fields, "rival.name", rv.name) ||
+        !ParseInt(fields, "rival.style", style) ||
+        !ParseInt(fields, "rival.vibe", vibe) ||
+        !ParseInt(fields, "rival.gen", rv.generation) ||
+        !ParseInt(fields, "rival.born", rv.bornOnDay) ||
+        !ParseDouble(fields, "rival.startage", rv.startAge) ||
+        !ParseDouble(fields, "rival.grade", rv.grade) ||
+        !ParseInt(fields, "rival.laststep", rv.lastStepDay) ||
+        !ParseDouble(fields, "rival.peak", rv.peakGrade) ||
+        !ParseDouble(fields, "rival.rivalry", rv.rivalry) ||
+        !ParseInt(fields, "rival.allied", allied) ||
+        !ParseInt(fields, "rival.offered", offered) ||
+        !ParseInt(fields, "rival.met", met) ||
+        !ParseInt(fields, "rival.retired", retired) ||
+        !ParseInt(fields, "rival.fas", fas) ||
+        !ParseInt(fields, "pastrivals", pastCount)) {
+      return LoadResult::BadFormat;
+    }
+    // Clamped rather than trusted, same as the character's enums: a file is
+    // a thing a person can edit and an out-of-range value indexes off the
+    // end of a static table.
+    const auto pick = [](int v, int count) {
+      return (v >= 0 && v < count) ? v : 0;
+    };
+    rv.style = static_cast<RouteType>(pick(style, 6));
+    rv.vibe = static_cast<RivalVibe>(pick(vibe, kRivalVibeCount));
+    rv.allied = allied != 0;
+    rv.offered = offered != 0;
+    rv.met = met != 0;
+    rv.retired = retired != 0;
+    rv.firstAscents.clear();
+    for (int i = 0; i < fas; i++) {
+      std::string key;
+      if (!ParseString(fields, "rival.fa" + IntToStr(i), key)) {
+        return LoadResult::BadFormat;
+      }
+      rv.firstAscents.push_back(key);
+    }
+    save.player.pastRivals.clear();
+    for (int i = 0; i < pastCount; i++) {
+      const std::string k = "pastrival" + IntToStr(i) + ".";
+      PastRival p;
+      int role = 0, pstyle = 0;
+      if (!ParseString(fields, k + "name", p.name) ||
+          !ParseInt(fields, k + "role", role) ||
+          !ParseInt(fields, k + "style", pstyle) ||
+          !ParseInt(fields, k + "day", p.retiredOnDay) ||
+          !ParseDouble(fields, k + "age", p.age) ||
+          !ParseDouble(fields, k + "peak", p.peakGrade) ||
+          !ParseInt(fields, k + "gen", p.generation)) {
+        return LoadResult::BadFormat;
+      }
+      p.role = static_cast<RivalRole>(pick(role, 3));
+      p.style = static_cast<RouteType>(pick(pstyle, 6));
+      save.player.pastRivals.push_back(p);
+    }
+  }
   {
     Character& ch = save.player.character;
     int built = 0, arch = 0, orig = 0, flaw = 0, temper = 0, gift = 0,

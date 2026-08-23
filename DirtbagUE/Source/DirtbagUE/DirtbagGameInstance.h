@@ -1094,6 +1094,12 @@ public:
 	/** Rebuild the on-screen options for the current question. */
 	void RefreshCreation();
 
+	/** The average of your five skills, on the grade ladder. The number the
+	 *  rival chases, and the one the HUD compares them to -- computed once
+	 *  here rather than in three places that would drift. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	double AllroundGrade() const;
+
 	/** What the counter charges this climber, as a multiplier. One for
 	 *  everybody except the Trust-Fund Kid, whose family money still quietly
 	 *  covers it. Read here rather than inside the sim, because a price is a
@@ -1506,6 +1512,11 @@ public:
 	 *  Sim/DirtbagCharacter.h. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
 	FString TalentNews;
+
+	/** The rival came around, or one of them hung it up. Slow news, said
+	 *  once, in the same register as a secret coming out. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
+	FString RivalNews;
 
 	/** What the sponsor did overnight: the month's money, or the once-a-year
 	 *  verdict on whether they are keeping you. Empty on any night neither
