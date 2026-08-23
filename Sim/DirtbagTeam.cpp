@@ -99,6 +99,15 @@ TeamReview ReviewTheTeam(NationalTeam& team, double rankingPoints,
   out.was = team.status;
   out.now = team.status;
 
+  // **Once a year, and refused rather than deferred.** A season's close
+  // inside the window simply does not sit; the next one outside it does.
+  // Without this the committee met every seventy-three days, which is not
+  // a selection committee, it is a thermostat.
+  if (team.lastReviewDay > 0 &&
+      day - team.lastReviewDay < dials.reviewEveryDays) {
+    return out;
+  }
+
   // **The line you are held to depends on whether you are already on it.**
   // Named, you hold down to `holdAt`; unselected, you have to clear
   // `selectAt`. That gap is the grace a committee gives somebody who was on
@@ -172,6 +181,7 @@ TeamReview ReviewTheTeam(NationalTeam& team, double rankingPoints,
 
   team.lastReviewPoints = rankingPoints;
   team.lastReviewSeason = season;
+  team.lastReviewDay = day;
   return out;
 }
 

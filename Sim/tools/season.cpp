@@ -56,6 +56,7 @@ struct Tally {
   // The ladder: comps entered, and how far up it a career actually gets.
   int compsEntered = 0, compWins = 0, compPodiums = 0;
   double rankingPeak = 0.0;
+  double rankingEnd = 0.0;   // where it settles, which is the real number
   int teamSeasons = 0;
   int wcStarts = 0, wcMissed = 0, wcPodiums = 0, wcWins = 0, wcTitles = 0;
   int gamesEntered = 0, medals = 0;
@@ -504,16 +505,17 @@ int main(int argc, char** argv) {
             world.Derive("probe-settle#" + std::to_string(day)));
         player.cash += r.cash;
         BankResult(player.circuit, r, finals);
-        player.rankingPoints +=
-            RankingPointsFor(r.place, r.fieldSize, finals, false, false,
-                             false);
+        Record(player.rankingRecord, player.day,
+               RankingPointsFor(r.place, r.fieldSize,
+                                TierFor(player.rankingPoints), finals, false,
+                                false, false));
         t.compsEntered++;
         if (r.place == 1) t.compWins++;
         if (r.place <= 3) t.compPodiums++;
         if (SeasonOver(player.circuit)) {
           const SeasonEnd end = CloseSeason(player.circuit);
           player.cash += end.cash;
-          player.rankingPoints += end.rankingPoints;
+          Record(player.rankingRecord, player.day, end.rankingPoints);
           if (end.title) player.circuit.titles++;
           const TeamReview review =
               ReviewTheTeam(player.team, player.rankingPoints,
@@ -523,12 +525,16 @@ int main(int argc, char** argv) {
           if (review.changed) {
             Shift(player.standing, Faction::Scene, review.rep);
           }
-          if (player.team.status == TeamStatus::Named) t.teamSeasons++;
+          // Read off the team rather than counted here: the committee
+          // sits once a year now, and a counter that ticked at every
+          // season's close would report five years for every one.
+          t.teamSeasons = player.team.seasons;
         }
         today.hour = 23.0;
         note = "comp: " + std::to_string(r.place);
       }
       t.rankingPeak = std::max(t.rankingPeak, player.rankingPoints);
+      t.rankingEnd = player.rankingPoints;
     }
 
     // The body, before anything is decided. Being hurt is the first thing
@@ -1209,14 +1215,14 @@ int main(int argc, char** argv) {
          "\ttheirdays\tskinregen\tpower\tfingers\ttechnique\tendurance"
          "\thead\tallround\tshoewear\trivallost\trivalgens"
          "\traces\traceslost\traceswon"
-         "\tcomps\tcompwins\tcomppods\trank\tteamyears"
+         "\tcomps\tcompwins\tcomppods\trank\trankend\tteamyears"
          "\twcstarts\twcmissed\twcpods\twcwins\twctitles"
          "\tgames\tmedals\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
          "\t%d\t%d\t%d"
-         "\t%d\t%d\t%d\t%.0f\t%d"
+         "\t%d\t%d\t%d\t%.0f\t%.0f\t%d"
          "\t%d\t%d\t%d\t%d\t%d"
          "\t%d\t%d\n",
          seed.c_str(),
@@ -1258,7 +1264,7 @@ int main(int argc, char** argv) {
          player.shoes.wear, t.linesLostToTheRival, t.rivalGenerations,
          t.racesStarted, t.racesLost, t.racesWon,
          t.compsEntered, t.compWins, t.compPodiums, t.rankingPeak,
-         t.teamSeasons, t.wcStarts, t.wcMissed, t.wcPodiums, t.wcWins,
+         t.rankingEnd, t.teamSeasons, t.wcStarts, t.wcMissed, t.wcPodiums, t.wcWins,
          t.wcTitles, t.gamesEntered, t.medals);
 
   if (quiet) {

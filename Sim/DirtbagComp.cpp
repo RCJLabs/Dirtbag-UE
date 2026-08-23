@@ -73,19 +73,56 @@ double ToNextRank(double p, const CompDials& d) {
   return -1.0;
 }
 
-double CircuitPoints(int place, int fieldSize) {
-  if (place <= 0 || fieldSize <= 0) return 0.0;
-  // Linear in **how many people you beat** rather than in where you
-  // finished, so a big field is worth more to win -- and the back of it
-  // still banks five, because turning up is worth something.
-  const double beat = static_cast<double>(fieldSize - place);
-  const double span = static_cast<double>(std::max(1, fieldSize - 1));
-  return std::max(5.0, std::round(100.0 * beat / span));
+double CircuitPoints(int place, int fieldSize, const CompDials& dials) {
+  if (place <= 0 || fieldSize <= 0 || place > fieldSize) return 0.0;
+  // **Top-weighted**, the shape every real ranking table has. Each place
+  // down is worth `placeFalloff` of the one above, and the back of the
+  // field still banks five, because turning up is worth something and not
+  // very much.
+  return std::max(5.0,
+                  std::round(100.0 * std::pow(dials.placeFalloff,
+                                              static_cast<double>(place - 1))));
 }
 
-double RankingPointsFor(int place, int fieldSize, bool finals, bool champion,
-                        bool runnerUp, bool bronze, const CompDials& d) {
-  double p = std::round(CircuitPoints(place, fieldSize) *
+void Record(std::vector<RankingResult>& record, int day, double points,
+            const CompDials& dials) {
+  record.push_back(RankingResult{day, points});
+  // Dropped here rather than at read time, so a thirty-year career does not
+  // carry seven hundred results it can never count.
+  const int cutoff = day - dials.rankingWindowDays;
+  std::vector<RankingResult> kept;
+  kept.reserve(record.size());
+  for (const RankingResult& r : record) {
+    if (r.day > cutoff) kept.push_back(r);
+  }
+  record.swap(kept);
+}
+
+double RankingFrom(const std::vector<RankingResult>& record, int today,
+                   const CompDials& dials) {
+  const int cutoff = today - dials.rankingWindowDays;
+  double total = 0.0;
+  for (const RankingResult& r : record) {
+    if (r.day > cutoff) total += r.points;
+  }
+  // A run of no-shows makes you unranked, not negative.
+  return std::max(0.0, total);
+}
+
+double TierRankingWeight(CompTier tier, const CompDials& d) {
+  switch (tier) {
+    case CompTier::Regional: return d.regionalRankingWeight;
+    case CompTier::National: return d.nationalRankingWeight;
+    case CompTier::Local:
+    default: return d.localRankingWeight;
+  }
+}
+
+double RankingPointsFor(int place, int fieldSize, CompTier tier, bool finals,
+                        bool champion, bool runnerUp, bool bronze,
+                        const CompDials& d) {
+  double p = std::round(CircuitPoints(place, fieldSize, d) *
+                        TierRankingWeight(tier, d) *
                         (finals ? d.finalsMultiplier : 1.0));
   if (champion) {
     p += d.championRanking;
@@ -178,11 +215,16 @@ void BankResult(Circuit& c, const CompResult& result, bool finals,
   c.compsDone++;
 }
 
-void Forfeit(Circuit& c, double& rankingPoints, const CompDials& dials) {
+void Forfeit(Circuit& c, std::vector<RankingResult>& record, int day,
+             const CompDials& dials) {
   // You banked nothing and they banked plenty. That asymmetry is the
   // commitment: a schedule you can ignore for free is a suggestion.
   c.rivalPoints += dials.forfeitRivalPoints;
-  rankingPoints = std::max(0.0, rankingPoints - dials.forfeitRankingLoss);
+  // A no-show goes on the record as a result worth less than nothing,
+  // rather than being subtracted from a running total. Same reason the
+  // ranking is a window: the cost has to age out too, or a bad year
+  // follows a climber forever while a good one does not.
+  Record(record, day, -dials.forfeitRankingLoss, dials);
   c.compsDone++;
 }
 

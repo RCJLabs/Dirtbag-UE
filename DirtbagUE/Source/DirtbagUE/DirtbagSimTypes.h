@@ -577,6 +577,28 @@ struct FDirtbagNationalTeam
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	int32 LastReviewSeason = 0;
+
+	/** When the committee last sat, in days. Once a year. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 LastReviewDay = 0;
+};
+
+/** One result on the ranking record. Mirrors dirtbag::RankingResult.
+ *
+ *  **The ranking is made of these and is not accumulated.** A lifetime
+ *  total means a tier cleared once is cleared forever, and the named rungs
+ *  stop saying anything about the climber you are now. */
+USTRUCT(BlueprintType)
+struct FDirtbagRankingResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 Day = 0;
+
+	/** Negative for a no-show. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	double Points = 0.0;
 };
 
 /** Which ladder the live board belongs to. Mirrors dirtbag::Stage.
@@ -1486,6 +1508,12 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	FDirtbagNationalTeam Team;
 
+	/** What `RankingPoints` is made of: every result inside the last year.
+	 *  Pruned as it is written, so it stays about twenty-five entries long
+	 *  however long the career runs. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	TArray<FDirtbagRankingResult> RankingRecord;
+
 	/** The top of the ladder. A World Cup season is running from the first
 	 *  night of a career whether or not you have ever heard of it. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
@@ -1761,6 +1789,8 @@ namespace DirtbagConvert
 	dirtbag::NationalTeam ToSim(const FDirtbagNationalTeam& In);
 	FDirtbagCircuit FromSim(const dirtbag::Circuit& In);
 	dirtbag::Circuit ToSim(const FDirtbagCircuit& In);
+	FDirtbagRankingResult FromSim(const dirtbag::RankingResult& In);
+	dirtbag::RankingResult ToSim(const FDirtbagRankingResult& In);
 	FDirtbagWorldCupSeason FromSim(const dirtbag::WorldCupSeason& In);
 	dirtbag::WorldCupSeason ToSim(const FDirtbagWorldCupSeason& In);
 	FDirtbagOlympics FromSim(const dirtbag::Olympics& In);

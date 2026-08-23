@@ -1284,6 +1284,11 @@ public:
 	/** Rebuild the comp board from the live sim state. */
 	void RefreshComp();
 
+	/** Put a result on the ranking record and refresh the derived total.
+	 *  The one way `RankingPoints` is allowed to move from inside a day --
+	 *  see the field's own note in Sim/DirtbagDay.h. */
+	void RecordResult(double Points);
+
 	/** Turn in a World Cup or Games scorecard. Split out of `SettleComp`
 	 *  rather than branching inside it: the domestic settle banks into the
 	 *  circuit, moves the ranking and lets the committee sit, and none of

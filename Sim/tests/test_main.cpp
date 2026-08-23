@@ -1503,24 +1503,89 @@ static void TestComp() {
 
   // ---- what a placing is worth -----------------------------------------
   //
-  // **1st takes 100 and the back of the field still takes 5**, on a curve
-  // that is linear in how many people you beat -- so a big field is worth
-  // more to win, which is what makes stepping up a tier attractive.
+  // **1st takes 100, a podium about half of it, mid-field a quarter**, and
+  // the back of the field still takes 5 because turning up is worth
+  // something and not very much.
+  //
+  // Pinned as magnitudes rather than as an ordering, because the ordering
+  // is what the broken version passed. It was linear in how many people you
+  // beat, so **fifth of nine paid fifty -- half a win** -- and a climber who
+  // never beat anybody banked twelve hundred points a year by turning up.
+  // The ordering held perfectly the whole time.
   CHECK(CircuitPoints(1, 9) == 100.0);
-  CHECK(CircuitPoints(9, 9) == 5.0);
-  CHECK(CircuitPoints(5, 9) == 50.0);
+  CHECK(CircuitPoints(9, 9) >= 5.0);
+  CHECK(CircuitPoints(9, 9) <= 8.0);
+  CHECK(CircuitPoints(3, 9) <= 55.0);          // a podium is not a win
+  CHECK(CircuitPoints(3, 9) >= 40.0);          // and it is not nothing
+  CHECK(CircuitPoints(5, 9) <= 30.0);          // mid-field is a quarter
+  CHECK(CircuitPoints(5, 9) * 4.0 <= CircuitPoints(1, 9) * 1.1);
   CHECK(CircuitPoints(1, 2) == 100.0);
+  // Off the end of the field is not a placing at all.
+  CHECK(CircuitPoints(10, 9) == 0.0);
   // Monotonic: finishing higher is never worth less.
   for (int p = 2; p <= 9; p++) CHECK(CircuitPoints(p - 1, 9) >=
                                      CircuitPoints(p, 9));
+
+  // ---- the ranking is a record, not a total ----------------------------
+  //
+  // **The second half of the same fix.** A lifetime total means a tier
+  // cleared once is cleared forever: measured at ten years, a career that
+  // won nothing peaked at 14,633 points against a top tier of 2,200, and
+  // "a career can fail to reach the Games" was false for every seed.
+  {
+    std::vector<RankingResult> record;
+    Record(record, 10, 100.0, cd);
+    Record(record, 20, 100.0, cd);
+    CHECK(RankingFrom(record, 20, cd) == 200.0);
+    // A result counts for a year and then it is gone: recorded on day 10
+    // it is worth something through day 374 and worth nothing on 375.
+    CHECK(RankingFrom(record, 10 + cd.rankingWindowDays - 1, cd) == 200.0);
+    CHECK(RankingFrom(record, 10 + cd.rankingWindowDays, cd) == 100.0);
+    CHECK(RankingFrom(record, 20 + cd.rankingWindowDays + 1, cd) == 0.0);
+    // A year is a year, said as an absolute -- against the dial it is a
+    // tautology that passes with the window at zero.
+    CHECK(cd.rankingWindowDays == 365);
+    // **Pruned as it is written**, so a thirty-year career does not carry
+    // seven hundred results it can never count.
+    std::vector<RankingResult> long_;
+    for (int day = 1; day <= 30 * 365; day += 14) {
+      Record(long_, day, 40.0, cd);
+    }
+    CHECK(static_cast<int>(long_.size()) < 30);
+  }
   // The finals are worth half as much again, and a season podium adds a
   // lump on top of the placing.
-  CHECK(RankingPointsFor(1, 9, true, false, false, false, cd) ==
-        std::round(100.0 * cd.finalsMultiplier));
-  CHECK(RankingPointsFor(1, 9, false, true, false, false, cd) ==
+  // **Weighted by which room you were in.** A gym podium and a National
+  // podium were worth the same, which is what promoted a climber into a
+  // room they could not place in while the ranking said they belonged.
+  CHECK(RankingPointsFor(1, 9, CompTier::National, true, false, false, false,
+                         cd) == std::round(100.0 * cd.finalsMultiplier));
+  CHECK(RankingPointsFor(1, 9, CompTier::Local, false, false, false, false,
+                         cd) <
+        RankingPointsFor(1, 9, CompTier::Regional, false, false, false, false,
+                         cd));
+  CHECK(RankingPointsFor(1, 9, CompTier::Regional, false, false, false, false,
+                         cd) <
+        RankingPointsFor(1, 9, CompTier::National, false, false, false, false,
+                         cd));
+  // **Winning the room you are already too good for is worth less than a
+  // podium one rung up**, and about what a mid-field day up there is worth
+  // -- which is the whole reason to step up rather than farm the gym.
+  CHECK(RankingPointsFor(1, 9, CompTier::Local, false, false, false, false,
+                         cd) <
+        RankingPointsFor(3, 9, CompTier::National, false, false, false, false,
+                         cd));
+  CHECK(RankingPointsFor(1, 9, CompTier::Local, false, false, false, false,
+                         cd) <=
+        RankingPointsFor(4, 9, CompTier::National, false, false, false, false,
+                         cd));
+  CHECK(RankingPointsFor(1, 9, CompTier::National, false, true, false, false,
+                         cd) ==
         100.0 + cd.championRanking);
-  CHECK(RankingPointsFor(4, 9, false, false, false, false, cd) <
-        RankingPointsFor(1, 9, false, false, false, false, cd));
+  CHECK(RankingPointsFor(4, 9, CompTier::National, false, false, false,
+                         false, cd) <
+        RankingPointsFor(1, 9, CompTier::National, false, false, false, false,
+                         cd));
 
   // ---- the tiers gate on ranking, and they mean three things ----------
   CHECK(TierFor(0.0, cd) == CompTier::Local);
@@ -1832,17 +1897,23 @@ static void TestCircuit() {
   // banks and you lose standing, and the asymmetry is the commitment.
   {
     Circuit c = StartSeason(world, 1, 1, cd);
-    double ranking = 100.0;
-    Forfeit(c, ranking, cd);
+    std::vector<RankingResult> record;
+    Record(record, 1, 100.0, cd);
+    Forfeit(c, record, 2, cd);
     CHECK(c.compsDone == 1);
     CHECK(c.yourPoints == 0.0);
     CHECK(c.rivalPoints == cd.forfeitRivalPoints);
-    CHECK(ranking == 100.0 - cd.forfeitRankingLoss);
+    CHECK(RankingFrom(record, 2, cd) == 100.0 - cd.forfeitRankingLoss);
     // ...and it cannot take you below nothing. A career that no-showed its
     // way to a negative ranking would be a tier system with a hole under it.
-    double broke = 0.0;
-    Forfeit(c, broke, cd);
-    CHECK(broke == 0.0);
+    std::vector<RankingResult> broke;
+    Forfeit(c, broke, 2, cd);
+    CHECK(RankingFrom(broke, 2, cd) == 0.0);
+    // **And the cost ages out like everything else on the record.** A bad
+    // year that followed a climber forever while a good one did not would
+    // be the lifetime-total bug wearing the other hat.
+    CHECK(RankingFrom(broke, 2 + cd.rankingWindowDays + 1, cd) == 0.0);
+    CHECK(RankingFrom(record, 2 + cd.rankingWindowDays + 1, cd) == 0.0);
   }
 
   // ---- closing it out ---------------------------------------------------
@@ -1872,14 +1943,15 @@ static void TestCircuit() {
     // comp forfeited: the rival is top of the table and you are not the
     // champion, which is the zero-tie bug from the comp in a longer coat.
     Circuit c = StartSeason(world, 1, 1, cd);
-    double ranking = 500.0;
-    for (int i = 0; i < cd.compsPerSeason; i++) Forfeit(c, ranking, cd);
+    std::vector<RankingResult> record;
+    Record(record, 1, 500.0, cd);
+    for (int i = 0; i < cd.compsPerSeason; i++) Forfeit(c, record, 2, cd);
     CHECK(SeasonOver(c, cd));
     const SeasonEnd e = CloseSeason(c, cd);
     CHECK(!e.title);
     CHECK(e.cash == 0.0);
     CHECK(e.place == static_cast<int>(e.table.size()));
-    CHECK(ranking < 500.0);
+    CHECK(RankingFrom(record, 2, cd) < 500.0);
   }
 
   // ---- and it reads like something ------------------------------------
@@ -1959,9 +2031,16 @@ static void TestCircuitCareer() {
             Settle(board, 8.0, "", 0.0,
                    Rng::FromSeed("k#" + std::to_string(keen.day)), cd);
         BankResult(keen.circuit, r, finals, cd);
-        keen.rankingPoints +=
-            RankingPointsFor(r.place, r.fieldSize, finals, false, false,
-                             false, cd);
+        // Recorded rather than added. Writing `keen.rankingPoints` here is
+        // the bug the field's comment warns about: the night tick
+        // recomputes it from the record, so a direct write survives until
+        // the next morning and no further. The first version of this test
+        // did exactly that and caught it.
+        Record(keen.rankingRecord, keen.day,
+               RankingPointsFor(r.place, r.fieldSize,
+                                TierFor(keen.rankingPoints, cd), finals,
+                                false, false, false, cd),
+               cd);
       }
       SleepToNextDay(keen, kd, w);
     }
@@ -2020,9 +2099,24 @@ static void TestNationalTeam() {
     CHECK(!r.changed);
     CHECK(t.status == TeamStatus::Never);
     CHECK(r.stipend == 0.0);
+    // **And the committee has now met**, whether or not it did anything --
+    // so the next season's close inside the year is refused rather than
+    // deferred. Every day below is a year on from the one before it,
+    // because that is how often this can happen.
+    CHECK(t.lastReviewDay == 100);
+    {
+      const TeamReview tooSoon =
+          ReviewTheTeam(t, td.selectAt + 5000.0, season,
+                        100 + td.reviewEveryDays - 1, 2, td);
+      CHECK(!tooSoon.changed);
+      CHECK(t.status == TeamStatus::Never);   // not even for a huge number
+      CHECK(tooSoon.stipend == 0.0);
+      CHECK(td.reviewEveryDays == 365);       // an absolute, not the dial
+    }
 
     // And clearing it is the call.
-    r = ReviewTheTeam(t, td.selectAt, season, 100, 1, td);
+    r = ReviewTheTeam(t, td.selectAt, season, 100 + td.reviewEveryDays, 1,
+                      td);
     CHECK(r.changed);
     CHECK(t.status == TeamStatus::Named);
     CHECK(t.everNamed);
@@ -2055,14 +2149,16 @@ static void TestNationalTeam() {
 
     // **You hold below the line you were picked on.**
     const int wasSeasons = t.seasons;
-    r = ReviewTheTeam(t, td.holdAt, season, 200, 2, td);
+    r = ReviewTheTeam(t, td.holdAt, season, 100 + 2 * td.reviewEveryDays, 2,
+                      td);
     CHECK(!r.changed);
     CHECK(t.status == TeamStatus::Named);
     CHECK(t.seasons > wasSeasons);      // another season on the paper
     CHECK(r.stipend == td.stipend);     // and it pays every year
 
     // ...but not below *that*.
-    r = ReviewTheTeam(t, td.holdAt - 1.0, season, 300, 3, td);
+    r = ReviewTheTeam(t, td.holdAt - 1.0, season,
+                      100 + 3 * td.reviewEveryDays, 3, td);
     CHECK(r.changed);
     CHECK(t.status == TeamStatus::Cut);
     CHECK(t.cuts == 1);
@@ -2076,7 +2172,8 @@ static void TestNationalTeam() {
     // Coming back is news too, and quieter -- and you keep the coach you
     // arrived with.
     const std::string firstCoach = t.coach;
-    r = ReviewTheTeam(t, td.selectAt, season, 400, 4, td);
+    r = ReviewTheTeam(t, td.selectAt, season,
+                      100 + 4 * td.reviewEveryDays, 4, td);
     CHECK(r.changed);
     CHECK(t.status == TeamStatus::Named);
     CHECK(r.rep == td.renamedRep);
@@ -2089,7 +2186,7 @@ static void TestNationalTeam() {
     NationalTeam never;
     NationalTeam cut;
     ReviewTheTeam(cut, td.selectAt, season, 10, 1, td);
-    ReviewTheTeam(cut, 0.0, season, 20, 2, td);
+    ReviewTheTeam(cut, 0.0, season, 10 + td.reviewEveryDays, 2, td);
     CHECK(cut.status == TeamStatus::Cut);
     CHECK(TeamLine(never, td).empty());
     CHECK(!TeamLine(cut, td).empty());
@@ -2129,7 +2226,7 @@ static void TestNationalTeam() {
     for (std::size_t i = 0; i < season.fieldPoints.size(); i++) {
       season.fieldPoints[i] = 40.0 * static_cast<double>(i);
     }
-    ReviewTheTeam(t, td.selectAt, season, 110, 2, td);
+    ReviewTheTeam(t, td.selectAt, season, 10 + td.reviewEveryDays, 2, td);
     CHECK(t.roster.front().name != wasTop);
     CHECK(!t.gone.empty());   // and the game knows who is not on it now
   }
@@ -3087,6 +3184,17 @@ static void TestWorldStageSave() {
   SeedTheGames(o, Rng::FromSeed(save.seed), 10, wd);
   BankTheGames(o, MedalFor(2), o.nextDay);
 
+  // **The ranking record, which is what the ranking is.** Losing it does
+  // not lose a number, it loses the ability to lose the number: without
+  // the record the night tick recomputes the ranking as zero, so a
+  // load-bearing save bug here reads as "the game forgot your career".
+  const CompDials cds;
+  Record(save.player.rankingRecord, 40, 120.0, cds);
+  Record(save.player.rankingRecord, 55, -2.0, cds);
+  save.player.rankingPoints =
+      RankingFrom(save.player.rankingRecord, 55, cds);
+  save.player.team.lastReviewDay = 44;
+
   SaveGame back;
   CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
   const WorldCupSeason& w = back.player.worldCup;
@@ -3110,6 +3218,22 @@ static void TestWorldStageSave() {
   for (std::size_t i = 0; i < w.fieldPoints.size(); i++) {
     CHECK(w.fieldPoints[i] == s.fieldPoints[i]);
   }
+  CHECK(back.player.rankingRecord.size() == 2);
+  if (back.player.rankingRecord.size() == 2) {
+    CHECK(back.player.rankingRecord[0].day == 40);
+    CHECK(back.player.rankingRecord[0].points == 120.0);
+    // The no-show is negative and has to survive as one.
+    CHECK(back.player.rankingRecord[1].points == -2.0);
+  }
+  CHECK(RankingFrom(back.player.rankingRecord, 55, cds) == 118.0);
+  // And a year on it is worth nothing, on the loaded save exactly as on
+  // the live one.
+  CHECK(RankingFrom(back.player.rankingRecord, 55 + cds.rankingWindowDays,
+                    cds) == 0.0);
+  // The committee's clock. Without it a loaded save gets a review the next
+  // season's close, and the thermostat is back.
+  CHECK(back.player.team.lastReviewDay == 44);
+
   // And the medal, which is the one number in this game nobody would
   // forgive losing.
   CHECK(back.player.olympics.nextDay == o.nextDay);
@@ -3130,6 +3254,33 @@ static void TestWorldStageSave() {
   // **An old save loads, and arrives with a career that never got on a
   // plane.** Exact rather than generous: giving a v26 career a World Cup
   // start would be inventing a year it did not have.
+  // **v27 -> v28 deliberately throws the old ranking away.** The lifetime
+  // total is not a smaller version of the rolling one, it is a different
+  // measurement -- and carrying 14,633 points across would hand a migrated
+  // save a World-Class rung it could never lose, because there is no
+  // record behind it to age out.
+  {
+    std::string v27 = SerializeSave(save);
+    DropSaveLine(v27, "rank.results=");
+    DropSaveLine(v27, "rank.r0d=");
+    DropSaveLine(v27, "rank.r0p=");
+    DropSaveLine(v27, "rank.r1d=");
+    DropSaveLine(v27, "rank.r1p=");
+    DropSaveLine(v27, "team.lastday=");
+    SetSaveVersion(v27, 27);
+    SaveGame old27;
+    CHECK(DeserializeSave(v27, old27) == LoadResult::Ok);
+    CHECK(old27.version == kSaveVersion);
+    CHECK(old27.player.rankingRecord.empty());
+    CHECK(old27.player.rankingPoints == 0.0);
+    CHECK(RankFor(old27.player.rankingPoints) == RankTier::Unranked);
+    CHECK(old27.player.team.lastReviewDay == 0);
+    // The rest of the career is untouched -- it is the ranking that is
+    // re-earned, not the climber.
+    CHECK(old27.seed == save.seed);
+    CHECK(old27.player.olympics.silver == 1);
+  }
+
   std::string v26 = SerializeSave(save);
   DropSaveLine(v26, "wc.season=");
   DropSaveLine(v26, "wc.you=");
@@ -3150,6 +3301,12 @@ static void TestWorldStageSave() {
   DropSaveLine(v26, "og.silver=");
   DropSaveLine(v26, "og.bronze=");
   DropSaveLine(v26, "og.last=");
+  DropSaveLine(v26, "rank.results=");
+  DropSaveLine(v26, "rank.r0d=");
+  DropSaveLine(v26, "rank.r0p=");
+  DropSaveLine(v26, "rank.r1d=");
+  DropSaveLine(v26, "rank.r1p=");
+  DropSaveLine(v26, "team.lastday=");
   SetSaveVersion(v26, 26);
 
   SaveGame old;
@@ -3337,7 +3494,8 @@ static void TestRivalSave() {
                         "team.status=", "team.ever=", "team.seasons=",
                         "team.cuts=", "team.namedday=", "team.coach=",
                         "team.coachfor=", "team.passed=", "team.lastpts=",
-                        "team.lastseason=", "team.mates=", "team.gone=",
+                        "team.lastseason=", "team.lastday=",
+                        "team.mates=", "team.gone=", "rank.results=",
                         "rival.race=",
                         "rival.raceby=", "rival.racefa=", "rival.fas=",
                         "rival.fa0=", "rival.fa1=", "pastrivals=",

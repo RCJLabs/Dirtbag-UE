@@ -431,9 +431,19 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
     // calendar.
     const int due = CompsDueBy(player.circuit, player.day - 1);
     while (player.circuit.compsDone < due) {
-      Forfeit(player.circuit, player.rankingPoints);
+      Forfeit(player.circuit, player.rankingRecord, player.day);
     }
   }
+
+  // **The ranking is recomputed, never accumulated.** Here, every night,
+  // whether or not anything happened -- because the thing that changes it
+  // on a quiet night is a result from last year ageing off the end of the
+  // window, and nothing else in the game would notice that.
+  //
+  // This is what makes the named rungs mean something about the climber
+  // you are now rather than the best you ever were: stop competing and you
+  // come off the team, exactly as you would.
+  player.rankingPoints = RankingFrom(player.rankingRecord, player.day);
 
   // **And the top of the ladder, which runs whether you can see it or
   // not.** A World Cup season opens on the first night of a career, the

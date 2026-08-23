@@ -1593,8 +1593,13 @@ bool UDirtbagGameInstance::SettleComp()
 	dirtbag::Circuit Season = DirtbagConvert::ToSim(Player.Circuit);
 	const bool bFinals = dirtbag::FinalsToday(Season, Player.Day);
 	dirtbag::BankResult(Season, Res, bFinals);
-	Player.RankingPoints += dirtbag::RankingPointsFor(
-	    Res.place, Res.fieldSize, bFinals, false, false, false);
+	// **Recorded, not added.** `RankingPoints` is derived: the night tick
+	// recomputes it from the record, so a direct write here would survive
+	// until the next morning and no further. The record is what a ranking
+	// is -- the last year of results -- and it is why a rung can be lost.
+	RecordResult(dirtbag::RankingPointsFor(Res.place, Res.fieldSize,
+	                                       GLiveComp.tier, bFinals, false,
+	                                       false, false));
 
 	// And if that was the last one, the season is over and the podium gets
 	// paid. Closed here rather than at Sleep because the table is complete
@@ -1604,7 +1609,9 @@ bool UDirtbagGameInstance::SettleComp()
 	{
 		const dirtbag::SeasonEnd End = dirtbag::CloseSeason(Season);
 		Player.Cash += End.cash;
-		Player.RankingPoints += End.rankingPoints;
+		// A season's podium is a National-weight result whatever room the
+		// comps were in: winning a year is winning a year.
+		RecordResult(End.rankingPoints);
 		if (End.title) { Season.titles++; }
 		CompNews = FString::Printf(
 		    TEXT("Season %d done - you finished %d%s.%s"), Season.season,
@@ -1849,6 +1856,22 @@ bool UDirtbagGameInstance::SettleTheWorldStage()
 	}
 	RefreshComp();
 	return true;
+}
+
+void UDirtbagGameInstance::RecordResult(double Points)
+{
+	dirtbag::PlayerState P = DirtbagConvert::ToSim(Player);
+	dirtbag::Record(P.rankingRecord, Player.Day, Points);
+	Player.RankingRecord.Reset(P.rankingRecord.size());
+	for (const dirtbag::RankingResult& R : P.rankingRecord)
+	{
+		Player.RankingRecord.Add(DirtbagConvert::FromSim(R));
+	}
+	// Refreshed now as well as tonight, so the tier a comp just moved you
+	// into is the tier the next line of text reads. The night tick is what
+	// makes results *age out*; this is what makes them count today.
+	Player.RankingPoints =
+	    dirtbag::RankingFrom(P.rankingRecord, Player.Day);
 }
 
 double UDirtbagGameInstance::AllroundGrade() const

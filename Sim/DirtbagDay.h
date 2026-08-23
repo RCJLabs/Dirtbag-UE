@@ -160,11 +160,24 @@ struct PlayerState {
   std::vector<PastRival> pastRivals;
 
   // National ranking points. What the comp tiers gate on, and the number
-  // the whole ladder above a gym comp reads once it exists -- the team, the
-  // World Cup and the Games all key off it. Earned at comps and nowhere
-  // else, which is what makes a comp worth entering when the prize money
-  // deliberately is not.
+  // the whole ladder above a gym comp reads -- the team, the World Cup and
+  // the Games all key off it. Earned at comps and nowhere else, which is
+  // what makes a comp worth entering when the prize money deliberately is
+  // not.
+  //
+  // **Derived, never accumulated.** It is the sum of `rankingRecord` inside
+  // the last year, recomputed every night by `SleepToNextDay`, and writing
+  // to it directly is a bug: the next morning would overwrite it. It is
+  // kept as a field rather than a call because six systems read it and a
+  // rolling sum recomputed six times a day is worse than one recomputed
+  // once a night.
   double rankingPoints = 0.0;
+
+  // What the number above is made of. **A ranking is a record of the last
+  // year, not a lifetime total** -- see Sim/DirtbagComp.h. Pruned as it is
+  // written, so this stays about twenty-five entries long however long the
+  // career runs.
+  std::vector<RankingResult> rankingRecord;
 
   // The season you are in the middle of. Five firm dates, the last worth
   // half as much again -- see Sim/DirtbagComp.h. A season with `season == 0`

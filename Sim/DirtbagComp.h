@@ -222,11 +222,45 @@ struct CompDials {
   double forfeitRivalPoints = 60.0;
   double forfeitRankingLoss = 2.0;
 
+  // **The shape of the placement curve.** Each place down is worth this
+  // much of the one above: 100, 70, 49, 34, 24, 17, 12 ... floored at 5.
+  // Set by measurement -- at 0.78 a permanent mid-fielder still banked
+  // nine hundred points a year and walked onto the national team without
+  // ever beating anybody.
+  double placeFalloff = 0.70;
+
+  // **What room you did it in.** A placing was worth the same whatever
+  // tier the comp was, which is the third and last piece of the same
+  // inflation: a climber who could only podium at the gym banked the same
+  // points as one podiuming at Nationals, so the tier system promoted them
+  // into a room they could not place in and the ranking never noticed.
+  //
+  // Every real ranking table weights by event category and so does this
+  // one. It is also what makes the tier feedback loop *settle*: promotion
+  // means worse placings, and only the multiplier makes climbing the rung
+  // worth it, so a career finds the level it belongs at instead of
+  // oscillating.
+  // Set so the rungs land where the 2D game's thresholds already are.
+  // Over a year of turning up (about twenty-five comps): a Local podium
+  // regular sits near Regional Climber, a Regional podium regular near the
+  // national team's 700, a National podium regular near the Olympic gate's
+  // 1200, and somebody winning Nationals near World-Class.
+  double localRankingWeight = 0.30;
+  double regionalRankingWeight = 0.65;
+  double nationalRankingWeight = 1.00;
+
   // --- the ranking ladder ----------------------------------------------
   // Six named tiers. The numbers are the 2D game's and they are load-bearing
   // further up: 700 is where a national team calls you and 1200 is where the
   // Games become reachable, so moving them moves two systems that are not
   // built yet.
+  // **How long a result counts for.** A year, like every ranking table in
+  // the sport: what you did last season is what you are ranked on, and a
+  // year away drops you off it. This is what makes "a career can fail to
+  // reach the Games" true -- without it every career reaches them, because
+  // points only ever went up.
+  int rankingWindowDays = 365;
+
   double regionalClimberAt = 120.0;
   double nationalProspectAt = 350.0;
   double nationalTeamAt = 700.0;
@@ -253,17 +287,59 @@ RankTier RankFor(double rankingPoints, const CompDials& dials = CompDials{});
 // would say, said as a number the caller can put in a sentence.
 double ToNextRank(double rankingPoints, const CompDials& dials = CompDials{});
 
-// Placement points. **1st takes 100 and the back of the field still takes
-// 5** -- turning up is worth something, and the curve between is linear in
-// how many people you beat rather than in where you finished, so a big field
-// is worth more to win.
-double CircuitPoints(int place, int fieldSize);
+// Placement points. **1st takes 100, a podium takes about half of it, and
+// mid-field takes a quarter.**
+//
+// The curve was linear in how many people you beat, and that was the single
+// number behind the ladder not being a ladder: coming *fifth of nine* paid
+// fifty, half a win, so a climber who never won anything and simply turned
+// up twenty-five times a year banked twelve hundred points and cleared the
+// Olympic gate. Measured at ten years: a ranking peak of **14,633 against a
+// top tier of 2,200.**
+//
+// Top-weighted now, the shape every real ranking table has and the shape
+// this project already wrote once for the World Cup. `fieldSize` no longer
+// scales it -- the domestic board is always eight or nine people, so a
+// field-size term was a constant wearing a dial's clothes -- and is kept
+// only to reject a placing that is off the end of the field.
+double CircuitPoints(int place, int fieldSize,
+                     const CompDials& dials = CompDials{});
 
-// What a comp adds to your national ranking: the placement points, half as
-// much again at a finals, plus a lump for a season podium.
-double RankingPointsFor(int place, int fieldSize, bool finals, bool champion,
-                        bool runnerUp, bool bronze,
+// --- the ranking is a record, not a total -----------------------------
+
+// One result, and the day it happened. **The ranking is made of these and
+// is not accumulated**, which is the second half of the same fix: a
+// lifetime total means a tier cleared once is cleared forever, and the
+// named rungs stop meaning anything about the climber you are *now*. Real
+// ranking tables are a rolling window and so is this one.
+struct RankingResult {
+  int day = 0;
+  double points = 0.0;   // negative for a no-show
+};
+
+// Put a result on the record, and drop anything that has aged out. Pruning
+// here rather than at read time keeps the save bounded: a thirty-year
+// career would otherwise carry seven hundred results it can never count.
+void Record(std::vector<RankingResult>& record, int day, double points,
+            const CompDials& dials = CompDials{});
+
+// What the record adds up to today. Floors at zero -- a run of no-shows
+// makes you unranked, not negative.
+double RankingFrom(const std::vector<RankingResult>& record, int today,
+                   const CompDials& dials = CompDials{});
+
+// What a comp adds to your national ranking: the placement points weighted
+// by which room you were in, half as much again at a finals, plus a lump
+// for a season podium.
+//
+// **The tier is not optional and has no default.** Leaving it off is how a
+// gym podium came to be worth a National one.
+double RankingPointsFor(int place, int fieldSize, CompTier tier, bool finals,
+                        bool champion, bool runnerUp, bool bronze,
                         const CompDials& dials = CompDials{});
+
+// The weight that tier carries on the ranking.
+double TierRankingWeight(CompTier tier, const CompDials& dials = CompDials{});
 
 // Where everybody is in the season.
 struct CircuitStanding {
@@ -312,7 +388,7 @@ void BankResult(Circuit& c, const CompResult& result, bool finals,
 
 // You did not turn up. **The rival banks for it and you lose standing** --
 // a firm schedule you can ignore for free is a suggestion.
-void Forfeit(Circuit& c, double& rankingPoints,
+void Forfeit(Circuit& c, std::vector<RankingResult>& record, int day,
              const CompDials& dials = CompDials{});
 
 // The season's table, best first.

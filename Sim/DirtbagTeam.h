@@ -60,7 +60,10 @@ struct NationalTeam {
   // **Getting the call once never un-happens.** Being cut takes the spot,
   // not the fact -- which is the difference between a status and a career.
   bool everNamed = false;
-  int seasons = 0;   // seasons spent on the roster, cumulative
+  // Years on the roster, cumulative. Named `seasons` from when the review
+  // sat once a domestic season; it counts years now, because that is how
+  // often the committee meets.
+  int seasons = 0;
   int cuts = 0;      // times the review went the other way
   int namedOnDay = 0;
 
@@ -78,6 +81,10 @@ struct NationalTeam {
   // rather than only a number.
   double lastReviewPoints = 0.0;
   int lastReviewSeason = 0;
+  // And when it last sat. **In days, because seasons turned out to be the
+  // wrong unit** -- a domestic season is about seventy-three days, so
+  // "once a season" meant five times a year. Zero means never.
+  int lastReviewDay = 0;
 };
 
 struct TeamDials {
@@ -92,11 +99,27 @@ struct TeamDials {
 
   int size = 5;   // teammates on the paper alongside you
 
-  // **The federation's per-season stipend, and it is famously not a
-  // living.** Deliberately small: this is not how a climber eats, and a
-  // number large enough to matter would make the team an economic decision
-  // rather than a career one.
-  double stipend = 180.0;
+  // **How often the committee is allowed to sit.** Once a year, and this
+  // is a floor on the calendar rather than a schedule -- the review still
+  // runs at a circuit season's close, it is simply refused if the last one
+  // was inside a year.
+  //
+  // Pass 3 put the review on the domestic season on the grounds that *"a
+  // domestic season is the unit a selection committee actually works in"*,
+  // and the reasoning was right about the unit and wrong about the length:
+  // a season is about seventy-three days, so **the committee sat fifty
+  // times in a ten-year career** and the team was exactly the thermostat
+  // that note said it was avoiding. Measured, not argued.
+  int reviewEveryDays = 365;
+
+  // **The federation's annual stipend, and it is famously not a living.**
+  // Deliberately small: this is not how a climber eats, and a number large
+  // enough to matter would make the team an economic decision rather than a
+  // career one.
+  //
+  // Was $180 "per season" and paid five times a year, because the review
+  // sat five times a year. This is the same money on an honest label.
+  double stipend = 900.0;
 
   // What the news is worth **in standing units**, where
   // `Sim/DirtbagFactions.h` says *"0.1 is a small deliberate act, 0.3 is a

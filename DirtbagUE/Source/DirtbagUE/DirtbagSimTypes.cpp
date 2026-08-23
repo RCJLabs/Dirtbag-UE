@@ -174,6 +174,11 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.character = ToSim(In.Character);
 	Out.rival = ToSim(In.Rival);
 	Out.rankingPoints = In.RankingPoints;
+	Out.rankingRecord.reserve(In.RankingRecord.Num());
+	for (const FDirtbagRankingResult& R : In.RankingRecord)
+	{
+		Out.rankingRecord.push_back(ToSim(R));
+	}
 	Out.circuit = ToSim(In.Circuit);
 	Out.worldCup = ToSim(In.WorldCup);
 	Out.olympics = ToSim(In.Olympics);
@@ -233,6 +238,11 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Character = FromSim(In.character);
 	Out.Rival = FromSim(In.rival);
 	Out.RankingPoints = In.rankingPoints;
+	Out.RankingRecord.Reset(In.rankingRecord.size());
+	for (const dirtbag::RankingResult& R : In.rankingRecord)
+	{
+		Out.RankingRecord.Add(FromSim(R));
+	}
 	Out.Circuit = FromSim(In.circuit);
 	Out.WorldCup = FromSim(In.worldCup);
 	Out.Olympics = FromSim(In.olympics);
@@ -690,6 +700,7 @@ FDirtbagNationalTeam FromSim(const dirtbag::NationalTeam& In)
 	Out.Passed = FString(In.passed.c_str());
 	Out.LastReviewPoints = In.lastReviewPoints;
 	Out.LastReviewSeason = In.lastReviewSeason;
+	Out.LastReviewDay = In.lastReviewDay;
 	return Out;
 }
 
@@ -717,6 +728,7 @@ dirtbag::NationalTeam ToSim(const FDirtbagNationalTeam& In)
 	Out.passed = TCHAR_TO_UTF8(*In.Passed);
 	Out.lastReviewPoints = In.LastReviewPoints;
 	Out.lastReviewSeason = In.LastReviewSeason;
+	Out.lastReviewDay = In.LastReviewDay;
 	return Out;
 }
 
@@ -747,6 +759,22 @@ dirtbag::Circuit ToSim(const FDirtbagCircuit& In)
 	Out.fieldPoints.reserve(In.FieldPoints.Num());
 	for (double P : In.FieldPoints) { Out.fieldPoints.push_back(P); }
 	Out.titles = In.Titles;
+	return Out;
+}
+
+FDirtbagRankingResult FromSim(const dirtbag::RankingResult& In)
+{
+	FDirtbagRankingResult Out;
+	Out.Day = In.day;
+	Out.Points = In.points;
+	return Out;
+}
+
+dirtbag::RankingResult ToSim(const FDirtbagRankingResult& In)
+{
+	dirtbag::RankingResult Out;
+	Out.day = In.Day;
+	Out.points = In.Points;
 	return Out;
 }
 

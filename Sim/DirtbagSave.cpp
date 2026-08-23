@@ -275,6 +275,31 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // starts anyway. **Exact rather than generous**: nobody who loads an old
 // save was ever on a plane, and giving them a start would be inventing a
 // year they did not have.
+// v27 -> v28: the ranking became a record instead of a lifetime total.
+//
+// **The one migration in this project that deliberately throws a number
+// away.** A v27 career's `ranking` field is the sum of everything it ever
+// scored, on a curve where mid-field paid half a win -- ten-year careers
+// were carrying fourteen thousand points against a top tier of two
+// thousand two hundred. Carrying that across would hand a migrated save a
+// World-Class ranking it could never have earned under the new curve and
+// could never lose, since there is no record behind it to age out.
+//
+// So the record starts empty and the ranking starts at nothing. That is
+// harsh and it is the only honest option: the old number is not a smaller
+// version of the new one, it is a different measurement. A migrated career
+// is Unranked and re-earns its rung over its next season of comps, which
+// is about eleven weeks of play.
+void MigrateV27ToV28(SaveFields& fields) {
+  fields["ranking"] = "0";
+  fields["rank.results"] = "0";
+  // The committee's clock, which did not exist while the review sat once a
+  // domestic season. Zero means never, so a migrated career gets its next
+  // review at the next season's close rather than waiting a year for a
+  // committee that has been meeting all along.
+  fields["team.lastday"] = "0";
+}
+
 void MigrateV26ToV27(SaveFields& fields) {
   fields["wc.season"] = "0";
   fields["wc.you"] = "0";
@@ -397,7 +422,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18,
       &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21,
       &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24,
-      &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27};
+      &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27,
+      &MigrateV27ToV28};
   return kMigrations;
 }
 
@@ -563,6 +589,7 @@ std::string SerializeSave(const SaveGame& save) {
       out << "team.passed=" << tm.passed << "\n";
       out << "team.lastpts=" << NumToStr(tm.lastReviewPoints) << "\n";
       out << "team.lastseason=" << IntToStr(tm.lastReviewSeason) << "\n";
+      out << "team.lastday=" << IntToStr(tm.lastReviewDay) << "\n";
       out << "team.mates=" << IntToStr(static_cast<int>(tm.roster.size()))
           << "\n";
       for (std::size_t i = 0; i < tm.roster.size(); i++) {
@@ -610,6 +637,18 @@ std::string SerializeSave(const SaveGame& save) {
       for (std::size_t i = 0; i < wc.fieldPoints.size(); i++) {
         out << "wc.field" << IntToStr(static_cast<int>(i)) << "="
             << NumToStr(wc.fieldPoints[i]) << "\n";
+      }
+
+      // The ranking itself is written too, and it is derived -- the night
+      // tick recomputes it from the record every morning. It is in the
+      // file so a save loaded and read before the first sleep says the
+      // right thing rather than zero.
+      const std::vector<RankingResult>& rr = save.player.rankingRecord;
+      out << "rank.results=" << IntToStr(static_cast<int>(rr.size())) << "\n";
+      for (std::size_t i = 0; i < rr.size(); i++) {
+        const std::string k = "rank.r" + IntToStr(static_cast<int>(i));
+        out << k << "d=" << IntToStr(rr[i].day) << "\n";
+        out << k << "p=" << NumToStr(rr[i].points) << "\n";
       }
 
       const Olympics& og = save.player.olympics;
@@ -838,7 +877,8 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     int style = 0, vibe = 0, allied = 0, offered = 0, met = 0, retired = 0,
         fas = 0, pastCount = 0, raceFa = 0, circuitDates = 0,
         circuitFields = 0, teamStatus = 0, teamEver = 0, teamMates = 0,
-        teamGone = 0, wcRounds = 0, wcFields = 0, wcClosed = 0;
+        teamGone = 0, wcRounds = 0, wcFields = 0, wcClosed = 0,
+        rankResults = 0;
     if (!ParseString(fields, "rival.name", rv.name) ||
         !ParseInt(fields, "rival.style", style) ||
         !ParseInt(fields, "rival.vibe", vibe) ||
@@ -876,6 +916,8 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
                      save.player.team.lastReviewPoints) ||
         !ParseInt(fields, "team.lastseason",
                   save.player.team.lastReviewSeason) ||
+        !ParseInt(fields, "team.lastday",
+                  save.player.team.lastReviewDay) ||
         !ParseInt(fields, "team.mates", teamMates) ||
         !ParseInt(fields, "team.gone", teamGone) ||
         !ParseInt(fields, "wc.season", save.player.worldCup.season) ||
@@ -891,6 +933,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseInt(fields, "wc.last", save.player.worldCup.lastRank) ||
         !ParseInt(fields, "wc.rounds", wcRounds) ||
         !ParseInt(fields, "wc.fields", wcFields) ||
+        !ParseInt(fields, "rank.results", rankResults) ||
         !ParseInt(fields, "og.next", save.player.olympics.nextDay) ||
         !ParseInt(fields, "og.appearances",
                   save.player.olympics.appearances) ||
@@ -954,6 +997,17 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         return LoadResult::BadFormat;
       }
       save.player.circuit.fieldPoints.push_back(p);
+    }
+
+    save.player.rankingRecord.clear();
+    for (int i = 0; i < rankResults; i++) {
+      const std::string k = "rank.r" + IntToStr(i);
+      RankingResult r;
+      if (!ParseInt(fields, k + "d", r.day) ||
+          !ParseDouble(fields, k + "p", r.points)) {
+        return LoadResult::BadFormat;
+      }
+      save.player.rankingRecord.push_back(r);
     }
 
     save.player.worldCup.closed = wcClosed != 0;
