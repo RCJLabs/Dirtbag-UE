@@ -260,6 +260,21 @@ void MigrateV19ToV20(SaveFields& fields) { fields["player.name"] = ""; }
 // climber belongs.
 void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 
+// v24 -> v25: the circuit season. A v24 career had points and no season, so
+// it arrives with none started -- and the night tick opens one the next
+// morning, which is where a career begins anyway. The points it already had
+// are kept: they were earned at comps and a season boundary does not undo
+// them.
+void MigrateV24ToV25(SaveFields& fields) {
+  fields["circuit.season"] = "0";
+  fields["circuit.done"] = "0";
+  fields["circuit.you"] = "0";
+  fields["circuit.rival"] = "0";
+  fields["circuit.titles"] = "0";
+  fields["circuit.dates"] = "0";
+  fields["circuit.fields"] = "0";
+}
+
 void MigrateV22ToV23(SaveFields& fields) {
   fields["rival.race"] = "";
   fields["rival.raceby"] = "0";
@@ -331,7 +346,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15,
       &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18,
       &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21,
-      &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24};
+      &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24,
+      &MigrateV24ToV25};
   return kMigrations;
 }
 
@@ -473,6 +489,26 @@ std::string SerializeSave(const SaveGame& save) {
     out << "rival.met=" << IntToStr(rv.met ? 1 : 0) << "\n";
     out << "rival.retired=" << IntToStr(rv.retired ? 1 : 0) << "\n";
     out << "ranking=" << NumToStr(save.player.rankingPoints) << "\n";
+    {
+      const Circuit& ci = save.player.circuit;
+      out << "circuit.season=" << IntToStr(ci.season) << "\n";
+      out << "circuit.done=" << IntToStr(ci.compsDone) << "\n";
+      out << "circuit.you=" << NumToStr(ci.yourPoints) << "\n";
+      out << "circuit.rival=" << NumToStr(ci.rivalPoints) << "\n";
+      out << "circuit.titles=" << IntToStr(ci.titles) << "\n";
+      out << "circuit.dates="
+          << IntToStr(static_cast<int>(ci.schedule.size())) << "\n";
+      for (std::size_t i = 0; i < ci.schedule.size(); i++) {
+        out << "circuit.date" << IntToStr(static_cast<int>(i)) << "="
+            << IntToStr(ci.schedule[i]) << "\n";
+      }
+      out << "circuit.fields="
+          << IntToStr(static_cast<int>(ci.fieldPoints.size())) << "\n";
+      for (std::size_t i = 0; i < ci.fieldPoints.size(); i++) {
+        out << "circuit.field" << IntToStr(static_cast<int>(i)) << "="
+            << NumToStr(ci.fieldPoints[i]) << "\n";
+      }
+    }
     out << "rival.race=" << rv.race.routeName << "\n";
     out << "rival.raceby=" << IntToStr(rv.race.byDay) << "\n";
     out << "rival.racefa=" << IntToStr(rv.race.forFirstAscent ? 1 : 0)
@@ -689,7 +725,8 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   {
     Rival& rv = save.player.rival;
     int style = 0, vibe = 0, allied = 0, offered = 0, met = 0, retired = 0,
-        fas = 0, pastCount = 0, raceFa = 0;
+        fas = 0, pastCount = 0, raceFa = 0, circuitDates = 0,
+        circuitFields = 0;
     if (!ParseString(fields, "rival.name", rv.name) ||
         !ParseInt(fields, "rival.style", style) ||
         !ParseInt(fields, "rival.vibe", vibe) ||
@@ -705,6 +742,15 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseInt(fields, "rival.met", met) ||
         !ParseInt(fields, "rival.retired", retired) ||
         !ParseDouble(fields, "ranking", save.player.rankingPoints) ||
+        !ParseInt(fields, "circuit.season", save.player.circuit.season) ||
+        !ParseInt(fields, "circuit.done", save.player.circuit.compsDone) ||
+        !ParseDouble(fields, "circuit.you",
+                     save.player.circuit.yourPoints) ||
+        !ParseDouble(fields, "circuit.rival",
+                     save.player.circuit.rivalPoints) ||
+        !ParseInt(fields, "circuit.titles", save.player.circuit.titles) ||
+        !ParseInt(fields, "circuit.dates", circuitDates) ||
+        !ParseInt(fields, "circuit.fields", circuitFields) ||
         !ParseString(fields, "rival.race", rv.race.routeName) ||
         !ParseInt(fields, "rival.raceby", rv.race.byDay) ||
         !ParseInt(fields, "rival.racefa", raceFa) ||
@@ -725,6 +771,22 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     rv.met = met != 0;
     rv.retired = retired != 0;
     rv.race.forFirstAscent = raceFa != 0;
+    save.player.circuit.schedule.clear();
+    for (int i = 0; i < circuitDates; i++) {
+      int d = 0;
+      if (!ParseInt(fields, "circuit.date" + IntToStr(i), d)) {
+        return LoadResult::BadFormat;
+      }
+      save.player.circuit.schedule.push_back(d);
+    }
+    save.player.circuit.fieldPoints.clear();
+    for (int i = 0; i < circuitFields; i++) {
+      double p = 0.0;
+      if (!ParseDouble(fields, "circuit.field" + IntToStr(i), p)) {
+        return LoadResult::BadFormat;
+      }
+      save.player.circuit.fieldPoints.push_back(p);
+    }
     rv.firstAscents.clear();
     for (int i = 0; i < fas; i++) {
       std::string key;

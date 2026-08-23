@@ -61,7 +61,10 @@ namespace dirtbag {
 // Version 24: national ranking points. A v23 career never entered a comp,
 //   so it migrates to **zero**, which is where a career starts anyway and
 //   puts it at the Local tier -- exactly where an unranked climber belongs.
-constexpr int kSaveVersion = 24;
+// Version 25: the circuit season. A v24 career had ranking points and no
+//   season, so it migrates to **none started** -- and the night tick opens
+//   one the next morning, which is where a career begins anyway.
+constexpr int kSaveVersion = 25;
 
 struct SaveGame {
   int version = kSaveVersion;

@@ -705,6 +705,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
 	FString CompLine() const;
 
+	/** Where you stand nationally, and how far to the next rung. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
+	FString RankLine() const;
+
+	/** Where you are in the season. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
+	FString CircuitStandingLine() const;
+
+	/** A season ended. Slow news, said once. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString CompNews;
+
 	/** Live session readout for the HUD; the wall keeps this current. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	FDirtbagSessionReadout SessionReadout;

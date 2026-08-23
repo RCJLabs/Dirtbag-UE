@@ -399,6 +399,42 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
     }
   }
 
+  // **The circuit runs itself.** A season opens when there is none, closes
+  // when its last comp has been climbed, and the next one starts after the
+  // break -- so a career that never enters a comp still has a circuit going
+  // on around it, which is the point of a scene that does not wait for you.
+  //
+  // Here for the reason the four ticks below it are here: anything that
+  // counts down, counts down at night.
+  if (player.circuit.season <= 0) {
+    player.circuit = StartSeason(worldRng, player.day, 1);
+  } else if (SeasonOver(player.circuit)) {
+    // A break, then the next one. The break is what a close season is.
+    const int last = player.circuit.schedule.empty()
+                         ? player.day
+                         : player.circuit.schedule.back();
+    if (player.day - last >= CompDials{}.seasonBreakDays) {
+      const int next = player.circuit.season + 1;
+      const int titles = player.circuit.titles;
+      player.circuit = StartSeason(worldRng, player.day, next);
+      player.circuit.titles = titles;
+    }
+  } else {
+    // **A date in the past that nobody resolved is a no-show.**
+    //
+    // The count is the whole of it, and the first version got it wrong:
+    // checking only `compsDone < compsPerSeason` forfeited the day after
+    // *every* comp, **including the ones you entered and won**, because a
+    // season is five long and one done is still fewer than five. What
+    // separates a comp you climbed from one you skipped is not the date --
+    // both are in the past -- it is whether the ledger caught up with the
+    // calendar.
+    const int due = CompsDueBy(player.circuit, player.day - 1);
+    while (player.circuit.compsDone < due) {
+      Forfeit(player.circuit, player.rankingPoints);
+    }
+  }
+
   // Rent, and a bought year running down. Rent lands here with the other
   // things that happen to you overnight rather than at the shop, because
   // that is what rent does.

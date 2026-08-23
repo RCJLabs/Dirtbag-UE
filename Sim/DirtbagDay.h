@@ -11,6 +11,7 @@
 
 #include "DirtbagAge.h"
 #include "DirtbagCharacter.h"
+#include "DirtbagComp.h"
 #include "DirtbagCore.h"
 #include "DirtbagRival.h"
 #include "DirtbagCrew.h"
@@ -162,6 +163,12 @@ struct PlayerState {
   // else, which is what makes a comp worth entering when the prize money
   // deliberately is not.
   double rankingPoints = 0.0;
+
+  // The season you are in the middle of. Five firm dates, the last worth
+  // half as much again -- see Sim/DirtbagComp.h. A season with `season == 0`
+  // has not started, which is where a career begins and where an old save
+  // lands.
+  Circuit circuit;
 
   double cash = 420.0;  // the war chest you left home with
   int day = 1;

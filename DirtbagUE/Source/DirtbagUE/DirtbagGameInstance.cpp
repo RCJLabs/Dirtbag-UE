@@ -1410,12 +1410,34 @@ dirtbag::CompState GLiveComp;
 
 int32 UDirtbagGameInstance::DaysUntilComp() const
 {
-	return dirtbag::DaysUntilComp(Player.Day);
+	return dirtbag::DaysUntilComp(DirtbagConvert::ToSim(Player.Circuit),
+	                              Player.Day);
 }
 
 bool UDirtbagGameInstance::CompIsToday() const
 {
-	return dirtbag::CompIsToday(Player.Day);
+	return dirtbag::CompIsToday(DirtbagConvert::ToSim(Player.Circuit),
+	                            Player.Day);
+}
+
+FString UDirtbagGameInstance::RankLine() const
+{
+	const dirtbag::RankTier T = dirtbag::RankFor(Player.RankingPoints);
+	const double To = dirtbag::ToNextRank(Player.RankingPoints);
+	FString Line = UTF8_TO_TCHAR(dirtbag::RankName(T));
+	// The gap to the next one, in points, because that is the only number
+	// on this ladder a player can do anything about.
+	if (To > 0.0)
+	{
+		Line += FString::Printf(TEXT("  (%.0f to the next)"), To);
+	}
+	return Line;
+}
+
+FString UDirtbagGameInstance::CircuitStandingLine() const
+{
+	return FString(
+	    dirtbag::CircuitLine(DirtbagConvert::ToSim(Player.Circuit)).c_str());
 }
 
 FString UDirtbagGameInstance::CompLine() const
@@ -1522,7 +1544,40 @@ bool UDirtbagGameInstance::SettleComp()
 	                           std::to_string(Player.Day)));
 
 	Player.Cash += Res.cash;
-	Player.RankingPoints += Res.rep;
+
+	// **Into the season and onto the ladder.**
+	//
+	// Ranking points come from the placing rather than the prize rep: a win
+	// is a hundred, the back of the field is five, and the finals are worth
+	// half as much again. The prize `rep` is what the *scene* thinks and
+	// belongs to standing; this is what the federation records, and the two
+	// are different numbers on purpose.
+	dirtbag::Circuit Season = DirtbagConvert::ToSim(Player.Circuit);
+	const bool bFinals = dirtbag::FinalsToday(Season, Player.Day);
+	dirtbag::BankResult(Season, Res, bFinals);
+	Player.RankingPoints += dirtbag::RankingPointsFor(
+	    Res.place, Res.fieldSize, bFinals, false, false, false);
+
+	// And if that was the last one, the season is over and the podium gets
+	// paid. Closed here rather than at Sleep because the table is complete
+	// the moment the finals are turned in, and hearing about it tomorrow
+	// morning would be the game telling you something you watched happen.
+	if (dirtbag::SeasonOver(Season))
+	{
+		const dirtbag::SeasonEnd End = dirtbag::CloseSeason(Season);
+		Player.Cash += End.cash;
+		Player.RankingPoints += End.rankingPoints;
+		if (End.title) { Season.titles++; }
+		CompNews = FString::Printf(
+		    TEXT("Season %d done - you finished %d%s.%s"), Season.season,
+		    End.place,
+		    End.place == 1   ? TEXT("st")
+		    : End.place == 2 ? TEXT("nd")
+		    : End.place == 3 ? TEXT("rd")
+		                     : TEXT("th"),
+		    End.title ? TEXT("  That is a title.") : TEXT(""));
+	}
+	Player.Circuit = DirtbagConvert::FromSim(Season);
 
 	// Beating them is head-to-head, and it is the same currency an FA moves.
 	if (Res.beatTheRival)

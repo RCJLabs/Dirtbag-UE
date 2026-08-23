@@ -490,6 +490,53 @@ enum class EDirtbagRivalRole : uint8
 	Gone   UMETA(DisplayName = "Gone"),
 };
 
+/** Where you stand nationally. Mirrors dirtbag::RankTier. **Not the comp
+ *  tier** -- that is which room you are allowed into, and this is what the
+ *  room says about you. */
+UENUM(BlueprintType)
+enum class EDirtbagRankTier : uint8
+{
+	Unranked         UMETA(DisplayName = "Unranked"),
+	RegionalClimber  UMETA(DisplayName = "Regional Climber"),
+	NationalProspect UMETA(DisplayName = "National Prospect"),
+	NationalTeam     UMETA(DisplayName = "National Team"),
+	OlympicHopeful   UMETA(DisplayName = "Olympic Hopeful"),
+	WorldClass       UMETA(DisplayName = "World-Class"),
+};
+
+/** A season of the circuit. Mirrors dirtbag::Circuit -- five firm dates,
+ *  the last worth half as much again. */
+USTRUCT(BlueprintType)
+struct FDirtbagCircuit
+{
+	GENERATED_BODY()
+
+	/** 1-based. Zero means none has started. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 Season = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 CompsDone = 0;
+
+	/** Firm dates, in order. The last is the finals. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	TArray<int32> Schedule;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	double YourPoints = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	double RivalPoints = 0.0;
+
+	/** Parallel to the named field. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	TArray<double> FieldPoints;
+
+	/** Seasons won, across a career. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 Titles = 0;
+};
+
 /** A line with a deadline on it. Mirrors dirtbag::Race. */
 USTRUCT(BlueprintType)
 struct FDirtbagRace
@@ -1187,6 +1234,10 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	double RankingPoints = 0.0;
 
+	/** The season you are in the middle of. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FDirtbagCircuit Circuit;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gear")
 	FDirtbagShoes Shoes;
 
@@ -1450,6 +1501,8 @@ namespace DirtbagConvert
 	dirtbag::Shoes ToSim(const FDirtbagShoes& In);
 	FDirtbagCharacter FromSim(const dirtbag::Character& In);
 	dirtbag::Character ToSim(const FDirtbagCharacter& In);
+	FDirtbagCircuit FromSim(const dirtbag::Circuit& In);
+	dirtbag::Circuit ToSim(const FDirtbagCircuit& In);
 	FDirtbagRival FromSim(const dirtbag::Rival& In);
 	dirtbag::Rival ToSim(const FDirtbagRival& In);
 	FDirtbagPastRival FromSim(const dirtbag::PastRival& In);

@@ -205,6 +205,32 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		         GEngine->GetMediumFont(), 1.f);
 	}
 
+	// A season ended. Same treatment as the Lot's news, because it arrives
+	// the same way: already decided, and you watched it happen.
+	if (!Game->CompNews.IsEmpty())
+	{
+		Y += 22.f;
+		DrawText(Game->CompNews, FLinearColor(0.85f, 0.55f, 0.35f, 1.f), X, Y,
+		         GEngine->GetMediumFont(), 1.f);
+	}
+
+	// **Where you stand, on both ladders.** In the slow lines rather than
+	// the news, because a rank is a state and not an event -- and silent
+	// until you have entered something, because "Unranked, 120 to the next"
+	// on day one is a progress bar for a system the player has not met.
+	if (Game->Player.RankingPoints > 0.0)
+	{
+		Y += 22.f;
+		DrawText(Game->RankLine(), FLinearColor(0.72f, 0.78f, 0.62f, 1.f), X,
+		         Y, GEngine->GetSmallFont(), 1.f);
+		const FString Standing = Game->CircuitStandingLine();
+		if (!Standing.IsEmpty())
+		{
+			Y += 18.f;
+			DrawText(Standing, kDim, X, Y, GEngine->GetSmallFont(), 1.f);
+		}
+	}
+
 	// The rival came around, or one of them hung it up. Same treatment as
 	// the Lot's, because it is the same kind of news: it happened while you
 	// were asleep and nobody asked you.

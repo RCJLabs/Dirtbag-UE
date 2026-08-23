@@ -174,6 +174,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.character = ToSim(In.Character);
 	Out.rival = ToSim(In.Rival);
 	Out.rankingPoints = In.RankingPoints;
+	Out.circuit = ToSim(In.Circuit);
 	Out.pastRivals.reserve(In.PastRivals.Num());
 	for (const FDirtbagPastRival& P : In.PastRivals)
 	{
@@ -229,6 +230,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Character = FromSim(In.character);
 	Out.Rival = FromSim(In.rival);
 	Out.RankingPoints = In.rankingPoints;
+	Out.Circuit = FromSim(In.circuit);
 	Out.PastRivals.Reset(In.pastRivals.size());
 	for (const dirtbag::PastRival& P : In.pastRivals)
 	{
@@ -655,6 +657,36 @@ dirtbag::Dog ToSim(const FDirtbagDog& In)
 	Out.adopted = In.bAdopted;
 	Out.bond = In.Bond;
 	Out.fed = In.Fed;
+	return Out;
+}
+
+FDirtbagCircuit FromSim(const dirtbag::Circuit& In)
+{
+	FDirtbagCircuit Out;
+	Out.Season = In.season;
+	Out.CompsDone = In.compsDone;
+	Out.Schedule.Reset(In.schedule.size());
+	for (int D : In.schedule) { Out.Schedule.Add(D); }
+	Out.YourPoints = In.yourPoints;
+	Out.RivalPoints = In.rivalPoints;
+	Out.FieldPoints.Reset(In.fieldPoints.size());
+	for (double P : In.fieldPoints) { Out.FieldPoints.Add(P); }
+	Out.Titles = In.titles;
+	return Out;
+}
+
+dirtbag::Circuit ToSim(const FDirtbagCircuit& In)
+{
+	dirtbag::Circuit Out;
+	Out.season = In.Season;
+	Out.compsDone = In.CompsDone;
+	Out.schedule.reserve(In.Schedule.Num());
+	for (int32 D : In.Schedule) { Out.schedule.push_back(D); }
+	Out.yourPoints = In.YourPoints;
+	Out.rivalPoints = In.RivalPoints;
+	Out.fieldPoints.reserve(In.FieldPoints.Num());
+	for (double P : In.FieldPoints) { Out.fieldPoints.push_back(P); }
+	Out.titles = In.Titles;
 	return Out;
 }
 

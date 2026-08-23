@@ -188,29 +188,149 @@ struct CompDials {
   // Beating the rival is worth its own bump, on top of wherever you placed.
   double beatRivalRep = 4.0;
 
-  // How often one lands, and how much warning you get.
-  //
-  // **A fortnight, announced three days out.** The warning is the mechanic:
-  // a comp you find out about on the day is a dice roll, and one you can
-  // see coming is a week of deciding whether to rest for it. Three days is
-  // enough to skip a session and not enough to train for it.
-  int everyDays = 14;
+  // How much warning you get. **Three days**, and the warning is the
+  // mechanic: a comp you find out about on the day is a dice roll, and one
+  // you can see coming is a week of deciding whether to rest for it. Enough
+  // to skip a session and not enough to train for it.
   int announceDaysAhead = 3;
+
+  // --- the circuit season ---------------------------------------------
+  // Five comps, and **the last one is the finals**. Not a sixth event: the
+  // same format worth half as much again, so a season has a shape rather
+  // than being five identical Tuesdays.
+  int compsPerSeason = 5;
+  double finalsMultiplier = 1.5;
+  // Firm dates, six to eight days apart. Firm is the point -- a schedule
+  // you can plan around is the whole difference between a comp and a random
+  // event, and it is what makes not turning up a *decision*.
+  int gapMin = 6;
+  int gapVariance = 3;
+  // And the wait between seasons, which is what a close season is for.
+  int seasonBreakDays = 40;
+
+  // What a season pays at the top. **Larger than a comp by a lot**, because
+  // this is the thing a year of turning up is for -- and still small next
+  // to a sponsor, because comp prize money is not how a climber eats.
+  double championCash = 300.0, runnerUpCash = 100.0, bronzeCash = 50.0;
+  // Ranking points on top of the placement points, for the season table.
+  double championRanking = 150.0, runnerUpRanking = 80.0,
+         bronzeRanking = 40.0;
+
+  // **What not turning up costs.** The rival banks this, and you lose
+  // standing for it: a firm schedule you can ignore for free is not a
+  // commitment, it is a suggestion.
+  double forfeitRivalPoints = 60.0;
+  double forfeitRankingLoss = 2.0;
+
+  // --- the ranking ladder ----------------------------------------------
+  // Six named tiers. The numbers are the 2D game's and they are load-bearing
+  // further up: 700 is where a national team calls you and 1200 is where the
+  // Games become reachable, so moving them moves two systems that are not
+  // built yet.
+  double regionalClimberAt = 120.0;
+  double nationalProspectAt = 350.0;
+  double nationalTeamAt = 700.0;
+  double olympicHopefulAt = 1200.0;
+  double worldClassAt = 2200.0;
 };
 
-// The day of the next comp on or after `today`. Comps land on a fixed
-// cadence rather than being rolled, because a schedule you can plan around
-// is the entire difference between a comp and a random event -- and the 2D
-// game learned that too, where the circuit's dates are firm and no-showing
-// one costs you.
-int NextCompDay(int today, const CompDials& dials = CompDials{});
+// Where you stand nationally. **Not the comp tier** -- that is which room
+// you are allowed into, and this is what the room says about you. They share
+// two numbers on purpose (350 lets you into Regional comps *and* makes you a
+// National Prospect) and diverge above that.
+enum class RankTier {
+  Unranked,
+  RegionalClimber,
+  NationalProspect,
+  NationalTeam,
+  OlympicHopeful,
+  WorldClass,
+};
+constexpr int kRankTierCount = 6;
+const char* RankName(RankTier t);
+RankTier RankFor(double rankingPoints, const CompDials& dials = CompDials{});
+// How many points to the next one, or -1 at the top. What a progress bar
+// would say, said as a number the caller can put in a sentence.
+double ToNextRank(double rankingPoints, const CompDials& dials = CompDials{});
 
-// Is there one today?
-bool CompIsToday(int today, const CompDials& dials = CompDials{});
+// Placement points. **1st takes 100 and the back of the field still takes
+// 5** -- turning up is worth something, and the curve between is linear in
+// how many people you beat rather than in where you finished, so a big field
+// is worth more to win.
+double CircuitPoints(int place, int fieldSize);
 
-// How many days until the next one, or -1 if it is further off than the
-// announcement window. This is what the gym has on a poster.
-int DaysUntilComp(int today, const CompDials& dials = CompDials{});
+// What a comp adds to your national ranking: the placement points, half as
+// much again at a finals, plus a lump for a season podium.
+double RankingPointsFor(int place, int fieldSize, bool finals, bool champion,
+                        bool runnerUp, bool bronze,
+                        const CompDials& dials = CompDials{});
+
+// Where everybody is in the season.
+struct CircuitStanding {
+  std::string name;
+  double points = 0.0;
+  bool isYou = false;
+  bool isRival = false;
+};
+
+// A season of the circuit.
+struct Circuit {
+  int season = 0;          // 1-based; 0 means none has started
+  int compsDone = 0;
+  std::vector<int> schedule;   // firm dates, in order; the last is the finals
+  double yourPoints = 0.0;
+  double rivalPoints = 0.0;
+  std::vector<double> fieldPoints;   // parallel to TheField()
+  int titles = 0;          // seasons won, across a career
+};
+
+// Open a season. Five firm dates starting a few days out.
+Circuit StartSeason(const Rng& worldRng, int day, int season,
+                    const CompDials& dials = CompDials{});
+
+// Is one of this season's comps today, and is it the finals?
+bool CompIsToday(const Circuit& c, int day);
+bool FinalsToday(const Circuit& c, int day);
+
+// Days until the next one, or -1 outside the announcement window.
+int DaysUntilComp(const Circuit& c, int day,
+                  const CompDials& dials = CompDials{});
+
+// Has the season's last comp been and gone?
+bool SeasonOver(const Circuit& c, const CompDials& dials = CompDials{});
+
+// How many of the season's dates are on or before `day`. The number of
+// comps that *should* have been resolved by now -- compare it against
+// `compsDone` to find a no-show, which is the only way to tell one from a
+// comp you entered: both leave the date in the past.
+int CompsDueBy(const Circuit& c, int day);
+
+// Bank a result. Everybody scores: you from your placing, the field and the
+// rival from theirs, so the table is a season rather than your season.
+void BankResult(Circuit& c, const CompResult& result, bool finals,
+                const CompDials& dials = CompDials{});
+
+// You did not turn up. **The rival banks for it and you lose standing** --
+// a firm schedule you can ignore for free is a suggestion.
+void Forfeit(Circuit& c, double& rankingPoints,
+             const CompDials& dials = CompDials{});
+
+// The season's table, best first.
+std::vector<CircuitStanding> SeasonTable(const Circuit& c);
+
+struct SeasonEnd {
+  int place = 0;
+  double cash = 0.0;
+  double rankingPoints = 0.0;
+  bool title = false;
+  std::vector<CircuitStanding> table;
+};
+
+// Close it out and pay the podium.
+SeasonEnd CloseSeason(const Circuit& c, const CompDials& dials = CompDials{});
+
+// What the standings read like, in the game's voice.
+std::string CircuitLine(const Circuit& c, const CompDials& dials = CompDials{});
 
 // Which tier you are allowed into, from your national ranking points.
 CompTier TierFor(double rankingPoints, const CompDials& dials = CompDials{});

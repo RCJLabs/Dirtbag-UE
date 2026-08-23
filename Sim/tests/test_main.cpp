@@ -1429,26 +1429,96 @@ static void TestComp() {
   CompDials cd;
   const Rng world = Rng::FromSeed("comp-day");
 
-  // ---- the calendar ----------------------------------------------------
+  // ---- the season's calendar -------------------------------------------
   //
   // **A schedule you can plan around is the whole difference between a comp
-  // and a random event.** Firm dates, announced three days out -- enough to
-  // skip a session for it and not enough to train.
-  CHECK(!CompIsToday(0, cd));       // a career does not open with one
-  CHECK(!CompIsToday(1, cd));
-  CHECK(CompIsToday(cd.everyDays, cd));
-  CHECK(CompIsToday(cd.everyDays * 3, cd));
-  CHECK(!CompIsToday(cd.everyDays + 1, cd));
-  CHECK(NextCompDay(1, cd) == cd.everyDays);
-  CHECK(NextCompDay(cd.everyDays, cd) == cd.everyDays);
-  CHECK(NextCompDay(cd.everyDays + 1, cd) == cd.everyDays * 2);
-  // The poster goes up three days out and not before.
-  CHECK(DaysUntilComp(cd.everyDays, cd) == 0);
-  CHECK(DaysUntilComp(cd.everyDays - 1, cd) == 1);
-  CHECK(DaysUntilComp(cd.everyDays - cd.announceDaysAhead, cd) ==
-        cd.announceDaysAhead);
-  CHECK(DaysUntilComp(cd.everyDays - cd.announceDaysAhead - 1, cd) == -1);
-  CHECK(DaysUntilComp(1, cd) == -1);
+  // and a random event** -- and it is what makes not turning up a decision
+  // rather than an accident.
+  {
+    const Circuit c = StartSeason(world, 1, 1, cd);
+    CHECK(static_cast<int>(c.schedule.size()) == cd.compsPerSeason);
+    CHECK(c.season == 1);
+    CHECK(c.compsDone == 0);
+    // In order, with real gaps -- five comps in a week is not a season.
+    for (std::size_t i = 1; i < c.schedule.size(); i++) {
+      const int gap = c.schedule[i] - c.schedule[i - 1];
+      CHECK(gap >= cd.gapMin);
+      CHECK(gap < cd.gapMin + cd.gapVariance);
+    }
+    // A few days of notice before the first one, never the same day.
+    CHECK(c.schedule.front() > 1 + cd.announceDaysAhead - 1);
+
+    for (int d : c.schedule) CHECK(CompIsToday(c, d));
+    CHECK(!CompIsToday(c, c.schedule.front() - 1));
+    CHECK(!CompIsToday(c, c.schedule.front() + 1));
+
+    // **The last one is the finals**, and only the last one.
+    CHECK(FinalsToday(c, c.schedule.back()));
+    for (std::size_t i = 0; i + 1 < c.schedule.size(); i++) {
+      CHECK(!FinalsToday(c, c.schedule[i]));
+    }
+
+    // The poster goes up three days out and not before.
+    CHECK(DaysUntilComp(c, c.schedule.front(), cd) == 0);
+    CHECK(DaysUntilComp(c, c.schedule.front() - 1, cd) == 1);
+    CHECK(DaysUntilComp(c, c.schedule.front() - cd.announceDaysAhead, cd) ==
+          cd.announceDaysAhead);
+    CHECK(DaysUntilComp(c, c.schedule.front() - cd.announceDaysAhead - 1,
+                        cd) == -1);
+    // And it is over when the last one has been climbed, not when the date
+    // passes -- a season you no-showed the end of is still finished.
+    CHECK(!SeasonOver(c, cd));
+  }
+
+  // ---- the ranking ladder ----------------------------------------------
+  //
+  // Six named tiers, and **the numbers are load-bearing further up**: 700
+  // is where a national team calls you and 1200 is where the Games become
+  // reachable, so these are pinned rather than left to drift.
+  CHECK(RankFor(0.0, cd) == RankTier::Unranked);
+  CHECK(RankFor(cd.regionalClimberAt, cd) == RankTier::RegionalClimber);
+  CHECK(RankFor(cd.nationalProspectAt, cd) == RankTier::NationalProspect);
+  CHECK(RankFor(cd.nationalTeamAt, cd) == RankTier::NationalTeam);
+  CHECK(RankFor(cd.olympicHopefulAt, cd) == RankTier::OlympicHopeful);
+  CHECK(RankFor(cd.worldClassAt, cd) == RankTier::WorldClass);
+  CHECK(cd.nationalTeamAt == 700.0);
+  CHECK(cd.olympicHopefulAt == 1200.0);
+  // Monotonic, and every tier is reachable rather than skipped over.
+  {
+    RankTier last = RankTier::Unranked;
+    bool seen[kRankTierCount] = {false, false, false, false, false, false};
+    for (double p = 0.0; p <= cd.worldClassAt + 100.0; p += 10.0) {
+      const RankTier t = RankFor(p, cd);
+      CHECK(static_cast<int>(t) >= static_cast<int>(last));
+      last = t;
+      seen[static_cast<int>(t)] = true;
+    }
+    for (int i = 0; i < kRankTierCount; i++) CHECK(seen[i]);
+  }
+  CHECK(ToNextRank(0.0, cd) == cd.regionalClimberAt);
+  CHECK(ToNextRank(cd.worldClassAt, cd) == -1.0);
+  CHECK(ToNextRank(cd.nationalTeamAt - 1.0, cd) == 1.0);
+
+  // ---- what a placing is worth -----------------------------------------
+  //
+  // **1st takes 100 and the back of the field still takes 5**, on a curve
+  // that is linear in how many people you beat -- so a big field is worth
+  // more to win, which is what makes stepping up a tier attractive.
+  CHECK(CircuitPoints(1, 9) == 100.0);
+  CHECK(CircuitPoints(9, 9) == 5.0);
+  CHECK(CircuitPoints(5, 9) == 50.0);
+  CHECK(CircuitPoints(1, 2) == 100.0);
+  // Monotonic: finishing higher is never worth less.
+  for (int p = 2; p <= 9; p++) CHECK(CircuitPoints(p - 1, 9) >=
+                                     CircuitPoints(p, 9));
+  // The finals are worth half as much again, and a season podium adds a
+  // lump on top of the placing.
+  CHECK(RankingPointsFor(1, 9, true, false, false, false, cd) ==
+        std::round(100.0 * cd.finalsMultiplier));
+  CHECK(RankingPointsFor(1, 9, false, true, false, false, cd) ==
+        100.0 + cd.championRanking);
+  CHECK(RankingPointsFor(4, 9, false, false, false, false, cd) <
+        RankingPointsFor(1, 9, false, false, false, false, cd));
 
   // ---- the tiers gate on ranking, and they mean three things ----------
   CHECK(TierFor(0.0, cd) == CompTier::Local);
@@ -1697,6 +1767,210 @@ static void TestComp() {
     // Turning up is still worth a point. Nobody leaves with literally
     // nothing.
     CHECK(last.rep > 0.0);
+  }
+}
+
+static void TestCircuit() {
+  CompDials cd;
+  const Rng world = Rng::FromSeed("a-season");
+  Skills you;
+  you.power = 50; you.fingers = 50; you.technique = 50;
+  you.endurance = 50; you.head = 50;
+
+  // ---- everybody scores, not just you ---------------------------------
+  //
+  // **A table that only tracked your points would be a personal best with
+  // other names printed near it.** The season is a season because the field
+  // is banking too, and this is the check that says so.
+  {
+    Circuit c = StartSeason(world, 1, 1, cd);
+    CompState board = SetTheBoard(world, CompTier::Local, 8.0, 10, cd);
+    for (auto& pr : board.progress) { pr.topped = true; pr.flashed = true; }
+    const CompResult r =
+        Settle(board, 8.0, "Dex Calloway", 9.0, world, cd);
+    BankResult(c, r, false, cd);
+
+    CHECK(c.compsDone == 1);
+    CHECK(c.yourPoints > 0.0);
+    CHECK(c.rivalPoints > 0.0);
+    double fieldTotal = 0.0;
+    for (double p : c.fieldPoints) fieldTotal += p;
+    CHECK(fieldTotal > 0.0);
+    // Winning it banks the most there is.
+    CHECK(r.place == 1);
+    CHECK(c.yourPoints == 100.0);
+
+    // The table has everybody on it, sorted, with you where you finished.
+    const std::vector<CircuitStanding> t = SeasonTable(c);
+    CHECK(t.size() >= 8);
+    CHECK(t.front().isYou);
+    for (std::size_t i = 1; i < t.size(); i++) {
+      CHECK(t[i - 1].points >= t[i].points);
+    }
+  }
+
+  // ---- the finals are worth half as much again -------------------------
+  {
+    Circuit a = StartSeason(world, 1, 1, cd);
+    Circuit b = StartSeason(world, 1, 1, cd);
+    CompState board = SetTheBoard(world, CompTier::Local, 8.0, 10, cd);
+    for (auto& pr : board.progress) { pr.topped = true; pr.flashed = true; }
+    const CompResult r = Settle(board, 8.0, "", 0.0, world, cd);
+    BankResult(a, r, false, cd);
+    BankResult(b, r, true, cd);
+    // Pinned as a magnitude: an ordering passes on a build where the finals
+    // multiplier is 1.001, and then a season has no shape.
+    CHECK(b.yourPoints == std::round(a.yourPoints * cd.finalsMultiplier));
+    CHECK(b.yourPoints > a.yourPoints * 1.4);
+  }
+
+  // ---- not turning up ---------------------------------------------------
+  //
+  // **A firm schedule you can ignore for free is a suggestion.** The rival
+  // banks and you lose standing, and the asymmetry is the commitment.
+  {
+    Circuit c = StartSeason(world, 1, 1, cd);
+    double ranking = 100.0;
+    Forfeit(c, ranking, cd);
+    CHECK(c.compsDone == 1);
+    CHECK(c.yourPoints == 0.0);
+    CHECK(c.rivalPoints == cd.forfeitRivalPoints);
+    CHECK(ranking == 100.0 - cd.forfeitRankingLoss);
+    // ...and it cannot take you below nothing. A career that no-showed its
+    // way to a negative ranking would be a tier system with a hole under it.
+    double broke = 0.0;
+    Forfeit(c, broke, cd);
+    CHECK(broke == 0.0);
+  }
+
+  // ---- closing it out ---------------------------------------------------
+  {
+    // Win every comp of a season and you win the season.
+    Circuit c = StartSeason(world, 1, 1, cd);
+    CompState board = SetTheBoard(world, CompTier::Local, 8.0, 10, cd);
+    for (auto& pr : board.progress) { pr.topped = true; pr.flashed = true; }
+    for (int i = 0; i < cd.compsPerSeason; i++) {
+      const CompResult r =
+          Settle(board, 8.0, "", 0.0,
+                 Rng::FromSeed("comp#" + std::to_string(i)), cd);
+      BankResult(c, r, i == cd.compsPerSeason - 1, cd);
+    }
+    CHECK(SeasonOver(c, cd));
+    const SeasonEnd e = CloseSeason(c, cd);
+    CHECK(e.place == 1);
+    CHECK(e.title);
+    CHECK(e.cash == cd.championCash);
+    CHECK(e.rankingPoints == cd.championRanking);
+    // **A season is worth much more than a comp**, or a year of turning up
+    // buys nothing a single good Tuesday would not have.
+    CHECK(e.cash > cd.winCash * 2.0);
+  }
+  {
+    // **And a season you never entered is not a season you won.** Every
+    // comp forfeited: the rival is top of the table and you are not the
+    // champion, which is the zero-tie bug from the comp in a longer coat.
+    Circuit c = StartSeason(world, 1, 1, cd);
+    double ranking = 500.0;
+    for (int i = 0; i < cd.compsPerSeason; i++) Forfeit(c, ranking, cd);
+    CHECK(SeasonOver(c, cd));
+    const SeasonEnd e = CloseSeason(c, cd);
+    CHECK(!e.title);
+    CHECK(e.cash == 0.0);
+    CHECK(e.place == static_cast<int>(e.table.size()));
+    CHECK(ranking < 500.0);
+  }
+
+  // ---- and it reads like something ------------------------------------
+  {
+    Circuit c = StartSeason(world, 1, 1, cd);
+    CHECK(!CircuitLine(c, cd).empty());
+    CompState board = SetTheBoard(world, CompTier::Local, 8.0, 10, cd);
+    for (auto& pr : board.progress) { pr.topped = true; pr.flashed = true; }
+    BankResult(c, Settle(board, 8.0, "", 0.0, world, cd), false, cd);
+    const std::string mid = CircuitLine(c, cd);
+    CHECK(!mid.empty());
+    CHECK(mid != CircuitLine(Circuit{}, cd));
+    // The last comp says so, because peaking for it is the decision the
+    // multiplier exists to create.
+    while (c.compsDone < cd.compsPerSeason - 1) {
+      BankResult(c, Settle(board, 8.0, "", 0.0, world, cd), false, cd);
+    }
+    CHECK(CircuitLine(c, cd).find("half as much again") != std::string::npos);
+  }
+
+  (void)you;
+}
+
+static void TestCircuitCareer() {
+  // **The night tick, which nothing covered.** Same shape as the rival's:
+  // the season existed and ran only because something called it, and
+  // "something" was one line in `SleepToNextDay` that no test touched.
+  CompDials cd;
+  PlayerState player;
+  DayState day;
+  const Rng world = Rng::FromSeed("a-circuit-life");
+  player.climber = NewClimber(world);
+
+  // A career that never enters a comp still has a circuit going on around
+  // it -- a scene that waits for you is not a scene.
+  for (int i = 0; i < 400; i++) SleepToNextDay(player, day, world);
+
+  CHECK(player.circuit.season >= 1);
+  CHECK(!player.circuit.schedule.empty());
+
+  // **Every date it passed was resolved.** Not one, not all five at once --
+  // the ledger keeps up with the calendar, which is what tells a no-show
+  // apart from a comp you climbed.
+  CHECK(player.circuit.compsDone <= cd.compsPerSeason);
+  CHECK(player.circuit.compsDone ==
+        std::min(cd.compsPerSeason,
+                 CompsDueBy(player.circuit, player.day - 1)));
+
+  // Skipping them all costs standing and hands the rival the season.
+  CHECK(player.rankingPoints == 0.0);   // floored, not negative
+  if (player.circuit.compsDone > 0) {
+    CHECK(player.circuit.rivalPoints > 0.0);
+    CHECK(player.circuit.yourPoints == 0.0);
+  }
+
+  // Seasons turn over. Four hundred days is several of them at these dials,
+  // and a career that saw one season is a career where the break never
+  // ended.
+  CHECK(player.circuit.season >= 2);
+
+  // **And a career that enters everything is not forfeited for it**, which
+  // is the bug the first version of the night tick had: it checked only
+  // whether the season was finished, so it forfeited the day after every
+  // comp -- including the ones you entered and won.
+  {
+    PlayerState keen;
+    DayState kd;
+    keen.climber = NewClimber(world);
+    const Rng w = Rng::FromSeed("keen");
+    CompState board = SetTheBoard(w, CompTier::Local, 8.0, 10, cd);
+    for (auto& pr : board.progress) { pr.topped = true; pr.flashed = true; }
+    for (int i = 0; i < 200; i++) {
+      // Enter it the moment it is on, exactly as the engine does.
+      if (keen.circuit.season > 0 && CompIsToday(keen.circuit, keen.day)) {
+        const bool finals = FinalsToday(keen.circuit, keen.day);
+        const CompResult r =
+            Settle(board, 8.0, "", 0.0,
+                   Rng::FromSeed("k#" + std::to_string(keen.day)), cd);
+        BankResult(keen.circuit, r, finals, cd);
+        keen.rankingPoints +=
+            RankingPointsFor(r.place, r.fieldSize, finals, false, false,
+                             false, cd);
+      }
+      SleepToNextDay(keen, kd, w);
+    }
+    // Points on the board, nothing lost to a forfeit, and the rival banked
+    // nothing off you.
+    CHECK(keen.circuit.yourPoints > 0.0);
+    CHECK(keen.rankingPoints > 0.0);
+    CHECK(keen.circuit.rivalPoints == 0.0);
+    // Enough comps to have climbed a tier: this is the whole point of a
+    // season, and a ladder you cannot climb by winning is not a ladder.
+    CHECK(RankFor(keen.rankingPoints, cd) != RankTier::Unranked);
   }
 }
 
@@ -2141,6 +2415,34 @@ static void TestRivalSave() {
     CHECK(back.player.pastRivals[0].peakGrade == 11.25);
   }
 
+  // **A season survives a reload**, dates and all. Without it you would
+  // wake up in a season with no schedule, the night tick would see every
+  // date as missing and forfeit its way through the year.
+  {
+    CompDials ccd;
+    save.player.circuit = StartSeason(Rng::FromSeed("sv"), 10, 3, ccd);
+    save.player.circuit.compsDone = 2;
+    save.player.circuit.yourPoints = 145.0;
+    save.player.circuit.rivalPoints = 90.0;
+    save.player.circuit.fieldPoints[0] = 60.0;
+    save.player.circuit.titles = 1;
+    SaveGame season;
+    CHECK(DeserializeSave(SerializeSave(save), season) == LoadResult::Ok);
+    const Circuit& c2 = season.player.circuit;
+    CHECK(c2.season == 3);
+    CHECK(c2.compsDone == 2);
+    CHECK(c2.yourPoints == 145.0);
+    CHECK(c2.rivalPoints == 90.0);
+    CHECK(c2.titles == 1);
+    CHECK(c2.schedule == save.player.circuit.schedule);
+    CHECK(c2.fieldPoints.size() == save.player.circuit.fieldPoints.size());
+    CHECK(c2.fieldPoints[0] == 60.0);
+    // And the table it produces is the same table.
+    CHECK(SeasonTable(c2).front().name ==
+          SeasonTable(save.player.circuit).front().name);
+    save.player.circuit = Circuit{};
+  }
+
   // Ranking points survive a reload: they are the only thing a comp pays
   // that lasts, and losing them would reset your tier every time you slept.
   save.player.rankingPoints = 412.5;
@@ -2187,6 +2489,9 @@ static void TestRivalSave() {
                         "rival.grade=", "rival.laststep=", "rival.peak=",
                         "rival.rivalry=", "rival.allied=", "rival.offered=",
                         "rival.met=", "rival.retired=", "ranking=",
+                        "circuit.season=", "circuit.done=", "circuit.you=",
+                        "circuit.rival=", "circuit.titles=",
+                        "circuit.dates=", "circuit.fields=",
                         "rival.race=",
                         "rival.raceby=", "rival.racefa=", "rival.fas=",
                         "rival.fa0=", "rival.fa1=", "pastrivals=",
@@ -8986,6 +9291,8 @@ int main() {
   TestHowClose();
   TestPumpShows();
   TestComp();
+  TestCircuit();
+  TestCircuitCareer();
   TestRival();
   TestRivalRace();
   TestRivalCareer();
