@@ -252,6 +252,13 @@ struct AttemptInput {
   // -- the golden vectors included -- resolves exactly as it always did.
   double injuryStagePenalty = 1.0;
 
+  // **Flat, on every hold, because you are ill rather than injured** --
+  // there is no such thing as a cold that is fine on slopers, and an
+  // abscess does not care what you are holding. In grade units, and zero
+  // for anybody who is well, so every existing caller and every golden
+  // vector resolves exactly as it did. See Sim/DirtbagAilments.h.
+  double ailmentPenalty = 0.0;
+
   // Per-move minigame quality, 0..1. Missing entries fall back to botExecution.
   std::vector<double> execution;
   double botExecution = 0.72;

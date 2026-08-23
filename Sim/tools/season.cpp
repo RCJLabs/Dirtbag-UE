@@ -59,6 +59,8 @@ struct Tally {
   double rankingEnd = 0.0;   // where it settles, which is the real number
   // The medical file, over a career.
   int diagnoses = 0, shots = 0, surgeries = 0, rushed = 0, untreated = 0;
+  int sickDays = 0, timesIll = 0, medsTaken = 0;
+  int prehabDays = 0, toothFixes = 0, worstTooth = 0, toothDays = 0;
   double medicalSpend = 0.0;
   double premiums = 0.0, claims = 0.0;
   int roundsClimbed = 0, finalsReached = 0;
@@ -320,6 +322,11 @@ int main(int argc, char** argv) {
   // the operation when the scan says it is that bad. **The only policy
   // that uses the expensive end of the medical system**, and therefore the
   // only one against which insurance can be a bet at all.
+  // "-up" adds the upkeep half: twenty minutes of prehab most mornings,
+  // meds when ill, and the tooth dealt with while it is still a filling.
+  // **Its own flag because it is its own question** -- gate 2 asks about
+  // choices made *while injured*, and these are choices made before.
+  const bool medUpkeep = has("-up");
   const bool medCareful = has("careful");
   const bool medSensible = has("sensible") || medCareful;
   const bool medImpatient = has("impatient");
@@ -656,6 +663,29 @@ int main(int argc, char** argv) {
       }
       t.medicalSpend += before - player.cash;
     }
+    // **The things that are wrong with you that are not the injury.**
+    // Cheap, boring, and all three of them are decisions this game has
+    // never asked anybody to make.
+    if (medUpkeep) {
+      const AilmentDials ald;
+      double h = today.hour;
+      if (DoPrehab(player.upkeep, h, player.day, ald)) {
+        PassHours(today, h - today.hour, dd);
+        t.prehabDays++;
+      }
+      if (player.sickness.active && !player.sickness.medicated) {
+        if (TakeSomethingForIt(player.sickness, player.cash, ald)) {
+          t.medsTaken++;
+        }
+      }
+      // **While it is still a filling.** The whole test of the tooth is
+      // whether a career will spend on something that is not climbing.
+      if (player.teeth.stage != ToothStage::Fine) {
+        if (FixTheTooth(player.teeth, player.cash, player.day, ald)) {
+          t.toothFixes++;
+        }
+      }
+    }
     if (medInsured && !player.medical.insured) {
       BuyInsurance(player.medical, player.climber, player.day);
     }
@@ -900,7 +930,8 @@ int main(int argc, char** argv) {
                 AttemptInSession(session, today.session, mem, body, *pick,
                                  Conditions{}, {}, 0.72, SessionDials{},
                                  SessionLoopDials{}, player.character,
-                                 player.medical, player.day);
+                                 player.medical, player.day,
+                                 player.sickness, player.teeth);
             ApplyAttemptToDay(player, today, *pick, r, world, dd);
             t.burns++;
             t.movesClimbed += static_cast<int>(r.timeline.size());
@@ -998,7 +1029,8 @@ int main(int argc, char** argv) {
               AttemptInSession(session, today.session, mem, body, line->route,
                                cond, {}, 0.72, SessionDials{},
                                SessionLoopDials{}, player.character,
-                               player.medical, player.day);
+                               player.medical, player.day,
+                               player.sickness, player.teeth);
           ApplyAttemptToDay(player, today, line->route, r, world, dd);
           t.burns++;
           burnsToday++;
@@ -1203,6 +1235,10 @@ int main(int argc, char** argv) {
     WeatherProjects(player, fd);
     if (today.hunger > dd.starvingHunger) t.starvedNights++;
 
+    if (player.sickness.active) t.sickDays++;
+    if (player.teeth.stage != ToothStage::Fine) t.toothDays++;
+    t.timesIll = player.sickness.caught;
+    t.worstTooth = player.teeth.worstEver;
     t.diagnoses = player.medical.diagnoses;
     t.shots = player.medical.shotsTaken;
     t.surgeries = player.medical.surgeries;
@@ -1358,7 +1394,9 @@ int main(int argc, char** argv) {
          "\twcstarts\twcmissed\twcpods\twcwins\twctitles"
          "\tgames\tmedals"
          "\tdiagnoses\tshots\tsurgeries\tuntreated\tmedspend"
-         "\tpremiums\tclaims\tjointrisk\tscars\n");
+         "\tpremiums\tclaims\tjointrisk\tscars"
+         "\tsickdays\ttimesill\tmeds\tprehab\ttoothdays\ttoothfixes"
+         "\tworsttooth\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -1367,7 +1405,8 @@ int main(int argc, char** argv) {
          "\t%d\t%d\t%.0f\t%d"
          "\t%d\t%d\t%d\t%d\t%d"
          "\t%d\t%d"
-         "\t%d\t%d\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.3f\t%d\n",
+         "\t%d\t%d\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.3f\t%d"
+         "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -1413,7 +1452,9 @@ int main(int argc, char** argv) {
          t.wcTitles, t.gamesEntered, t.medals,
          t.diagnoses, t.shots, t.surgeries, t.untreated, t.medicalSpend,
          t.premiums, t.claims, BodyRisk(player.medical, player.day),
-         static_cast<int>(player.medical.scars.size()));
+         static_cast<int>(player.medical.scars.size()),
+         t.sickDays, t.timesIll, t.medsTaken, t.prehabDays, t.toothDays,
+         t.toothFixes, t.worstTooth);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

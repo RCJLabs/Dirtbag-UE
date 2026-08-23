@@ -14,6 +14,7 @@
 
 #include "DirtbagCharacter.h"
 #include "DirtbagCore.h"
+#include "DirtbagAilments.h"
 #include "DirtbagMedical.h"
 #include "DirtbagRng.h"
 #include "DirtbagSession.h"
@@ -158,7 +159,9 @@ AttemptInput BuildSessionAttemptInput(
     // What the joints carry, which does not heal. Defaulted to a clean
     // file, and a clean file is neutral, so every existing caller and
     // every golden vector resolves exactly as it did.
-    const Medical& med = Medical{}, int day = 0);
+    const Medical& med = Medical{}, int day = 0,
+    // Being ill, and the tooth. Both neutral by default.
+    const Sickness& sick = Sickness{}, const Teeth& teeth = Teeth{});
 void CommitAttempt(SessionState& session, ProjectMemory& memory,
                    const Route& route, const AttemptResult& result,
                    const SessionLoopDials& loop = SessionLoopDials{});
@@ -179,6 +182,8 @@ AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
                                // Both neutral by default, so every existing
                                // caller resolves exactly as it did.
                                const Character& who = Character{},
-                               const Medical& med = Medical{}, int day = 0);
+                               const Medical& med = Medical{}, int day = 0,
+                               const Sickness& sick = Sickness{},
+                               const Teeth& teeth = Teeth{});
 
 }  // namespace dirtbag

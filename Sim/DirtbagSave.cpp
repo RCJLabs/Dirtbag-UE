@@ -305,6 +305,33 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // The joints start clean. That is generous and it is the only honest
 // option: a v29 save has no record of what its cortisone history was,
 // because there was none, and inventing one would be inventing a career.
+// v30 -> v31: the things that are wrong with you that are not the injury.
+// A v30 career was never ill, has good teeth, has never done a morning of
+// prehab and has never talked to anybody. All four are the honest default:
+// none of them existed to have happened.
+//
+// **The tooth clock starts from the load rather than from day one**, which
+// is why `teeth.since` is zero -- the first night after the migration is
+// the first roll, and a career twenty years in does not wake up with an
+// abscess it has been carrying invisibly.
+void MigrateV30ToV31(SaveFields& fields) {
+  fields["sick.active"] = "0";
+  fields["sick.days"] = "0";
+  fields["sick.sev"] = "0";
+  fields["sick.meds"] = "0";
+  fields["sick.caught"] = "0";
+  fields["teeth.stage"] = "0";
+  fields["teeth.since"] = "0";
+  fields["teeth.fixes"] = "0";
+  fields["teeth.worst"] = "0";
+  fields["teeth.lost"] = "0";
+  fields["up.prehabday"] = "0";
+  fields["up.streak"] = "0";
+  fields["up.prehabdays"] = "0";
+  fields["up.shrinkday"] = "0";
+  fields["up.shrinks"] = "0";
+}
+
 void MigrateV29ToV30(SaveFields& fields) {
   fields["med.diagnosis"] = "0";
   fields["med.treatment"] = "0";
@@ -477,7 +504,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21,
       &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24,
       &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27,
-      &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30};
+      &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30,
+      &MigrateV30ToV31};
   return kMigrations;
 }
 
@@ -746,6 +774,27 @@ std::string SerializeSave(const SaveGame& save) {
       out << "med.staged="
           << IntToStr(save.player.climber.injury.staged ? 1 : 0) << "\n";
 
+      const Sickness& sk = save.player.sickness;
+      out << "sick.active=" << IntToStr(sk.active ? 1 : 0) << "\n";
+      out << "sick.days=" << IntToStr(sk.daysLeft) << "\n";
+      out << "sick.sev=" << NumToStr(sk.severity) << "\n";
+      out << "sick.meds=" << IntToStr(sk.medicated ? 1 : 0) << "\n";
+      out << "sick.caught=" << IntToStr(sk.caught) << "\n";
+
+      const Teeth& th = save.player.teeth;
+      out << "teeth.stage=" << IntToStr(static_cast<int>(th.stage)) << "\n";
+      out << "teeth.since=" << IntToStr(th.sinceDay) << "\n";
+      out << "teeth.fixes=" << IntToStr(th.fixes) << "\n";
+      out << "teeth.worst=" << IntToStr(th.worstEver) << "\n";
+      out << "teeth.lost=" << IntToStr(th.lost) << "\n";
+
+      const Upkeep& up = save.player.upkeep;
+      out << "up.prehabday=" << IntToStr(up.lastPrehabDay) << "\n";
+      out << "up.streak=" << IntToStr(up.prehabStreak) << "\n";
+      out << "up.prehabdays=" << IntToStr(up.prehabDays) << "\n";
+      out << "up.shrinkday=" << IntToStr(up.lastShrinkDay) << "\n";
+      out << "up.shrinks=" << IntToStr(up.shrinkSessions) << "\n";
+
       const League& lg = save.player.league;
       out << "league.next=" << IntToStr(lg.nextNight) << "\n";
       out << "league.block=" << IntToStr(lg.block) << "\n";
@@ -992,7 +1041,8 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         teamGone = 0, wcRounds = 0, wcFields = 0, wcClosed = 0,
         rankResults = 0, leagueFields = 0, medDiag = 0, medTreat = 0,
         medStage = 0, medJoints = 0, medScars = 0, medInsured = 0,
-        medTreated = 0, medStaged = 0;
+        medTreated = 0, medStaged = 0, sickActive = 0, sickMeds = 0,
+        toothStage = 0;
     if (!ParseString(fields, "rival.name", rv.name) ||
         !ParseInt(fields, "rival.style", style) ||
         !ParseInt(fields, "rival.vibe", vibe) ||
@@ -1089,6 +1139,25 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
                   save.player.medical.untreatedInjuries) ||
         !ParseInt(fields, "med.treated", medTreated) ||
         !ParseInt(fields, "med.staged", medStaged) ||
+        !ParseInt(fields, "sick.active", sickActive) ||
+        !ParseInt(fields, "sick.days", save.player.sickness.daysLeft) ||
+        !ParseDouble(fields, "sick.sev", save.player.sickness.severity) ||
+        !ParseInt(fields, "sick.meds", sickMeds) ||
+        !ParseInt(fields, "sick.caught", save.player.sickness.caught) ||
+        !ParseInt(fields, "teeth.stage", toothStage) ||
+        !ParseInt(fields, "teeth.since", save.player.teeth.sinceDay) ||
+        !ParseInt(fields, "teeth.fixes", save.player.teeth.fixes) ||
+        !ParseInt(fields, "teeth.worst", save.player.teeth.worstEver) ||
+        !ParseInt(fields, "teeth.lost", save.player.teeth.lost) ||
+        !ParseInt(fields, "up.prehabday",
+                  save.player.upkeep.lastPrehabDay) ||
+        !ParseInt(fields, "up.streak", save.player.upkeep.prehabStreak) ||
+        !ParseInt(fields, "up.prehabdays",
+                  save.player.upkeep.prehabDays) ||
+        !ParseInt(fields, "up.shrinkday",
+                  save.player.upkeep.lastShrinkDay) ||
+        !ParseInt(fields, "up.shrinks",
+                  save.player.upkeep.shrinkSessions) ||
         !ParseInt(fields, "og.next", save.player.olympics.nextDay) ||
         !ParseInt(fields, "og.appearances",
                   save.player.olympics.appearances) ||
@@ -1153,6 +1222,11 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       }
       save.player.circuit.fieldPoints.push_back(p);
     }
+
+    save.player.sickness.active = sickActive != 0;
+    save.player.sickness.medicated = sickMeds != 0;
+    save.player.teeth.stage =
+        static_cast<ToothStage>(pick(toothStage, kToothStageCount));
 
     save.player.medical.diagnosis =
         static_cast<Diagnosis>(pick(medDiag, kDiagnosisCount));

@@ -52,7 +52,9 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
                                       const std::vector<double>& execution,
                                       double botExecution,
                                       const Character& who,
-                                      const Medical& med, int day) {
+                                      const Medical& med, int day,
+                                      const Sickness& sick,
+                                      const Teeth& teeth) {
   AttemptInput in;
   in.climber = climber;
   in.climber.skin = session.skinLeft;    // the body as it is now,
@@ -67,6 +69,8 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
   in.padding = session.padding;          // what you dragged up the hill
   // Happy Feet, and nothing else in this game, touches this.
   in.oddsPenalty = OddsPenalty(who, route.type);
+  // Being ill, and the tooth -- both flat, both on everything.
+  in.ailmentPenalty = SickPenalty(sick) + ToothGradePenalty(teeth);
   // How far through the comeback you are. A graded return is climbing --
   // badly -- and this is the number that says so.
   if (climber.injury.active && med.stage != Comeback::Clear) {
@@ -141,11 +145,12 @@ AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
                                double botExecution, const SessionDials& dials,
                                const SessionLoopDials& loop,
                                const Character& who, const Medical& med,
-                               int day) {
+                               int day, const Sickness& sick,
+                               const Teeth& teeth) {
   Rng rng = DeriveAttemptRng(sessionRng, memory, route);
   const AttemptInput in = BuildSessionAttemptInput(
       session, memory, climber, route, conditions, execution, botExecution,
-      who, med, day);
+      who, med, day, sick, teeth);
   const AttemptResult result = ResolveAttempt(rng, in, dials);
   CommitAttempt(session, memory, route, result, loop);
   return result;

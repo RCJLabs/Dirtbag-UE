@@ -14,6 +14,7 @@
 #include "../DirtbagWorldStage.h"
 #include "../DirtbagLeague.h"
 #include "../DirtbagMedical.h"
+#include "../DirtbagAilments.h"
 #include "../DirtbagRival.h"
 #include "../DirtbagZones.h"
 #include "../DirtbagConditions.h"
@@ -2384,6 +2385,260 @@ static Climber HurtClimber(InjuryKind kind, double severity) {
   return c;
 }
 
+static void TestAilments() {
+  AilmentDials ad;
+  const Rng world = Rng::FromSeed("everything-else");
+
+  // ---- sickness is not your fault, and that is its job ------------------
+  //
+  // Every injury in this game is something you did -- deliberately, because
+  // an injury must never be weather. **Sickness is the counterweight**, and
+  // it is still not a die: it arrives off how you are living, so a fed,
+  // rested climber in a warm van essentially never gets ill and a hungry
+  // one sleeping cold on a wrecked body does.
+  {
+    Climber fresh;
+    Climber wrecked;
+    wrecked.load = 95.0;
+
+    const auto catchRate = [&](const Climber& c, double hunger,
+                               double warmth) {
+      int caught = 0;
+      for (int s = 0; s < 4000; s++) {
+        Sickness sick;
+        if (SicknessDay(sick, c, hunger, warmth,
+                        Rng::FromSeed("s#" + std::to_string(s)), 1, ad)) {
+          caught++;
+        }
+      }
+      return caught;
+    };
+
+    const int living = catchRate(fresh, 0.0, 1.0);
+    const int rough = catchRate(wrecked, 95.0, 0.0);
+    // Living well is not immunity -- it is odds. Pinned as magnitudes,
+    // because an ordering passes on a build where both are one in a
+    // million and nobody is ever ill.
+    CHECK(rough > living * 3);
+    CHECK(rough > 40);            // it happens
+    CHECK(living < rough / 3);    // and living well is most of the answer
+
+    // Once you have it, it counts down and clears itself.
+    Sickness sick;
+    sick.active = true;
+    sick.daysLeft = 5;
+    sick.severity = 0.4;
+    Climber c;
+    for (int i = 0; i < 5; i++) {
+      CHECK(sick.active);
+      SicknessDay(sick, c, 0.0, 1.0, world, 10 + i, ad);
+    }
+    CHECK(!sick.active);
+    CHECK(sick.severity == 0.0);
+
+    // **The cheapest decision in the game**, and it is a decision anyway.
+    Sickness ill;
+    ill.active = true;
+    ill.daysLeft = 8;
+    ill.severity = 0.5;
+    double cash = 5.0;
+    CHECK(!TakeSomethingForIt(ill, cash, ad));   // eleven dollars is money
+    cash = 40.0;
+    CHECK(TakeSomethingForIt(ill, cash, ad));
+    CHECK(cash == 40.0 - ad.medsCost);
+    CHECK(ill.daysLeft < 8);
+    CHECK(ill.daysLeft >= 1);
+    CHECK(!TakeSomethingForIt(ill, cash, ad));   // once
+    CHECK(ad.medsCost < 20.0);
+
+    // It costs you on the wall, flat, because there is no such thing as a
+    // cold that is fine on slopers.
+    CHECK(SickPenalty(Sickness{}, ad) == 0.0);
+    CHECK(SickPenalty(ill, ad) > 0.0);
+    Sickness bad;
+    bad.active = true;
+    bad.severity = 1.0;
+    Sickness mild;
+    mild.active = true;
+    mild.severity = 0.0;
+    CHECK(SickPenalty(bad, ad) > SickPenalty(mild, ad));
+    CHECK(SickPenalty(mild, ad) > 0.0);   // even a sniffle costs something
+    CHECK(!SickText(ill, ad).empty());
+    CHECK(SickText(Sickness{}, ad).empty());
+  }
+
+  // ---- the tooth only ever goes one way ---------------------------------
+  //
+  // **The exact inverse of an injury**, where ignoring it is sometimes
+  // fine. Nothing here improves with rest, no amount of time helps, and the
+  // only thing that has ever fixed it is money -- which costs more at every
+  // stage. It is the game's one pure test of whether you will spend on
+  // something that is not climbing.
+  {
+    Teeth t;
+    CHECK(t.stage == ToothStage::Fine);
+    CHECK(TeethText(t, ad).empty());
+    CHECK(ToothPrice(ToothStage::Fine, ad) == 0.0);
+
+    // It starts on its own, eventually.
+    int started = 0;
+    for (int day = 1; day <= 4000 && t.stage == ToothStage::Fine; day++) {
+      if (TeethDay(t, world, day, ad)) started = day;
+    }
+    CHECK(started > 0);
+    CHECK(t.stage == ToothStage::Twinge);
+
+    // **And then it only escalates -- until it does not, and the way it
+    // stops is the tooth.** Run it out and it never once gets better while
+    // it is there; it goes twinge, ache, abscess, and then the tooth comes
+    // out and you are Fine again with one fewer tooth.
+    //
+    // That last part is what bounds never paying. Without it an abscess
+    // was permanent: measured, a career that would not pay spent **10,688
+    // of 10,950 days** with one and came out with four sends instead of
+    // twenty-four, which is not a money test, it is a silent career-ender.
+    ToothStage worst = t.stage;
+    int reachedAbscess = 0;
+    for (int day = started + 1; day <= started + 900; day++) {
+      const bool moved = TeethDay(t, world, day, ad);
+      if (t.stage == ToothStage::Abscess && !reachedAbscess) {
+        reachedAbscess = day;
+      }
+      if (!reachedAbscess) {
+        CHECK(static_cast<int>(t.stage) >= static_cast<int>(worst));
+      }
+      worst = t.stage;
+      if (moved && t.lost > 0) break;
+    }
+    CHECK(reachedAbscess > 0);
+    CHECK(t.lost == 1);
+    CHECK(t.stage == ToothStage::Fine);
+    CHECK(t.worstEver == static_cast<int>(ToothStage::Abscess));
+    // The better part of a year of it, and then a tooth. Not a career.
+    CHECK(ad.toothAbscessAfter >= 200);
+    CHECK(ad.toothAbscessAfter <= 400);
+
+    // Put it back at an abscess for what follows.
+    t.stage = ToothStage::Abscess;
+    t.sinceDay = 5000;
+    // A twinge reaches an abscess inside two years, and not inside one --
+    // long enough to ignore, short enough that ignoring it is a decision
+    // you live to regret in the same career.
+    CHECK(ad.toothTwingeAfter + ad.toothAcheAfter > 365);
+    CHECK(ad.toothTwingeAfter + ad.toothAcheAfter < 730);
+
+    // **Money only ever goes up.** A filling is a shift; a root canal is
+    // most of a month.
+    CHECK(ToothPrice(ToothStage::Twinge, ad) <
+          ToothPrice(ToothStage::Ache, ad));
+    CHECK(ToothPrice(ToothStage::Ache, ad) <
+          ToothPrice(ToothStage::Abscess, ad));
+    CHECK(ToothPrice(ToothStage::Abscess, ad) >
+          ToothPrice(ToothStage::Twinge, ad) * 8.0);
+    CHECK(ToothPrice(ToothStage::Twinge, ad) <= DayDials{}.shiftWage * 1.5);
+
+    // What it takes while you have it. A twinge is a warning, and warnings
+    // are free; an abscess is the main thing about your week.
+    Teeth twinge;
+    twinge.stage = ToothStage::Twinge;
+    Teeth ache;
+    ache.stage = ToothStage::Ache;
+    CHECK(ToothPsycheCost(twinge, ad) == 0.0);
+    CHECK(ToothPsycheCost(ache, ad) > 0.0);
+    CHECK(ToothPsycheCost(t, ad) > ToothPsycheCost(ache, ad));
+    CHECK(ToothGradePenalty(twinge, ad) == 0.0);
+    CHECK(ToothGradePenalty(ache, ad) == 0.0);
+    CHECK(ToothGradePenalty(t, ad) > 0.0);
+    CHECK(!TeethText(t, ad).empty());
+
+    // Paying makes it go away, and the clock can start again another year.
+    double cash = 100.0;
+    CHECK(!FixTheTooth(t, cash, 5001, ad));   // an abscess is not $100
+    cash = 2000.0;
+    CHECK(FixTheTooth(t, cash, 5001, ad));
+    CHECK(t.stage == ToothStage::Fine);
+    CHECK(t.fixes == 1);
+    CHECK(cash == 2000.0 - ad.toothAbscessCost);
+    // But what it was is remembered, because a career remembers -- and so
+    // is the one you did not pay for.
+    CHECK(t.worstEver == static_cast<int>(ToothStage::Abscess));
+    CHECK(t.lost == 1);
+    CHECK(!FixTheTooth(t, cash, 5001, ad));   // nothing to fix
+  }
+
+  // ---- prehab is boring, it works, and nobody does it -------------------
+  {
+    Upkeep u;
+    CHECK(PrehabRisk(u, ad) == 1.0);
+    CHECK(UpkeepText(u, 1, ad).empty());
+
+    double hour = 7.0;
+    CHECK(DoPrehab(u, hour, 1, ad));
+    CHECK(hour > 7.0);                       // it costs the morning
+    CHECK(!DoPrehab(u, hour, 1, ad));        // once a day
+    CHECK(u.prehabStreak == 1);
+    // One morning is nearly nothing.
+    CHECK(PrehabRisk(u, ad) > 0.9);
+
+    // **A streak, not a total.** Twenty minutes most mornings is the whole
+    // effect.
+    for (int day = 2; day <= 40; day++) {
+      double h = 7.0;
+      DoPrehab(u, h, day, ad);
+      UpkeepDay(u, day, ad);
+    }
+    CHECK(u.prehabStreak >= ad.prehabStreakFor);
+    CHECK(PrehabRisk(u, ad) <= 1.0 - ad.prehabRiskCut + 1e-9);
+    // **Lowers the odds and never removes them.** A climber who has done
+    // their twenty minutes every morning for a year still pops a pulley.
+    CHECK(PrehabRisk(u, ad) > 0.5);
+    CHECK(!UpkeepText(u, 40, ad).empty());
+
+    // Life happens, and a habit you lose by going to a wedding is not a
+    // habit, it is a chore. A few days off is survivable.
+    Upkeep gap = u;
+    UpkeepDay(gap, 40 + ad.prehabGraceDays, ad);
+    CHECK(gap.prehabStreak > 0);
+    double h = 7.0;
+    DoPrehab(gap, h, 40 + ad.prehabGraceDays, ad);
+    CHECK(gap.prehabStreak > ad.prehabStreakFor);
+    // A fortnight off is not.
+    Upkeep gone = u;
+    UpkeepDay(gone, 60, ad);
+    CHECK(gone.prehabStreak == 0);
+    CHECK(PrehabRisk(gone, ad) == 1.0);
+  }
+
+  // ---- the shrink is the only thing that buys psyche --------------------
+  {
+    Upkeep u;
+    Climber c;
+    c.psyche = 0.2;
+    double cash = 50.0;
+    CHECK(!SeeTheShrink(u, c, cash, 100, ad));   // it is not cheap
+    cash = 500.0;
+    CHECK(SeeTheShrink(u, c, cash, 100, ad));
+    CHECK(c.psyche > 0.2);
+    CHECK(cash == 500.0 - ad.shrinkCost);
+    CHECK(u.shrinkSessions == 1);
+    // Rate limited, same as a physio and for the same reason: a rich
+    // season cannot buy its way out of a bad one in an afternoon.
+    CHECK(!SeeTheShrink(u, c, cash, 100 + ad.shrinkDaysBetween - 1, ad));
+    CHECK(SeeTheShrink(u, c, cash, 100 + ad.shrinkDaysBetween, ad));
+
+    // **And it does something a rest day cannot: it moves where you drift
+    // back to.** That is the whole difference between resting and getting
+    // help.
+    Upkeep none;
+    CHECK(PsycheFloor(none, 0.7, 200, ad) == 0.7);
+    CHECK(PsycheFloor(u, 0.7, 100 + ad.shrinkDaysBetween, ad) > 0.7);
+    // For a while, and then not.
+    CHECK(PsycheFloor(u, 0.7, 100 + ad.shrinkDaysBetween +
+                                 ad.shrinkLasts + 1, ad) == 0.7);
+    CHECK(!UpkeepText(u, 100 + ad.shrinkDaysBetween, ad).empty());
+  }
+}
+
 static void TestMedical() {
   MedicalDials md;
   const Rng world = Rng::FromSeed("the-body-keeps-score");
@@ -4093,6 +4348,69 @@ static void TestWorldStageSave() {
   // **An old save loads, and arrives with a career that never got on a
   // plane.** Exact rather than generous: giving a v26 career a World Cup
   // start would be inventing a year it did not have.
+  // The things that are wrong with you that are not the injury. The
+  // tooth is the one that matters most here: it is the only clock in the
+  // game that never goes backwards, so a save that forgets which stage it
+  // was at hands back a career that quietly healed something that cannot.
+  {
+    save.player.sickness.active = true;
+    save.player.sickness.daysLeft = 6;
+    save.player.sickness.severity = 0.42;
+    save.player.sickness.medicated = true;
+    save.player.sickness.caught = 5;
+    save.player.teeth.stage = ToothStage::Ache;
+    save.player.teeth.sinceDay = 812;
+    save.player.teeth.fixes = 2;
+    save.player.teeth.worstEver = 3;
+    save.player.upkeep.lastPrehabDay = 900;
+    save.player.upkeep.prehabStreak = 44;
+    save.player.upkeep.prehabDays = 310;
+    save.player.upkeep.lastShrinkDay = 880;
+    save.player.upkeep.shrinkSessions = 9;
+
+    SaveGame ab;
+    CHECK(DeserializeSave(SerializeSave(save), ab) == LoadResult::Ok);
+    CHECK(ab.player.sickness.active);
+    CHECK(ab.player.sickness.daysLeft == 6);
+    CHECK(ab.player.sickness.severity == 0.42);
+    CHECK(ab.player.sickness.medicated);
+    CHECK(ab.player.sickness.caught == 5);
+    CHECK(ab.player.teeth.stage == ToothStage::Ache);
+    CHECK(ab.player.teeth.sinceDay == 812);
+    CHECK(ab.player.teeth.fixes == 2);
+    CHECK(ab.player.teeth.worstEver == 3);
+    CHECK(ab.player.upkeep.prehabStreak == 44);
+    CHECK(ab.player.upkeep.lastShrinkDay == 880);
+    CHECK(ab.player.upkeep.shrinkSessions == 9);
+    // And the things they are worth come back identical.
+    CHECK(PrehabRisk(ab.player.upkeep) == PrehabRisk(save.player.upkeep));
+    CHECK(ToothPrice(ab.player.teeth.stage) ==
+          ToothPrice(save.player.teeth.stage));
+
+    // **A v30 career was never ill and has good teeth**, which is the
+    // honest default rather than a generous one: none of it existed to
+    // have happened. And the tooth clock starts from the load, so a career
+    // twenty years in does not wake up with an abscess it never had.
+    std::string v30 = SerializeSave(save);
+    for (const char* k : {"sick.active=", "sick.days=", "sick.sev=",
+                          "sick.meds=", "sick.caught=", "teeth.stage=",
+                          "teeth.since=", "teeth.fixes=", "teeth.worst=", "teeth.lost=",
+                          "up.prehabday=", "up.streak=", "up.prehabdays=",
+                          "up.shrinkday=", "up.shrinks="}) {
+      DropSaveLine(v30, k);
+    }
+    SetSaveVersion(v30, 30);
+    SaveGame old30;
+    CHECK(DeserializeSave(v30, old30) == LoadResult::Ok);
+    CHECK(old30.version == kSaveVersion);
+    CHECK(!old30.player.sickness.active);
+    CHECK(old30.player.teeth.stage == ToothStage::Fine);
+    CHECK(old30.player.teeth.sinceDay == 0);
+    CHECK(old30.player.upkeep.prehabStreak == 0);
+    CHECK(PrehabRisk(old30.player.upkeep) == 1.0);
+    CHECK(old30.seed == save.seed);
+  }
+
   // The medical file. **Losing a joint's history is losing the career**:
   // the cortisone you took at twenty-eight is why the finger goes at
   // thirty-four, and a save that forgets it hands back a body that never
@@ -4156,7 +4474,13 @@ static void TestWorldStageSave() {
     // Generous on the joints and it is the only honest option: a v29 save
     // has no record of a cortisone history because there was none.
     std::string v29 = SerializeSave(save);
-    for (const char* k : {"med.diagnosis=", "med.treatment=", "med.stage=",
+    for (const char* k : {"sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
+                        "sick.caught=", "teeth.stage=", "teeth.since=",
+                        "teeth.fixes=", "teeth.worst=", "teeth.lost=",
+                        "up.prehabday=",
+                        "up.streak=", "up.prehabdays=", "up.shrinkday=",
+                        "up.shrinks=",
+                        "med.diagnosis=", "med.treatment=", "med.stage=",
                           "med.stagestart=", "med.stagedays=", "med.told=",
                           "med.joints=", "med.scars=", "med.insured=",
                           "med.insuredon=", "med.premiums=", "med.claims=",
@@ -4213,7 +4537,13 @@ static void TestWorldStageSave() {
     for (double p : lb.player.league.fieldPoints) CHECK(p == 12.0);
 
     std::string v28 = SerializeSave(save);
-    for (const char* k : {"med.diagnosis=", "med.treatment=", "med.stage=",
+    for (const char* k : {"sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
+                        "sick.caught=", "teeth.stage=", "teeth.since=",
+                        "teeth.fixes=", "teeth.worst=", "teeth.lost=",
+                        "up.prehabday=",
+                        "up.streak=", "up.prehabdays=", "up.shrinkday=",
+                        "up.shrinks=",
+                        "med.diagnosis=", "med.treatment=", "med.stage=",
                         "med.stagestart=", "med.stagedays=", "med.told=",
                         "med.joints=", "med.scars=", "med.insured=",
                         "med.insuredon=", "med.premiums=", "med.claims=",
@@ -4242,7 +4572,13 @@ static void TestWorldStageSave() {
   // record behind it to age out.
   {
     std::string v27 = SerializeSave(save);
-    for (const char* k : {"med.diagnosis=", "med.treatment=", "med.stage=",
+    for (const char* k : {"sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
+                        "sick.caught=", "teeth.stage=", "teeth.since=",
+                        "teeth.fixes=", "teeth.worst=", "teeth.lost=",
+                        "up.prehabday=",
+                        "up.streak=", "up.prehabdays=", "up.shrinkday=",
+                        "up.shrinks=",
+                        "med.diagnosis=", "med.treatment=", "med.stage=",
                         "med.stagestart=", "med.stagedays=", "med.told=",
                         "med.joints=", "med.scars=", "med.insured=",
                         "med.insuredon=", "med.premiums=", "med.claims=",
@@ -4295,7 +4631,13 @@ static void TestWorldStageSave() {
   DropSaveLine(v26, "og.silver=");
   DropSaveLine(v26, "og.bronze=");
   DropSaveLine(v26, "og.last=");
-  for (const char* k : {"med.diagnosis=", "med.treatment=", "med.stage=",
+  for (const char* k : {"sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
+                        "sick.caught=", "teeth.stage=", "teeth.since=",
+                        "teeth.fixes=", "teeth.worst=", "teeth.lost=",
+                        "up.prehabday=",
+                        "up.streak=", "up.prehabdays=", "up.shrinkday=",
+                        "up.shrinks=",
+                        "med.diagnosis=", "med.treatment=", "med.stage=",
                         "med.stagestart=", "med.stagedays=", "med.told=",
                         "med.joints=", "med.scars=", "med.insured=",
                         "med.insuredon=", "med.premiums=", "med.claims=",
@@ -4503,6 +4845,12 @@ static void TestRivalSave() {
                         "team.coachfor=", "team.passed=", "team.lastpts=",
                         "team.lastseason=", "team.lastday=",
                         "team.mates=", "team.gone=", "rank.results=",
+                        "sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
+                        "sick.caught=", "teeth.stage=", "teeth.since=",
+                        "teeth.fixes=", "teeth.worst=", "teeth.lost=",
+                        "up.prehabday=",
+                        "up.streak=", "up.prehabdays=", "up.shrinkday=",
+                        "up.shrinks=",
                         "med.diagnosis=", "med.treatment=", "med.stage=",
                         "med.stagestart=", "med.stagedays=", "med.told=",
                         "med.joints=", "med.scars=", "med.insured=",
@@ -11319,6 +11667,7 @@ int main() {
   TestWorldStage();
   TestLeague();
   TestMedical();
+  TestAilments();
   TestWorldStageSave();
   TestRival();
   TestRivalRace();

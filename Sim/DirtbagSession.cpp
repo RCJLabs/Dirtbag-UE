@@ -112,6 +112,10 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
                  input.injuryStagePenalty;
   }
 
+  // Being ill, and the tooth. Flat, because neither of them is about
+  // what you are holding on to.
+  effective -= input.ailmentPenalty;
+
   // And what has already happened to you, which does not heal. A finger
   // with four cortisone shots in it is a weaker finger on crimps and the
   // same finger on slopers -- the same asymmetry an active injury uses,

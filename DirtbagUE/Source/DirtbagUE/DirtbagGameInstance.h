@@ -870,6 +870,48 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
 	FString MedicalNews;
 
+	// --- and the rest of what is wrong with you --------------------------
+	//
+	// Every injury in this game is something you did. **These are
+	// deliberately not** -- see Sim/DirtbagAilments.h.
+
+	/** Being ill. Empty when you are not. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Medical")
+	FString SickLine() const;
+
+	/** Eleven dollars at the counter. The cheapest decision in the game,
+	 *  and it is a decision anyway. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Medical")
+	bool TakeSomethingForIt();
+
+	/** The tooth, and what it costs to make it go away *now*. Empty when
+	 *  there is nothing wrong with it. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Medical")
+	FString TeethLine() const;
+
+	/** What the dentist wants today. It only ever goes up. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Medical")
+	double ToothPrice() const;
+
+	/** Pay it. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Medical")
+	bool FixTheTooth();
+
+	/** Twenty minutes of a morning. Costs the time and nothing else, and
+	 *  it is the only thing here that makes the odds better. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Medical")
+	bool DoPrehab();
+
+	/** The streak, and what it is worth. Empty until there is one. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Medical")
+	FString UpkeepLine() const;
+
+	/** An hour of talking about it. **The only thing in the game that
+	 *  buys psyche back**, and it moves where psyche drifts to overnight,
+	 *  which a rest day cannot. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Medical")
+	bool SeeTheShrink();
+
 	// --- the league ----------------------------------------------------
 	//
 	// The other end of the same system. Five dollars, ten goes, no ranking

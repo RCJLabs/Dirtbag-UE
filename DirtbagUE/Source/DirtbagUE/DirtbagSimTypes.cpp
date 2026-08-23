@@ -184,6 +184,9 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.olympics = ToSim(In.Olympics);
 	Out.league = ToSim(In.League);
 	Out.medical = ToSim(In.Medical);
+	Out.sickness = ToSim(In.Sickness);
+	Out.teeth = ToSim(In.Teeth);
+	Out.upkeep = ToSim(In.Upkeep);
 	Out.team = ToSim(In.Team);
 	Out.pastRivals.reserve(In.PastRivals.Num());
 	for (const FDirtbagPastRival& P : In.PastRivals)
@@ -250,6 +253,9 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Olympics = FromSim(In.olympics);
 	Out.League = FromSim(In.league);
 	Out.Medical = FromSim(In.medical);
+	Out.Sickness = FromSim(In.sickness);
+	Out.Teeth = FromSim(In.teeth);
+	Out.Upkeep = FromSim(In.upkeep);
 	Out.Team = FromSim(In.team);
 	Out.PastRivals.Reset(In.pastRivals.size());
 	for (const dirtbag::PastRival& P : In.pastRivals)
@@ -765,6 +771,72 @@ dirtbag::Circuit ToSim(const FDirtbagCircuit& In)
 	Out.fieldPoints.reserve(In.FieldPoints.Num());
 	for (double P : In.FieldPoints) { Out.fieldPoints.push_back(P); }
 	Out.titles = In.Titles;
+	return Out;
+}
+
+FDirtbagSickness FromSim(const dirtbag::Sickness& In)
+{
+	FDirtbagSickness Out;
+	Out.bActive = In.active;
+	Out.DaysLeft = In.daysLeft;
+	Out.Severity = In.severity;
+	Out.bMedicated = In.medicated;
+	Out.Caught = In.caught;
+	return Out;
+}
+
+dirtbag::Sickness ToSim(const FDirtbagSickness& In)
+{
+	dirtbag::Sickness Out;
+	Out.active = In.bActive;
+	Out.daysLeft = In.DaysLeft;
+	Out.severity = In.Severity;
+	Out.medicated = In.bMedicated;
+	Out.caught = In.Caught;
+	return Out;
+}
+
+FDirtbagTeeth FromSim(const dirtbag::Teeth& In)
+{
+	FDirtbagTeeth Out;
+	Out.Stage = static_cast<EDirtbagToothStage>(In.stage);
+	Out.SinceDay = In.sinceDay;
+	Out.Fixes = In.fixes;
+	Out.WorstEver = In.worstEver;
+	Out.Lost = In.lost;
+	return Out;
+}
+
+dirtbag::Teeth ToSim(const FDirtbagTeeth& In)
+{
+	dirtbag::Teeth Out;
+	Out.stage = static_cast<dirtbag::ToothStage>(In.Stage);
+	Out.sinceDay = In.SinceDay;
+	Out.fixes = In.Fixes;
+	Out.worstEver = In.WorstEver;
+	Out.lost = In.Lost;
+	return Out;
+}
+
+FDirtbagUpkeep FromSim(const dirtbag::Upkeep& In)
+{
+	FDirtbagUpkeep Out;
+	Out.LastPrehabDay = In.lastPrehabDay;
+	Out.PrehabStreak = In.prehabStreak;
+	Out.PrehabDays = In.prehabDays;
+	Out.LastShrinkDay = In.lastShrinkDay;
+	Out.ShrinkSessions = In.shrinkSessions;
+	return Out;
+}
+
+dirtbag::Upkeep ToSim(const FDirtbagUpkeep& In)
+{
+	dirtbag::Upkeep Out;
+	Out.lastPrehabDay = In.LastPrehabDay;
+	Out.prehabStreak = In.PrehabStreak;
+	Out.prehabDays = In.PrehabDays;
+	Out.lastShrinkDay = In.LastShrinkDay;
+	Out.shrinkSessions = In.ShrinkSessions;
 	return Out;
 }
 

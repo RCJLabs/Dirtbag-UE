@@ -234,6 +234,10 @@ private:
 	// The care counter. Each of these is a decision with a wrong answer --
 	// see Sim/DirtbagMedical.h for which answer is wrong and why.
 	void OnLookAtIt();
+	void OnTakeSomething();
+	void OnTooth();
+	void OnShrink();
+	void OnPrehab();
 	void OnTakeTheShot();
 	void OnOperate();
 	void OnPushOn();

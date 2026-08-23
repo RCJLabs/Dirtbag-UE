@@ -1732,6 +1732,87 @@ bool UDirtbagGameInstance::SettleComp()
 	return true;
 }
 
+// --- and the rest of what is wrong with you ----------------------------
+
+FString UDirtbagGameInstance::SickLine() const
+{
+	return FString(
+	    dirtbag::SickText(DirtbagConvert::ToSim(Player.Sickness)).c_str());
+}
+
+bool UDirtbagGameInstance::TakeSomethingForIt()
+{
+	dirtbag::Sickness S = DirtbagConvert::ToSim(Player.Sickness);
+	double Cash = Player.Cash;
+	if (!dirtbag::TakeSomethingForIt(S, Cash)) { return false; }
+	Player.Cash = Cash;
+	Player.Sickness = DirtbagConvert::FromSim(S);
+	MedicalNews = SickLine();
+	return true;
+}
+
+FString UDirtbagGameInstance::TeethLine() const
+{
+	return FString(
+	    dirtbag::TeethText(DirtbagConvert::ToSim(Player.Teeth)).c_str());
+}
+
+double UDirtbagGameInstance::ToothPrice() const
+{
+	return dirtbag::ToothPrice(
+	    DirtbagConvert::ToSim(Player.Teeth).stage);
+}
+
+bool UDirtbagGameInstance::FixTheTooth()
+{
+	dirtbag::Teeth T = DirtbagConvert::ToSim(Player.Teeth);
+	double Cash = Player.Cash;
+	if (!dirtbag::FixTheTooth(T, Cash, Player.Day)) { return false; }
+	Player.Cash = Cash;
+	Player.Teeth = DirtbagConvert::FromSim(T);
+	// **What it was is remembered**, and the game says so once, because a
+	// career remembers and this one nearly cost you a season.
+	MedicalNews =
+	    T.worstEver >= static_cast<int>(dirtbag::ToothStage::Abscess)
+	        ? TEXT("Dealt with. It should never have got that far.")
+	        : TEXT("Dealt with, and cheaply, which is the only time it "
+	               "ever is.");
+	return true;
+}
+
+bool UDirtbagGameInstance::DoPrehab()
+{
+	dirtbag::Upkeep U = DirtbagConvert::ToSim(Player.Upkeep);
+	double Hour = Day.Hour;
+	if (!dirtbag::DoPrehab(U, Hour, Player.Day)) { return false; }
+	// Through PassHours rather than assigning the clock, so hunger rides
+	// along exactly as it does for every other twenty minutes of a day.
+	PassHours(Hour - Day.Hour);
+	Player.Upkeep = DirtbagConvert::FromSim(U);
+	return true;
+}
+
+FString UDirtbagGameInstance::UpkeepLine() const
+{
+	return FString(dirtbag::UpkeepText(
+	                   DirtbagConvert::ToSim(Player.Upkeep), Player.Day)
+	                   .c_str());
+}
+
+bool UDirtbagGameInstance::SeeTheShrink()
+{
+	dirtbag::Upkeep U = DirtbagConvert::ToSim(Player.Upkeep);
+	dirtbag::Climber C = DirtbagConvert::ToSim(Player.Climber);
+	double Cash = Player.Cash;
+	if (!dirtbag::SeeTheShrink(U, C, Cash, Player.Day)) { return false; }
+	Player.Cash = Cash;
+	Player.Upkeep = DirtbagConvert::FromSim(U);
+	Player.Climber.Psyche = C.psyche;
+	MedicalNews = TEXT("An hour of saying it out loud. It helps, which is "
+	                   "annoying.");
+	return true;
+}
+
 // --- what is wrong with you --------------------------------------------
 
 FString UDirtbagGameInstance::MedicalLine() const

@@ -15,6 +15,7 @@
 #include "DirtbagWorldStage.h"
 #include "DirtbagLeague.h"
 #include "DirtbagMedical.h"
+#include "DirtbagAilments.h"
 #include "DirtbagRival.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
@@ -590,6 +591,92 @@ struct FDirtbagNationalTeam
 	/** When the committee last sat, in days. Once a year. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	int32 LastReviewDay = 0;
+};
+
+/** How bad the tooth is. Mirrors dirtbag::ToothStage.
+ *
+ *  **The one clock in this game that only goes one way.** Nothing improves
+ *  it with rest; the only thing that ever has is money, and it costs more
+ *  at every stage. */
+UENUM(BlueprintType)
+enum class EDirtbagToothStage : uint8
+{
+	Fine    UMETA(DisplayName = "Fine"),
+	Twinge  UMETA(DisplayName = "A twinge"),
+	Ache    UMETA(DisplayName = "An ache"),
+	Abscess UMETA(DisplayName = "An abscess"),
+};
+
+/** Being ill. Mirrors dirtbag::Sickness.
+ *
+ *  **Not your fault, and that is its job.** Every injury in this game is
+ *  something you did; this is the counterweight. */
+USTRUCT(BlueprintType)
+struct FDirtbagSickness
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	bool bActive = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 DaysLeft = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	double Severity = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	bool bMedicated = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 Caught = 0;
+};
+
+/** The tooth. Mirrors dirtbag::Teeth. */
+USTRUCT(BlueprintType)
+struct FDirtbagTeeth
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	EDirtbagToothStage Stage = EDirtbagToothStage::Fine;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 SinceDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 Fixes = 0;
+
+	/** What it got to, before you dealt with it. A career remembers. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 WorstEver = 0;
+
+	/** Teeth you did not pay for. The only permanent mark this leaves. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 Lost = 0;
+};
+
+/** What you do about it before it happens. Mirrors dirtbag::Upkeep. */
+USTRUCT(BlueprintType)
+struct FDirtbagUpkeep
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 LastPrehabDay = 0;
+
+	/** **A streak, not a total.** Twenty minutes once is nothing. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 PrehabStreak = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 PrehabDays = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 LastShrinkDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 ShrinkSessions = 0;
 };
 
 /** What you know about what is wrong. Mirrors dirtbag::Diagnosis. */
@@ -1709,6 +1796,16 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
 	FDirtbagMedical Medical;
 
+	/** The things that are wrong with you that are not the injury. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	FDirtbagSickness Sickness;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	FDirtbagTeeth Teeth;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	FDirtbagUpkeep Upkeep;
+
 	/** The Wednesday night at the gym. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
 	FDirtbagLeague League;
@@ -1980,6 +2077,12 @@ namespace DirtbagConvert
 	dirtbag::NationalTeam ToSim(const FDirtbagNationalTeam& In);
 	FDirtbagCircuit FromSim(const dirtbag::Circuit& In);
 	dirtbag::Circuit ToSim(const FDirtbagCircuit& In);
+	FDirtbagSickness FromSim(const dirtbag::Sickness& In);
+	dirtbag::Sickness ToSim(const FDirtbagSickness& In);
+	FDirtbagTeeth FromSim(const dirtbag::Teeth& In);
+	dirtbag::Teeth ToSim(const FDirtbagTeeth& In);
+	FDirtbagUpkeep FromSim(const dirtbag::Upkeep& In);
+	dirtbag::Upkeep ToSim(const FDirtbagUpkeep& In);
 	FDirtbagMedical FromSim(const dirtbag::Medical& In);
 	dirtbag::Medical ToSim(const FDirtbagMedical& In);
 	FDirtbagLeague FromSim(const dirtbag::League& In);

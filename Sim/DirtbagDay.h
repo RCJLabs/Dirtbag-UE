@@ -15,6 +15,8 @@
 #include "DirtbagTeam.h"
 #include "DirtbagLeague.h"
 #include "DirtbagMedical.h"
+#include "DirtbagAilments.h"
+#include "DirtbagConditions.h"
 #include "DirtbagWorldStage.h"
 #include "DirtbagCore.h"
 #include "DirtbagRival.h"
@@ -241,6 +243,15 @@ struct PlayerState {
   // it left behind. **`Climber::injury` is what a body *is*; this is what
   // happened to it** -- see Sim/DirtbagMedical.h.
   Medical medical;
+
+  // And the things that are wrong with you that are not the injury: a
+  // cold you caught because you slept hungry and cold, a tooth that only
+  // gets worse, twenty minutes of a morning, and somebody to talk to. See
+  // Sim/DirtbagAilments.h -- **every injury in this game is something you
+  // did, and these are deliberately not.**
+  Sickness sickness;
+  Teeth teeth;
+  Upkeep upkeep;
 
   // The things you did that nobody saw. Carried, not priced — an act only
   // costs anything on the day somebody finds out.

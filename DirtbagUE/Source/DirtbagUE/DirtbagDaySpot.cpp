@@ -291,6 +291,31 @@ FString ADirtbagDaySpot::PromptText() const
 			            ? TEXT("\n   Move on?  (N)")
 			            : TEXT("\n   Push on anyway?  (N)");
 		}
+		// **The two that are not the injury.** They sit at the same
+		// counter because they are the same kind of decision -- spending
+		// on yourself rather than on climbing -- and they are the two
+		// this game has never asked you to make.
+		const FString Ill = Game->SickLine();
+		if (!Ill.IsEmpty())
+		{
+			Care += FString::Printf(TEXT("\n   %s"), *Ill);
+			if (!Game->Player.Sickness.bMedicated)
+			{
+				Care += TEXT("  (K)");
+			}
+		}
+		const FString Tooth = Game->TeethLine();
+		if (!Tooth.IsEmpty())
+		{
+			// It only ever goes one way, and the price on the prompt is
+			// today's price, which is the cheapest it will ever be.
+			Care += FString::Printf(TEXT("\n   %s  (Y)"), *Tooth);
+		}
+		if (Game->Player.Cash >= 110.0)
+		{
+			Care += TEXT("\n   Talk to somebody?  (Z)  $110");
+		}
+
 		const FString Cover = Game->InsuranceLine();
 		if (!Cover.IsEmpty())
 		{
@@ -425,6 +450,15 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnPushOn);
 			InputComponent->BindKey(EKeys::B, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnCover);
+			InputComponent->BindKey(EKeys::K, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnTakeSomething);
+			InputComponent->BindKey(EKeys::Y, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnTooth);
+			InputComponent->BindKey(EKeys::Z, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnShrink);
+			// At the van, where a morning starts.
+			InputComponent->BindKey(EKeys::X, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnPrehab);
 			InputComponent->BindKey(EKeys::M, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnMembership);
 			InputComponent->BindKey(EKeys::J, IE_Pressed, this,
@@ -559,6 +593,71 @@ void ADirtbagDaySpot::OnHangboard()
 	                         "energy %.0f."),
 	                    Game->Day.Hour, Game->Day.Energy),
 	    FColor::Green, 6.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnTakeSomething()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop) return;
+	if (!Game->TakeSomethingForIt())
+	{
+		return;   // not ill, already took something, or eleven dollars
+	}
+	Say(Game->SickLine(), FColor::Green, 6.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnTooth()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop) return;
+	if (Game->Player.Teeth.Stage == EDirtbagToothStage::Fine) return;
+	if (!Game->FixTheTooth())
+	{
+		// **It only ever goes one way**, so a refusal is worth saying with
+		// the number in it: the price on this prompt is the cheapest it
+		// will ever be.
+		Say(FString::Printf(
+		        TEXT("$%.0f, and you have $%.0f.  It will be more than "
+		             "that later."),
+		        Game->ToothPrice(), Game->Player.Cash),
+		    FColor::Orange, 7.f);
+		return;
+	}
+	Say(Game->MedicalNews, FColor::Green, 7.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnShrink()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop) return;
+	if (!Game->SeeTheShrink())
+	{
+		Say(TEXT("Not this week, or not for that money."), FColor::Orange,
+		    5.f);
+		return;
+	}
+	Say(Game->MedicalNews, FColor::Green, 7.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnPrehab()
+{
+	// At the van, because it is twenty minutes of a morning and a morning
+	// starts where you slept.
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Van) return;
+	if (!Game->DoPrehab())
+	{
+		Say(TEXT("Already did it."), FColor::Silver, 3.f);
+		return;
+	}
+	// **Boring, it works, and nobody does it.** The line says what the
+	// streak is worth precisely because nothing else about it is visible.
+	const FString Worth = Game->UpkeepLine();
+	Say(Worth.IsEmpty()
+	        ? FString(TEXT("Twenty minutes on the floor by the van."))
+	        : FString::Printf(TEXT("Twenty minutes on the floor.  %s"),
+	                          *Worth),
+	    FColor::Silver, 6.f);
 	PushPrompt();
 }
 

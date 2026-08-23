@@ -1083,7 +1083,13 @@ void ADirtbagClimbWall::StartAttempt()
 		        // this, so the wall has to.
 		        Game ? DirtbagConvert::ToSim(Game->Player.Medical)
 		             : dirtbag::Medical{},
-		        Game ? Game->Player.Day : 0));
+		        Game ? Game->Player.Day : 0,
+		        // Being ill, and the tooth. Flat on every hold, because
+		        // neither is about what you are holding on to.
+		        Game ? DirtbagConvert::ToSim(Game->Player.Sickness)
+		             : dirtbag::Sickness{},
+		        Game ? DirtbagConvert::ToSim(Game->Player.Teeth)
+		             : dirtbag::Teeth{}));
 	}
 	else
 	{

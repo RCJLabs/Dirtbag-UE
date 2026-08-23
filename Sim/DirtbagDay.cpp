@@ -98,11 +98,23 @@ void QuitSalariedJob(PlayerState& player, const JobDials& jobs) {
 }
 
 DayState WakeUp(const PlayerState& player, const DayDials& dials) {
-  (void)player;
   DayState day;
   day.hour = dials.wakeHour;
   day.energy = 100.0;
   day.hunger = 0.0;
+
+  // **You do not wake up at a hundred when you are ill.** A night's sleep
+  // gives back what it gives back, and a body fighting something gives
+  // back less -- which is the difference between being ill and being
+  // tired, and the reason a week of it costs a week rather than a lie-in.
+  const AilmentDials ad;
+  if (player.sickness.active) {
+    day.energy = std::min(day.energy, ad.sickEnergyCeiling);
+  }
+  // And an abscess is the main thing about your week.
+  if (player.teeth.stage == ToothStage::Abscess) {
+    day.energy = std::max(0.0, day.energy - ad.toothAbscessEnergy);
+  }
   return day;
 }
 
@@ -270,7 +282,12 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
                    day.session.attemptsMade, challenge, hardest,
                    day.session.warmth, BodyDials{}, AgeDials{},
                    InjuryRiskMultiplier(player.character) *
-                       BodyRisk(player.medical, player.day));
+                       BodyRisk(player.medical, player.day) *
+                       // **Twenty minutes of a morning, and the only thing
+                       // in the medical half of this game that makes the
+                       // odds better rather than worse.** Boring, it
+                       // works, and nobody does it.
+                       PrehabRisk(player.upkeep));
     if (wasFine && IsHurt(player.climber)) {
       StartComeback(player.medical, player.climber, player.day);
     }
@@ -355,8 +372,14 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   player.climber.skin =
       std::min(dials.maxSkin, player.climber.skin + dials.skinRegenPerNight +
                                   SkinBonus(player.dreams));
+  // Overnight, psyche drifts back toward where it lives. **Where it lives
+  // is not a constant** -- an hour of talking about it moves the baseline
+  // for a month, which is the one thing a rest day cannot do and the whole
+  // reason the shrink exists as a purchase rather than a rest.
+  const double homeTo =
+      PsycheFloor(player.upkeep, dials.psycheBaseline, player.day);
   player.climber.psyche +=
-      (dials.psycheBaseline - player.climber.psyche) * dials.psycheHomeRate;
+      (homeTo - player.climber.psyche) * dials.psycheHomeRate;
 
   // Tendons recover on their own clock — a month where skin takes six
   // nights. A day you never pulled on is worth about twice one you did,
@@ -380,6 +403,31 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // everything else that counts down at night.
   MedicalDay(player.medical, player.climber, worldRng, player.day);
   InsuranceDay(player.medical, player.cash, player.owed, player.day);
+
+  // **And the three that are not your fault, or not an event.** Sickness
+  // rolls off how you are living -- hungry, run down, and cold in the van
+  // is a description of somebody about to get ill, not a die. The tooth
+  // only ever goes one way. The prehab streak decays if you stop.
+  //
+  // Warmth is **the night's own low**, read off the same weather the crag
+  // reads: a van is not insulation, and the two things a dirtbag actually
+  // controls about a cold night are whether they ate and how wrecked they
+  // already were. Freezing is zero, a mild night is one.
+  const double lowTonight =
+      GenerateWeather(worldRng, player.day).lowTempF;
+  const double warmth = Clamp01((lowTonight - 28.0) / 34.0);
+  SicknessDay(player.sickness, player.climber, day.hunger, warmth, worldRng,
+              player.day);
+  TeethDay(player.teeth, worldRng, player.day);
+  UpkeepDay(player.upkeep, player.day);
+  // What an aching tooth takes, nightly and quietly. It is not a mood
+  // until it is an ache -- a twinge is a warning, and warnings are free.
+  player.climber.psyche =
+      Clamp01(player.climber.psyche - ToothPsycheCost(player.teeth));
+  if (player.sickness.active) {
+    player.climber.psyche =
+        Clamp01(player.climber.psyche - AilmentDials{}.sickPsycheCost);
+  }
 
   // A day older. Nothing is subtracted before the relevant peak, so a
   // twenty-four-year-old is not quietly being taxed from day one.
