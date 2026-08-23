@@ -13,6 +13,7 @@
 #include "../DirtbagTeam.h"
 #include "../DirtbagWorldStage.h"
 #include "../DirtbagLeague.h"
+#include "../DirtbagMedical.h"
 #include "../DirtbagRival.h"
 #include "../DirtbagZones.h"
 #include "../DirtbagConditions.h"
@@ -2371,6 +2372,487 @@ static CompResult ARoundYouPlaced(int yourPlace) {
   return r;
 }
 
+// A climber with a given injury, and a comeback started properly.
+static Climber HurtClimber(InjuryKind kind, double severity) {
+  Climber c;
+  c.skills.power = c.skills.fingers = c.skills.technique =
+      c.skills.endurance = c.skills.head = 50.0;
+  c.injury.active = true;
+  c.injury.kind = kind;
+  c.injury.severity = severity;
+  c.injury.daysLeft = InjuryDaysFor(severity);
+  return c;
+}
+
+static void TestMedical() {
+  MedicalDials md;
+  const Rng world = Rng::FromSeed("the-body-keeps-score");
+
+  // ---- the fog is the mechanic ------------------------------------------
+  //
+  // **An injury hides its grade until you pay to look at it.** A climber
+  // with a sore finger does not know whether it is three weeks or three
+  // months, and every decision they make is made without the number.
+  {
+    Medical med;
+    Climber c = HurtClimber(InjuryKind::Pulley, 0.8);
+    StartComeback(med, c, 1, md);
+    CHECK(med.diagnosis == Diagnosis::None);
+    CHECK(med.toldSeverity == 0.0);
+    CHECK(med.stage == Comeback::Resting);
+    // What it reads like says nothing about how bad. That is the design
+    // and not a missing string.
+    const std::string blind = MedicalText(med, c, 1, md);
+    CHECK(!blind.empty());
+    CHECK(blind.find("do not know") != std::string::npos);
+
+    // Paying a physio gets you close, and the error is the fog.
+    double cash = 1000.0;
+    CHECK(Diagnose(med, c, cash, Diagnosis::Guessed, world, 1, md));
+    CHECK(cash == 1000.0 - md.guessCost);
+    CHECK(med.diagnosis == Diagnosis::Guessed);
+    CHECK(med.toldSeverity > 0.0);
+    CHECK(std::fabs(med.toldSeverity - c.injury.severity) <=
+          md.guessError + 1e-9);
+    // And **it is not always right**, which is the point -- over a spread
+    // of seeds it lands both sides of the truth.
+    {
+      int high = 0, low = 0;
+      for (int s = 0; s < 40; s++) {
+        Medical m2;
+        Climber c2 = HurtClimber(InjuryKind::Pulley, 0.5);
+        StartComeback(m2, c2, 1, md);
+        double money = 1000.0;
+        Diagnose(m2, c2, money, Diagnosis::Guessed,
+                 Rng::FromSeed("g#" + std::to_string(s)), 1, md);
+        if (m2.toldSeverity > 0.5) high++;
+        if (m2.toldSeverity < 0.5) low++;
+      }
+      CHECK(high > 5);
+      CHECK(low > 5);
+    }
+
+    // The scan is exact, costs most of a month, and knowing more is the
+    // only direction you can pay in.
+    CHECK(Diagnose(med, c, cash, Diagnosis::Scanned, world, 1, md));
+    CHECK(med.toldSeverity == c.injury.severity);
+    CHECK(md.scanCost > md.guessCost * 3.0);
+    CHECK(!Diagnose(med, c, cash, Diagnosis::Guessed, world, 1, md));
+    // Nothing wrong, nothing to diagnose.
+    Medical well;
+    Climber fine;
+    CHECK(!Diagnose(well, fine, cash, Diagnosis::Scanned, world, 1, md));
+  }
+
+  // ---- the comeback is staged, and coming back early is the gamble ------
+  //
+  // **This is the decision with a wrong answer.** Phase 3's injury was a
+  // wait: eleven days, physio buys six back, nothing to decide. The stages
+  // advance because you say so.
+  {
+    Medical med;
+    Climber c = HurtClimber(InjuryKind::Elbow, 0.7);
+    StartComeback(med, c, 1, md);
+    const int whole = InjuryDaysFor(0.7);
+    // The three stages add up to the injury, and the graded return is the
+    // biggest of them -- because that is the half everybody skips.
+    CHECK(md.returnShare > md.restingShare);
+    CHECK(md.returnShare > md.mobilityShare);
+    CHECK(std::fabs(md.restingShare + md.mobilityShare + md.returnShare -
+                    1.0) < 1e-9);
+    CHECK(med.stageDays >= 1);
+    CHECK(med.stageDays <= whole);
+
+    CHECK(!StageIsDone(med, 1));
+    CHECK(DaysLeftInStage(med, 1) == med.stageDays);
+    CHECK(StageIsDone(med, 1 + med.stageDays));
+
+    // **Waiting it out is never a gamble.** Advancing on time cannot set
+    // you back, or resting properly would be a coin flip too.
+    {
+      Medical patient = med;
+      Climber pc = c;
+      // Seen by somebody, so the untreated scar is not in the way of the
+      // thing this is actually measuring.
+      patient.treatedThisTime = true;
+      for (int s = 0; s < 3; s++) {
+        const int done = patient.stageStarted + patient.stageDays;
+        CHECK(!NextStage(patient, pc, world, done, md));
+        CHECK(pc.injury.severity <= 0.7);   // nothing ever got worse
+      }
+      // **Choosing to end the last stage heals it**, exactly as waiting it
+      // out does. The first version only healed on the waiting path, so a
+      // climber who clicked through came out still flagged hurt and the
+      // night tick started the comeback over -- measured at **316
+      // cortisone shots in one thirty-year career.**
+      CHECK(patient.stage == Comeback::Clear);
+      CHECK(!pc.injury.active);
+      CHECK(!pc.injury.staged);
+      CHECK(pc.injury.daysLeft == 0);
+
+      // **And the scar says so**, which is the only place the difference
+      // is observable. `rushedComebacks` is reset by the heal, so a test
+      // that reads it after the fact reads zero either way -- and one that
+      // did exactly that passed happily on a build where waiting it out
+      // was also a gamble. **Rushing is what scars you**, so the scar is
+      // where the claim has to be pinned.
+      CHECK(patient.scars.size() == 1);
+      if (patient.scars.size() == 1) {
+        CHECK(patient.scars.back().weight <=
+              md.scarFromSeverity * 0.7 + 1e-9);
+      }
+    }
+
+    // The same injury, same grade, one of them rushed. Compared through
+    // `FinishInjury` directly, so nothing but the rushing differs.
+    {
+      Medical a, b;
+      Climber ca = HurtClimber(InjuryKind::Elbow, 0.7);
+      Climber cb = HurtClimber(InjuryKind::Elbow, 0.7);
+      a.treatedThisTime = true;
+      b.treatedThisTime = true;
+      b.rushedComebacks = 1;
+      const MedicalNight na = FinishInjury(a, ca, 50, md);
+      const MedicalNight nb = FinishInjury(b, cb, 50, md);
+      CHECK(na.scarred && nb.scarred);
+      CHECK(nb.scarWeight > na.scarWeight);
+      CHECK(md.scarFromRushing > 0.0);
+      // Both healed clean otherwise.
+      CHECK(!ca.injury.active && !cb.injury.active);
+      CHECK(!na.untreated && !nb.untreated);
+    }
+
+    // **Coming back early is a real gamble both ways.** Most of the time
+    // you get away with it, which is what makes it a choice rather than a
+    // warning label -- and when it lands it costs severity, which costs
+    // days.
+    {
+      int setBacks = 0, gotAway = 0;
+      for (int s = 0; s < 60; s++) {
+        Medical m2;
+        Climber c2 = HurtClimber(InjuryKind::Elbow, 0.7);
+        StartComeback(m2, c2, 1, md);
+        const double was = c2.injury.severity;
+        // A few days early, which is what a real climber does -- not
+        // the morning after, which is a different question and is asked
+        // below.
+        const int few = m2.stageStarted + m2.stageDays - 3;
+        const bool bad =
+            NextStage(m2, c2, Rng::FromSeed("early#" + std::to_string(s)),
+                      few, md);
+        if (bad) {
+          setBacks++;
+          CHECK(c2.injury.severity > was);
+          CHECK(m2.stage == Comeback::Resting);   // back to the start of it
+        } else {
+          gotAway++;
+          CHECK(c2.injury.severity == was);
+          CHECK(m2.stage == Comeback::Mobility);
+        }
+        // Either way it is on the record, and the scar reads it.
+        CHECK(m2.rushedComebacks == 1);
+      }
+      CHECK(setBacks > 3);
+      CHECK(gotAway > 3);
+      CHECK(gotAway > setBacks);   // three days early, you usually get away
+
+      // **And the further you push it the worse the odds get**, which is
+      // what makes it a decision with a gradient rather than a coin flip.
+      // Coming back the morning after a bad injury is mostly a setback.
+      int wayEarly = 0;
+      for (int s = 0; s < 60; s++) {
+        Medical m3;
+        Climber c3 = HurtClimber(InjuryKind::Elbow, 0.7);
+        StartComeback(m3, c3, 1, md);
+        if (NextStage(m3, c3, Rng::FromSeed("mad#" + std::to_string(s)), 2,
+                      md)) {
+          wayEarly++;
+        }
+      }
+      CHECK(wayEarly > setBacks);
+      CHECK(wayEarly > 30);
+    }
+  }
+
+  // ---- one clock, one owner --------------------------------------------
+  //
+  // **The worst bug this phase produced, and it had no test until the
+  // probe found it.** `BodyDay` counts `daysLeft` down and clears the
+  // injury; the staged comeback is a second clock over the same flag. Two
+  // owners disagree: the comeback reached its last stage, the injury was
+  // still flagged active, and the medical tick started the whole thing
+  // again the next morning -- **316 cortisone shots and 10,696 hurt days
+  // out of 10,950.**
+  {
+    Climber c = HurtClimber(InjuryKind::Elbow, 0.7);
+    Medical med;
+    CHECK(!c.injury.staged);
+    StartComeback(med, c, 1, md);
+    CHECK(c.injury.staged);
+    const int was = c.injury.daysLeft;
+    BodyDay(c, true, 24.0);
+    CHECK(c.injury.daysLeft == was);   // the comeback owns it now
+    CHECK(c.injury.active);
+
+    // And with nobody staging it, `BodyDay` still owns it exactly as it
+    // did before this phase existed.
+    Climber old = HurtClimber(InjuryKind::Elbow, 0.7);
+    const int wasOld = old.injury.daysLeft;
+    BodyDay(old, true, 24.0);
+    CHECK(old.injury.daysLeft == wasOld - 1);
+
+    // **Run the real night, both ticks, for longer than any injury.** It
+    // heals once and never restarts.
+    Climber run = HurtClimber(InjuryKind::Pulley, 0.5);
+    Medical m2;
+    StartComeback(m2, run, 1, md);
+    int healed = 0, restarts = 0;
+    Comeback previous = m2.stage;
+    for (int day = 1; day <= 400; day++) {
+      BodyDay(run, true, 24.0);
+      const MedicalNight n = MedicalDay(m2, run, world, day, md);
+      if (n.healed) healed++;
+      if (previous == Comeback::Clear && m2.stage == Comeback::Resting) {
+        restarts++;
+      }
+      previous = m2.stage;
+    }
+    CHECK(healed == 1);
+    CHECK(restarts == 0);
+    CHECK(!run.injury.active);
+    CHECK(!run.injury.staged);
+    CHECK(m2.stage == Comeback::Clear);
+    // And `daysLeft` was kept honest the whole way through, for everything
+    // that still reads it -- the HUD, the sponsor's days-hurt count.
+    CHECK(run.injury.daysLeft == 0);
+  }
+
+  // ---- what a career carries ------------------------------------------
+  //
+  // **The second gate: a career can be shortened by choices made while
+  // injured.** Cortisone and rushed comebacks both land on the joint, and
+  // neither shows up this season.
+  {
+    Medical clean;
+    CHECK(JointRisk(clean, InjuryKind::Pulley, 1, md) == 1.0);
+    CHECK(BodyRisk(clean, 1, md) == 1.0);
+    CHECK(HistoryText(clean, 1, md).empty());
+
+    Medical shot;
+    Climber c = HurtClimber(InjuryKind::Pulley, 0.6);
+    StartComeback(shot, c, 1, md);
+    double cash = 1000.0;
+    CHECK(TakeTheShot(shot, c, cash, 1, md));
+    // **Works now**: the acute stages are over and you are climbing this
+    // week, which is exactly why it is the tempting wrong answer.
+    CHECK(shot.stage == Comeback::GradedReturn);
+    CHECK(cash == 1000.0 - md.cortisoneCost);
+    // **Costs you forever.**
+    CHECK(JointRisk(shot, InjuryKind::Pulley, 1, md) > 1.0);
+    CHECK(JointRisk(shot, InjuryKind::Shoulder, 1, md) == 1.0);   // that joint
+    CHECK(!HistoryText(shot, 1, md).empty());
+    // Two in a joint is a decision, four is a different career.
+    Medical four = shot;
+    for (int i = 0; i < 3; i++) {
+      Climber again = HurtClimber(InjuryKind::Pulley, 0.6);
+      StartComeback(four, again, 1, md);
+      double money = 1000.0;
+      TakeTheShot(four, again, money, 1, md);
+    }
+    // Pinned as absolutes rather than as a ratio: one shot is a nudge,
+    // four is the joint being a different joint.
+    CHECK(JointRisk(shot, InjuryKind::Pulley, 1, md) >= 1.25);
+    CHECK(JointRisk(shot, InjuryKind::Pulley, 1, md) <= 1.45);
+    CHECK(JointRisk(four, InjuryKind::Pulley, 1, md) >= 2.4);
+    // **And there is a ceiling.** Cortisone and scars priced separately
+    // and uncapped ran away: a thirty-year impatient career reached 17.9
+    // with 111 injuries, because more risk made more injuries made more
+    // scars. A death spiral is an absence of a consequence, not one --
+    // past a point nothing the player does matters.
+    Medical wrecked;
+    for (int i = 0; i < kInjuryKindCount; i++) wrecked.joints[i] = 1.0;
+    for (int i = 0; i < 40; i++) {
+      wrecked.scars.push_back(Scar{InjuryKind::Pulley, 0.9, 1});
+    }
+    CHECK(JointRisk(wrecked, InjuryKind::Pulley, 1, md) <= 1.0 + md.riskPerWear);
+    CHECK(BodyRisk(wrecked, 1, md) <= 2.7);
+    CHECK(JointWear(wrecked, InjuryKind::Pulley, 1, md) == 1.0);
+    CHECK(four.shots[static_cast<int>(InjuryKind::Pulley)] == 4);
+
+    // **Surgery is the only thing that takes damage off a joint**, and
+    // nobody operates on a guess.
+    Medical surg = shot;
+    Climber sc = HurtClimber(InjuryKind::Pulley, 0.9);
+    StartComeback(surg, sc, 1, md);
+    double rich = 9000.0;
+    CHECK(!HaveSurgery(surg, sc, rich, 1, md));   // no scan
+    CHECK(Diagnose(surg, sc, rich, Diagnosis::Scanned, world, 1, md));
+    const double before = JointRisk(surg, InjuryKind::Pulley, 1, md);
+    CHECK(HaveSurgery(surg, sc, rich, 1, md));
+    CHECK(JointRisk(surg, InjuryKind::Pulley, 1, md) < before);
+    // And most of a season on the other side of it.
+    CHECK(sc.injury.daysLeft >= static_cast<int>(md.surgeryDays));
+    CHECK(surg.stage == Comeback::Resting);
+    // **One treatment per injury**, and the guard is not decoration: a
+    // rich career had 294 surgeries out of one injury and an impatient one
+    // 316 cortisone shots, because nothing said no on the second morning.
+    CHECK(!HaveSurgery(surg, sc, rich, 2, md));
+    CHECK(surg.surgeries == 1);
+    {
+      Medical twice;
+      Climber tc = HurtClimber(InjuryKind::Pulley, 0.7);
+      StartComeback(twice, tc, 1, md);
+      double plenty = 100000.0;
+      CHECK(TakeTheShot(twice, tc, plenty, 1, md));
+      CHECK(!TakeTheShot(twice, tc, plenty, 2, md));
+      CHECK(twice.shotsTaken == 1);
+      // Nor does a shot open the door to an operation on the same one.
+      Diagnose(twice, tc, plenty, Diagnosis::Scanned, world, 2, md);
+      CHECK(!HaveSurgery(twice, tc, plenty, 2, md));
+    }
+
+    // You cannot have an operation for a strain.
+    Medical minor;
+    Climber mc = HurtClimber(InjuryKind::Pulley, 0.2);
+    StartComeback(minor, mc, 1, md);
+    double money = 9000.0;
+    Diagnose(minor, mc, money, Diagnosis::Scanned, world, 1, md);
+    CHECK(!HaveSurgery(minor, mc, money, 1, md));
+  }
+
+  // ---- insurance is a bet you place before you know ---------------------
+  //
+  // **The third gate.** The premium lands whether or not you are hurt;
+  // what it buys is most of the bill on the day you are.
+  {
+    Medical med;
+    Climber fine;
+    Climber hurt = HurtClimber(InjuryKind::Elbow, 0.5);
+    // Everybody tries this.
+    CHECK(!BuyInsurance(med, hurt, 1, md));
+    CHECK(BuyInsurance(med, fine, 1, md));
+    CHECK(!BuyInsurance(med, fine, 1, md));   // once
+    // **And there is a wait**, so buying it the week before a planned
+    // surgery is not a strategy.
+    CHECK(!CoverIsLive(med, 1, md));
+    CHECK(!CoverIsLive(med, 1 + md.waitingDays - 1, md));
+    CHECK(CoverIsLive(med, 1 + md.waitingDays, md));
+    CHECK(md.waitingDays >= 30);
+    CHECK(BillFor(med, 1000.0, 1, md) == 1000.0);
+    CHECK(BillFor(med, 1000.0, 1 + md.waitingDays, md) ==
+          1000.0 * (1.0 - md.covers));
+
+    // The premium is a bill like any other: it lands whether the money is
+    // there or not, and the shortfall is debt.
+    double cash = 100.0, owed = 0.0;
+    int paid = 0;
+    for (int day = 1; day <= 1 + md.premiumEveryDays * 4; day++) {
+      if (InsuranceDay(med, cash, owed, day, md)) paid++;
+    }
+    CHECK(paid == 4);
+    CHECK(med.premiumsPaid == md.premium * 4.0);
+    double broke = 0.0, debt = 0.0;
+    Medical poor;
+    Climber ok;
+    BuyInsurance(poor, ok, 1, md);
+    InsuranceDay(poor, broke, debt, 1 + md.premiumEveryDays, md);
+    CHECK(debt == md.premium);
+
+    // **A real bet, pinned as a magnitude against what a career measured.**
+    //
+    // A thirty-year career on this policy pays about $6,250 in premiums.
+    // Measured claims ran from $816 on a lucky body to $8,704 on an
+    // unlucky one, so the lifetime cost has to sit inside that window --
+    // outside it the policy is either free or unthinkable, and in neither
+    // case is it a decision. It was $26 a fortnight first, which is
+    // $20,332 over thirty years against a maximum measured claim of
+    // $8,976: never right, in any seed. Not a bet -- a tax with a story.
+    const double aYear = md.premium * (365.0 / md.premiumEveryDays);
+    const double aCareer = aYear * 30.0;
+    CHECK(aCareer > md.scanCost * 10.0);    // it hurts when you never need it
+    CHECK(aCareer < md.scanCost * 25.0);    // and an unlucky body out-claims it
+    // And one operation's cover is worth years of carrying it, which is
+    // the shape of the tail the whole thing is for.
+    CHECK(md.surgeryCost * md.covers > aYear * 5.0);
+  }
+
+  // ---- being poor -------------------------------------------------------
+  //
+  // **The fourth gate: the undertreated path is reached by being broke,
+  // not by choosing it.** Nothing about it is a decision.
+  {
+    Medical broke;
+    Climber c = HurtClimber(InjuryKind::Lumbrical, 0.6);
+    StartComeback(broke, c, 1, md);
+    double nothing = 10.0;
+    // You cannot afford to know.
+    CHECK(!Diagnose(broke, c, nothing, Diagnosis::Guessed, world, 1, md));
+    CHECK(!Diagnose(broke, c, nothing, Diagnosis::Scanned, world, 1, md));
+    CHECK(!TakeTheShot(broke, c, nothing, 1, md));
+    CHECK(!broke.treatedThisTime);
+
+    // Let it run its course untouched.
+    MedicalNight last;
+    int day = 1;
+    for (; day < 600 && c.injury.active; day++) {
+      last = MedicalDay(broke, c, world, day, md);
+    }
+    CHECK(!c.injury.active);
+    CHECK(last.healed);
+    CHECK(last.untreated);
+    CHECK(broke.untreatedInjuries == 1);
+    // **It heals badly.** A scar, and a bigger one than a treated injury
+    // of the same grade would leave.
+    CHECK(last.scarred);
+    CHECK(JointRisk(broke, InjuryKind::Lumbrical, day, md) > 1.0);
+    CHECK(last.news.find("never did find out") != std::string::npos);
+    const int untreatedDays = day;
+
+    // The same injury, seen and rested properly, is out sooner and scars
+    // less.
+    Medical seen;
+    Climber c2 = HurtClimber(InjuryKind::Lumbrical, 0.6);
+    StartComeback(seen, c2, 1, md);
+    double money = 1000.0;
+    Diagnose(seen, c2, money, Diagnosis::Guessed, world, 1, md);
+    MedicalNight lastSeen;
+    int day2 = 1;
+    for (; day2 < 600 && c2.injury.active; day2++) {
+      lastSeen = MedicalDay(seen, c2, world, day2, md);
+    }
+    CHECK(!lastSeen.untreated);
+    CHECK(day2 < untreatedDays);
+    CHECK(lastSeen.scarWeight < last.scarWeight);
+    CHECK(md.untreatedDaysMult > 1.0);
+  }
+
+  // ---- and scars fade, slowly and never to nothing ---------------------
+  {
+    Medical med;
+    med.scars.push_back(Scar{InjuryKind::Shoulder, 0.5, 1});
+    const double fresh = JointRisk(med, InjuryKind::Shoulder, 1, md);
+    const double older = JointRisk(med, InjuryKind::Shoulder, 1 + 365 * 3, md);
+    CHECK(older < fresh);
+    CHECK(older > 1.0);   // never to nothing
+    CHECK(md.scarFloor > 0.0);
+
+    // **A derived value, not a decayed one.** Ticking the night forward
+    // three years must not move it a millimetre further than reading it
+    // three years out does -- the first version faded the weight by
+    // reading the weight it had just written, so a scar collapsed
+    // geometrically and the floor collapsed with it.
+    Medical ticked;
+    ticked.scars.push_back(Scar{InjuryKind::Shoulder, 0.5, 1});
+    Climber well;
+    for (int day = 1; day <= 1 + 365 * 3; day++) {
+      MedicalDay(ticked, well, world, day, md);
+    }
+    CHECK(JointRisk(ticked, InjuryKind::Shoulder, 1 + 365 * 3, md) == older);
+    // And a lifetime out it is still worth something.
+    CHECK(JointRisk(ticked, InjuryKind::Shoulder, 1 + 365 * 40, md) > 1.0);
+  }
+}
+
 static void TestLeague() {
   LeagueDials ld;
   const Rng world = Rng::FromSeed("wednesday");
@@ -3611,6 +4093,98 @@ static void TestWorldStageSave() {
   // **An old save loads, and arrives with a career that never got on a
   // plane.** Exact rather than generous: giving a v26 career a World Cup
   // start would be inventing a year it did not have.
+  // The medical file. **Losing a joint's history is losing the career**:
+  // the cortisone you took at twenty-eight is why the finger goes at
+  // thirty-four, and a save that forgets it hands back a body that never
+  // happened.
+  {
+    Medical& mm = save.player.medical;
+    mm.diagnosis = Diagnosis::Scanned;
+    mm.treatment = Treatment::Cortisone;
+    mm.stage = Comeback::GradedReturn;
+    mm.stageStarted = 30;
+    mm.stageDays = 12;
+    mm.toldSeverity = 0.62;
+    mm.joints[static_cast<int>(InjuryKind::Pulley)] = 0.44;
+    mm.shots[static_cast<int>(InjuryKind::Pulley)] = 2;
+    mm.scars.push_back(Scar{InjuryKind::Elbow, 0.31, 12});
+    mm.scars.push_back(Scar{InjuryKind::Shoulder, 0.19, 77});
+    mm.insured = true;
+    mm.insuredOnDay = 5;
+    mm.premiumsPaid = 208.0;
+    mm.claimsPaid = 1760.0;
+    mm.diagnoses = 3;
+    mm.shotsTaken = 2;
+    mm.surgeries = 1;
+    mm.rushedComebacks = 1;
+    mm.untreatedInjuries = 2;
+    mm.treatedThisTime = true;
+
+    SaveGame mb;
+    CHECK(DeserializeSave(SerializeSave(save), mb) == LoadResult::Ok);
+    const Medical& b = mb.player.medical;
+    CHECK(b.diagnosis == Diagnosis::Scanned);
+    CHECK(b.treatment == Treatment::Cortisone);
+    CHECK(b.stage == Comeback::GradedReturn);
+    CHECK(b.stageStarted == 30);
+    CHECK(b.stageDays == 12);
+    CHECK(b.toldSeverity == 0.62);
+    CHECK(b.joints[static_cast<int>(InjuryKind::Pulley)] == 0.44);
+    CHECK(b.shots[static_cast<int>(InjuryKind::Pulley)] == 2);
+    CHECK(b.scars.size() == 2);
+    if (b.scars.size() == 2) {
+      CHECK(b.scars[0].kind == InjuryKind::Elbow);
+      CHECK(b.scars[0].weight == 0.31);
+      CHECK(b.scars[0].fromDay == 12);
+      CHECK(b.scars[1].kind == InjuryKind::Shoulder);
+    }
+    // And the risk the joint carries comes back identical, which is the
+    // thing that actually matters.
+    CHECK(JointRisk(b, InjuryKind::Pulley, 200) ==
+          JointRisk(mm, InjuryKind::Pulley, 200));
+    CHECK(JointRisk(b, InjuryKind::Elbow, 200) ==
+          JointRisk(mm, InjuryKind::Elbow, 200));
+    CHECK(b.insured);
+    CHECK(b.insuredOnDay == 5);
+    CHECK(b.premiumsPaid == 208.0);
+    CHECK(b.claimsPaid == 1760.0);
+    CHECK(b.surgeries == 1);
+    CHECK(b.untreatedInjuries == 2);
+    CHECK(b.treatedThisTime);
+
+    // **A v29 career arrives with a clean file and keeps its injury.**
+    // Generous on the joints and it is the only honest option: a v29 save
+    // has no record of a cortisone history because there was none.
+    std::string v29 = SerializeSave(save);
+    for (const char* k : {"med.diagnosis=", "med.treatment=", "med.stage=",
+                          "med.stagestart=", "med.stagedays=", "med.told=",
+                          "med.joints=", "med.scars=", "med.insured=",
+                          "med.insuredon=", "med.premiums=", "med.claims=",
+                          "med.diagnoses=", "med.shots=", "med.surgeries=",
+                          "med.rushed=", "med.untreated=", "med.treated=",
+                          "med.staged="}) {
+      DropSaveLine(v29, k);
+    }
+    SetSaveVersion(v29, 29);
+    SaveGame old29;
+    CHECK(DeserializeSave(v29, old29) == LoadResult::Ok);
+    CHECK(old29.version == kSaveVersion);
+    CHECK(old29.player.medical.scars.empty());
+    CHECK(!old29.player.medical.insured);
+    CHECK(old29.player.medical.stage == Comeback::Clear);
+    CHECK(JointRisk(old29.player.medical, InjuryKind::Pulley, 200) == 1.0);
+    // A career that was mid-injury when it was saved keeps the injury, and
+    // the night tick starts it a comeback -- which is the case the guard
+    // in `MedicalDay` exists for.
+    {
+      Climber hurt = HurtClimber(InjuryKind::Pulley, 0.5);
+      Medical fresh;
+      MedicalDay(fresh, hurt, Rng::FromSeed("load"), 400);
+      CHECK(hurt.injury.active);
+      CHECK(fresh.stage == Comeback::Resting);
+    }
+  }
+
   // The league: the personal best is the one number here nobody would
   // forgive losing, because it is the whole reason to turn up.
   {
@@ -3639,7 +4213,14 @@ static void TestWorldStageSave() {
     for (double p : lb.player.league.fieldPoints) CHECK(p == 12.0);
 
     std::string v28 = SerializeSave(save);
-    for (const char* k : {"league.next=", "league.block=", "league.weeks=",
+    for (const char* k : {"med.diagnosis=", "med.treatment=", "med.stage=",
+                        "med.stagestart=", "med.stagedays=", "med.told=",
+                        "med.joints=", "med.scars=", "med.insured=",
+                        "med.insuredon=", "med.premiums=", "med.claims=",
+                        "med.diagnoses=", "med.shots=", "med.surgeries=",
+                        "med.rushed=", "med.untreated=", "med.treated=",
+                        "med.staged=",
+                        "league.next=", "league.block=", "league.weeks=",
                           "league.you=", "league.best=", "league.bestday=",
                           "league.nights=", "league.wins=",
                           "league.fields=", "league.lastnight="}) {
@@ -3661,7 +4242,14 @@ static void TestWorldStageSave() {
   // record behind it to age out.
   {
     std::string v27 = SerializeSave(save);
-    for (const char* k : {"league.next=", "league.block=", "league.weeks=",
+    for (const char* k : {"med.diagnosis=", "med.treatment=", "med.stage=",
+                        "med.stagestart=", "med.stagedays=", "med.told=",
+                        "med.joints=", "med.scars=", "med.insured=",
+                        "med.insuredon=", "med.premiums=", "med.claims=",
+                        "med.diagnoses=", "med.shots=", "med.surgeries=",
+                        "med.rushed=", "med.untreated=", "med.treated=",
+                        "med.staged=",
+                        "league.next=", "league.block=", "league.weeks=",
                           "league.you=", "league.best=", "league.bestday=",
                           "league.nights=", "league.wins=",
                           "league.fields=", "league.lastnight="}) {
@@ -3707,7 +4295,14 @@ static void TestWorldStageSave() {
   DropSaveLine(v26, "og.silver=");
   DropSaveLine(v26, "og.bronze=");
   DropSaveLine(v26, "og.last=");
-  for (const char* k : {"league.next=", "league.block=", "league.weeks=",
+  for (const char* k : {"med.diagnosis=", "med.treatment=", "med.stage=",
+                        "med.stagestart=", "med.stagedays=", "med.told=",
+                        "med.joints=", "med.scars=", "med.insured=",
+                        "med.insuredon=", "med.premiums=", "med.claims=",
+                        "med.diagnoses=", "med.shots=", "med.surgeries=",
+                        "med.rushed=", "med.untreated=", "med.treated=",
+                        "med.staged=",
+                        "league.next=", "league.block=", "league.weeks=",
                         "league.you=", "league.best=", "league.bestday=",
                         "league.nights=", "league.wins=", "league.fields=",
                         "league.lastnight="}) {
@@ -3908,6 +4503,13 @@ static void TestRivalSave() {
                         "team.coachfor=", "team.passed=", "team.lastpts=",
                         "team.lastseason=", "team.lastday=",
                         "team.mates=", "team.gone=", "rank.results=",
+                        "med.diagnosis=", "med.treatment=", "med.stage=",
+                        "med.stagestart=", "med.stagedays=", "med.told=",
+                        "med.joints=", "med.scars=", "med.insured=",
+                        "med.insuredon=", "med.premiums=", "med.claims=",
+                        "med.diagnoses=", "med.shots=", "med.surgeries=",
+                        "med.rushed=", "med.untreated=", "med.treated=",
+                        "med.staged=",
                         "league.next=", "league.block=", "league.weeks=",
                         "league.you=", "league.best=", "league.bestday=",
                         "league.nights=", "league.wins=", "league.fields=",
@@ -10716,6 +11318,7 @@ int main() {
   TestNationalTeam();
   TestWorldStage();
   TestLeague();
+  TestMedical();
   TestWorldStageSave();
   TestRival();
   TestRivalRace();

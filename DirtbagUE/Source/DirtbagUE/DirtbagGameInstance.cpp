@@ -98,6 +98,14 @@ void UDirtbagGameInstance::Sleep()
 	WorldCupNews.Reset();
 	GamesNews.Reset();
 
+	// And the same for the medical file, which heals inside the same call.
+	// Read across it rather than plumbed through: an injury that cleared
+	// overnight is the only overnight medical news there is, and the flag
+	// going false is exactly that.
+	const bool bWasHurt = Player.Climber.Injury.bActive;
+	const int32 ScarsBefore = Player.Medical.Scars.Num();
+	MedicalNews.Reset();
+
 	// The sim's copy of who you are, kept current before CrewDay runs
 	// inside SleepToNextDay — the crew hash includes your name, so the sync
 	// has to happen on this side of the call or the town would name
@@ -105,6 +113,19 @@ void UDirtbagGameInstance::Sleep()
 	Player.Name = ClimberName;
 
 	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
+
+	if (bWasHurt && !Player.Climber.Injury.bActive)
+	{
+		// **What it leaves is the news, not that it stopped hurting.** An
+		// injury nobody looked at heals too; it just costs you something
+		// you will not see for years.
+		MedicalNews =
+		    Player.Medical.Scars.Num() > ScarsBefore &&
+		            !Player.Medical.bTreatedThisTime
+		        ? FString(TEXT("It stopped hurting. You never did find out "
+		                       "what it was."))
+		        : FString(TEXT("Cleared to climb."));
+	}
 
 	// A World Cup year ended overnight. Rebuilt from the season rather than
 	// returned through the Blueprint library, for the reason above.
@@ -1709,6 +1730,191 @@ bool UDirtbagGameInstance::SettleComp()
 	}
 	RefreshComp();
 	return true;
+}
+
+// --- what is wrong with you --------------------------------------------
+
+FString UDirtbagGameInstance::MedicalLine() const
+{
+	return FString(dirtbag::MedicalText(
+	                   DirtbagConvert::ToSim(Player.Medical),
+	                   DirtbagConvert::ToSim(Player.Climber), Player.Day)
+	                   .c_str());
+}
+
+FString UDirtbagGameInstance::BodyHistoryLine() const
+{
+	return FString(dirtbag::HistoryText(
+	                   DirtbagConvert::ToSim(Player.Medical), Player.Day)
+	                   .c_str());
+}
+
+double UDirtbagGameInstance::PriceOf(EDirtbagTreatment What) const
+{
+	const dirtbag::MedicalDials MD;
+	const dirtbag::Medical Med = DirtbagConvert::ToSim(Player.Medical);
+	double List = 0.0;
+	switch (What)
+	{
+	case EDirtbagTreatment::Cortisone: List = MD.cortisoneCost; break;
+	case EDirtbagTreatment::Surgery: List = MD.surgeryCost; break;
+	case EDirtbagTreatment::Physio: List = dirtbag::BodyDials{}.physioCost; break;
+	case EDirtbagTreatment::Rest:
+	default: List = 0.0; break;
+	}
+	return dirtbag::BillFor(Med, List, Player.Day, MD);
+}
+
+double UDirtbagGameInstance::PriceOfLook(bool bScan) const
+{
+	const dirtbag::MedicalDials MD;
+	return dirtbag::BillFor(DirtbagConvert::ToSim(Player.Medical),
+	                        bScan ? MD.scanCost : MD.guessCost, Player.Day,
+	                        MD);
+}
+
+namespace
+{
+// One place that pushes a mutated medical file back onto the player, so a
+// door cannot half-apply a change. Every verb below goes through it.
+void PutBack(FDirtbagPlayerState& P, const dirtbag::Medical& Med,
+             const dirtbag::Climber& C)
+{
+	P.Medical = DirtbagConvert::FromSim(Med);
+	P.Climber.Injury = DirtbagConvert::FromSim(C.injury);
+}
+}  // namespace
+
+bool UDirtbagGameInstance::SeeSomebody()
+{
+	dirtbag::Medical Med = DirtbagConvert::ToSim(Player.Medical);
+	const dirtbag::Climber C = DirtbagConvert::ToSim(Player.Climber);
+	double Cash = Player.Cash;
+	if (!dirtbag::Diagnose(Med, C, Cash, dirtbag::Diagnosis::Guessed,
+	                       dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)),
+	                       Player.Day))
+	{
+		return false;
+	}
+	Player.Cash = Cash;
+	PutBack(Player, Med, C);
+	MedicalNews = MedicalLine();
+	return true;
+}
+
+bool UDirtbagGameInstance::GetItScanned()
+{
+	dirtbag::Medical Med = DirtbagConvert::ToSim(Player.Medical);
+	const dirtbag::Climber C = DirtbagConvert::ToSim(Player.Climber);
+	double Cash = Player.Cash;
+	if (!dirtbag::Diagnose(Med, C, Cash, dirtbag::Diagnosis::Scanned,
+	                       dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)),
+	                       Player.Day))
+	{
+		return false;
+	}
+	Player.Cash = Cash;
+	PutBack(Player, Med, C);
+	MedicalNews = MedicalLine();
+	return true;
+}
+
+bool UDirtbagGameInstance::TakeTheShot()
+{
+	dirtbag::Medical Med = DirtbagConvert::ToSim(Player.Medical);
+	dirtbag::Climber C = DirtbagConvert::ToSim(Player.Climber);
+	double Cash = Player.Cash;
+	if (!dirtbag::TakeTheShot(Med, C, Cash, Player.Day)) { return false; }
+	Player.Cash = Cash;
+	PutBack(Player, Med, C);
+	MedicalNews = TEXT("It stops hurting almost at once. That is the "
+	                   "problem with it.");
+	return true;
+}
+
+bool UDirtbagGameInstance::BookTheSurgery()
+{
+	dirtbag::Medical Med = DirtbagConvert::ToSim(Player.Medical);
+	dirtbag::Climber C = DirtbagConvert::ToSim(Player.Climber);
+	double Cash = Player.Cash;
+	if (!dirtbag::HaveSurgery(Med, C, Cash, Player.Day)) { return false; }
+	Player.Cash = Cash;
+	PutBack(Player, Med, C);
+	MedicalNews = TEXT("Booked. That is most of a season, and it is the "
+	                   "only thing that takes it off the joint.");
+	return true;
+}
+
+bool UDirtbagGameInstance::ComebackStageIsDone() const
+{
+	return dirtbag::StageIsDone(DirtbagConvert::ToSim(Player.Medical),
+	                            Player.Day);
+}
+
+bool UDirtbagGameInstance::PushOn()
+{
+	dirtbag::Medical Med = DirtbagConvert::ToSim(Player.Medical);
+	dirtbag::Climber C = DirtbagConvert::ToSim(Player.Climber);
+	if (Med.stage == dirtbag::Comeback::Clear) { return false; }
+	const dirtbag::Comeback Was = Med.stage;
+	const bool SetBack = dirtbag::NextStage(
+	    Med, C, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Player.Day);
+	PutBack(Player, Med, C);
+	MedicalNews =
+	    SetBack
+	        ? FString(TEXT("That was too soon. You are back where you "
+	                       "started, and it is worse."))
+	    : Med.stage == dirtbag::Comeback::Clear
+	        ? FString(TEXT("Cleared to climb."))
+	        : FString::Printf(TEXT("%s."),
+	                          UTF8_TO_TCHAR(
+	                              dirtbag::ComebackName(Med.stage)));
+	(void)Was;
+	return !SetBack;
+}
+
+bool UDirtbagGameInstance::BuyInsurance()
+{
+	dirtbag::Medical Med = DirtbagConvert::ToSim(Player.Medical);
+	if (!dirtbag::BuyInsurance(Med, DirtbagConvert::ToSim(Player.Climber),
+	                           Player.Day))
+	{
+		return false;
+	}
+	Player.Medical = DirtbagConvert::FromSim(Med);
+	MedicalNews = TEXT("Covered, in a month. Not before.");
+	return true;
+}
+
+void UDirtbagGameInstance::CancelInsurance()
+{
+	dirtbag::Medical Med = DirtbagConvert::ToSim(Player.Medical);
+	dirtbag::CancelInsurance(Med);
+	Player.Medical = DirtbagConvert::FromSim(Med);
+}
+
+FString UDirtbagGameInstance::InsuranceLine() const
+{
+	const dirtbag::Medical Med = DirtbagConvert::ToSim(Player.Medical);
+	const dirtbag::MedicalDials MD;
+	if (!Med.insured)
+	{
+		return Med.premiumsPaid > 0.0
+		           ? FString::Printf(
+		                 TEXT("No cover.  You paid in $%.0f and got $%.0f "
+		                      "back."),
+		                 Med.premiumsPaid, Med.claimsPaid)
+		           : FString(TEXT("No cover."));
+	}
+	if (!dirtbag::CoverIsLive(Med, Player.Day, MD))
+	{
+		return FString::Printf(
+		    TEXT("Covered in %d days."),
+		    MD.waitingDays - (Player.Day - Med.insuredOnDay));
+	}
+	return FString::Printf(
+	    TEXT("Covered.  $%.0f a fortnight; $%.0f paid in, $%.0f back."),
+	    MD.premium, Med.premiumsPaid, Med.claimsPaid);
 }
 
 // --- the league --------------------------------------------------------

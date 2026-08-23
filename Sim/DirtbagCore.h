@@ -100,6 +100,21 @@ struct Injury {
   InjuryKind kind = InjuryKind::Pulley;
   double severity = 0.0;   // 0..1; what it costs and how long it holds you
   int daysLeft = 0;
+
+  // **Who owns the clock.** `BodyDay` counts `daysLeft` down and clears
+  // the injury when it hits zero; that was the whole of the injury model
+  // through Phase 3. Phase 10's staged comeback is a second clock over the
+  // same flag, and two owners of one flag disagree -- measured, before it
+  // was fixed: a career took **316 cortisone shots and was hurt for 10,696
+  // of 10,950 days**, because the comeback reached its last stage, the
+  // injury was still flagged active, and the medical tick started the
+  // whole thing again the next morning.
+  //
+  // Set by `StartComeback` and cleared when the injury heals. While it is
+  // true `BodyDay` leaves the count alone and `DirtbagMedical` is the
+  // authority -- it rewrites `daysLeft` nightly so everything that reads
+  // it still reads the truth.
+  bool staged = false;
 };
 
 struct Climber {

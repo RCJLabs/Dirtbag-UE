@@ -14,6 +14,7 @@
 #include "DirtbagComp.h"
 #include "DirtbagTeam.h"
 #include "DirtbagLeague.h"
+#include "DirtbagMedical.h"
 #include "DirtbagWorldStage.h"
 #include "DirtbagCore.h"
 #include "DirtbagRival.h"
@@ -235,6 +236,11 @@ struct PlayerState {
   // hands you climbing back rather than moving it around, and it is rate
   // limited so a rich season cannot buy its way out of a bad one overnight.
   int lastPhysioDay = 0;
+
+  // What is wrong with you, what you know about it, what you did, and what
+  // it left behind. **`Climber::injury` is what a body *is*; this is what
+  // happened to it** -- see Sim/DirtbagMedical.h.
+  Medical medical;
 
   // The things you did that nobody saw. Carried, not priced — an act only
   // costs anything on the day somebody finds out.

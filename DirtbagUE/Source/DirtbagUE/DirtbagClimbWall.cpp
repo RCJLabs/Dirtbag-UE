@@ -1077,7 +1077,13 @@ void ADirtbagClimbWall::StartAttempt()
 		        SimSession, SimMemory, DirtbagConvert::ToSim(ClimberStats),
 		        SimRoute, dirtbag::Conditions{}, {}, 0.72,
 		        Game ? DirtbagConvert::ToSim(Game->Player.Character)
-		             : dirtbag::Character{}));
+		             : dirtbag::Character{},
+		        // What the joints carry, and it does not heal. **The
+		        // measured game is the played game**: the probe passes
+		        // this, so the wall has to.
+		        Game ? DirtbagConvert::ToSim(Game->Player.Medical)
+		             : dirtbag::Medical{},
+		        Game ? Game->Player.Day : 0));
 	}
 	else
 	{

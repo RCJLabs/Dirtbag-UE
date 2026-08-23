@@ -250,6 +250,58 @@ FString ADirtbagDaySpot::PromptText() const
 			Care = FString::Printf(TEXT("\n   %s"), *Physio);
 		}
 
+		// **The counter where an injury stops being a wait.** Everything
+		// here is a decision with a wrong answer, and the first of them is
+		// whether to pay to find out what is wrong at all -- see
+		// Sim/DirtbagMedical.h.
+		const FString What = Game->MedicalLine();
+		if (!What.IsEmpty())
+		{
+			Care += FString::Printf(TEXT("\n   %s"), *What);
+			if (Game->Player.Medical.Diagnosis != EDirtbagDiagnosis::Scanned)
+			{
+				Care += FString::Printf(
+				    TEXT("\n   Have it looked at?  (V)  $%.0f"),
+				    Game->Player.Medical.Diagnosis ==
+				            EDirtbagDiagnosis::None
+				        ? Game->PriceOfLook(false)
+				        : Game->PriceOfLook(true));
+			}
+			// The shot, and it is the tempting wrong answer: it works this
+			// week and marks the joint for the rest of the career.
+			if (Game->Player.Medical.Treatment == EDirtbagTreatment::Rest)
+			{
+				Care += FString::Printf(
+				    TEXT("\n   A shot in it?  (C)  $%.0f  -  works now"),
+				    Game->PriceOf(EDirtbagTreatment::Cortisone));
+				if (Game->Player.Medical.Diagnosis ==
+				    EDirtbagDiagnosis::Scanned)
+				{
+					Care += FString::Printf(
+					    TEXT("\n   Operate?  (O)  $%.0f  -  most of a "
+					         "season"),
+					    Game->PriceOf(EDirtbagTreatment::Surgery));
+				}
+			}
+			// **The decision the whole phase is about.** Whether the stage
+			// is done is only shown when you have paid to know.
+			Care += Game->ComebackStageIsDone() &&
+			                Game->Player.Medical.Diagnosis !=
+			                    EDirtbagDiagnosis::None
+			            ? TEXT("\n   Move on?  (N)")
+			            : TEXT("\n   Push on anyway?  (N)");
+		}
+		const FString Cover = Game->InsuranceLine();
+		if (!Cover.IsEmpty())
+		{
+			Care += FString::Printf(TEXT("\n   %s  (B)"), *Cover);
+		}
+		const FString History = Game->BodyHistoryLine();
+		if (!History.IsEmpty())
+		{
+			Care += FString::Printf(TEXT("\n   %s"), *History);
+		}
+
 		const EDirtbagSponsorTier Offer = Game->OfferOnTheTable();
 		FString Deal;
 		if (Offer > Game->Player.Sponsor.Tier)
@@ -360,6 +412,19 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnSign);
 			InputComponent->BindKey(EKeys::P, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnPhysio);
+			// The care counter's own keys. Deliberately away from the
+			// movement block and away from E, which is every other spot's
+			// yes: none of these is a yes, they are all a decision.
+			InputComponent->BindKey(EKeys::V, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnLookAtIt);
+			InputComponent->BindKey(EKeys::C, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnTakeTheShot);
+			InputComponent->BindKey(EKeys::O, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnOperate);
+			InputComponent->BindKey(EKeys::N, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnPushOn);
+			InputComponent->BindKey(EKeys::B, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnCover);
 			InputComponent->BindKey(EKeys::M, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnMembership);
 			InputComponent->BindKey(EKeys::J, IE_Pressed, this,
@@ -494,6 +559,86 @@ void ADirtbagDaySpot::OnHangboard()
 	                         "energy %.0f."),
 	                    Game->Day.Hour, Game->Day.Energy),
 	    FColor::Green, 6.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnLookAtIt()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop) return;
+	if (!Game->IsHurt()) return;
+	// **One key, escalating.** Nobody wants a menu for "find out what is
+	// wrong"; the first press buys a pair of hands and the second buys the
+	// machine, which is the order anybody actually does it in.
+	const bool bOk = Game->Player.Medical.Diagnosis == EDirtbagDiagnosis::None
+	                     ? Game->SeeSomebody()
+	                     : Game->GetItScanned();
+	Say(bOk ? Game->MedicalNews
+	        : TEXT("You cannot cover it, and it is not going to look at "
+	               "itself."),
+	    bOk ? FColor::Green : FColor::Orange, 7.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnTakeTheShot()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop) return;
+	if (!Game->IsHurt()) return;
+	if (!Game->TakeTheShot())
+	{
+		Say(TEXT("Not for this one, and not twice."), FColor::Orange, 5.f);
+		return;
+	}
+	Say(Game->MedicalNews, FColor::Yellow, 8.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnOperate()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop) return;
+	if (!Game->IsHurt()) return;
+	if (!Game->BookTheSurgery())
+	{
+		// The three reasons, said rather than guessed at: nobody operates
+		// on a guess, nobody operates on a strain, and nobody operates on
+		// credit.
+		Say(Game->Player.Medical.Diagnosis != EDirtbagDiagnosis::Scanned
+		        ? TEXT("Nobody is operating on a guess.")
+		        : TEXT("Not for this, or not for that money."),
+		    FColor::Orange, 6.f);
+		return;
+	}
+	Say(Game->MedicalNews, FColor::Yellow, 9.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnPushOn()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop) return;
+	if (!Game->IsHurt()) return;
+	const bool bFine = Game->PushOn();
+	Say(Game->MedicalNews, bFine ? FColor::Green : FColor::Red, 8.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnCover()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::GearShop) return;
+	if (Game->Player.Medical.bInsured)
+	{
+		Game->CancelInsurance();
+		Say(TEXT("Cancelled. You are on your own now."), FColor::Silver, 6.f);
+	}
+	else if (Game->BuyInsurance())
+	{
+		Say(Game->MedicalNews, FColor::Green, 6.f);
+	}
+	else
+	{
+		// Everybody tries this.
+		Say(TEXT("They will not write a policy on something that is "
+		         "already wrong."),
+		    FColor::Orange, 6.f);
+	}
 	PushPrompt();
 }
 

@@ -70,7 +70,9 @@ void BodyDay(Climber& climber, bool restedToday, double age,
       RecoveryFactorFor(age, ageDials);
   climber.load = std::max(0.0, climber.load - back);
 
-  if (climber.injury.active) {
+  // **Not while a comeback is running.** See `Injury::staged` -- two
+  // clocks over one flag is how a career took 316 cortisone shots.
+  if (climber.injury.active && !climber.injury.staged) {
     climber.injury.daysLeft--;
     if (climber.injury.daysLeft <= 0) {
       climber.injury.active = false;

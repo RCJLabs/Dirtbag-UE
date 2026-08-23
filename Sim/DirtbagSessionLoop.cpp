@@ -51,7 +51,8 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
                                       const Conditions& conditions,
                                       const std::vector<double>& execution,
                                       double botExecution,
-                                      const Character& who) {
+                                      const Character& who,
+                                      const Medical& med, int day) {
   AttemptInput in;
   in.climber = climber;
   in.climber.skin = session.skinLeft;    // the body as it is now,
@@ -66,6 +67,16 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
   in.padding = session.padding;          // what you dragged up the hill
   // Happy Feet, and nothing else in this game, touches this.
   in.oddsPenalty = OddsPenalty(who, route.type);
+  // How far through the comeback you are. A graded return is climbing --
+  // badly -- and this is the number that says so.
+  if (climber.injury.active && med.stage != Comeback::Clear) {
+    in.injuryStagePenalty = StagePenalty(med);
+  }
+  // What the joints carry, and it does not heal.
+  for (int j = 0; j < kInjuryKindCount; j++) {
+    in.jointDamage[j] =
+        JointWear(med, static_cast<InjuryKind>(j), day);
+  }
   in.boldness = NerveShift(who);
   in.execution = execution;
   in.botExecution = botExecution;
@@ -128,10 +139,13 @@ AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
                                const Route& route, const Conditions& conditions,
                                const std::vector<double>& execution,
                                double botExecution, const SessionDials& dials,
-                               const SessionLoopDials& loop) {
+                               const SessionLoopDials& loop,
+                               const Character& who, const Medical& med,
+                               int day) {
   Rng rng = DeriveAttemptRng(sessionRng, memory, route);
   const AttemptInput in = BuildSessionAttemptInput(
-      session, memory, climber, route, conditions, execution, botExecution);
+      session, memory, climber, route, conditions, execution, botExecution,
+      who, med, day);
   const AttemptResult result = ResolveAttempt(rng, in, dials);
   CommitAttempt(session, memory, route, result, loop);
   return result;

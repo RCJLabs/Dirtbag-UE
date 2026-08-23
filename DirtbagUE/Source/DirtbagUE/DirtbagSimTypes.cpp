@@ -183,6 +183,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.worldCup = ToSim(In.WorldCup);
 	Out.olympics = ToSim(In.Olympics);
 	Out.league = ToSim(In.League);
+	Out.medical = ToSim(In.Medical);
 	Out.team = ToSim(In.Team);
 	Out.pastRivals.reserve(In.PastRivals.Num());
 	for (const FDirtbagPastRival& P : In.PastRivals)
@@ -248,6 +249,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.WorldCup = FromSim(In.worldCup);
 	Out.Olympics = FromSim(In.olympics);
 	Out.League = FromSim(In.league);
+	Out.Medical = FromSim(In.medical);
 	Out.Team = FromSim(In.team);
 	Out.PastRivals.Reset(In.pastRivals.size());
 	for (const dirtbag::PastRival& P : In.pastRivals)
@@ -379,6 +381,7 @@ FDirtbagInjury FromSim(const dirtbag::Injury& In)
 	Out.Kind = static_cast<EDirtbagInjuryKind>(In.kind);
 	Out.Severity = In.severity;
 	Out.DaysLeft = In.daysLeft;
+	Out.bStaged = In.staged;
 	return Out;
 }
 
@@ -389,6 +392,7 @@ dirtbag::Injury ToSim(const FDirtbagInjury& In)
 	Out.kind = static_cast<dirtbag::InjuryKind>(In.Kind);
 	Out.severity = In.Severity;
 	Out.daysLeft = In.DaysLeft;
+	Out.staged = In.bStaged;
 	return Out;
 }
 
@@ -761,6 +765,80 @@ dirtbag::Circuit ToSim(const FDirtbagCircuit& In)
 	Out.fieldPoints.reserve(In.FieldPoints.Num());
 	for (double P : In.FieldPoints) { Out.fieldPoints.push_back(P); }
 	Out.titles = In.Titles;
+	return Out;
+}
+
+FDirtbagMedical FromSim(const dirtbag::Medical& In)
+{
+	FDirtbagMedical Out;
+	Out.Diagnosis = static_cast<EDirtbagDiagnosis>(In.diagnosis);
+	Out.Treatment = static_cast<EDirtbagTreatment>(In.treatment);
+	Out.Stage = static_cast<EDirtbagComeback>(In.stage);
+	Out.StageStarted = In.stageStarted;
+	Out.StageDays = In.stageDays;
+	Out.ToldSeverity = In.toldSeverity;
+	Out.Joints.Reset(dirtbag::kInjuryKindCount);
+	Out.Shots.Reset(dirtbag::kInjuryKindCount);
+	for (int32 i = 0; i < dirtbag::kInjuryKindCount; i++)
+	{
+		Out.Joints.Add(In.joints[i]);
+		Out.Shots.Add(In.shots[i]);
+	}
+	Out.Scars.Reset(In.scars.size());
+	for (const dirtbag::Scar& S : In.scars)
+	{
+		FDirtbagScar Sc;
+		Sc.Kind = static_cast<EDirtbagInjuryKind>(S.kind);
+		Sc.Weight = S.weight;
+		Sc.FromDay = S.fromDay;
+		Out.Scars.Add(Sc);
+	}
+	Out.bInsured = In.insured;
+	Out.InsuredOnDay = In.insuredOnDay;
+	Out.PremiumsPaid = In.premiumsPaid;
+	Out.ClaimsPaid = In.claimsPaid;
+	Out.Diagnoses = In.diagnoses;
+	Out.ShotsTaken = In.shotsTaken;
+	Out.Surgeries = In.surgeries;
+	Out.RushedComebacks = In.rushedComebacks;
+	Out.UntreatedInjuries = In.untreatedInjuries;
+	Out.bTreatedThisTime = In.treatedThisTime;
+	return Out;
+}
+
+dirtbag::Medical ToSim(const FDirtbagMedical& In)
+{
+	dirtbag::Medical Out;
+	Out.diagnosis = static_cast<dirtbag::Diagnosis>(In.Diagnosis);
+	Out.treatment = static_cast<dirtbag::Treatment>(In.Treatment);
+	Out.stage = static_cast<dirtbag::Comeback>(In.Stage);
+	Out.stageStarted = In.StageStarted;
+	Out.stageDays = In.StageDays;
+	Out.toldSeverity = In.ToldSeverity;
+	for (int32 i = 0; i < dirtbag::kInjuryKindCount; i++)
+	{
+		if (In.Joints.IsValidIndex(i)) { Out.joints[i] = In.Joints[i]; }
+		if (In.Shots.IsValidIndex(i)) { Out.shots[i] = In.Shots[i]; }
+	}
+	Out.scars.reserve(In.Scars.Num());
+	for (const FDirtbagScar& S : In.Scars)
+	{
+		dirtbag::Scar Sc;
+		Sc.kind = static_cast<dirtbag::InjuryKind>(S.Kind);
+		Sc.weight = S.Weight;
+		Sc.fromDay = S.FromDay;
+		Out.scars.push_back(Sc);
+	}
+	Out.insured = In.bInsured;
+	Out.insuredOnDay = In.InsuredOnDay;
+	Out.premiumsPaid = In.PremiumsPaid;
+	Out.claimsPaid = In.ClaimsPaid;
+	Out.diagnoses = In.Diagnoses;
+	Out.shotsTaken = In.ShotsTaken;
+	Out.surgeries = In.Surgeries;
+	Out.rushedComebacks = In.RushedComebacks;
+	Out.untreatedInjuries = In.UntreatedInjuries;
+	Out.treatedThisTime = In.bTreatedThisTime;
 	return Out;
 }
 

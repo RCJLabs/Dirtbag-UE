@@ -261,10 +261,19 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
     // Or nothing was wrong, and this is the burn where something goes. The
     // acute path: a cold crimp at your limit, one move, done. Warmth is
     // read from the session because the cold first burn is the classic.
+    // **What the joint has been through rides on this roll.** Cortisone
+    // in it and old scars on it both make the same crimp more likely to
+    // go, which is the whole of what "the body keeps score" means
+    // mechanically -- see Sim/DirtbagMedical.h.
+    const bool wasFine = !IsHurt(player.climber);
     TweakSomething(player.climber, worldRng, player.day,
                    day.session.attemptsMade, challenge, hardest,
                    day.session.warmth, BodyDials{}, AgeDials{},
-                   InjuryRiskMultiplier(player.character));
+                   InjuryRiskMultiplier(player.character) *
+                       BodyRisk(player.medical, player.day));
+    if (wasFine && IsHurt(player.climber)) {
+      StartComeback(player.medical, player.climber, player.day);
+    }
   }
 
   // Diminishing returns: the same session that builds a beginner barely
@@ -355,7 +364,22 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   BodyDay(player.climber, !day.atGym, AgeOn(player.day));
   // And the roll, on a day you actually pulled on. Never on a rest day:
   // tendons do not tear in a camp chair.
-  if (day.atGym) RollForInjury(player.climber, worldRng, player.day);
+  if (day.atGym) {
+    const bool wasFine = !IsHurt(player.climber);
+    RollForInjury(player.climber, worldRng, player.day);
+    if (wasFine && IsHurt(player.climber)) {
+      // A fresh one starts its comeback at stage one, undiagnosed. Here
+      // rather than inside `RollForInjury`, because `DirtbagBody` is
+      // engine-free of *this* too: it decides that you are hurt, and what
+      // you do about it is a different file.
+      StartComeback(player.medical, player.climber, player.day);
+    }
+  }
+
+  // The comeback's own clock, the scars fading, and the premium. Here with
+  // everything else that counts down at night.
+  MedicalDay(player.medical, player.climber, worldRng, player.day);
+  InsuranceDay(player.medical, player.cash, player.owed, player.day);
 
   // A day older. Nothing is subtracted before the relevant peak, so a
   // twenty-four-year-old is not quietly being taxed from day one.

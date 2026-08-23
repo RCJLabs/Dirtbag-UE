@@ -14,6 +14,7 @@
 #include "DirtbagTeam.h"
 #include "DirtbagWorldStage.h"
 #include "DirtbagLeague.h"
+#include "DirtbagMedical.h"
 #include "DirtbagRival.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
@@ -157,6 +158,13 @@ struct FDirtbagInjury
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Body")
 	int32 DaysLeft = 0;
+
+	/** **Who owns the clock.** False and `BodyDay` counts `DaysLeft` down;
+	 *  true and the staged comeback in Sim/DirtbagMedical.h is the
+	 *  authority. Two owners of one flag is how a career took 316
+	 *  cortisone shots. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Body")
+	bool bStaged = false;
 };
 
 USTRUCT(BlueprintType)
@@ -582,6 +590,123 @@ struct FDirtbagNationalTeam
 	/** When the committee last sat, in days. Once a year. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	int32 LastReviewDay = 0;
+};
+
+/** What you know about what is wrong. Mirrors dirtbag::Diagnosis. */
+UENUM(BlueprintType)
+enum class EDirtbagDiagnosis : uint8
+{
+	None    UMETA(DisplayName = "Unknown"),
+	Guessed UMETA(DisplayName = "Seen"),
+	Scanned UMETA(DisplayName = "Scanned"),
+};
+
+/** What you are doing about it. Mirrors dirtbag::Treatment. */
+UENUM(BlueprintType)
+enum class EDirtbagTreatment : uint8
+{
+	Rest      UMETA(DisplayName = "Rest"),
+	Physio    UMETA(DisplayName = "Physio"),
+	Cortisone UMETA(DisplayName = "Cortisone"),
+	Surgery   UMETA(DisplayName = "Surgery"),
+};
+
+/** Where you are in coming back. Mirrors dirtbag::Comeback. */
+UENUM(BlueprintType)
+enum class EDirtbagComeback : uint8
+{
+	Clear        UMETA(DisplayName = "Fine"),
+	Resting      UMETA(DisplayName = "Resting it"),
+	Mobility     UMETA(DisplayName = "Moving it"),
+	GradedReturn UMETA(DisplayName = "On the way back"),
+};
+
+/** A healed injury that did not heal clean. Mirrors dirtbag::Scar. */
+USTRUCT(BlueprintType)
+struct FDirtbagScar
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	EDirtbagInjuryKind Kind = EDirtbagInjuryKind::Pulley;
+
+	/** What it was worth on the day it was made. What it is worth now is
+	 *  a function of this and the date -- a value that ages is derived,
+	 *  not a field you keep editing. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	double Weight = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 FromDay = 0;
+};
+
+/** The medical file. Mirrors dirtbag::Medical -- what you know, what you
+ *  did, what it left behind, and whether you were covered. */
+USTRUCT(BlueprintType)
+struct FDirtbagMedical
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	EDirtbagDiagnosis Diagnosis = EDirtbagDiagnosis::None;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	EDirtbagTreatment Treatment = EDirtbagTreatment::Rest;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	EDirtbagComeback Stage = EDirtbagComeback::Clear;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 StageStarted = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 StageDays = 0;
+
+	/** **What you were told**, which is not always what is true. Zero
+	 *  when nobody has looked. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	double ToldSeverity = 0.0;
+
+	/** Permanent damage per joint, parallel to the injury kinds. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	TArray<double> Joints;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	TArray<int32> Shots;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	TArray<FDirtbagScar> Scars;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	bool bInsured = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 InsuredOnDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	double PremiumsPaid = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	double ClaimsPaid = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 Diagnoses = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 ShotsTaken = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 Surgeries = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 RushedComebacks = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	int32 UntreatedInjuries = 0;
+
+	/** Whether this injury ever got any care at all. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	bool bTreatedThisTime = false;
 };
 
 /** A running league. Mirrors dirtbag::League.
@@ -1579,6 +1704,11 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|World")
 	FDirtbagOlympics Olympics;
 
+	/** What is wrong with you, what you know about it, what you did, and
+	 *  what it left behind. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	FDirtbagMedical Medical;
+
 	/** The Wednesday night at the gym. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|League")
 	FDirtbagLeague League;
@@ -1850,6 +1980,8 @@ namespace DirtbagConvert
 	dirtbag::NationalTeam ToSim(const FDirtbagNationalTeam& In);
 	FDirtbagCircuit FromSim(const dirtbag::Circuit& In);
 	dirtbag::Circuit ToSim(const FDirtbagCircuit& In);
+	FDirtbagMedical FromSim(const dirtbag::Medical& In);
+	dirtbag::Medical ToSim(const FDirtbagMedical& In);
 	FDirtbagLeague FromSim(const dirtbag::League& In);
 	dirtbag::League ToSim(const FDirtbagLeague& In);
 	FDirtbagRankingResult FromSim(const dirtbag::RankingResult& In);

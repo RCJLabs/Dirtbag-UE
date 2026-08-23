@@ -108,7 +108,18 @@ double MoveEffective(const AttemptInput& input, const Move& move, int index,
   // of what to get on is the injury's actual gameplay.
   if (c.injury.active) {
     effective -= dials.injuryGradePenalty * c.injury.severity *
-                 InjuryBiteOn(c.injury.kind, move.hold);
+                 InjuryBiteOn(c.injury.kind, move.hold) *
+                 input.injuryStagePenalty;
+  }
+
+  // And what has already happened to you, which does not heal. A finger
+  // with four cortisone shots in it is a weaker finger on crimps and the
+  // same finger on slopers -- the same asymmetry an active injury uses,
+  // read across a whole career.
+  for (int j = 0; j < kInjuryKindCount; j++) {
+    if (input.jointDamage[j] <= 0.0) continue;
+    effective -= dials.jointTollGrade * input.jointDamage[j] *
+                 InjuryBiteOn(static_cast<InjuryKind>(j), move.hold);
   }
 
   // What you would hit, which is a different question on a rope than on a

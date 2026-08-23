@@ -14,6 +14,7 @@
 
 #include "DirtbagCharacter.h"
 #include "DirtbagCore.h"
+#include "DirtbagMedical.h"
 #include "DirtbagRng.h"
 #include "DirtbagSession.h"
 
@@ -153,7 +154,11 @@ AttemptInput BuildSessionAttemptInput(
     const SessionState& session, const ProjectMemory& memory,
     const Climber& climber, const Route& route, const Conditions& conditions,
     const std::vector<double>& execution = {}, double botExecution = 0.72,
-    const Character& who = Character{});
+    const Character& who = Character{},
+    // What the joints carry, which does not heal. Defaulted to a clean
+    // file, and a clean file is neutral, so every existing caller and
+    // every golden vector resolves exactly as it did.
+    const Medical& med = Medical{}, int day = 0);
 void CommitAttempt(SessionState& session, ProjectMemory& memory,
                    const Route& route, const AttemptResult& result,
                    const SessionLoopDials& loop = SessionLoopDials{});
@@ -169,6 +174,11 @@ AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
                                const std::vector<double>& execution = {},
                                double botExecution = 0.72,
                                const SessionDials& dials = SessionDials{},
-                               const SessionLoopDials& loop = SessionLoopDials{});
+                               const SessionLoopDials& loop = SessionLoopDials{},
+                               // Who you are, and what the joints carry.
+                               // Both neutral by default, so every existing
+                               // caller resolves exactly as it did.
+                               const Character& who = Character{},
+                               const Medical& med = Medical{}, int day = 0);
 
 }  // namespace dirtbag

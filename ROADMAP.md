@@ -695,7 +695,7 @@ Phase 6's zone graph and a blockout, not this phase's problem.
 
 ---
 
-## Phase 10 — The Body Keeps Score
+## Phase 10 — The Body Keeps Score   ⚠️ FOUR GATES PASS 2026-08-23; ONE PASS OF CONTENT LEFT
 
 §4 ports *"injury + physio + aging"* as one line, and the port is that line:
 you get hurt, you buy days back, you heal. The 2D game has the rest of it —
@@ -711,14 +711,34 @@ This phase is the one where money buying climbing back stops being a single
 purchase and becomes a decision tree, which is exactly what Phase 3's
 restated gate wanted and got only narrowly.
 
+**Built 2026-08-23** (`Sim/DirtbagMedical`, SAVE v30). Write-up:
+`notes/phase10-the-body-keeps-score.md`. One sentence carries it: **an
+injury hides its grade until you pay to look at it.** Three clocks — the
+staged comeback that advances because you say so, the joint that carries
+what you did to it, and the policy you either bought before you needed it
+or did not.
+
 **Done when:**
-1. Getting hurt presents a decision with a wrong answer, not a wait.
+1. Getting hurt presents a decision with a wrong answer, not a wait. —
+   **passes.** Three diagnosis tiers, and the physio's guess is *not always
+   right*; then rest, physio, the shot, or the knife.
 2. A career can be shortened by choices made while injured — measured across
-   thirty years, against a control that always chooses well.
+   thirty years, against a control that always chooses well. — **passes.**
+   Sends over five seeds: 23/23, 29/25, **24/5**, 25/22, 20/14, sensible
+   against impatient. Never better, and at west-9 destroyed. The impatient
+   climber is hurt for *fewer* days and ends with a body 2.6× as likely to
+   break.
 3. Insurance is a real bet: buying it is wrong often enough to hurt and
-   right often enough to matter.
+   right often enough to matter. — **passes.** $6,250 of premiums over
+   thirty years against measured claims of $816 (lucky) to $8,704
+   (unlucky).
 4. The undertreated path exists and is reachable by being poor, not by
-   choosing it.
+   choosing it. — **passes**, and it is the sharpest of the four: a career
+   that *tries* to scan everything spends **$0 in thirty years uninsured**,
+   because it can never afford $340 at the moment it is needed.
+
+**Left for a second pass**, none of it load-bearing for the gates above:
+sickness, the dental clock, prehab, meds, the shrink.
 
 ---
 
@@ -812,6 +832,8 @@ it, being the same system's low end.
 ---
 
 ## Changelog
+
+- 2026-08-23 - **Phase 10 pass 1: the body keeps score** (`Sim/DirtbagMedical.*`, SAVE v30). Phase 3's injury was a wait with a price tag -- eleven days, physio buys six back, nothing to decide. This is the rest of it, and it turns on one sentence: **an injury hides its grade until you pay to look at it.** A climber with a sore finger does not know whether it is three weeks or three months; they know it hurts. Every decision is made without the number, and the number is exactly what would make the decision easy -- so the sim keeps the severity and hands the player a description, and buying the number is itself the first decision. Three tiers of it: guess blind, a physio's hands at $60 (close, and **not always right** -- the error is the whole fog), or the machine at $340 (exact, and the only thing that unlocks an operation, because nobody operates on a guess). Then three clocks. **The comeback is staged** -- resting, mobility, a graded return -- and it advances because you say so rather than because a timer ran out: waiting a stage out is never a gamble, pushing on early is, and the odds get worse the earlier you go. **The joint carries what you did to it**: cortisone ends the acute stage outright and marks the joint permanently, scars flare for the rest of a career and fade slowly and never to nothing, and surgery is the only thing that takes damage back off. **The policy** you either bought before you needed it or did not. All four gates pass, measured over thirty years against a control: sends came out 23/23, 29/25, **24/5**, 25/22 and 20/14 for sensible against impatient across five seeds -- never better, and at one seed the career is destroyed. The impatient climber is hurt for *fewer* days, because they come back early and take the shot, and ends with a body 2.6 times as likely to break and a fifth of the sends: **the cost is deferred, not avoided.** Insurance came out at $6,250 of premiums over thirty years against claims of $816 on a lucky body and $8,704 on an unlucky one -- right on the career that got hurt a lot and a slow expensive mistake on the one that did not. It was $26 a fortnight first, which is $20,332 against a maximum measured claim of $8,976: never right in any seed, which is not a bet, it is a tax with a story. And the undertreated path turned out to be the sharpest of the four: a career earns about $7,200 a year and ends thirty years of it with $159 in the tin, so **a policy that tries to scan every injury spends $0 in thirty years uninsured** -- it can never afford $340 at the moment it is needed -- and goes untreated on all forty-one of them. **Insurance is what puts real medicine within reach of a dirtbag**, which is the truest thing this phase says and fell out of the measurement rather than being designed in. The bug of the phase took three findings to kill and it is **two owners of one flag**: `BodyDay` counts an injury down and clears it, and the staged comeback is a second clock over the same flag. The probe found it three times in an afternoon, each louder -- **316 cortisone shots and 10,696 hurt days out of 10,950**, then **294 surgeries out of one injury** once a career had money, then a climber who clicked through the last stage coming out the other side still flagged hurt. Fixed by `Injury::staged` naming the owner, one `FinishInjury` that is the only place an injury ends, and one treatment per injury. **None of the three had a test until the probe found them, and two of the three reintroductions initially passed**: the flag was untested, and `rushedComebacks` is reset by the heal so a test reading it afterwards reads zero either way -- pinned now on the *scar*, which is where the difference is observable. Also fixed: scars faded geometrically, because the nightly fade read the weight it had just written and the floor, being a fraction of the current value, collapsed with it -- **a value that ages is a function of the date, not a field you keep editing**, the same lesson as the ranking one phase ago, in a different file, within a day. And `StagePenalty` was written, tested and never called, so the graded return was not graded, it was a longer wait with a nicer name; the checker caught it. preflight green on all twelve; probe coverage 134 sim rules to 142.
 
 - 2026-08-23 - **Phase 9 pass 5: the ladder is a ladder** (`Sim/DirtbagLeague.*`, SAVE v28 and v29). Three pieces, and the first was a bug the fourth pass's probe had already measured: **the ranking was a ramp with no top.** A ten-year career peaked at **14,633 points against a top tier of 2,200**, which made two of this phase's five gates false -- a career could not fail to reach the Games, and a grade-6 climber parked at National tier won **none of 247 comps** while the ranking said they belonged there. Three causes and one idea behind all of them: **a placing was worth the same wherever and whenever you got it.** The curve was linear in how many people you beat, so fifth of nine paid fifty -- half a win, for beating nobody; points accumulated forever, so a rung cleared once was cleared for life; and a gym podium paid exactly what a National podium paid. Now: top-weighted like every real ranking table, a **rolling twelve-month record** rather than a total, and weighted by which room you were in (0.30 / 0.65 / 1.00, set so the rungs land on the 2D game's own thresholds over a year of turning up). Measured after: it peaks at 1,348 and settles at 672-1,023, **flat across ten years and thirty**, which is what a rolling window is supposed to do. `rankingPoints` is derived now, and a direct write survives exactly one morning -- the first version of the season test did that and the night tick caught it before any engine code could. The same measurement fixed the **selection committee sitting fifty times in ten years**: pass 3 put the review on the domestic season on the grounds that a season is the unit a committee works in, right about the unit and wrong about the length, because a season is seventy-three days. Once a year now, refused rather than deferred, and $900 a year rather than "$180 a season" paid five times -- the same money on an honest label. **Quals, semi, final** at Regional and above: six out of qualification, four out of the semi, a four-problem five-go final, and two things carry it -- **the score does not carry** (going through replaces the board with a fresh five half a grade up) and **the cut is read** (`Settle` skips anybody who went home, or a semi produces the qualification table again). Being eliminated is a result and not an error: out in qualification is a different day from finishing last in a final. **Leagues** are the other end of the same system: five dollars, ten goes, six named regulars, eight-week blocks, and **no ranking points at all** -- a comp is a day with a result and a league is a habit with a number, and what you chase is your own best score, which only goes up and which nobody can take off you. Both of its flaws were found by the probe in an afternoon and both were the league borrowing the comp's arithmetic without its meaning: the regulars took a flat 20-50 for turning up while the player took a hundred for a win, so the probe won **sixty-five blocks out of sixty-five**; and the personal best, priced relative to the board like a comp's, was **identical every week however good you got** -- two personal bests in five hundred and nineteen nights. The block table is fed from the scorecard now on one curve for everybody, the same fix and the same sentence as the World Cup's table two passes ago, and the league board is its own object -- a wide spread priced by the absolute grade of each problem -- so it rises with you and so does the number. Sixteen blocks of sixty-four and about one personal best a year. Also removed: **a guard that could not fire.** `out.won = place == 1 && yourPoints > 0` looked like the zero-tie rule and was not -- `LeagueTable` already sorts a climber on nothing behind everybody else on nothing -- so deleting it failed no test and changed no outcome. Second time this project has found one, and the rule is tested where it lives now. Three name collisions in one week (`WorldCupVenue`, `LeagueRegular`, and five `LeagueDials` fields shadowing `CompDials`), all the shape of `RivalDials::startAge`: a deliberate difference is indistinguishable from a drifted number until the name says so. preflight green on all twelve; probe coverage 103 sim rules at the start of the day, 134 now.
 

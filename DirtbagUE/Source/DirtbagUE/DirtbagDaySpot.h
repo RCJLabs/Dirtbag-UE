@@ -231,6 +231,14 @@ private:
 	 *  signing has one: E is for buying rubber. */
 	void OnPhysio();
 
+	// The care counter. Each of these is a decision with a wrong answer --
+	// see Sim/DirtbagMedical.h for which answer is wrong and why.
+	void OnLookAtIt();
+	void OnTakeTheShot();
+	void OnOperate();
+	void OnPushOn();
+	void OnCover();
+
 	/** The gym membership, at the counter. */
 	void OnMembership();
 

@@ -295,6 +295,42 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // inside the week, which is where a career starts anyway. **The personal
 // best starts at nothing**, exactly, because it is a record of nights you
 // climbed and a migrated career climbed none.
+// v29 -> v30: the medical file. A v29 career had an injury and a day
+// count and nothing else -- no diagnosis, no comeback, no joints, no
+// scars, no policy. It arrives with none of those, and **a career that was
+// mid-injury when it was saved keeps the injury**: `MedicalDay` finds a
+// hurt climber with no comeback running and starts one, which is exactly
+// the case that guard exists for.
+//
+// The joints start clean. That is generous and it is the only honest
+// option: a v29 save has no record of what its cortisone history was,
+// because there was none, and inventing one would be inventing a career.
+void MigrateV29ToV30(SaveFields& fields) {
+  fields["med.diagnosis"] = "0";
+  fields["med.treatment"] = "0";
+  fields["med.stage"] = "0";
+  fields["med.stagestart"] = "0";
+  fields["med.stagedays"] = "0";
+  fields["med.told"] = "0";
+  fields["med.joints"] = "0";
+  fields["med.scars"] = "0";
+  fields["med.insured"] = "0";
+  fields["med.insuredon"] = "0";
+  fields["med.premiums"] = "0";
+  fields["med.claims"] = "0";
+  fields["med.diagnoses"] = "0";
+  fields["med.shots"] = "0";
+  fields["med.surgeries"] = "0";
+  fields["med.rushed"] = "0";
+  fields["med.untreated"] = "0";
+  fields["med.treated"] = "0";
+  // A v29 injury was counted down by `BodyDay` and nothing else, which is
+  // exactly what `staged == 0` means -- so the migration is the truth here
+  // rather than a default, and the injury keeps ticking as it always did
+  // until the medical tick takes it over.
+  fields["med.staged"] = "0";
+}
+
 void MigrateV28ToV29(SaveFields& fields) {
   fields["league.next"] = "0";
   fields["league.block"] = "1";
@@ -441,7 +477,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21,
       &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24,
       &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27,
-      &MigrateV27ToV28, &MigrateV28ToV29};
+      &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30};
   return kMigrations;
 }
 
@@ -668,6 +704,47 @@ std::string SerializeSave(const SaveGame& save) {
         out << k << "d=" << IntToStr(rr[i].day) << "\n";
         out << k << "p=" << NumToStr(rr[i].points) << "\n";
       }
+
+      const Medical& mm = save.player.medical;
+      out << "med.diagnosis=" << IntToStr(static_cast<int>(mm.diagnosis))
+          << "\n";
+      out << "med.treatment=" << IntToStr(static_cast<int>(mm.treatment))
+          << "\n";
+      out << "med.stage=" << IntToStr(static_cast<int>(mm.stage)) << "\n";
+      out << "med.stagestart=" << IntToStr(mm.stageStarted) << "\n";
+      out << "med.stagedays=" << IntToStr(mm.stageDays) << "\n";
+      out << "med.told=" << NumToStr(mm.toldSeverity) << "\n";
+      out << "med.joints=" << IntToStr(kInjuryKindCount) << "\n";
+      for (int i = 0; i < kInjuryKindCount; i++) {
+        out << "med.joint" << IntToStr(i) << "=" << NumToStr(mm.joints[i])
+            << "\n";
+        out << "med.shot" << IntToStr(i) << "=" << IntToStr(mm.shots[i])
+            << "\n";
+      }
+      out << "med.scars=" << IntToStr(static_cast<int>(mm.scars.size()))
+          << "\n";
+      for (std::size_t i = 0; i < mm.scars.size(); i++) {
+        const std::string k = "med.scar" + IntToStr(static_cast<int>(i));
+        out << k << "k=" << IntToStr(static_cast<int>(mm.scars[i].kind))
+            << "\n";
+        out << k << "w=" << NumToStr(mm.scars[i].weight) << "\n";
+        out << k << "d=" << IntToStr(mm.scars[i].fromDay) << "\n";
+      }
+      out << "med.insured=" << IntToStr(mm.insured ? 1 : 0) << "\n";
+      out << "med.insuredon=" << IntToStr(mm.insuredOnDay) << "\n";
+      out << "med.premiums=" << NumToStr(mm.premiumsPaid) << "\n";
+      out << "med.claims=" << NumToStr(mm.claimsPaid) << "\n";
+      out << "med.diagnoses=" << IntToStr(mm.diagnoses) << "\n";
+      out << "med.shots=" << IntToStr(mm.shotsTaken) << "\n";
+      out << "med.surgeries=" << IntToStr(mm.surgeries) << "\n";
+      out << "med.rushed=" << IntToStr(mm.rushedComebacks) << "\n";
+      out << "med.untreated=" << IntToStr(mm.untreatedInjuries) << "\n";
+      out << "med.treated=" << IntToStr(mm.treatedThisTime ? 1 : 0) << "\n";
+      // **Who owns the injury clock**, and losing it is not cosmetic: a
+      // loaded save would hand a staged comeback back to `BodyDay`, which
+      // would count it down underneath the stages and clear it early.
+      out << "med.staged="
+          << IntToStr(save.player.climber.injury.staged ? 1 : 0) << "\n";
 
       const League& lg = save.player.league;
       out << "league.next=" << IntToStr(lg.nextNight) << "\n";
@@ -913,7 +990,9 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         fas = 0, pastCount = 0, raceFa = 0, circuitDates = 0,
         circuitFields = 0, teamStatus = 0, teamEver = 0, teamMates = 0,
         teamGone = 0, wcRounds = 0, wcFields = 0, wcClosed = 0,
-        rankResults = 0, leagueFields = 0;
+        rankResults = 0, leagueFields = 0, medDiag = 0, medTreat = 0,
+        medStage = 0, medJoints = 0, medScars = 0, medInsured = 0,
+        medTreated = 0, medStaged = 0;
     if (!ParseString(fields, "rival.name", rv.name) ||
         !ParseInt(fields, "rival.style", style) ||
         !ParseInt(fields, "rival.vibe", vibe) ||
@@ -982,6 +1061,34 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseInt(fields, "league.lastnight",
                   save.player.league.lastClimbedNight) ||
         !ParseInt(fields, "league.fields", leagueFields) ||
+        !ParseInt(fields, "med.diagnosis", medDiag) ||
+        !ParseInt(fields, "med.treatment", medTreat) ||
+        !ParseInt(fields, "med.stage", medStage) ||
+        !ParseInt(fields, "med.stagestart",
+                  save.player.medical.stageStarted) ||
+        !ParseInt(fields, "med.stagedays", save.player.medical.stageDays) ||
+        !ParseDouble(fields, "med.told",
+                     save.player.medical.toldSeverity) ||
+        !ParseInt(fields, "med.joints", medJoints) ||
+        !ParseInt(fields, "med.scars", medScars) ||
+        !ParseInt(fields, "med.insured", medInsured) ||
+        !ParseInt(fields, "med.insuredon",
+                  save.player.medical.insuredOnDay) ||
+        !ParseDouble(fields, "med.premiums",
+                     save.player.medical.premiumsPaid) ||
+        !ParseDouble(fields, "med.claims",
+                     save.player.medical.claimsPaid) ||
+        !ParseInt(fields, "med.diagnoses",
+                  save.player.medical.diagnoses) ||
+        !ParseInt(fields, "med.shots", save.player.medical.shotsTaken) ||
+        !ParseInt(fields, "med.surgeries",
+                  save.player.medical.surgeries) ||
+        !ParseInt(fields, "med.rushed",
+                  save.player.medical.rushedComebacks) ||
+        !ParseInt(fields, "med.untreated",
+                  save.player.medical.untreatedInjuries) ||
+        !ParseInt(fields, "med.treated", medTreated) ||
+        !ParseInt(fields, "med.staged", medStaged) ||
         !ParseInt(fields, "og.next", save.player.olympics.nextDay) ||
         !ParseInt(fields, "og.appearances",
                   save.player.olympics.appearances) ||
@@ -1045,6 +1152,37 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         return LoadResult::BadFormat;
       }
       save.player.circuit.fieldPoints.push_back(p);
+    }
+
+    save.player.medical.diagnosis =
+        static_cast<Diagnosis>(pick(medDiag, kDiagnosisCount));
+    save.player.medical.treatment =
+        static_cast<Treatment>(pick(medTreat, kTreatmentCount));
+    save.player.medical.stage =
+        static_cast<Comeback>(pick(medStage, kComebackCount));
+    save.player.medical.insured = medInsured != 0;
+    save.player.medical.treatedThisTime = medTreated != 0;
+    save.player.climber.injury.staged = medStaged != 0;
+    for (int i = 0; i < medJoints && i < kInjuryKindCount; i++) {
+      if (!ParseDouble(fields, "med.joint" + IntToStr(i),
+                       save.player.medical.joints[i]) ||
+          !ParseInt(fields, "med.shot" + IntToStr(i),
+                    save.player.medical.shots[i])) {
+        return LoadResult::BadFormat;
+      }
+    }
+    save.player.medical.scars.clear();
+    for (int i = 0; i < medScars; i++) {
+      const std::string k = "med.scar" + IntToStr(i);
+      Scar s;
+      int kind = 0;
+      if (!ParseInt(fields, k + "k", kind) ||
+          !ParseDouble(fields, k + "w", s.weight) ||
+          !ParseInt(fields, k + "d", s.fromDay)) {
+        return LoadResult::BadFormat;
+      }
+      s.kind = static_cast<InjuryKind>(pick(kind, kInjuryKindCount));
+      save.player.medical.scars.push_back(s);
     }
 
     save.player.league.fieldPoints.clear();

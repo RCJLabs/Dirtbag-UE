@@ -57,6 +57,10 @@ struct Tally {
   int compsEntered = 0, compWins = 0, compPodiums = 0;
   double rankingPeak = 0.0;
   double rankingEnd = 0.0;   // where it settles, which is the real number
+  // The medical file, over a career.
+  int diagnoses = 0, shots = 0, surgeries = 0, rushed = 0, untreated = 0;
+  double medicalSpend = 0.0;
+  double premiums = 0.0, claims = 0.0;
   int roundsClimbed = 0, finalsReached = 0;
   int leagueNights = 0, leaguePBs = 0;
   int teamSeasons = 0;
@@ -292,6 +296,35 @@ int main(int argc, char** argv) {
   // -- at zero this is stakeout, and every dollar above it is bought with
   // days that could have been climbing.
   const double savingsTarget = argc > 12 ? std::atof(argv[12]) : 20000.0;
+
+  // **Arg 13: how this climber handles being hurt.** Orthogonal to the
+  // climbing policy on purpose -- Phase 10's second gate asks whether a
+  // career can be *shortened by choices made while injured*, and the only
+  // way to answer it is two careers that climb identically and differ only
+  // here.
+  //
+  //   "sensible"  -- sees somebody, rests every stage out, never the shot.
+  //   "impatient" -- never pays to look, takes the shot the moment it is
+  //                  offered, and comes back the day after.
+  //   "" (default) -- neither: the injury runs its own course, which is
+  //                  what every measurement before this phase assumed.
+  //
+  // Add "-ins" to any of them to carry a policy. **Orthogonal on purpose
+  // too**: the third gate asks whether insurance is a real bet, and a bet
+  // can only be measured against the same career without it.
+  const std::string medPolicy = argc > 13 ? argv[13] : "";
+  const auto has = [&medPolicy](const char* what) {
+    return medPolicy.find(what) != std::string::npos;
+  };
+  // "careful" is `sensible` with money behind it: a scan every time, and
+  // the operation when the scan says it is that bad. **The only policy
+  // that uses the expensive end of the medical system**, and therefore the
+  // only one against which insurance can be a bet at all.
+  const bool medCareful = has("careful");
+  const bool medSensible = has("sensible") || medCareful;
+  const bool medImpatient = has("impatient");
+  const bool medInsured = has("-ins");
+  const bool medUninsured = !medInsured;
   // `dreamer` is `hoarder` that actually spends what it saved, the moment
   // it can. The whole question the design rests on: does buying the thing
   // hurt, or is a dream just a number going up?
@@ -587,6 +620,49 @@ int main(int argc, char** argv) {
       t.rankingEnd = player.rankingPoints;
     }
 
+    // **What you do about being hurt, before anything else about the
+    // day.** Phase 10's whole point is that this is a decision and not a
+    // wait, so it is taken here where the other decisions are.
+    if (IsHurt(player.climber) && (medSensible || medImpatient)) {
+      const MedicalDials mdl;
+      const double before = player.cash;
+      if (medSensible) {
+        // See somebody, then rest every stage out to the day.
+        const Diagnosis want =
+            medCareful ? Diagnosis::Scanned : Diagnosis::Guessed;
+        if (static_cast<int>(player.medical.diagnosis) <
+            static_cast<int>(want)) {
+          Diagnose(player.medical, player.climber, player.cash, want, world,
+                   player.day, mdl);
+        }
+        // And the operation, when the scan says it is that bad. Nobody
+        // operates on a guess, so this arm only exists for `careful`.
+        if (medCareful) {
+          HaveSurgery(player.medical, player.climber, player.cash,
+                      player.day, mdl);
+        }
+        if (StageIsDone(player.medical, player.day)) {
+          NextStage(player.medical, player.climber, world, player.day, mdl);
+        }
+      } else {
+        // Never pay to look. Take the shot the moment it is offered, and
+        // come back the day after whatever anybody says.
+        if (player.medical.stage == Comeback::Resting &&
+            player.cash >= mdl.cortisoneCost) {
+          TakeTheShot(player.medical, player.climber, player.cash,
+                      player.day, mdl);
+        }
+        NextStage(player.medical, player.climber, world, player.day, mdl);
+      }
+      t.medicalSpend += before - player.cash;
+    }
+    if (medInsured && !player.medical.insured) {
+      BuyInsurance(player.medical, player.climber, player.day);
+    }
+    if (medUninsured && player.medical.insured) {
+      CancelInsurance(player.medical);
+    }
+
     // The body, before anything is decided. Being hurt is the first thing
     // you know about a day, not a thing you discover at the crag.
     const bool hurt = IsHurt(player.climber);
@@ -822,7 +898,9 @@ int main(int argc, char** argv) {
           while (today.session.skinLeft > 0.5 && today.hour < 21.0) {
             const AttemptResult r =
                 AttemptInSession(session, today.session, mem, body, *pick,
-                                 Conditions{});
+                                 Conditions{}, {}, 0.72, SessionDials{},
+                                 SessionLoopDials{}, player.character,
+                                 player.medical, player.day);
             ApplyAttemptToDay(player, today, *pick, r, world, dd);
             t.burns++;
             t.movesClimbed += static_cast<int>(r.timeline.size());
@@ -918,7 +996,9 @@ int main(int argc, char** argv) {
           // burn against the session, then let the day pay for it.
           const AttemptResult r =
               AttemptInSession(session, today.session, mem, body, line->route,
-                               cond);
+                               cond, {}, 0.72, SessionDials{},
+                               SessionLoopDials{}, player.character,
+                               player.medical, player.day);
           ApplyAttemptToDay(player, today, line->route, r, world, dd);
           t.burns++;
           burnsToday++;
@@ -1123,6 +1203,13 @@ int main(int argc, char** argv) {
     WeatherProjects(player, fd);
     if (today.hunger > dd.starvingHunger) t.starvedNights++;
 
+    t.diagnoses = player.medical.diagnoses;
+    t.shots = player.medical.shotsTaken;
+    t.surgeries = player.medical.surgeries;
+    t.untreated = player.medical.untreatedInjuries;
+    t.premiums = player.medical.premiumsPaid;
+    t.claims = player.medical.claimsPaid;
+
     t.cashLow = std::min(t.cashLow, player.cash);
     t.cashHigh = std::max(t.cashHigh, player.cash);
     // Read off the season rather than accumulated, because these are the
@@ -1269,7 +1356,9 @@ int main(int argc, char** argv) {
          "\trounds\tfinals\tleaguenights\tleaguepbs\tleaguebest"
          "\tleaguewins"
          "\twcstarts\twcmissed\twcpods\twcwins\twctitles"
-         "\tgames\tmedals\n");
+         "\tgames\tmedals"
+         "\tdiagnoses\tshots\tsurgeries\tuntreated\tmedspend"
+         "\tpremiums\tclaims\tjointrisk\tscars\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -1277,7 +1366,8 @@ int main(int argc, char** argv) {
          "\t%d\t%d\t%d\t%.0f\t%.0f\t%d\t%d\t%d"
          "\t%d\t%d\t%.0f\t%d"
          "\t%d\t%d\t%d\t%d\t%d"
-         "\t%d\t%d\n",
+         "\t%d\t%d"
+         "\t%d\t%d\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.3f\t%d\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -1320,7 +1410,10 @@ int main(int argc, char** argv) {
          t.rankingEnd, t.teamSeasons, t.roundsClimbed, t.finalsReached,
          t.leagueNights, t.leaguePBs, player.league.best,
          player.league.blockWins, t.wcStarts, t.wcMissed, t.wcPodiums, t.wcWins,
-         t.wcTitles, t.gamesEntered, t.medals);
+         t.wcTitles, t.gamesEntered, t.medals,
+         t.diagnoses, t.shots, t.surgeries, t.untreated, t.medicalSpend,
+         t.premiums, t.claims, BodyRisk(player.medical, player.day),
+         static_cast<int>(player.medical.scars.size()));
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

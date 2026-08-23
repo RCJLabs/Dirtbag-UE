@@ -107,6 +107,14 @@ struct SessionDials {
   // shape what you get on rather than decide it. Mirrors GearDials so the
   // resolver and the shop agree; the numbers live there.
   double deadShoeGradePenalty = 1.1;
+
+  // **What a wrecked joint costs, in grade units, on the holds it serves.**
+  // Sized against the shoe: dead rubber is 1.1 and a joint you have had
+  // four cortisone shots in should be worse than bad shoes and not as bad
+  // as being currently injured (2.6). It is also permanent, which is the
+  // whole point -- this is the number that makes a career shortenable by
+  // choices made while hurt.
+  double jointTollGrade = 1.6;
   double shoeBiteOnGoodHolds = 0.3;
 
   // Climbing above bare ground, in grade units, at the top of a line. Under
@@ -223,6 +231,27 @@ struct AttemptInput {
   // resolver's `nerve`, which is otherwise head mapped off fifty. Zero for
   // anybody without a temperament, so the golden vectors are untouched.
   double boldness = 0.0;
+  // **What the joints carry, forever**, 0..1 per joint and parallel to
+  // `InjuryKind`. Cortisone in a finger and old scars on it both make that
+  // finger a weaker finger, small and permanent and only where it bites --
+  // exactly like an active injury, but for the rest of the career rather
+  // than for a month. See Sim/DirtbagMedical.h.
+  //
+  // Zero for anybody nothing has happened to, so every caller that has not
+  // heard of it -- the golden vectors included -- resolves exactly as it
+  // always did.
+  double jointDamage[kInjuryKindCount] = {0.0, 0.0, 0.0, 0.0};
+
+  // **What the current stage of the comeback costs**, as a multiplier on
+  // the injury penalty. One while you are resting it, about a third on a
+  // graded return -- which is what makes the last stage *climbing* rather
+  // than a longer wait, and it is the whole reason the comeback is staged
+  // instead of timed. See Sim/DirtbagMedical.h.
+  //
+  // One by default, so a caller that has never heard of the medical file
+  // -- the golden vectors included -- resolves exactly as it always did.
+  double injuryStagePenalty = 1.0;
+
   // Per-move minigame quality, 0..1. Missing entries fall back to botExecution.
   std::vector<double> execution;
   double botExecution = 0.72;

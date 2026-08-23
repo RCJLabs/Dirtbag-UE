@@ -803,6 +803,73 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|World")
 	bool EnterTheGames();
 
+	// --- what is wrong with you ------------------------------------------
+	//
+	// Phase 3's injury was a wait with a price tag. This is the rest of it,
+	// and the shape is one sentence: **an injury hides its grade until you
+	// pay to look at it.** The rules live in Sim/DirtbagMedical.h, where
+	// they can be tested; these are the doors onto them.
+
+	/** What you can say about it, which depends on what you have paid to
+	 *  know. Deliberately vague until you have -- that is the mechanic,
+	 *  not a missing string. Empty when nothing is wrong. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Medical")
+	FString MedicalLine() const;
+
+	/** What the joints have been through. Empty when nothing has. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Medical")
+	FString BodyHistoryLine() const;
+
+	/** What a treatment costs you today, after cover. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Medical")
+	double PriceOf(EDirtbagTreatment What) const;
+
+	/** And what finding out costs: the hands, or the machine. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Medical")
+	double PriceOfLook(bool bScan) const;
+
+	/** Pay somebody to feel it. Cheap, close, and not always right. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Medical")
+	bool SeeSomebody();
+
+	/** Pay for the machine. Exact, expensive, and the only thing that
+	 *  unlocks an operation. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Medical")
+	bool GetItScanned();
+
+	/** The shot. Works now; marks the joint forever. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Medical")
+	bool TakeTheShot();
+
+	/** The operation. Needs a scan and a bad enough injury. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Medical")
+	bool BookTheSurgery();
+
+	/** Move to the next stage of the comeback. **The decision with a wrong
+	 *  answer**: early is a gamble, and the chance rises with how early. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Medical")
+	bool PushOn();
+
+	/** Is the current stage actually done? Only honest to show the player
+	 *  when they have paid to know -- see `MedicalLine`. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Medical")
+	bool ComebackStageIsDone() const;
+
+	/** Take out a policy, or drop it. Refused while you are hurt. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Medical")
+	bool BuyInsurance();
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Medical")
+	void CancelInsurance();
+
+	/** What the policy has cost and what it has paid back. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Medical")
+	FString InsuranceLine() const;
+
+	/** A comeback stage passed, a setback, a scar. Said once. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
+	FString MedicalNews;
+
 	// --- the league ----------------------------------------------------
 	//
 	// The other end of the same system. Five dollars, ten goes, no ranking
