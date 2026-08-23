@@ -235,6 +235,12 @@ private:
 	// see Sim/DirtbagMedical.h for which answer is wrong and why.
 	void OnLookAtIt();
 	void OnTakeSomething();
+
+	// Held while a gig's number is pressed: do the shift properly. See
+	// Sim/DirtbagCraft.h for what that costs when you cannot.
+	void OnHardWayDown();
+	void OnHardWayUp();
+	bool bHoldingTheHardWay = false;
 	void OnTooth();
 	void OnShrink();
 	void OnPrehab();

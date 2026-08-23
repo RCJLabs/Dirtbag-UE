@@ -65,6 +65,10 @@ struct Tally {
   double premiums = 0.0, claims = 0.0;
   int roundsClimbed = 0, finalsReached = 0;
   int leagueNights = 0, leaguePBs = 0;
+  // The trades.
+  int momentsTaken = 0, momentsBotched = 0, momentsDucked = 0, sackings = 0;
+  double bestCraft = 0.0;
+  std::string trade;
   int teamSeasons = 0;
   int wcStarts = 0, wcMissed = 0, wcPodiums = 0, wcWins = 0, wcTitles = 0;
   int gamesEntered = 0, medals = 0;
@@ -326,6 +330,13 @@ int main(int argc, char** argv) {
   // meds when ill, and the tooth dealt with while it is still a filling.
   // **Its own flag because it is its own question** -- gate 2 asks about
   // choices made *while injured*, and these are choices made before.
+  // "-hard" answers every shift's decision the hard way, whether or not
+  // the craft is there. **Its own flag because gate three needs it**: a
+  // policy that only reaches when it can reach never botches, never loses
+  // standing and is never sacked -- so the sacking is testable in the
+  // harness and unreachable in a played career, which is the same as not
+  // existing.
+  const bool workHard = has("-hard");
   const bool medUpkeep = has("-up");
   const bool medCareful = has("careful");
   const bool medSensible = has("sensible") || medCareful;
@@ -828,7 +839,19 @@ int main(int argc, char** argv) {
         if (best) {
           // Earned is what the gig paid, not what reached the pocket —
           // debt takes its cut first and that is not lost income.
-          if (WorkOddJob(player, today, *best, dd)) {
+          // **The hard way when the trade can carry it**, which is the
+          // whole decision: reaching past your craft is how you botch it,
+          // and the easy answer is always there and never gets you
+          // anywhere. A probe that always ducked would measure a game
+          // nobody plays.
+          const ShiftMoment moment =
+              MomentOnShift(CraftForGig(best->name), world, player.day);
+          const bool goForIt =
+              moment.happened &&
+              (workHard ||
+               player.hand.skill[static_cast<int>(moment.craft)] >=
+                   moment.needs);
+          if (WorkOddJob(player, today, *best, world, goForIt, dd)) {
             t.earned += best->pay;
             t.daysWorked++;
             note = "gig";
@@ -1261,6 +1284,11 @@ int main(int argc, char** argv) {
     t.premiums = player.medical.premiumsPaid;
     t.claims = player.medical.claimsPaid;
 
+    t.momentsTaken = player.hand.momentsTaken;
+    t.momentsBotched = player.hand.momentsBotched;
+    t.momentsDucked = player.hand.momentsDucked;
+    t.sackings = player.hand.sackings;
+
     t.cashLow = std::min(t.cashLow, player.cash);
     t.cashHigh = std::max(t.cashHigh, player.cash);
     // Read off the season rather than accumulated, because these are the
@@ -1411,7 +1439,8 @@ int main(int argc, char** argv) {
          "\tdiagnoses\tshots\tsurgeries\tuntreated\tmedspend"
          "\tpremiums\tclaims\tjointrisk\tscars"
          "\tsickdays\ttimesill\tmeds\tprehab\ttoothdays\ttoothfixes"
-         "\tworsttooth\n");
+         "\tworsttooth"
+         "\tmoments\tbotched\tducked\tsackings\tbestcraft\ttrade\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -1421,7 +1450,8 @@ int main(int argc, char** argv) {
          "\t%d\t%d\t%d\t%d\t%d"
          "\t%d\t%d"
          "\t%d\t%d\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.3f\t%d"
-         "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
+         "\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
+         "\t%d\t%d\t%d\t%d\t%.0f\t%s\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -1469,7 +1499,16 @@ int main(int argc, char** argv) {
          t.premiums, t.claims, BodyRisk(player.medical, player.day),
          static_cast<int>(player.medical.scars.size()),
          t.sickDays, t.timesIll, t.medsTaken, t.prehabDays, t.toothDays,
-         t.toothFixes, t.worstTooth);
+         t.toothFixes, t.worstTooth,
+         t.momentsTaken, t.momentsBotched, t.momentsDucked, t.sackings,
+         [&] {
+           double best = 0.0;
+           for (int i = 1; i < kCraftCount; i++) {
+             best = std::max(best, player.hand.skill[i]);
+           }
+           return best;
+         }(),
+         CraftName(YourTrade(player.hand)));
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

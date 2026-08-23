@@ -314,6 +314,24 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // is why `teeth.since` is zero -- the first night after the migration is
 // the first roll, and a career twenty years in does not wake up with an
 // abscess it has been carrying invisibly.
+// v31 -> v32: the trades. A v31 career worked plenty of shifts and got
+// no better at any of them, because there was nothing to get better at.
+//
+// **It arrives with nothing, and that is exact rather than harsh.** Back-
+// filling a craft from `job.daysWorked` would be inventing a trade: the
+// save records how many days were worked and not one word about what the
+// work *was*, so any number here would be a guess wearing a fact's coat.
+// A career that has been washing dishes for ten years starts learning to
+// wash dishes today, which is wrong, and is less wrong than deciding it
+// was a setter all along.
+void MigrateV31ToV32(SaveFields& fields) {
+  fields["craft.n"] = "0";
+  fields["craft.taken"] = "0";
+  fields["craft.botched"] = "0";
+  fields["craft.ducked"] = "0";
+  fields["craft.sackings"] = "0";
+}
+
 void MigrateV30ToV31(SaveFields& fields) {
   fields["sick.active"] = "0";
   fields["sick.days"] = "0";
@@ -505,7 +523,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24,
       &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27,
       &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30,
-      &MigrateV30ToV31};
+      &MigrateV30ToV31, &MigrateV31ToV32};
   return kMigrations;
 }
 
@@ -773,6 +791,20 @@ std::string SerializeSave(const SaveGame& save) {
       // would count it down underneath the stages and clear it early.
       out << "med.staged="
           << IntToStr(save.player.climber.injury.staged ? 1 : 0) << "\n";
+
+      const Craftsman& hd = save.player.hand;
+      out << "craft.n=" << IntToStr(kCraftCount) << "\n";
+      for (int i = 0; i < kCraftCount; i++) {
+        const std::string k = "craft" + IntToStr(i);
+        out << k << "s=" << NumToStr(hd.skill[i]) << "\n";
+        out << k << "r=" << NumToStr(hd.standing[i]) << "\n";
+        out << k << "n=" << IntToStr(hd.shifts[i]) << "\n";
+        out << k << "x=" << IntToStr(hd.sacked[i] ? 1 : 0) << "\n";
+      }
+      out << "craft.taken=" << IntToStr(hd.momentsTaken) << "\n";
+      out << "craft.botched=" << IntToStr(hd.momentsBotched) << "\n";
+      out << "craft.ducked=" << IntToStr(hd.momentsDucked) << "\n";
+      out << "craft.sackings=" << IntToStr(hd.sackings) << "\n";
 
       const Sickness& sk = save.player.sickness;
       out << "sick.active=" << IntToStr(sk.active ? 1 : 0) << "\n";
@@ -1042,7 +1074,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         rankResults = 0, leagueFields = 0, medDiag = 0, medTreat = 0,
         medStage = 0, medJoints = 0, medScars = 0, medInsured = 0,
         medTreated = 0, medStaged = 0, sickActive = 0, sickMeds = 0,
-        toothStage = 0;
+        toothStage = 0, craftN = 0;
     if (!ParseString(fields, "rival.name", rv.name) ||
         !ParseInt(fields, "rival.style", style) ||
         !ParseInt(fields, "rival.vibe", vibe) ||
@@ -1139,6 +1171,13 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
                   save.player.medical.untreatedInjuries) ||
         !ParseInt(fields, "med.treated", medTreated) ||
         !ParseInt(fields, "med.staged", medStaged) ||
+        !ParseInt(fields, "craft.n", craftN) ||
+        !ParseInt(fields, "craft.taken", save.player.hand.momentsTaken) ||
+        !ParseInt(fields, "craft.botched",
+                  save.player.hand.momentsBotched) ||
+        !ParseInt(fields, "craft.ducked",
+                  save.player.hand.momentsDucked) ||
+        !ParseInt(fields, "craft.sackings", save.player.hand.sackings) ||
         !ParseInt(fields, "sick.active", sickActive) ||
         !ParseInt(fields, "sick.days", save.player.sickness.daysLeft) ||
         !ParseDouble(fields, "sick.sev", save.player.sickness.severity) ||
@@ -1221,6 +1260,18 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         return LoadResult::BadFormat;
       }
       save.player.circuit.fieldPoints.push_back(p);
+    }
+
+    for (int i = 0; i < craftN && i < kCraftCount; i++) {
+      const std::string k = "craft" + IntToStr(i);
+      int sacked = 0;
+      if (!ParseDouble(fields, k + "s", save.player.hand.skill[i]) ||
+          !ParseDouble(fields, k + "r", save.player.hand.standing[i]) ||
+          !ParseInt(fields, k + "n", save.player.hand.shifts[i]) ||
+          !ParseInt(fields, k + "x", sacked)) {
+        return LoadResult::BadFormat;
+      }
+      save.player.hand.sacked[i] = sacked != 0;
     }
 
     save.player.sickness.active = sickActive != 0;

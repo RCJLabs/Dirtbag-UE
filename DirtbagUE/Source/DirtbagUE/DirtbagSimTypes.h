@@ -17,6 +17,7 @@
 #include "DirtbagMedical.h"
 #include "DirtbagAilments.h"
 #include "DirtbagBodyContext.h"
+#include "DirtbagCraft.h"
 #include "DirtbagRival.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
@@ -592,6 +593,60 @@ struct FDirtbagNationalTeam
 	/** When the committee last sat, in days. Once a year. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	int32 LastReviewDay = 0;
+};
+
+/** A trade. Mirrors dirtbag::Craft. */
+UENUM(BlueprintType)
+enum class EDirtbagCraft : uint8
+{
+	None     UMETA(DisplayName = "Nothing in particular"),
+	Setting  UMETA(DisplayName = "Setting"),
+	Coaching UMETA(DisplayName = "Coaching"),
+	Counter  UMETA(DisplayName = "The counter"),
+	Labour   UMETA(DisplayName = "Labour"),
+	Trail    UMETA(DisplayName = "Trail work"),
+	Camera   UMETA(DisplayName = "The camera"),
+	Courier  UMETA(DisplayName = "The courier run"),
+	Rescue   UMETA(DisplayName = "Rescue"),
+	Bar      UMETA(DisplayName = "The bar"),
+	Office   UMETA(DisplayName = "The office"),
+};
+
+/** What the trades know about you. Mirrors dirtbag::Craftsman.
+ *
+ *  **A lever you pull for money is a lever; a trade you are getting
+ *  better at is a life.** */
+USTRUCT(BlueprintType)
+struct FDirtbagCraftsman
+{
+	GENERATED_BODY()
+
+	/** Per trade, 0..100. Grows only by doing that work. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	TArray<double> Skill;
+
+	/** Per trade, -1..1. What the people who hire you for this think. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	TArray<double> Standing;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	TArray<int32> Shifts;
+
+	/** **And it outlives the job.** The gig comes off your board. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	TArray<bool> Sacked;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	int32 MomentsTaken = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	int32 MomentsBotched = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	int32 MomentsDucked = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	int32 Sackings = 0;
 };
 
 /** How bad the tooth is. Mirrors dirtbag::ToothStage.
@@ -1797,6 +1852,10 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
 	FDirtbagMedical Medical;
 
+	/** What you are getting good at while work owns your hours. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	FDirtbagCraftsman Hand;
+
 	/** The things that are wrong with you that are not the injury. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Medical")
 	FDirtbagSickness Sickness;
@@ -2078,6 +2137,8 @@ namespace DirtbagConvert
 	dirtbag::NationalTeam ToSim(const FDirtbagNationalTeam& In);
 	FDirtbagCircuit FromSim(const dirtbag::Circuit& In);
 	dirtbag::Circuit ToSim(const FDirtbagCircuit& In);
+	FDirtbagCraftsman FromSim(const dirtbag::Craftsman& In);
+	dirtbag::Craftsman ToSim(const FDirtbagCraftsman& In);
 	FDirtbagSickness FromSim(const dirtbag::Sickness& In);
 	dirtbag::Sickness ToSim(const FDirtbagSickness& In);
 	FDirtbagTeeth FromSim(const dirtbag::Teeth& In);

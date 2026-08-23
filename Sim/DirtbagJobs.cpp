@@ -28,6 +28,12 @@ const Gig kGigs[] = {
     {"shooting photos for the guidebook",  2.0, 130.0, 10.0, true},
     {"stacking shelves, night shift",      6.0,  85.0, 30.0, false},
     {"belaying kids' birthdays",           4.0,  50.0, 15.0, false},
+    // Three added with Phase 12, so that every trade has a gig behind it.
+    // **A craft you cannot practise is a stat**, and the 2D game's courier,
+    // rescue and bar work had nowhere to happen here.
+    {"a courier run across town",          5.0,  75.0, 28.0, true},
+    {"a callout with the rescue team",     7.0,  90.0, 55.0, true},
+    {"a shift behind the bar",             6.0,  70.0, 25.0, false},
 };
 constexpr int kGigCount = static_cast<int>(sizeof(kGigs) / sizeof(kGigs[0]));
 

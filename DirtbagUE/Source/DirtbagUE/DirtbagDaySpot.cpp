@@ -87,6 +87,30 @@ FString ADirtbagDaySpot::PromptText() const
 			    *Gig.Name, Gig.Pay, Gig.Hours, Gig.Energy,
 			    (Gig.bNeedsVan && !Game->VanRuns()) ? TEXT("  (needs the van)")
 			                                        : TEXT(""));
+			// **What is going to come up on that shift**, said before you
+			// take it, because the answer is part of taking it. What the
+			// harder way *needs* is deliberately not a number: you know
+			// whether you can do your job, and a threshold on the wall
+			// would turn a decision into a skill check you can read off.
+			const FString What = Game->ShiftMomentLine(Gig);
+			if (!What.IsEmpty())
+			{
+				Line += FString::Printf(TEXT("\n        %s"), *What);
+				Line += FString::Printf(TEXT("\n        %s  (hold W)"),
+				                        *Game->TheHardWayLine(Gig));
+			}
+		}
+
+		// What the trades know about you, and what that makes you.
+		const FString Trade = Game->TradeLine();
+		if (!Trade.IsEmpty())
+		{
+			Line += FString::Printf(TEXT("\n   %s"), *Trade);
+		}
+		const FString Crafts = Game->CraftLine();
+		if (!Crafts.IsEmpty())
+		{
+			Line += FString::Printf(TEXT("\n   %s"), *Crafts);
 		}
 		// The permanent position, under the gigs and separated from them,
 		// because it is a different kind of thing: the gigs are a day and
@@ -452,6 +476,11 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnCover);
 			InputComponent->BindKey(EKeys::K, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnTakeSomething);
+			// Held, not pressed: it modifies the number key that follows.
+			InputComponent->BindKey(EKeys::W, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnHardWayDown);
+			InputComponent->BindKey(EKeys::W, IE_Released, this,
+			                        &ADirtbagDaySpot::OnHardWayUp);
 			InputComponent->BindKey(EKeys::Y, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnTooth);
 			InputComponent->BindKey(EKeys::Z, IE_Pressed, this,
@@ -595,6 +624,9 @@ void ADirtbagDaySpot::OnHangboard()
 	    FColor::Green, 6.f);
 	PushPrompt();
 }
+
+void ADirtbagDaySpot::OnHardWayDown() { bHoldingTheHardWay = true; }
+void ADirtbagDaySpot::OnHardWayUp() { bHoldingTheHardWay = false; }
 
 void ADirtbagDaySpot::OnTakeSomething()
 {
@@ -1241,6 +1273,16 @@ bool ADirtbagDaySpot::TakeGig(int32 Which)
 		return true;
 	}
 	const FDirtbagOddJob& Gig = Board[Which];
+
+	// **Held W means do it properly.** A modifier rather than a second key
+	// per gig, because the decision belongs to the gig you are picking and
+	// not to a menu of its own -- and because the easy answer has to be the
+	// one you get by just pressing the number, which is what a tired person
+	// does.
+	if (bHoldingTheHardWay)
+	{
+		Game->TakeTheGigTheHardWay();
+	}
 
 	if (!Game->TakeOddJob(Gig))
 	{

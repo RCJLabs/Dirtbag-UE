@@ -787,7 +787,7 @@ name and that is a recorded cut.
 
 ---
 
-## Phase 12 — Work Is A Craft
+## Phase 12 — Work Is A Craft   ✅ DONE 2026-08-23
 
 §4 ports *"odd-jobs board, salaried-job trap"* and both are built and wired.
 What it did not port is that in the 2D game **every job has a craft skill**
@@ -800,12 +800,28 @@ climbed by other people.
 The port's work is a lever you pull for money. The 2D game's work is a
 second career you are also having.
 
+**Built 2026-08-23** (`Sim/DirtbagCraft`, SAVE v32). Write-up:
+`notes/phase12-work-is-a-craft.md`. Ten trades, and three gigs were added to
+the board rather than three enum entries because **a craft you cannot
+practise is a stat**.
+
 **Done when:**
 1. The job you keep changes who your climber is, not just what they are
-   paid.
+   paid. — **passes.** Same career with the teaching off and on: power +12
+   to +24, endurance +15 to +17, technique +9 to +13, in the lanes those
+   trades teach and nowhere else. None of it as good as climbing, which is
+   load-bearing — work that trained you as well would make the salaried
+   trap not a trap.
 2. A shift has a decision in it whose right answer depends on the craft you
-   have built.
-3. Getting fired costs something that outlives the job.
+   have built. — **passes.** Something comes up on about a third of shifts.
+   Somebody who can do the job pulls it off 50 times in 60; somebody who
+   cannot manages under 25, and never zero. The easy answer is never wrong,
+   never punished and never gets you anywhere.
+3. Getting fired costs something that outlives the job. — **passes**, and
+   it nearly shipped unreachable: a probe that only reached when it could
+   was **never sacked once in thirty years.** Given one that always
+   reaches, losing setting pushes a career into labour and it is still
+   there thirty years later.
 
 ---
 
@@ -849,6 +865,8 @@ it, being the same system's low end.
 ---
 
 ## Changelog
+
+- 2026-08-23 - **Phase 12: work is a craft** (`Sim/DirtbagCraft.*`, SAVE v32). **A lever you pull for money is a lever; a trade you are getting better at is a life.** Phase 3 ported the odd-jobs board and the salaried trap and both were built and measured; what it did not port is that every job in the 2D game has a craft behind it. Ten of them -- setting, coaching, the counter, labour, trail, the camera, courier, rescue, the bar, the office -- and **three gigs were added to the board rather than three enum entries**, because a craft you cannot practise is a stat; a test walks two hundred days of the board and fails if any trade is unreachable. Flyering deliberately maps to nothing: some work is just work. **Gate one**: every trade pays back into the body or the head, and the same career with the teaching switched off and on comes out power +12 to +24, endurance +15 to +17, technique +9 to +13 -- in the lanes those trades teach and nowhere else, and fingers goes *down* because no trade teaches fingers and a stronger climber picks different routes. None of it is as good as climbing, which is load-bearing: **work that trained you as well as climbing did would make the salaried trap not a trap.** **Gate two**: something comes up on about a third of shifts -- a hold spins mid-session, a kid freezes at the top, the last drop is a hospital and you are forty minutes down -- and there are two ways to handle it, the right one harder and needing the craft you have actually built. Somebody who can do the job pulls it off fifty times in sixty; somebody who cannot manages under twenty-five, and **never zero, because a wall is not a decision.** The easy way is never wrong, never punished and never gets you anywhere: it has to be a real option or the decision is a skill check. **Gate three nearly shipped unreachable.** Standing is per trade and a bad enough run takes the gig off your board for good -- but the probe's policy only reached when the craft was there, so it botched two times in four hundred and forty and **was never sacked once in thirty years**: testable in the harness and unreachable in a played career, which is the same as not existing. Given a policy that always reaches, one to three sackings a career, and **the trade changes** -- losing setting pushes a career into labour and it is still there thirty years later, which is the gate: not a number in a menu, a different life. Two things found and fixed on the way. The work gain went straight onto the skill, making work **the one training path in the game with no headroom on it** -- thirty years of shifts is seven thousand hours, and at a flat rate that is a hundred and thirty points into a stat that stops at a hundred; through the same diminishing returns as everything else now, and clamped. And `BoardOpenToYou` was deleted for being sugar: it read well, nothing used it but its own test, and the engine wrote the same two-line loop inline -- **a second place for a rule to live is how the rule starts disagreeing with itself**, which is precisely the class the checker written an hour earlier exists to catch. Employer standing is per *trade* rather than per building, which is simpler than the 2D game and written down rather than hidden. preflight green on all thirteen; probe coverage 145 sim rules to 147.
 
 - 2026-08-23 - **The body you walked in with** (`Sim/DirtbagBodyContext.*`, preflight checker thirteen). Found by accident half an hour after Phase 10 shipped, while answering *"so what can you do next?"* -- **`AttemptProblem`, the comp resolver, built its own `AttemptInput` and set six fields.** It never set the joints, the ailments, the comeback stage, the temperament or the rubber, and it *assigned* the odds penalty from the comp's pressure dial straight over the top of the climber's flaw. Measured, 400 boards, the same climber twice: **healthy 4.1, wrecked 4.1** -- where "wrecked" is a maxed-out finger joint, four cortisone shots, an old scar, a bad flu, an abscess and dead rubber, and where the session path gave that same body **2.2 grades** of ailment penalty and a fully degraded joint. That path serves gym comps, the circuit, the World Cup, the Games *and* league nights, which is most of the game's indoor time: **Phase 7 and Phase 10 were both invisible there**, and Phase 3's shoe economy was silently free. **Nothing could have caught it.** `check-unwired.py` proves a sim declaration is reachable and `check-doors.py` proves an engine verb is callable -- both are questions about *names*, and this is a question about **a struct being filled in.** Same shape as every written-and-never-wired this project has found, and the same shape as `Injury::staged`'s two owners the day before: two paths, one of them assembling by hand. Fixed with one struct for everything a body carries into any attempt anywhere and one function that stamps it -- **here the body, not the situation**: warmth, mats, cleanliness and the nerves of a competition are what make a comp different from a Tuesday and belong to the caller. Additive where the caller has spoken, because **a flaw and a comp's nerves are two reasons the odds are worse, not one replacing the other.** And a checker so the class cannot come back: *any function that declares a local `AttemptInput` must call `ApplyBody` on it*, with one escape that must give a reason, and struct fields skipped because a checker that cries wolf is worse than no checker. Verified by putting the bug back -- it names the file and line, and five assertions fail. What it is worth, over thirty years of a comp career: ranking at thirty years comes out **524 for a climber who looks after themselves, 267 for one who does not, and 75 for one who takes the shot and comes back early** -- a sevenfold spread that before this fix did not exist at all, because all three resolved their comps identically and the only difference was days lost. **The lesson, and it is bigger than the bug**: every checker here so far asks *does this name reach that name*, which is the wrong question for a caller that reaches the callee and hands it half of what it needed. This one was found by accident; the next of its shape will be too unless the question gets asked deliberately.
 

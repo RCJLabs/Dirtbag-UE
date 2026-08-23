@@ -2518,7 +2518,71 @@ bool UDirtbagGameInstance::CragIsOpen() const
 
 TArray<FDirtbagOddJob> UDirtbagGameInstance::TodaysJobBoard() const
 {
-	return UDirtbagSimLibrary::OddJobBoard(Seed, Player.Day);
+	// **What is going in the valley, minus the trades that will not have
+	// you.** A sacking has to show up as work you cannot take, or it is a
+	// number in a menu -- see Sim/DirtbagCraft.h.
+	TArray<FDirtbagOddJob> All =
+	    UDirtbagSimLibrary::OddJobBoard(Seed, Player.Day);
+	const dirtbag::Craftsman Hand = DirtbagConvert::ToSim(Player.Hand);
+	TArray<FDirtbagOddJob> Open;
+	Open.Reserve(All.Num());
+	for (const FDirtbagOddJob& J : All)
+	{
+		if (dirtbag::WillTheyHireYou(
+		        Hand, dirtbag::CraftForGig(TCHAR_TO_UTF8(*J.Name))))
+		{
+			Open.Add(J);
+		}
+	}
+	return Open;
+}
+
+namespace
+{
+// The shift's decision, derived rather than stored -- it is deterministic
+// on the day and the trade, so asking twice gives the same answer and a
+// reload does not reroll it.
+dirtbag::ShiftMoment MomentFor(const FString& Seed, int32 Day,
+                               const FDirtbagOddJob& Job)
+{
+	return dirtbag::MomentOnShift(
+	    dirtbag::CraftForGig(TCHAR_TO_UTF8(*Job.Name)),
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)), Day);
+}
+}  // namespace
+
+FString UDirtbagGameInstance::ShiftMomentLine(const FDirtbagOddJob& Job) const
+{
+	const dirtbag::ShiftMoment M = MomentFor(Seed, Player.Day, Job);
+	return M.happened ? FString(UTF8_TO_TCHAR(M.what)) : FString();
+}
+
+FString UDirtbagGameInstance::TheHardWayLine(const FDirtbagOddJob& Job) const
+{
+	const dirtbag::ShiftMoment M = MomentFor(Seed, Player.Day, Job);
+	if (!M.happened) { return FString(); }
+	// **What it needs is not shown as a number.** You know whether you can
+	// do your job; a threshold on the prompt would turn a decision into a
+	// skill check you can read off the wall.
+	return FString(UTF8_TO_TCHAR(M.theHardWay));
+}
+
+void UDirtbagGameInstance::TakeTheGigTheHardWay()
+{
+	bTakeTheHardWay = true;
+}
+
+FString UDirtbagGameInstance::CraftLine() const
+{
+	return FString(
+	    dirtbag::CraftText(DirtbagConvert::ToSim(Player.Hand)).c_str());
+}
+
+FString UDirtbagGameInstance::TradeLine() const
+{
+	return FString(dirtbag::TradeText(DirtbagConvert::ToSim(Player.Hand),
+	                                  AllroundGrade())
+	                   .c_str());
 }
 
 bool UDirtbagGameInstance::TakeOddJob(const FDirtbagOddJob& Job)
@@ -2537,10 +2601,48 @@ bool UDirtbagGameInstance::TakeOddJob(const FDirtbagOddJob& Job)
 
 	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);
 	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
-	if (!dirtbag::WorkOddJob(SimPlayer, SimDay, SimJob)) return false;
+	const dirtbag::ShiftMoment Moment = MomentFor(Seed, Player.Day, Job);
+	const int32 BotchedBefore = Player.Hand.MomentsBotched;
+	const bool bWasSacked = Player.Hand.Sacked.IsValidIndex(
+	                            static_cast<int32>(dirtbag::CraftForGig(
+	                                TCHAR_TO_UTF8(*Job.Name)))) &&
+	                        Player.Hand.Sacked[static_cast<int32>(
+	                            dirtbag::CraftForGig(
+	                                TCHAR_TO_UTF8(*Job.Name)))];
+	// The shift's own decision, answered by the player -- see
+	// `TakeTheGigTheHardWay`. Defaults to the easy answer, which is never
+	// wrong and never gets you anywhere.
+	if (!dirtbag::WorkOddJob(SimPlayer, SimDay, SimJob,
+	                         dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)),
+	                         bTakeTheHardWay))
+	{
+		return false;
+	}
+	const bool bWentHard = bTakeTheHardWay;
+	bTakeTheHardWay = false;
 	Player = DirtbagConvert::FromSim(SimPlayer);
 	Day = DirtbagConvert::FromSim(SimDay);
 	bWorkedToday = true;
+
+	// How the shift went, read across the call rather than plumbed
+	// through -- the same way every other piece of news in this game
+	// works.
+	WorkNews.Reset();
+	if (Moment.happened && bWentHard)
+	{
+		const bool bBotched = Player.Hand.MomentsBotched > BotchedBefore;
+		WorkNews = FString::Printf(
+		    TEXT("%s  %s"), UTF8_TO_TCHAR(Moment.theHardWay),
+		    bBotched ? TEXT("It did not go fine.") : TEXT("It went fine."));
+		const int32 Which = static_cast<int32>(
+		    dirtbag::CraftForGig(TCHAR_TO_UTF8(*Job.Name)));
+		if (!bWasSacked && Player.Hand.Sacked.IsValidIndex(Which) &&
+		    Player.Hand.Sacked[Which])
+		{
+			// **And it outlives the job.** The gig comes off your board.
+			WorkNews += TEXT("  They will not be calling you again.");
+		}
+	}
 
 	// The dog does not come to a gig any more than it comes to a shift.
 	//

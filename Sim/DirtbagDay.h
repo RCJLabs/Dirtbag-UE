@@ -25,6 +25,7 @@
 #include "DirtbagDog.h"
 #include "DirtbagFactions.h"
 #include "DirtbagGear.h"
+#include "DirtbagCraft.h"
 #include "DirtbagJobs.h"
 #include "DirtbagKit.h"
 #include "DirtbagEthics.h"
@@ -272,6 +273,11 @@ struct PlayerState {
   // Work, and whether it owns you.
   Job job;
 
+  // **And what you are getting good at while it does.** A lever you pull
+  // for money is a lever; a trade you are getting better at is a life --
+  // see Sim/DirtbagCraft.h.
+  Craftsman hand;
+
   // What the town calls the people you keep turning up with. Not yours to
   // choose and not yours to change -- see DirtbagCrew.h.
   Crew crew;
@@ -326,7 +332,14 @@ void WorkShift(PlayerState& player, DayState& day, const DayDials& dials = DayDi
 // Take a gig off the board: its hours, its energy, its money. Returns false
 // if it needs the van and the van is not going anywhere — which is how a
 // breakdown costs you the fix and the work that would have paid for it.
+//
+// **The trade gets worked too**: the hours grow the craft, the craft moves
+// the pay, and the hours teach your climbing a very little. `theHardWay`
+// answers whatever came up on the shift -- see `MomentOnShift`. It defaults
+// to the easy answer, which is never wrong and never gets you anywhere,
+// so every existing caller keeps working and keeps meaning something.
 bool WorkOddJob(PlayerState& player, DayState& day, const OddJob& job,
+                const Rng& worldRng, bool theHardWay = false,
                 const DayDials& dials = DayDials{});
 
 // Do the day the salary owns. Pays a fifth of the week, takes the middle of

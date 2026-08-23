@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "DirtbagCore.h"
+#include "DirtbagCraft.h"
 #include "DirtbagRng.h"
 
 namespace dirtbag {
@@ -72,6 +73,17 @@ struct OddJob {
   double energy = 25.0;
   bool needsVan = false;   // no van, no job
 };
+
+// **A sacking has to show up as work you cannot take**, or it is a number
+// in a menu. The rule itself is `WillTheyHireYou` in Sim/DirtbagCraft.h and
+// it lives in exactly one place; filtering a board with it is a two-line
+// loop that each caller writes, because a convenience wrapper around a
+// one-line rule was written here first, used by nothing but its own test,
+// and deleted -- a second place for a rule to live is how the rule starts
+// disagreeing with itself.
+//
+// `WorkOddJob` enforces it too, so a caller that forgets the filter shows
+// the gig and cannot take it, rather than walking past a sacking.
 
 // What is on the board today. Deterministic per world and day, on its own
 // named stream.

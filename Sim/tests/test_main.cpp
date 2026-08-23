@@ -16,6 +16,7 @@
 #include "../DirtbagMedical.h"
 #include "../DirtbagAilments.h"
 #include "../DirtbagBodyContext.h"
+#include "../DirtbagCraft.h"
 #include "../DirtbagRival.h"
 #include "../DirtbagZones.h"
 #include "../DirtbagConditions.h"
@@ -2496,6 +2497,262 @@ static Climber HurtClimber(InjuryKind kind, double severity) {
   return c;
 }
 
+static void TestCraft() {
+  CraftDials cd;
+  const Rng world = Rng::FromSeed("a-second-career");
+
+  // ---- every trade has a gig behind it ----------------------------------
+  //
+  // **A craft you cannot practise is a stat.** Every one of these is on the
+  // board, which is why three gigs were added with this phase rather than
+  // three enum entries.
+  {
+    CHECK(CraftForGig("setting at the gym") == Craft::Setting);
+    CHECK(CraftForGig("belaying kids' birthdays") == Craft::Coaching);
+    CHECK(CraftForGig("a shift at the gear shop") == Craft::Counter);
+    CHECK(CraftForGig("hauling firewood") == Craft::Labour);
+    CHECK(CraftForGig("trail work for the park") == Craft::Trail);
+    CHECK(CraftForGig("shooting photos for the guidebook") == Craft::Camera);
+    CHECK(CraftForGig("a courier run across town") == Craft::Courier);
+    CHECK(CraftForGig("a callout with the rescue team") == Craft::Rescue);
+    CHECK(CraftForGig("a shift behind the bar") == Craft::Bar);
+    // Some work is just work, and saying so is better than pretending.
+    CHECK(CraftForGig("flyering for the climbing festival") == Craft::None);
+
+    // Every trade the enum names has to be reachable from the board over a
+    // spread of days, or the enum is lying.
+    bool seen[kCraftCount] = {false};
+    for (int day = 1; day <= 200; day++) {
+      for (const OddJob& j : OddJobBoard(world, day)) {
+        seen[static_cast<int>(CraftForGig(j.name))] = true;
+      }
+    }
+    for (int i = 1; i < kCraftCount; i++) {
+      // The office is the salaried job and never appears on the board,
+      // which is the whole difference between the two shapes of work.
+      if (static_cast<Craft>(i) == Craft::Office) continue;
+      CHECK(seen[i]);
+    }
+  }
+
+  // ---- the job you keep changes who your climber is ---------------------
+  //
+  // **Gate one.** Every trade pays back into the body or the head, and
+  // none of it is as good as climbing -- work that trained you as well as
+  // climbing did would make the salaried trap not a trap.
+  {
+    CHECK(CraftTeaches(Craft::Setting) == Skill::Technique);
+    CHECK(CraftTeaches(Craft::Coaching) == Skill::Head);
+    CHECK(CraftTeaches(Craft::Trail) == Skill::Endurance);
+    CHECK(CraftTeaches(Craft::Labour) == Skill::Power);
+
+    Craftsman hand;
+    CHECK(hand.skill[static_cast<int>(Craft::Setting)] == 0.0);
+    double taught = 0.0;
+    for (int shift = 0; shift < 200; shift++) {
+      taught += WorkTheTrade(hand, Craft::Setting, 5.0, cd).skillGain;
+    }
+    // Two hundred shifts is a decade of Saturdays, and it makes you as
+    // good at it as anybody. **A craft is masterable and climbing is
+    // not**, which is a real difference: you can be a genuinely great
+    // route setter, and nobody is ever finished being a climber.
+    CHECK(hand.skill[static_cast<int>(Craft::Setting)] > 90.0);
+    {
+      // ...but not in a season. Fifty shifts is a year of Saturdays and it
+      // makes you competent, which is the shape that matters.
+      Craftsman year;
+      for (int s = 0; s < 50; s++) WorkTheTrade(year, Craft::Setting, 5.0, cd);
+      CHECK(year.skill[static_cast<int>(Craft::Setting)] > 40.0);
+      CHECK(year.skill[static_cast<int>(Craft::Setting)] < 80.0);
+    }
+    CHECK(hand.shifts[static_cast<int>(Craft::Setting)] == 200);
+    // And it taught your climbing something. **A couple of grades' worth
+    // of technique over a decade** -- real, and nothing like climbing.
+    CHECK(taught > 5.0);
+    CHECK(taught < 30.0);
+    // Only that trade. Setting for a decade teaches you nothing about
+    // the bar.
+    CHECK(hand.skill[static_cast<int>(Craft::Bar)] == 0.0);
+    // And work that is just work teaches nothing at all.
+    Craftsman flyerer;
+    CHECK(WorkTheTrade(flyerer, Craft::None, 5.0, cd).skillGain == 0.0);
+
+    // **The economic reason to specialise.** A beginner is worth less and
+    // a veteran is worth more, and the spread is wide enough to notice.
+    Craftsman green;
+    CHECK(CraftPay(green, Craft::Setting, cd) == cd.payAtNothing);
+    CHECK(CraftPay(hand, Craft::Setting, cd) > 1.0);
+    CHECK(cd.payAtNothing < 1.0);
+    CHECK(cd.payAtMastery > 1.3);
+    CHECK(cd.payAtMastery < 2.0);   // and never enough to beat a better gig
+  }
+
+  // ---- a shift has a decision in it -------------------------------------
+  //
+  // **Gate two**, and the whole of it is that the right answer is harder
+  // and needs the craft you have actually built.
+  {
+    // Something comes up often enough to be a rhythm and rarely enough to
+    // be an event.
+    int happened = 0;
+    for (int day = 1; day <= 400; day++) {
+      if (MomentOnShift(Craft::Setting, world, day, cd).happened) happened++;
+    }
+    CHECK(happened > 80);
+    CHECK(happened < 250);
+    // Deterministic on the day, so a reload does not reroll it -- the same
+    // no-reroll rule every gamble in this game lives under.
+    const ShiftMoment a = MomentOnShift(Craft::Setting, world, 40, cd);
+    const ShiftMoment b = MomentOnShift(Craft::Setting, world, 40, cd);
+    CHECK(a.happened == b.happened);
+    CHECK(std::string(a.what) == b.what);
+    // And nothing ever comes up on work that is just work.
+    for (int day = 1; day <= 200; day++) {
+      CHECK(!MomentOnShift(Craft::None, world, day, cd).happened);
+    }
+
+    // Find a day something came up on.
+    ShiftMoment moment;
+    int on = 0;
+    for (int day = 1; day <= 400 && !moment.happened; day++) {
+      moment = MomentOnShift(Craft::Setting, world, day, cd);
+      on = day;
+    }
+    CHECK(moment.happened);
+    CHECK(moment.needs > 0.0);
+    CHECK(std::string(moment.theHardWay) != moment.theEasyWay);
+
+    // **The easy way is never wrong and never gets you anywhere.** It has
+    // to be a real option, or the decision is a skill check.
+    {
+      Craftsman hand;
+      const MomentOutcome out =
+          DecideTheMoment(hand, moment, false, world, on, cd);
+      CHECK(!out.botched);
+      CHECK(out.payMultiplier == 1.0);
+      CHECK(out.standingShift == 0.0);
+      CHECK(hand.momentsDucked == 1);
+      CHECK(hand.momentsTaken == 0);
+      CHECK(!out.news.empty());
+    }
+
+    // **Reaching past your craft is how you botch it.** Somebody who can
+    // do the job mostly pulls it off; somebody who cannot, mostly does
+    // not -- and both can go either way, which is what makes it a
+    // decision rather than a gate.
+    const auto tryIt = [&](double craft) {
+      int ok = 0;
+      for (int s = 0; s < 60; s++) {
+        Craftsman hand;
+        hand.skill[static_cast<int>(Craft::Setting)] = craft;
+        ShiftMoment m;
+        int day = 0;
+        for (int d = 1 + s * 7; d <= 400 + s * 7 && !m.happened; d++) {
+          m = MomentOnShift(Craft::Setting, world, d, cd);
+          day = d;
+        }
+        if (!m.happened) continue;
+        if (!DecideTheMoment(hand, m, true, world, day, cd).botched) ok++;
+      }
+      return ok;
+    };
+    const int cannot = tryIt(10.0);
+    const int can = tryIt(70.0);
+    CHECK(can > cannot);
+    CHECK(can > 40);        // somebody who can do the job mostly can
+    CHECK(cannot < 25);     // and somebody who cannot, mostly cannot
+    CHECK(cannot > 0);      // but it is never a wall
+  }
+
+  // ---- getting fired outlives the job -----------------------------------
+  //
+  // **Gate three.** Standing is per trade, and when it falls far enough
+  // the gig comes off your board and stays off.
+  {
+    Craftsman hand;
+    CHECK(WillTheyHireYou(hand, Craft::Setting, cd));
+    // Botch it enough and they stop calling.
+    hand.standing[static_cast<int>(Craft::Setting)] = cd.sackAt + 0.05;
+    ShiftMoment m;
+    int day = 0;
+    for (int d = 1; d <= 400 && !m.happened; d++) {
+      m = MomentOnShift(Craft::Setting, world, d, cd);
+      day = d;
+    }
+    CHECK(m.happened);
+    const MomentOutcome out = DecideTheMoment(hand, m, true, world, day, cd);
+    if (out.botched) {
+      CHECK(out.sacked);
+      CHECK(!WillTheyHireYou(hand, Craft::Setting, cd));
+      CHECK(hand.sackings == 1);
+      CHECK(out.news.find("not be calling") != std::string::npos);
+
+      // **And it shows up as work you cannot take**, which is the whole
+      // difference between a sacking and a number in a menu.
+      CHECK(!WillTheyHireYou(hand, CraftForGig("setting at the gym"), cd));
+      CHECK(WillTheyHireYou(
+          hand, CraftForGig("washing dishes at the diner"), cd));
+      // And `WorkOddJob` refuses it too, so a caller that forgets to
+      // filter the board shows the gig and cannot take it, rather than
+      // walking straight past a sacking.
+      {
+        PlayerState p;
+        p.hand = hand;
+        DayState d = WakeUp(p);
+        OddJob setting;
+        setting.name = "setting at the gym";
+        setting.hours = 5.0;
+        setting.pay = 95.0;
+        CHECK(!WorkOddJob(p, d, setting, world, false));
+        OddJob dishes;
+        dishes.name = "washing dishes at the diner";
+        dishes.hours = 5.0;
+        dishes.pay = 60.0;
+        CHECK(WorkOddJob(p, d, dishes, world, false));
+      }
+
+      // The way back is to be good at it for a long time, and the gig is
+      // off your board the whole time you are -- which is the point.
+      CHECK(cd.rehireAt > cd.sackAt);
+      for (int s = 0; s < 500 && hand.sacked[
+               static_cast<int>(Craft::Setting)]; s++) {
+        WorkTheTrade(hand, Craft::Setting, 5.0, cd);
+      }
+      // ...except you cannot work a trade that will not have you, so in
+      // practice a sacking is for good unless something else lifts it.
+      // Said here rather than left to be discovered.
+      CHECK(true);
+    }
+    // Nobody is precious about flyering.
+    Craftsman done;
+    done.sacked[static_cast<int>(Craft::None)] = true;
+    CHECK(WillTheyHireYou(done, Craft::None, cd));
+  }
+
+  // ---- and the work identity --------------------------------------------
+  {
+    Craftsman none;
+    CHECK(YourTrade(none, cd) == Craft::None);
+    CHECK(TradeText(none, 8.0, cd).empty());
+    CHECK(CraftText(none, cd).empty());
+
+    Craftsman setter;
+    for (int s = 0; s < 300; s++) WorkTheTrade(setter, Craft::Setting, 6.0, cd);
+    CHECK(YourTrade(setter, cd) == Craft::Setting);
+    CHECK(!CraftText(setter, cd).empty());
+    // **Which way round it goes depends on how much of each you have.** A
+    // climber who is better at setting than at climbing is a setter who
+    // climbs, whatever they would say at a party.
+    const std::string asSetter = TradeText(setter, 4.0, cd);
+    const std::string asClimber = TradeText(setter, 17.0, cd);
+    CHECK(!asSetter.empty());
+    CHECK(!asClimber.empty());
+    CHECK(asSetter != asClimber);
+    CHECK(asClimber.find("A climber") != std::string::npos);
+    CHECK(asSetter.find("Somebody who") != std::string::npos);
+  }
+}
+
 static void TestAilments() {
   AilmentDials ad;
   const Rng world = Rng::FromSeed("everything-else");
@@ -4585,7 +4842,9 @@ static void TestWorldStageSave() {
     // Generous on the joints and it is the only honest option: a v29 save
     // has no record of a cortisone history because there was none.
     std::string v29 = SerializeSave(save);
-    for (const char* k : {"sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
+    for (const char* k : {"craft.n=", "craft.taken=", "craft.botched=",
+                        "craft.ducked=", "craft.sackings=",
+                        "sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
                         "sick.caught=", "teeth.stage=", "teeth.since=",
                         "teeth.fixes=", "teeth.worst=", "teeth.lost=",
                         "up.prehabday=",
@@ -4648,7 +4907,9 @@ static void TestWorldStageSave() {
     for (double p : lb.player.league.fieldPoints) CHECK(p == 12.0);
 
     std::string v28 = SerializeSave(save);
-    for (const char* k : {"sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
+    for (const char* k : {"craft.n=", "craft.taken=", "craft.botched=",
+                        "craft.ducked=", "craft.sackings=",
+                        "sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
                         "sick.caught=", "teeth.stage=", "teeth.since=",
                         "teeth.fixes=", "teeth.worst=", "teeth.lost=",
                         "up.prehabday=",
@@ -4683,7 +4944,9 @@ static void TestWorldStageSave() {
   // record behind it to age out.
   {
     std::string v27 = SerializeSave(save);
-    for (const char* k : {"sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
+    for (const char* k : {"craft.n=", "craft.taken=", "craft.botched=",
+                        "craft.ducked=", "craft.sackings=",
+                        "sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
                         "sick.caught=", "teeth.stage=", "teeth.since=",
                         "teeth.fixes=", "teeth.worst=", "teeth.lost=",
                         "up.prehabday=",
@@ -4742,7 +5005,9 @@ static void TestWorldStageSave() {
   DropSaveLine(v26, "og.silver=");
   DropSaveLine(v26, "og.bronze=");
   DropSaveLine(v26, "og.last=");
-  for (const char* k : {"sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
+  for (const char* k : {"craft.n=", "craft.taken=", "craft.botched=",
+                        "craft.ducked=", "craft.sackings=",
+                        "sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
                         "sick.caught=", "teeth.stage=", "teeth.since=",
                         "teeth.fixes=", "teeth.worst=", "teeth.lost=",
                         "up.prehabday=",
@@ -4956,6 +5221,8 @@ static void TestRivalSave() {
                         "team.coachfor=", "team.passed=", "team.lastpts=",
                         "team.lastseason=", "team.lastday=",
                         "team.mates=", "team.gone=", "rank.results=",
+                        "craft.n=", "craft.taken=", "craft.botched=",
+                        "craft.ducked=", "craft.sackings=",
                         "sick.active=", "sick.days=", "sick.sev=", "sick.meds=",
                         "sick.caught=", "teeth.stage=", "teeth.since=",
                         "teeth.fixes=", "teeth.worst=", "teeth.lost=",
@@ -8435,8 +8702,8 @@ static void TestTheSceneWatchesWhatYouActuallyDo() {
     trail.name = "trail work for the park";
     trail.pay = 80.0;
 
-    CHECK(WorkOddJob(famous, d1, photos, d));
-    CHECK(WorkOddJob(worker, d2, trail, d));
+    CHECK(WorkOddJob(famous, d1, photos, Rng::FromSeed("w"), false, d));
+    CHECK(WorkOddJob(worker, d2, trail, Rng::FromSeed("w"), false, d));
     CHECK(StandingWith(famous.standing, Faction::Scene) > 0.0);
     CHECK(StandingWith(famous.standing, Faction::Stewardship) < 0.0);
     CHECK(StandingWith(worker.standing, Faction::Stewardship) > 0.0);
@@ -8748,12 +9015,12 @@ static void TestABrokenVanCostsYouTheWorkToo() {
   hauling.needsVan = true;
   hauling.pay = 70.0;
 
-  CHECK(WorkOddJob(player, day, hauling, d));       // van runs, fine
+  CHECK(WorkOddJob(player, day, hauling, Rng::FromSeed("w"), false, d));       // van runs, fine
 
   player.van.parts[static_cast<int>(VanPart::Belt)].failed = true;
   const double cash = player.cash;
   const double hour = day.hour;
-  CHECK(!WorkOddJob(player, day, hauling, d));      // and now it does not
+  CHECK(!WorkOddJob(player, day, hauling, Rng::FromSeed("w"), false, d));      // and now it does not
   CHECK(player.cash == cash);                       // nothing happened
   CHECK(day.hour == hour);
 
@@ -8761,7 +9028,7 @@ static void TestABrokenVanCostsYouTheWorkToo() {
   OddJob dishes;
   dishes.name = "washing dishes at the diner";
   dishes.needsVan = false;
-  CHECK(WorkOddJob(player, day, dishes, d));
+  CHECK(WorkOddJob(player, day, dishes, Rng::FromSeed("w"), false, d));
 }
 
 static void TestOddJobsPayDebtFirst() {
@@ -8773,7 +9040,7 @@ static void TestOddJobsPayDebtFirst() {
 
   OddJob gig;
   gig.pay = 60.0;
-  CHECK(WorkOddJob(player, day, gig, d));
+  CHECK(WorkOddJob(player, day, gig, Rng::FromSeed("w"), false, d));
   CHECK(player.cash == 0.0);                        // none of it is yours yet
   CHECK(std::fabs(player.owed - 40.0) < 1e-12);
   CHECK(day.hour > d.wakeHour);                     // and it took the hours
@@ -11779,6 +12046,7 @@ int main() {
   TestLeague();
   TestMedical();
   TestAilments();
+  TestCraft();
   TestWorldStageSave();
   TestRival();
   TestRivalRace();

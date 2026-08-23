@@ -48,15 +48,53 @@ void Pay(PlayerState& player, double amount) {
 }
 
 bool WorkOddJob(PlayerState& player, DayState& day, const OddJob& job,
-                const DayDials& dials) {
+                const Rng& worldRng, bool theHardWay, const DayDials& dials) {
   if (job.needsVan && !VanRuns(player.van)) return false;
+  const Craft craft = CraftForGig(job.name);
+  // They will not have you. **A sacking has to show up as work you cannot
+  // take**, and the board is filtered for the player -- but the rule has
+  // to be here too, or a caller that skipped the filter walks straight
+  // past a sacking.
+  if (!WillTheyHireYou(player.hand, craft)) return false;
 
   PassHours(day, job.hours, dials);
   day.energy = std::max(0.0, day.energy - job.energy);
-  // What the work pays *you*. Two different things meet here: the origin's
-  // CV, which is a fact, and how much of a purist you are, which is a
-  // choice -- a purist takes the worse-paid work that leaves the days free.
-  Pay(player, job.pay * ShiftPayMultiplier(player.character));
+
+  // **Whatever came up on the shift**, and what you did about it. Rolled
+  // before the pay, because what it pays depends on how it went.
+  const ShiftMoment moment = MomentOnShift(craft, worldRng, player.day);
+  const MomentOutcome went =
+      DecideTheMoment(player.hand, moment, theHardWay, worldRng, player.day);
+
+  // The trade, and the very little it teaches your climbing.
+  //
+  // **Through the same diminishing returns everything else trains
+  // through**, and clamped. The first version added the gain raw, which
+  // meant work was the one training path in the game with no headroom on
+  // it -- thirty years of shifts is about seven thousand hours, and at a
+  // flat rate that is a hundred and thirty skill points into a stat that
+  // stops at a hundred. Work that out-trains climbing would make the
+  // salaried trap not a trap, and a skill that runs past its ceiling is a
+  // bug in any case.
+  const WorkedShift worked = WorkTheTrade(player.hand, craft, job.hours);
+  double* lane = &player.climber.skills.technique;
+  switch (worked.teaches) {
+    case Skill::Power: lane = &player.climber.skills.power; break;
+    case Skill::Fingers: lane = &player.climber.skills.fingers; break;
+    case Skill::Endurance: lane = &player.climber.skills.endurance; break;
+    case Skill::Head: lane = &player.climber.skills.head; break;
+    case Skill::Technique:
+    default: break;
+  }
+  Gain(*lane, worked.skillGain *
+                  std::max(0.15, 1.0 - *lane / dials.trainingCeiling));
+
+  // What the work pays *you*. Three different things meet here: the
+  // origin's CV, which is a fact; how much of a purist you are, which is a
+  // choice; and **how good you are at the job**, which is the only one of
+  // the three you can do anything about.
+  Pay(player, job.pay * ShiftPayMultiplier(player.character) *
+                  CraftPay(player.hand, craft) * went.payMultiplier);
   player.job.daysWorked++;
 
   // What the work says about you. The board was written with these in

@@ -1436,6 +1436,11 @@ public:
 	/** Rebuild the on-screen options for the current question. */
 	void RefreshCreation();
 
+	/** Armed by `TakeTheGigTheHardWay`, consumed by the next gig. Not
+	 *  saved: it is a decision about a shift you are standing in front of,
+	 *  and a reload puts you back in front of it. */
+	bool bTakeTheHardWay = false;
+
 	/** Rebuild the comp board from the live sim state. */
 	void RefreshComp();
 
@@ -1516,6 +1521,42 @@ public:
 	/** Today's board: three gigs, deterministic per world and day. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
 	TArray<FDirtbagOddJob> TodaysJobBoard() const;
+
+	// --- work as a craft -------------------------------------------------
+	//
+	// A lever you pull for money is a lever. A trade you are getting better
+	// at is a life. See Sim/DirtbagCraft.h.
+
+	/** What came up on the shift you are about to take, if anything. Empty
+	 *  when nothing did -- and it is read *before* the gig, because the
+	 *  answer is part of taking it. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Work")
+	FString ShiftMomentLine(const FDirtbagOddJob& Job) const;
+
+	/** The harder answer, and what it needs. Empty when nothing came up. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Work")
+	FString TheHardWayLine(const FDirtbagOddJob& Job) const;
+
+	/** Arm the next `TakeOddJob` to answer the shift's decision the hard
+	 *  way. **Reaching past your craft is how you botch it**, and the easy
+	 *  answer is always there and never gets you anywhere. Cleared by the
+	 *  gig, so it can never leak into the next one. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
+	void TakeTheGigTheHardWay();
+
+	/** What the trades know about you. Empty before you have any. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Work")
+	FString CraftLine() const;
+
+	/** "Somebody who does setting, and climbs." The work identity, and
+	 *  which way round it goes depends on how much of each you have.
+	 *  Empty until one trade is enough of you to say so. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Work")
+	FString TradeLine() const;
+
+	/** What happened on the last shift. Said once. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	FString WorkNews;
 
 	/** Take a gig. Costs the hours and the energy, pays into debt first,
 	 *  and says something about you — the best-paying gig on the board is

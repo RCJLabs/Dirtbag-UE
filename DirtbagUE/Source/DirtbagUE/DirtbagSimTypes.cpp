@@ -184,6 +184,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.olympics = ToSim(In.Olympics);
 	Out.league = ToSim(In.League);
 	Out.medical = ToSim(In.Medical);
+	Out.hand = ToSim(In.Hand);
 	Out.sickness = ToSim(In.Sickness);
 	Out.teeth = ToSim(In.Teeth);
 	Out.upkeep = ToSim(In.Upkeep);
@@ -253,6 +254,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Olympics = FromSim(In.olympics);
 	Out.League = FromSim(In.league);
 	Out.Medical = FromSim(In.medical);
+	Out.Hand = FromSim(In.hand);
 	Out.Sickness = FromSim(In.sickness);
 	Out.Teeth = FromSim(In.teeth);
 	Out.Upkeep = FromSim(In.upkeep);
@@ -771,6 +773,44 @@ dirtbag::Circuit ToSim(const FDirtbagCircuit& In)
 	Out.fieldPoints.reserve(In.FieldPoints.Num());
 	for (double P : In.FieldPoints) { Out.fieldPoints.push_back(P); }
 	Out.titles = In.Titles;
+	return Out;
+}
+
+FDirtbagCraftsman FromSim(const dirtbag::Craftsman& In)
+{
+	FDirtbagCraftsman Out;
+	Out.Skill.Reset(dirtbag::kCraftCount);
+	Out.Standing.Reset(dirtbag::kCraftCount);
+	Out.Shifts.Reset(dirtbag::kCraftCount);
+	Out.Sacked.Reset(dirtbag::kCraftCount);
+	for (int32 i = 0; i < dirtbag::kCraftCount; i++)
+	{
+		Out.Skill.Add(In.skill[i]);
+		Out.Standing.Add(In.standing[i]);
+		Out.Shifts.Add(In.shifts[i]);
+		Out.Sacked.Add(In.sacked[i]);
+	}
+	Out.MomentsTaken = In.momentsTaken;
+	Out.MomentsBotched = In.momentsBotched;
+	Out.MomentsDucked = In.momentsDucked;
+	Out.Sackings = In.sackings;
+	return Out;
+}
+
+dirtbag::Craftsman ToSim(const FDirtbagCraftsman& In)
+{
+	dirtbag::Craftsman Out;
+	for (int32 i = 0; i < dirtbag::kCraftCount; i++)
+	{
+		if (In.Skill.IsValidIndex(i)) { Out.skill[i] = In.Skill[i]; }
+		if (In.Standing.IsValidIndex(i)) { Out.standing[i] = In.Standing[i]; }
+		if (In.Shifts.IsValidIndex(i)) { Out.shifts[i] = In.Shifts[i]; }
+		if (In.Sacked.IsValidIndex(i)) { Out.sacked[i] = In.Sacked[i]; }
+	}
+	Out.momentsTaken = In.MomentsTaken;
+	Out.momentsBotched = In.MomentsBotched;
+	Out.momentsDucked = In.MomentsDucked;
+	Out.sackings = In.Sackings;
 	return Out;
 }
 
