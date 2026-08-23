@@ -1651,6 +1651,33 @@ FString UDirtbagGameInstance::DirtbagYearLine() const
 	                   .c_str());
 }
 
+FString UDirtbagGameInstance::SalaryLine() const
+{
+	const dirtbag::JobDials Jd;
+	if (Player.Job.bSalaried)
+	{
+		return FString::Printf(
+		    TEXT("You have the job.  (J) leaves it, and it will sting."));
+	}
+	// What it pays and what it takes, in one line, with neither half
+	// softened. `DirtbagJobs.h`: *"Nothing in here punishes it -- the
+	// numbers simply are what they are."* A warning would be the game
+	// arguing with the player about their own life.
+	FString Line = FString::Printf(
+	    TEXT("Permanent position going.  (J)  -  $%.0f a week, %d days, "
+	         "%.0f to %.0f."),
+	    Jd.salaryPerWeek, Jd.salaryDaysPerWeek, Jd.salaryStartHour,
+	    Jd.salaryStartHour + Jd.salaryHours);
+	// And what it costs that money cannot buy back, when there is one.
+	// Said as a fact about the streak rather than as advice.
+	if (Player.Job.DaysSinceSalary >= 30)
+	{
+		Line += FString::Printf(TEXT("  It would end a run of %d days."),
+		                        Player.Job.DaysSinceSalary);
+	}
+	return Line;
+}
+
 int32 UDirtbagGameInstance::TakeSalariedJob()
 {
 	dirtbag::PlayerState SimPlayer = DirtbagConvert::ToSim(Player);

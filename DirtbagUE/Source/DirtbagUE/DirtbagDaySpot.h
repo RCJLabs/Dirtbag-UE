@@ -223,6 +223,10 @@ private:
 	/** The gym membership, at the counter. */
 	void OnMembership();
 
+	/** Sign for the nine-to-five, or leave it. One key both ways, because
+	 *  it is one decision made twice. */
+	void OnSalary();
+
 	/** Buy a hangboard at the counter; use it at the van. One key, two
 	 *  spots, because it is one object and where you are says which you
 	 *  meant. */

@@ -108,3 +108,52 @@ existing spot, the same shape as the fire's C/F and the shop's 1/2/3:
 5. **Gym membership** — a renewal prompt at the gym, once the gym is a place.
 
 Ethics first, unless you want them in a different order.
+
+---
+
+## Closed, 2026-08-23
+
+All five, plus three the fixed checker found underneath them:
+
+| system | door |
+|---|---|
+| ethics | `T` at the wall |
+| the odd-jobs board | the Shift prompt *is* the board, `1/2/3` |
+| sponsorship | `S` at the counter; obligations taken at Sleep |
+| physio | `P` at the counter |
+| gym membership | `M` at the counter, **and the wall gates on it** |
+| the hangboard | `H` at the counter, `H` at the van |
+| **the salaried job** | `J` at the board |
+
+**`check-doors.py` now reports zero.** Every Blueprint-exposed verb on the
+game instance is either called from C++ or annotated with why not.
+
+### The salaried job was the smallest fix and the largest hole
+
+Its *consequence* half was already fully wired — `SalariedToday()` calls
+`WorkSalariedDay()` at dawn, and the clock arrives at the far side of the
+shift having skipped everything the day was for. The engine comment even
+says why it is done at dawn rather than offered: *"a trap you can decline is
+not a trap."*
+
+**The trap worked perfectly and could not be entered.** And a **Dirtbag
+Year** is defined as 365 days without signing for it — so every Dirtbag Year
+this project has ever counted was counted against a temptation that could
+not be accepted.
+
+`J` at the board takes it and `J` leaves it. No confirm and no warning: the
+design is that taking it is *reasonable*, and `DirtbagJobs.h` says *"nothing
+in here punishes it — the numbers simply are what they are."* The prompt
+states what it pays and what it takes, and names the streak it would end,
+and then says nothing about whether that is wise.
+
+### The pattern, six instances in
+
+Every one of these had the same shape: **a rule living in a sim function
+the engine never called, with a reachable path around the side.** The gym
+had `GoToTheGym`'s membership check and a travel spot that ignored it. Work
+had `WorkOddJob`'s standing effects and a flat shift that had none. The
+sponsor had `ObligationToday` and nothing asking.
+
+Three of the six were invisible to the checker until it stopped counting
+`dirtbag::Foo(` as a call to `Foo`.

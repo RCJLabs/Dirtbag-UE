@@ -1202,17 +1202,22 @@ public:
 	 *  Returns the days of streak this cost, so the game can be honest at
 	 *  the moment of signing rather than in a summary nobody reads. Zero if
 	 *  there was nothing to lose. */
-	// no-door: the salaried job, the trap the whole work system is built around
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
 	int32 TakeSalariedJob();
 
-	// no-door: the salaried job; you cannot take it, so you cannot leave it
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
 	void QuitSalariedJob();
 
 	/** Does the salary own today? */
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Work")
 	bool SalariedToday() const;
+
+	/** The permanent position, as the board advertises it — or, once you
+	 *  hold it, what leaving would cost. Both halves stated, always: the
+	 *  design is that taking it is *reasonable*, so the game must not
+	 *  editorialise, only be accurate. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Work")
+	FString SalaryLine() const;
 
 	/** Work it. Called from Sleep on any day the salary owns, not offered
 	 *  as an action — a trap you can decline is not a trap. */

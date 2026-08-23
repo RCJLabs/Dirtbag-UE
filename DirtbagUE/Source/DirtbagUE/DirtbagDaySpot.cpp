@@ -88,6 +88,10 @@ FString ADirtbagDaySpot::PromptText() const
 			    (Gig.bNeedsVan && !Game->VanRuns()) ? TEXT("  (needs the van)")
 			                                        : TEXT(""));
 		}
+		// The permanent position, under the gigs and separated from them,
+		// because it is a different kind of thing: the gigs are a day and
+		// this is your week, every week, until you hand it back.
+		Line += FString::Printf(TEXT("\n   %s"), *Game->SalaryLine());
 		return Line;
 	}
 	case EDirtbagSpotKind::Sleep:
@@ -337,6 +341,8 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnPhysio);
 			InputComponent->BindKey(EKeys::M, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnMembership);
+			InputComponent->BindKey(EKeys::J, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnSalary);
 			InputComponent->BindKey(EKeys::H, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnHangboard);
 			bBoundInput = true;
@@ -365,6 +371,40 @@ void ADirtbagDaySpot::OnTriggerEnd(UPrimitiveComponent*, AActor* OtherActor,
 	{
 		DisableInput(PC);
 	}
+}
+
+void ADirtbagDaySpot::OnSalary()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Shift)
+	{
+		return;
+	}
+
+	if (Game->Player.Job.bSalaried)
+	{
+		Game->QuitSalariedJob();
+		// The cost is psyche, and it is said rather than shown as a number
+		// -- you have just given up the only reliable money in the game
+		// and everybody at the fire will have an opinion.
+		Say(TEXT("You hand the keys back. It takes a few days to stop "
+		         "feeling like a mistake."),
+		    FColor::Yellow, 8.f);
+		PushPrompt();
+		return;
+	}
+
+	const int32 Lost = Game->TakeSalariedJob();
+	// No ceremony and no warning. The whole design of this trap is that
+	// taking it is entirely reasonable -- so the game reports what
+	// happened, including the streak it just ended, and says nothing about
+	// whether it was wise.
+	Say(Lost >= 365
+	        ? FString::Printf(
+	              TEXT("You start Monday.  That ends %d days nobody owned."),
+	              Lost)
+	        : FString(TEXT("You start Monday.")),
+	    FColor::Yellow, 8.f);
+	PushPrompt();
 }
 
 void ADirtbagDaySpot::OnMembership()
