@@ -1,24 +1,26 @@
 # When you get home — the whole list, in order
 
-**Rewritten 2026-08-23.** The last version was written on the 22nd and is
-**eleven commits stale** — it does not mention ethics, the jobs board,
-sponsorship, physio, membership, the salaried job or the wider map, because
-none of them existed when it was written. Grep the old one for `physio` and
-you get nothing. That is why this is a rewrite rather than an edit.
+**Rewritten 2026-08-23 (second time today).** The previous version said
+**save version v21**. It is **v31**. Ten save versions, six commits, and
+four phases of work landed since it was written, and it does not mention
+comps, the circuit, the national team, the World Cup, the Games, leagues,
+or anything at all about being ill or having teeth.
 
-Two things changed shape since then, and they change what this session is
-for:
+That is a rewrite, not an edit — same reason as last time, and the same
+lesson: **this file goes stale faster than anything else in the repo,
+because it is the only file whose job is to be current.**
 
-- **Everything that was a build job last time is done.** The Shaded Cave and
-  the Sun Terrace are placed; you played it and said it works. §5 and §6 of
-  the old list are retired.
-- **The place is now the only thing left that needs you.** Phases 7–13 in
-  the roadmap are all sim work I can do without you. So this session is
-  **the Lot blockout**, and everything above it is checking that three days
-  of C++ landed intact.
+Two things changed shape:
 
-Roughly **2½ hours**, of which §7 is two of them and is the point. §1 must
-go first; §2–§6 are just reading and pressing keys.
+- **§7's Lot blockout is unchanged and is still the point.** Nothing in
+  four phases of sim work touched it, because none of it could.
+- **Everything else on this list is now a much longer read**, because the
+  indoor half of a climbing career got built: gym comp → circuit → national
+  ranking → the national team → the World Cup → the Games, plus leagues,
+  plus the whole medical file.
+
+Roughly **3 hours**, of which §8 is two of them and is the point. §1 must go
+first.
 
 ---
 
@@ -26,341 +28,332 @@ go first; §2–§6 are just reading and pressing keys.
 
 1. `git pull` on `claude/dirtbag-unreal-port-ggvybe`.
 2. Right-click `DirtbagUE.uproject` → Generate Visual Studio project files.
-3. Build. **Eleven commits of container-green C++ land at once.** All eleven
+3. Build. **Six commits of container-green C++ land at once**, including
+   three new sim modules (`DirtbagWorldStage`, `DirtbagLeague`,
+   `DirtbagMedical`, `DirtbagAilments` — four, actually). All twelve
    preflight checkers pass, including a unity build of the whole sim as one
-   translation unit — but signatures are still only provable on your
-   compiler. **If it fails, paste me the full log before touching
+   translation unit at **35 files**. Signatures are still only provable on
+   your compiler. **If it fails, paste me the full log before touching
    anything.**
-4. Load your save. **Save version is now v21** — the character (below).
-   A v20 career migrates to **unbuilt**, which is exactly neutral in every
-   lane, so **your existing climber loads with the numbers they had** and
-   the creation screen does **not** ambush them twenty years in. Same rule
-   as always: it migrates in memory, the file keeps saying v20 until you
-   sleep, and **if anything is missing, stop and tell me; do not overwrite
-   the save.**
 
-   *(Was v20)* — nothing since the 22nd
-   has changed the save shape, so if you already slept once after the last
-   session, this load is uneventful. If you have not, the same rule applies
-   as before: it migrates in memory, the file on disk keeps saying the old
-   version until you sleep, and **if anything is missing, stop and tell me;
-   do not overwrite the save.**
+4. **Load your save. This is the one to read carefully.**
+
+   **Save version is now v31**, up from v21. Ten migrations run in
+   sequence, and **nine of them are uneventful**. One is not:
+
+   > **v27 → v28 deliberately throws your ranking away.**
+
+   You will not have noticed a ranking, because comps did not have a door
+   until this week — so in practice this costs you nothing. But the reason
+   matters and I want it on the record rather than discovered: the old
+   ranking was a **lifetime total** on a curve where coming mid-field paid
+   half a win. A measured ten-year career reached **14,633 points against a
+   top tier of 2,200.** The new ranking is a **rolling twelve-month
+   record**. The two are not the same measurement at different scales, they
+   are different measurements — carrying the old number across would have
+   handed you a World-Class rung you could never lose, because there is no
+   record behind it to age out.
+
+   A migrated career loads **Unranked** and re-earns its rung over its next
+   season of comps, which is about eleven weeks of play.
+
+   Everything else migrates to exact rather than generous: you were never on
+   the national team, never at a World Cup, never at the Games, have never
+   been to a league night, have a clean medical file with no cortisone in
+   any joint, and have good teeth.
+
+   **One case worth knowing**: if your climber was mid-injury when you last
+   saved, the injury survives and the new staged comeback picks it up the
+   next morning. That is a case I built a guard for specifically, and a test
+   pins it.
+
+   Same rule as always: it migrates in memory, the file keeps saying v21
+   until you sleep, and **if anything is missing, stop and tell me; do not
+   overwrite the save.**
 
 ---
 
-## 2. Nine keys, and five of them are new · read this before you play
+## 2. Eight new keys · read this before you play
 
-This is the biggest change since you last sat down. Every one of these is
-C++ on a trigger volume — **no Blueprint work, nothing to place, nothing to
-wire.** They only respond where they mean something.
+All C++ on existing trigger volumes. **No Blueprint work, nothing to place,
+nothing to wire.** They only respond where they mean something.
 
-**At a day spot** (the counter, the fire, the van, the shift desk):
-
-| key | where | what |
-|---|---|---|
-| **E** | everywhere | the obvious verb for that spot |
-| **C** / **F** | the fire | commit / back down |
-| **1 2 3** | shop, fire | pick a dream · set the stake |
-| **G** | anywhere | the guidebook |
-| **R** | the van | retire, and hand the valley on |
-| **S** | the shop counter | **sign with a sponsor** ← new |
-| **P** | the shop counter | **see a physio** ← new |
-| **M** | the shop counter | **buy or renew gym membership** ← new |
-| **H** | counter · van | **buy a hangboard · use it** ← new |
-| **J** | the shift desk | **take (or quit) the salaried job** ← new |
-| **4 5 6** | creation only | the extra origin choices ← new |
-
-**At a climb wall:**
+**At the gear shop counter** — this is now the care counter as well:
 
 | key | what |
 |---|---|
-| **E** | start an attempt |
-| **Space** | HOLD TO CLIMB |
-| **C** | clip (rope) |
-| **B** | brush |
-| **G** | the guidebook |
-| **T** | **do something you would not admit to** ← new |
-| **1 2 3 4** | which shortcut ← new |
+| **V** | have it looked at — first press a physio ($60), second the scan ($340) |
+| **C** | a cortisone shot ($180) |
+| **O** | the operation (needs the scan, needs it to be bad enough) |
+| **N** | push on to the next stage of the comeback |
+| **B** | buy or cancel health insurance |
+| **K** | take something for it, when you are ill ($11) |
+| **Y** | deal with the tooth |
+| **Z** | see somebody about your head ($110) |
 
-Four things worth knowing about that list rather than discovering:
+**At the van:**
 
-**H is one key in two places on purpose.** At the counter it buys the
-hangboard; at the van it uses it. Where you are standing says which you
-meant.
+| key | what |
+|---|---|
+| **X** | twenty minutes of prehab |
 
-**S, P and M are not E.** They are their own keys because E buys rubber, and
-signing away three days a month, buying six days off an injury and renewing
-a membership should not be the same press as buying shoes.
-
-**T is offered without being urged.** You get a bare `(T)` on the end of the
-route line and never a sentence explaining what it would buy. Press it and
-it says *"Nobody is watching."* and what the line will take. **T again backs
-out; walking away withdraws it.** Nothing congratulates you.
-
-**J has no ceremony and no warning.** Taking the salaried job is entirely
-reasonable, which is the whole design of the trap, so the game reports what
-happened — including the Dirtbag Year streak it just ended — and says
-nothing about whether it was wise.
+**At the gym wall**, `E` now means four different things depending on what
+is on: the Games, a World Cup round, the Tuesday comp, or the Wednesday
+league night — in that order, because that is the order the day matters. You
+will not have to think about it; only one of them is ever on.
 
 ---
 
-## 3. Four systems that existed and could not be reached · ~20 min to try
+## 3. The indoor career now exists · ~30 min to see the bottom of it
 
-Each of these was built, tested, measured and saved, and **had no door**.
-They are worth trying deliberately because the doors are new and the systems
-behind them are not.
+This is the biggest single addition since you last sat down, and the fastest
+way to meet it is to **go to the gym on a Wednesday**.
 
-**Sponsorship (S at the counter).** The shop mentions it only when the offer
-beats what you hold. Every offer states **both halves** — *"a title
-sponsor - $640 a month, and 3 days a month that will not be the rainy
-ones"* — because an offer that says what it pays and not what it wants is an
-advert. The obligation is then **taken at Sleep rather than offered**: you
-wake up and six hours already belong to somebody. Measured over five years:
-a title deal roughly doubles your income and takes about 15% of your good
-days, and **every day it takes is a good day.**
+**Leagues (E at the wall, on league night).** Five dollars, five problems,
+**ten goes** — more than a comp gives you, because a league night is a
+session with a scorecard rather than a test. It is worth **no ranking points
+at all** and that is the design, not an omission. What you chase is your own
+best score: it only goes up, nobody can take it off you, and beating it by
+one point on a Wednesday in a bad year is still beating it. Eight weeks make
+a block with a table and a small prize.
 
-**Physio (P at the counter).** The prompt states the trade in the only units
-that matter — *"$95, and about 6 days off it"*. A refusal says which of the
-three reasons it is. **Watch whether you can ever afford a full course**: a
-thirty-day injury costs $285 all in, and the measured thirty-year saver
-career peaks at **$447 cash ever held.** That may be exactly right —
-*"I cannot afford the physio"* is the most authentic sentence in this game —
-but nobody could know while the door did not exist. **This is the single
-most useful thing you can report back.**
+Measured over thirty years: about **one personal best a year**, and a
+quarter of blocks won by a climber who wins one domestic comp in 253. The
+league is the one room you can actually win.
 
-**Membership (M at the counter), and the gym was free.** `RenewGymMembership`
-had no caller, and neither did the function that *checks* it — so the gym
-let you climb indoors in any weather forever for **$0**, while
-`Sim/DirtbagKit.h` calls the membership *"the load-bearing one, the first
-recurring cost in the game."* **The wall is the gate now**: no membership,
-no plastic, and it says so on approach rather than after you have crossed
-town. Rock is unaffected.
+**Comps (E at the wall, when the poster says so).** Five problems, seven
+goes, $20. **At Regional and above it is a whole day**: qualification, a
+semi-final, a final. Six come out of quals and four out of the semi, the
+final is four problems and five goes, and **the score does not carry** — a
+good qualification buys you a place in the semi and nothing else. Being
+knocked out is a result, not an error, and the game says which round you
+went out in.
 
-**The jobs board (E at the shift desk, then 1/2/3).** The desk used to say
-*"Take a shift?"* and give you a flat $60. There are three gigs a day now
-and they are not interchangeable: flyering is **$11.67/hour** and shooting
-guidebook photos is **$65/hour** — five and a half times better, two hours,
-almost no energy, and **the one that turns the valley against you.** E shows
-the board; the numbers take a gig; E deliberately does not, because a key
-that silently picked the best would hand you a standing hit you never chose.
+**The ranking, and what it gates.** Unranked → Regional Climber → National
+Prospect → **National Team (700)** → **Olympic Hopeful (1200)** →
+World-Class. It is a rolling twelve-month record, so **stop competing and
+you come off the team**, exactly as you would.
 
----
+**The national team.** Named at 700, held down to 560, cut below that. Five
+teammates who are the people you have been chasing up the standings, a head
+coach with opinions, **$900 a year that does not cover rent**, and a
+committee that sits **once a year** and does not explain itself.
 
-## 3b. A new career now opens with four questions · ~5 min
+**The World Cup.** Ten real venues with real travel costs — Salt Lake $210,
+Wujiang $800 — and the federation pays the entry but not the flight. Six
+rounds a season. **The field flies whether you do or not**, so a round you
+skip is not a round that did not happen, it is twelve other people banking
+while you were at home. The season is decided by which rounds you could
+afford.
 
-**Start a fresh game** (rename your save file rather than deleting it) and
-you get a screen that did not exist: *"What kind of climber are you?"*, then
-where you came from, then what is wrong with you, then what you are like.
-**1–6 answers, E moves on from the last screen.** It saves the moment you
-finish.
+**The Games.** A four-year cycle. You need 1,200 ranking points to be there
+at all, and the seven you are up against are the best in the world. A
+thirty-year career sees seven of them; most see two or three.
 
-Every climber in this game was previously identical at birth — five skills
-within ±6 of fifty, and nothing else. What each answer does:
-
-- **Archetype** is a shape and never a score: the five offsets of every
-  archetype sum to zero. Measured over 24 paired seeds, a Boulderer
-  out-grades a Rope Gun **on every single seed** by over a full grade, and
-  their average of five skills comes out identical. You climb different
-  things, not better ones.
-- **Origin** is a life rather than a build, so these are *not* balanced
-  against each other — each holds one permanent perk in a lane no other
-  origin touches, and **none of them touches send odds.** Ten points of
-  power spread on day one, about a grade and a half.
-- **Flaw** is the only thing here allowed near odds, and only Happy Feet
-  uses it.
-- **Temperament** sets four axes. Two of them are wired (discipline, purism)
-  and two are not yet (boldness, social) — see the note.
-
-**And two things are rolled that nobody tells you about**: a gift and an
-anti-talent, on different skills. They are **live from your first move** and
-you find out only by working that lane for about forty sessions, at which
-point one grey line says so. A gift in a skill you never train stays hidden
-for the whole career. **Do not go looking for them in the HUD — that is the
-design.**
-
-Worth trying on purpose: **make two fresh saves with opposite builds** (a
-Boulderer from the desert, and a Rope Gun trust-fund kid) and play each a
-week. The question is criterion 3 of the phase gate, which is the one I
-cannot answer: **can you say who your climber is in one sentence that is not
-a stat line?**
-
-`notes/phase7-who-you-are.md` has the measurements, including two findings
-recorded rather than fixed — rate flaws are much weaker than risk flaws
-because diminishing returns eat them, and origin money never shows up in
-your bank because 98% of everything earned goes straight back out (it shows
-up in **19% less worn rubber** instead).
-
-## 4. The map went from five zones to sixteen · nothing to do, but read it
-
-`DestinationZone` on your travel spots now has **sixteen** entries in the
-dropdown instead of five.
-
-**Nothing you have placed has moved.** The Lot, Town, Roadside, Cave and
-Terrace keep ordinals 0–4 and always will — new zones only ever go on the
-end, because that property stores its value as a number and inserting one
-anywhere else would silently repoint every travel spot in your level. There
-is a test pinning those five ordinals for exactly that reason.
-
-What is new in the list: Old Town, Midtown, Trailhead, Outskirts, Uptown,
-Market Row, Grand Plaza, Greenwood Park, Trout Lake — **eleven walkable
-zones in one connected grid** — plus the **Olympic Village** and **the
-farm**, which are van-only like the crags.
-
-Two consequences:
-
-- **`Town` now displays as "Downtown".** Same zone, same ordinal; the word
-  changed because there are seven districts now and "town" stopped being a
-  place.
-- **Walks are priced off the real grid.** The Lot and downtown are diagonal,
-  so that walk is two borders — and the border cost was set to ten minutes
-  precisely so the walk you had tuned to twenty still costs twenty. Nothing
-  you have should feel different.
-
-None of the nine new zones has any content. That is fine and expected: they
-get a walk-through and a name until something wants to live there.
+**The one design call worth knowing about**, because it is the difference
+between the gym and the world: a gym comp is set at *your* grade plus a tier
+offset — it follows you up as you improve. The World Cup is set where it is
+set. Getting better is what closes the gap. (Reading it the other way made
+the whole top of the ladder unwinnable at every skill level in the game, for
+everybody, and every one of 76,000 checks passed. It took a measurement to
+find.)
 
 ---
 
-## 5. Still outstanding from last time · the camera · ~15 min, needs your eye
+## 4. Being hurt is no longer a wait · ~20 min, and this is the best thing to report on
 
-Unchanged and still the item most in need of a human. Every number is **a
-first guess by something that has never seen the shot.** All `EditAnywhere`
-under **Dirtbag|Shot**:
+The old injury was eleven days, physio buys six back, nothing to decide.
+Now:
+
+> **An injury hides its grade until you pay to look at it.**
+
+You get a sore finger and a sentence that says *"Something in the finger.
+You do not know how bad."* Sixty dollars buys a physio's hands — **close and
+not always right**, and the error is the whole mechanic. Three hundred and
+forty buys the machine, which is exact and is the only thing that unlocks an
+operation, because nobody operates on a guess.
+
+Then **the comeback is staged** — resting, moving it, a graded return — and
+it advances **because you press N**, not because a timer ran out. Waiting a
+stage out is never a gamble. Pushing on early is, and the odds get worse the
+earlier you go: three days early you usually get away with it, the morning
+after a bad one you mostly do not.
+
+**The shot (C) is the tempting wrong answer.** It ends the acute stage
+outright — you are climbing this week — and marks the joint permanently.
+Four in one joint is a different joint. Surgery is the only thing that ever
+takes damage back off, and it costs $2,200 and most of a season.
+
+**Insurance (B) is a real bet, and here is the number.** Thirty years of
+premiums is about $6,250. Measured claims ran from $816 on a lucky body to
+$8,704 on an unlucky one. So it is right on the career that got hurt a lot
+and a slow expensive mistake on the one that did not.
+
+**But the sharpest thing this system does is about money, not medicine.** A
+career earns about $7,200 a year and ends thirty years of it with $159 in
+the tin. A probe policy that *tried* to scan every injury spent **$0 in
+thirty years uninsured** — it could never afford $340 at the moment it was
+needed — and went untreated on all forty-one of them. Insurance is what puts
+real medicine within reach of a dirtbag. That fell out of the measurement
+rather than being designed in, and **it is the thing I most want you to
+check against your own instinct for the game.**
+
+---
+
+## 5. And three things that are wrong with you that are not the injury · ~10 min
+
+Every injury in this game is something you did. These are deliberately not.
+
+**You get ill (K).** Two or three colds a year, and it is not a die: it
+arrives off how you are living, so a fed, rested climber in a warm van
+essentially never gets ill and a hungry one sleeping cold on a wrecked body
+does. **Eleven dollars nearly halves the days you lose to it** — 633 down to
+356 over thirty years — which is the cheapest good decision in the game and
+is deliberately still a decision.
+
+**Your teeth (Y), and this is the one to watch.** A twinge becomes an ache
+becomes an abscess, on a clock, and **nothing improves it with rest.** The
+only thing that ever has is money, and it costs more at every stage: $70 for
+a filling, $780 for the root canal it becomes. It is the game's one pure
+test of whether you will spend on something that is not climbing.
+
+Left alone entirely, an abscess does eventually stop hurting — **the way it
+stops is the tooth.** A career that never pays loses about six of them and
+spends half its days with something wrong in its mouth. That number used to
+be *all* of them: the first version never resolved, so a career sat at an
+abscess for 10,688 days out of 10,950 and came away with four sends instead
+of twenty-four. Bounded now.
+
+**Prehab (X at the van).** Twenty minutes of a morning. It is a **streak,
+not a total** — twenty minutes once is nothing — and at full strength it is
+a third off the odds of a tweak and **never all of them.** It survives a few
+missed mornings, because a habit you lose by going to a wedding is not a
+habit.
+
+**And the shrink (Z).** $110, once a fortnight, and it is the only thing in
+this game that buys psyche back. It also does something a rest day cannot:
+it moves where psyche drifts back to overnight, for a month.
+
+---
+
+## 6. Still outstanding · the camera · ~15 min, needs your eye
+
+**Unchanged, and it has been the item most in need of a human for three
+sessions running.** Every number is a first guess by something that has
+never seen the shot. All `EditAnywhere` under **Dirtbag|Shot**:
 
 1. Walk up to a wall — the shot should be **exactly as you left it**.
-2. Press E on a tall line. The climber should stay in frame to the top, with
-   rock above their hands. Sitting too high or low is **CameraLead** (55).
-3. Watch a crux. The shot should come in and *settle*, not snap. Too much
+2. Press E on a tall line. Climber in frame to the top, rock above their
+   hands. Too high or low is **CameraLead** (55).
+3. Watch a crux. It should come in and *settle*, not snap. Too much
    movement: **CameraTightenBy** (0.32). Too sudden: **TensionEase** (1.8).
-4. Watch something long and pumpy. Early it should be locked; late it should
-   not quite hold still. Nothing visible: raise **PumpSway** (7). Seasick:
-   lower it.
+4. Watch something long and pumpy. Locked early, not quite still late.
+   Nothing visible: raise **PumpSway** (7). Seasick: lower it.
 5. If any of it is worse than the tripod: **bCameraFollows = false**.
 
-**The gate here is not something I can pass.** It is Phase 0's, re-asked:
-*a watcher can tell how close an attempt was without reading a number.* Get
-somebody who is not you to watch an attempt with the HUD ignored.
+**I cannot pass this gate.** It is Phase 0's, re-asked: *a watcher can tell
+how close an attempt was without reading a number.* Get somebody who is not
+you to watch an attempt with the HUD ignored.
 
 ---
 
-## 6. Still outstanding from last time · sound · optional
+## 7. Still outstanding · sound · optional
 
-There is still no audio in this project and **nothing needs assigning.** The
-slots are on the wall actor under **Dirtbag|Sound**, plus one
-`InteractSound` per day spot.
+No audio in the project and **nothing needs assigning.** Slots on the wall
+actor under **Dirtbag|Sound**, plus one `InteractSound` per day spot.
 
-**Start with `BreathLoop`** — a calm two-or-three-second loop, driven by
-pump for volume and pitch. It does more than everything else here combined,
-because pump is the number the session turns on and this is that number
-without a bar. Then `MoveSound` and `LandSound`. `ChalkSound` last, and
-check it fires *rarely* — if you hear it every move, drop `ChalkBelowOdds`
-(0.7).
+**Start with `BreathLoop`** — a calm two-or-three-second loop, driven by pump
+for volume and pitch. It does more than everything else combined, because
+pump is the number the session turns on and this is that number without a
+bar. Then `MoveSound` and `LandSound`. `ChalkSound` last, and check it fires
+*rarely* — if you hear it every move, drop `ChalkBelowOdds` (0.7).
 
 Fire crackle, wind, the Lot at night are **`AmbientSound` actors in the
 level**, not these slots.
 
 ---
 
-## 7. The Lot blockout · ~2 hours · **the whole point of this session**
+## 8. The Lot blockout · ~2 hours · **still the whole point**
+
+Unchanged from the last list, because nothing I have built since could touch
+it. Repeated in full because it is the item that matters.
 
 You said: *"i dont even know what assets to use or how to put things
-together."* Here is the answer to the first half, and it is short:
+together."* The answer to the first half:
 
 > **For the blockout, none. Do not buy anything yet.**
 
-The shopping list is decided and written down (`notes/phase6-the-place.md`
-Part 1) — a stylized modular character pack, two or three Megascans cliff
-sets, a campervan with a good interior, the DOG pack, and Epic's free Game
-Animation Sample. **None of it is needed to build the Lot**, and buying
-before the blockout is how you end up dressing a shape that turns out to be
-wrong.
+The shopping list is written down (`notes/phase6-the-place.md` Part 1) and
+**none of it is needed to build the Lot.** Buying before the blockout is how
+you end up dressing a shape that turns out to be wrong.
 
 Why the Lot first: **you sleep there every night of a thirty-year career.**
-It gets more screen time than anything else in the game by an order of
-magnitude. The Cave and the Terrace are seasonal and can stay grey for
-months.
 
-### 7a. Make ground · ~20 min
-
+### 8a. Make ground · ~20 min
 1. New Landscape actor. Sculpt roughly — **you are making occlusion, not
    terrain.** A hill between the Lot and the road is the entire job, because
    what you cannot see is what makes two places two places.
-2. Flat pad for the Lot itself, big enough that walking across it takes a
-   few seconds and not one.
-3. **Do not texture it.** Grey is correct at this stage.
+2. Flat pad for the Lot, big enough that crossing it takes a few seconds.
+3. **Do not texture it.** Grey is correct.
 
-### 7b. Move what you already have onto it · ~30 min
+### 8b. Move what you have onto it · ~30 min
+The trigger volumes get **relocated**, at real distance from each other:
+the van (sleep, and the hangboard on its side door, and now prehab), the
+fire, the dog bowl, the travel spot at the edge, a rest spot by the pads.
 
-Your trigger volumes are not thrown away — they get **relocated**. This is
-the step that turns a game in a test level into a game in a place.
+**The distances are the design.** If the fire is two steps from the van,
+sitting down at it costs nothing and the evening stops being a choice.
 
-Put them where they would actually be, at real distance from each other:
+### 8c. Play it grey · ~20 min
+Walk it. Sleep. Drive to Roadside. Climb. Come back.
 
-- **the van** — sleep spot, and the hangboard hangs over its side door
-- **the fire** — far enough from the van that walking over is a decision
-- **the dog bowl** — by the van
-- **the travel spot out** — at the edge, where a road would leave
-- **a rest spot** — the log by the pads
+**It will be grey and it will be a game.** That is the checkpoint. If it
+feels wrong grey, no amount of Megascans fixes it and the layout needs
+another pass.
 
-The distances are the design. If the fire is two steps from the van, sitting
-down at it costs nothing and the evening stops being a choice.
+### 8d. Only then, dress one pocket
+One at a time, playing after each. The climb walls are last: a wall is a
+spline plus a mesh and **the rock behind it is scenery**, so the rock
+purchase blocks nothing. You could build the whole valley and play a season
+before buying a cliff.
 
-### 7c. Play it grey · ~20 min
-
-Walk the Lot. Sleep. Drive to Roadside. Climb. Come back.
-
-**It will be grey and it will be a game.** That is the checkpoint — if it
-feels like a place while it is untextured boxes, dressing it will work. If
-it feels wrong grey, no amount of Megascans fixes it, and it is the layout
-that needs another pass.
-
-### 7d. Only then, dress one pocket · the rest of the session
-
-One pocket at a time, and **play it again after each.**
-
-The climb walls are safe to leave until last, and this is worth
-understanding because it removes the scariest purchase from the critical
-path: `ADirtbagClimbWall` is a spline of hold positions plus a mesh that
-interpolates along it, and **the rock behind it is scenery.** A wall works
-on a grey box and keeps working unchanged when a cliff arrives behind it —
-you place the cliff, then drag the spline points onto features that look
-like holds. **The rock purchase is not blocking anything.** You could build
-the entire valley and play a full season before buying a single cliff.
-
-**The one thing expected to be genuinely hard** is exactly that last step:
-making a hand-drawn hold spline line up with real rock features. **Do one
-wall and find out how much fuss it is before committing to twenty-five.**
+**The one thing expected to be genuinely hard** is making a hand-drawn hold
+spline line up with real rock features. **Do one wall and find out how much
+fuss it is before committing to twenty-five.**
 
 ---
 
-## 8. Then play — and these are the questions
+## 9. Then play — and these are the questions
 
-Whichever the session touches:
+Ranked by how much I need the answer:
 
-1. **Can you ever afford a full course of physio?** §3. The most useful
-   single answer you can bring back.
-2. **Does the board make you choose?** Do you ever take the $11.67 gig over
-   the $65 one because of what the good one costs you with the valley?
-3. **Sign a sponsor and live a month.** Do the taken days feel like a price
-   or like a tax? They are always good days, by design.
-4. **Press T once.** Not because you should — because I want to know whether
-   the offer reads as tempting or as a menu item.
-5. **Brush a project you cannot climb yet.** The toast should say *"Word
-   gets round. Nobody at the Lot will touch it now."* exactly once. Still
-   the biggest claim in the game that playtesting can validate: **do you
-   believe it when the game says it?**
-6. **Does the grey Lot feel like a place?** §7c. If yes, the rest of Phase 6
-   is work rather than risk.
+1. **Does the grey Lot feel like a place?** §8c. If yes, the rest of Phase 6
+   is work rather than risk. Everything else on this list is a dial.
+2. **Can you ever afford a scan?** §4. The whole medical system leans on
+   cash-on-hand being the binding constraint. If it turns out you are richer
+   than the probe thinks, half those prices are wrong.
+3. **Does the tooth make you spend?** §5. It is meant to be the one thing
+   you resent paying for and pay for anyway. If you ignore it and shrug,
+   it is too weak; if you dread it, it is too strong.
+4. **Play one comp at Regional.** §3. Three rounds, and the score does not
+   carry. Does the semi feel like a second chance or like a chore?
+5. **Skip a World Cup round you cannot afford.** §3. Does the table moving
+   away from you land, or is it just a number going down?
+6. **One league night.** §3. Is a personal best something you would come
+   back for on a Wednesday?
+7. **Camera**, §6, with somebody who is not you.
 
 ---
 
-## 9. What is deliberately not done
+## 10. What is deliberately not done
 
-- **The Lot never varies** — the same three neighbours across ninety years.
-  Known, logged, a design question for you rather than a dial.
-- **Nine of the eleven walkable zones are empty.** By design for now.
-- **No audio assets.** §6.
-- **Comps, the ladder and the Olympics are back in scope** as of today
-  (`concepts/DECISION-comps-are-back.md`) and are **Phase 9** — nothing to
-  do at the desk, but the Olympic Village is now a zone, so leave room for
-  it when you sculpt.
+- **Phase 6 is untouched by all of this.** Nine of eleven walkable zones are
+  empty, the Lot is trigger volumes, and no amount of sim work changes it.
+- **No audio assets.** §7.
+- **Phase 7's `social` axis** is still unwired — it needs turnout, which
+  needs somewhere for people to turn up to.
+- **Phase 8's balance call is still open**: 502 races in thirty years is a
+  lot. My reading is "fewer races, longer clock", but it is taste and it is
+  yours.
+- **Phase 11 (a life outside it), 12 (work as a craft) and 13 (trad)** are
+  not started. All three are container work whenever you want them.
