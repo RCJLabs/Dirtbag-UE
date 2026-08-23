@@ -234,3 +234,97 @@ the year.
 
 All four of the remaining systems read the ranking number this pass just made
 real. That was the point of doing it second.
+
+---
+
+# Pass 3 — the national team
+
+**2026-08-23, same day.** Evan: *"Do it"*.
+
+`NATL_TIERS` has read **"National Team" at 700 points** since the ranking
+existed, and until now it was a word on a progress bar. The 2D game's own
+note is the brief:
+
+> *"A national team is not a threshold. It's a roster with your name typed
+> on it, five other people who are also on it, a head coach who has opinions
+> about you, a stipend that doesn't cover rent, and a review at the end of
+> every domestic season that can quietly take all of it back."*
+
+## Two lines, not one
+
+Clear **700** to be named. Once you are on, you hold all the way down to
+**560** — the grace a selection committee actually gives a returning
+athlete, and without it a season spent hovering around the number is a coin
+flip you take five times.
+
+The test for this started as `holdAt < selectAt`, which is a tautology: it
+catches the dial being collapsed and nothing else. The real check is that
+**the same number treats an insider and an outsider differently** — at
+exactly 560, somebody already on the paper stays and somebody outside is not
+let in. Verified by collapsing the dials and watching *that* fail rather than
+only the comparison.
+
+## Your teammates are people you already know
+
+The roster is **the top of the national field** — the exact climbers you have
+spent a career chasing up the standings, not five names invented for the
+occasion. That is what makes being named feel like arriving somewhere rather
+than being handed a menu of strangers.
+
+A teammate is a person before they are a number, so each carries a role read
+off what they are known for and which way they are going: **the crimper, the
+engine, the junior, the veteran.** The roster is rebuilt at every review, so
+people come and go under you whether or not your own status changed — and the
+game keeps the names of the ones who are not on it any more.
+
+**The climber you went past to get on it is recorded.** They know.
+
+## Getting the call once never un-happens
+
+Being cut takes the spot, not the fact. `everNamed` survives it, the HUD line
+changes from *"On the national team"* to *"Off the national team after three
+seasons"*, and coming back is worth less than arriving was — because it is.
+
+The review says so without editorial: *"The committee did not name you this
+year."* A committee does not explain itself and neither does this.
+
+## The units bug, caught before it shipped
+
+The 2D game's rep values here are **16, 6 and 6**, on its own `rep` scale
+that runs to hundreds. The port's standing runs **−1..1**, and
+`Sim/DirtbagFactions.h` says outright: *"0.1 is a small deliberate act, 0.3
+is a big one."*
+
+Carrying those across unconverted would have shifted the Scene by **sixteen
+on a scale where one is the whole range**. That is the rival's
+grade-for-skill bug wearing a different hat, and it is available **every time
+a number crosses between two systems that both call their axis
+"reputation".** The conversion is written into the dial comment rather than
+done silently.
+
+**0.40 / 0.15 / 0.15**, with 0.40 deliberately *above* what the factions file
+calls a big deliberate act — being named to the national team is the largest
+single thing that can happen to a competitor's standing with the scene.
+
+## When the committee sits
+
+At a circuit season's close and nowhere else. **A domestic season is the unit
+a selection committee actually works in**, and reviewing you every night
+would make the team a thermostat. It runs after the season's own podium
+points are banked, because those are part of the year the committee is
+looking at.
+
+SAVE v26 carries the roster, the coach and who you went past. Without it a
+career would be **re-announced onto the team at every season's close,
+forever**, with a different coach each time.
+
+## What is left of Phase 9
+
+- **the World Cup** — ten venues with travel costs, and a field that flies
+  whether you do or not
+- **the Games** — a 56-day cycle, declared disciplines, problems a grade
+  above yours
+- **quals → semi → final** at National and above
+- **leagues**, the low end of the same system
+
+The ranking number gates both of the first two, and it is real now.
