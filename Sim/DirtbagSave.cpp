@@ -255,6 +255,11 @@ void MigrateV19ToV20(SaveFields& fields) { fields["player.name"] = ""; }
 // existed, so a v22 career migrates to nothing running -- which is where a
 // career sits most of the time anyway, and the roll starts it again the next
 // morning.
+// v23 -> v24: national ranking points. A v23 career never entered a comp,
+// so it starts unranked -- which is the Local tier, where an unranked
+// climber belongs.
+void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
+
 void MigrateV22ToV23(SaveFields& fields) {
   fields["rival.race"] = "";
   fields["rival.raceby"] = "0";
@@ -326,7 +331,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV12ToV13, &MigrateV13ToV14, &MigrateV14ToV15,
       &MigrateV15ToV16, &MigrateV16ToV17, &MigrateV17ToV18,
       &MigrateV18ToV19, &MigrateV19ToV20, &MigrateV20ToV21,
-      &MigrateV21ToV22, &MigrateV22ToV23};
+      &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24};
   return kMigrations;
 }
 
@@ -467,6 +472,7 @@ std::string SerializeSave(const SaveGame& save) {
     out << "rival.offered=" << IntToStr(rv.offered ? 1 : 0) << "\n";
     out << "rival.met=" << IntToStr(rv.met ? 1 : 0) << "\n";
     out << "rival.retired=" << IntToStr(rv.retired ? 1 : 0) << "\n";
+    out << "ranking=" << NumToStr(save.player.rankingPoints) << "\n";
     out << "rival.race=" << rv.race.routeName << "\n";
     out << "rival.raceby=" << IntToStr(rv.race.byDay) << "\n";
     out << "rival.racefa=" << IntToStr(rv.race.forFirstAscent ? 1 : 0)
@@ -698,6 +704,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseInt(fields, "rival.offered", offered) ||
         !ParseInt(fields, "rival.met", met) ||
         !ParseInt(fields, "rival.retired", retired) ||
+        !ParseDouble(fields, "ranking", save.player.rankingPoints) ||
         !ParseString(fields, "rival.race", rv.race.routeName) ||
         !ParseInt(fields, "rival.raceby", rv.race.byDay) ||
         !ParseInt(fields, "rival.racefa", raceFa) ||

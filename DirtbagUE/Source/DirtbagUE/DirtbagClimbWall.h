@@ -410,6 +410,11 @@ private:
 	void OnShortcut2();
 	void OnShortcut3();
 	void OnShortcut4();
+	UFUNCTION()
+	void OnShortcut5();
+
+	/** Spend a comp go on problem `Which`. True if the key was the comp's. */
+	bool CompProblem(int32 Which);
 
 	/** Drive the shot: follow the climber, tighten on a hard move, breathe
 	 *  with the pump. Reads the same FDirtbagSessionReadout the HUD reads,

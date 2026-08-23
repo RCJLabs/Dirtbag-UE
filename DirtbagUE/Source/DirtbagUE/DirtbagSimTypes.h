@@ -10,6 +10,7 @@
 #include "DirtbagCampfire.h"
 #include "DirtbagZones.h"
 #include "DirtbagCharacter.h"
+#include "DirtbagComp.h"
 #include "DirtbagRival.h"
 #include "DirtbagConditions.h"
 #include "DirtbagCore.h"
@@ -1181,6 +1182,10 @@ struct FDirtbagPlayerState
 	/** And the ones who came before. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
 	TArray<FDirtbagPastRival> PastRivals;
+
+	/** National ranking points. What the comp tiers gate on. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	double RankingPoints = 0.0;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gear")
 	FDirtbagShoes Shoes;

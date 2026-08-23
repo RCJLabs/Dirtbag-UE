@@ -1398,6 +1398,155 @@ bool UDirtbagGameInstance::DeclineTheRival()
 	return true;
 }
 
+namespace
+{
+// The live comp, kept sim-side. It is not on the player state because a
+// comp does not survive a reload: you are in the gym for six hours and the
+// save is written when you sleep, so a comp interrupted by an alt-F4 is a
+// comp you did not finish. Storing it would mean deciding what a half-comp
+// means on load, which is a worse answer than "you missed it".
+dirtbag::CompState GLiveComp;
+}  // namespace
+
+int32 UDirtbagGameInstance::DaysUntilComp() const
+{
+	return dirtbag::DaysUntilComp(Player.Day);
+}
+
+bool UDirtbagGameInstance::CompIsToday() const
+{
+	return dirtbag::CompIsToday(Player.Day);
+}
+
+FString UDirtbagGameInstance::CompLine() const
+{
+	const dirtbag::CompTier Tier = dirtbag::TierFor(Player.RankingPoints);
+	if (CompIsToday())
+	{
+		return FString::Printf(
+		    TEXT("The %s comp is today.  ($%.0f to enter)"),
+		    UTF8_TO_TCHAR(dirtbag::TierName(Tier)),
+		    dirtbag::CompDials{}.entryFee);
+	}
+	const int32 Days = DaysUntilComp();
+	if (Days < 0)
+	{
+		return FString();
+	}
+	// Days in words, like everything else the game says slowly.
+	return FString::Printf(
+	    TEXT("There is a %s comp %s."), UTF8_TO_TCHAR(dirtbag::TierName(Tier)),
+	    Days == 1 ? TEXT("tomorrow") : Days == 2 ? TEXT("the day after next")
+	                                             : TEXT("this week"));
+}
+
+bool UDirtbagGameInstance::EnterComp()
+{
+	if (Comp.bActive || !CompIsToday())
+	{
+		return false;
+	}
+	const dirtbag::CompDials Dials;
+	if (Player.Cash < Dials.entryFee)
+	{
+		return false;
+	}
+	Player.Cash -= Dials.entryFee;
+	PassHours(Dials.hours);
+	Day.Energy = FMath::Max(0.0, Day.Energy - Dials.energy);
+
+	GLiveComp = dirtbag::SetTheBoard(
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)),
+	    dirtbag::TierFor(Player.RankingPoints), AllroundGrade(), Player.Day);
+	Comp = FDirtbagCompReadout{};
+	Comp.bActive = true;
+	RefreshComp();
+	return true;
+}
+
+void UDirtbagGameInstance::RefreshComp()
+{
+	Comp.Tier = FString(dirtbag::TierName(GLiveComp.tier));
+	Comp.AttemptsLeft = GLiveComp.attemptsLeft;
+	Comp.YourScore = dirtbag::YourScore(GLiveComp);
+	Comp.Problems.Reset(GLiveComp.problems.size());
+	for (std::size_t i = 0; i < GLiveComp.problems.size(); i++)
+	{
+		const dirtbag::CompProblem& P = GLiveComp.problems[i];
+		const dirtbag::ProblemProgress& Pr = GLiveComp.progress[i];
+		FDirtbagCompProblem Out;
+		Out.Colour = FString(P.route.name.c_str());
+		Out.Grade = UDirtbagSimLibrary::GradeName(
+		    P.route.trueGrade, EDirtbagDiscipline::Boulder);
+		Out.Points = P.topPoints;
+		Out.FlashPoints = P.flashPoints;
+		Out.Tries = Pr.tries;
+		Out.bTopped = Pr.topped;
+		Out.bFlashed = Pr.flashed;
+		Out.Zone = Pr.zone;
+		Comp.Problems.Add(Out);
+	}
+}
+
+bool UDirtbagGameInstance::CompAttempt(int32 Which)
+{
+	if (!Comp.bActive || Comp.bSettled)
+	{
+		return false;
+	}
+	const int32 Before = GLiveComp.attemptsLeft;
+	dirtbag::AttemptProblem(
+	    GLiveComp, Which, DirtbagConvert::ToSim(Player.Climber),
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed) +
+	                           std::string("#comp#") +
+	                           std::to_string(Player.Day)));
+	RefreshComp();
+	// The go only counted if the sim took it -- a bad index or a problem
+	// you have already topped spends nothing, which the caller needs to
+	// know so it does not report a burn that never happened.
+	return GLiveComp.attemptsLeft < Before;
+}
+
+bool UDirtbagGameInstance::SettleComp()
+{
+	if (!Comp.bActive || Comp.bSettled)
+	{
+		return false;
+	}
+	const dirtbag::Rival R = DirtbagConvert::ToSim(Player.Rival);
+	const dirtbag::CompResult Res = dirtbag::Settle(
+	    GLiveComp, AllroundGrade(), R.retired ? std::string() : R.name,
+	    R.grade,
+	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed) +
+	                           std::string("#settle#") +
+	                           std::to_string(Player.Day)));
+
+	Player.Cash += Res.cash;
+	Player.RankingPoints += Res.rep;
+
+	// Beating them is head-to-head, and it is the same currency an FA moves.
+	if (Res.beatTheRival)
+	{
+		dirtbag::Rival Beat = R;
+		dirtbag::YouGotThereFirst(Beat);
+		Beat.met = true;
+		Player.Rival = DirtbagConvert::FromSim(Beat);
+	}
+
+	Comp.bSettled = true;
+	Comp.Placing = FString(dirtbag::PlacingText(Res).c_str());
+	Comp.Board.Reset(Res.board.size());
+	for (const dirtbag::CompEntrant& E : Res.board)
+	{
+		Comp.Board.Add(FString::Printf(TEXT("%s%s   %.0f"),
+		                               E.isYou ? TEXT("> ") : TEXT("  "),
+		                               UTF8_TO_TCHAR(E.name.c_str()),
+		                               E.score));
+	}
+	RefreshComp();
+	return true;
+}
+
 double UDirtbagGameInstance::AllroundGrade() const
 {
 	const FDirtbagClimber& C = Player.Climber;

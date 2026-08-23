@@ -156,6 +156,13 @@ struct PlayerState {
   Rival rival;
   std::vector<PastRival> pastRivals;
 
+  // National ranking points. What the comp tiers gate on, and the number
+  // the whole ladder above a gym comp reads once it exists -- the team, the
+  // World Cup and the Games all key off it. Earned at comps and nowhere
+  // else, which is what makes a comp worth entering when the prize money
+  // deliberately is not.
+  double rankingPoints = 0.0;
+
   double cash = 420.0;  // the war chest you left home with
   int day = 1;
 

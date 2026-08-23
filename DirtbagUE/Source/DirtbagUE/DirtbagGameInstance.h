@@ -252,6 +252,76 @@ enum class EDirtbagCreationStep : uint8
 	Done,
 };
 
+/** One problem on the comp board, as the screen shows it. */
+USTRUCT(BlueprintType)
+struct FDirtbagCompProblem
+{
+	GENERATED_BODY()
+
+	/** The tape colour. Comp problems are named by tape, not by poetry. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString Colour;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString Grade;
+
+	/** What it is worth topped, and what a flash would have been. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	double Points = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	double FlashPoints = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 Tries = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	bool bTopped = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	bool bFlashed = false;
+
+	/** 0 none, 1 low, 2 high. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 Zone = 0;
+};
+
+/** A comp in progress, as a thing the HUD can draw.
+ *
+ *  **Five problems, seven attempts, and you choose where they go.** That is
+ *  the whole mechanic and the reason a comp is worth porting -- see
+ *  Sim/DirtbagComp.h. */
+USTRUCT(BlueprintType)
+struct FDirtbagCompReadout
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	bool bActive = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString Tier;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	TArray<FDirtbagCompProblem> Problems;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	int32 AttemptsLeft = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	double YourScore = 0.0;
+
+	/** Set once it is over: the scoreboard, best first. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	bool bSettled = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	TArray<FString> Board;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FString Placing;
+};
+
 /** The creation flow, as a thing the HUD can draw.
  *
  *  Deliberately the same shape as the handover, and for the same reason:
@@ -605,6 +675,35 @@ public:
 	 *  until all four questions are answered. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Creation")
 	FDirtbagCreationReadout Creation;
+
+	/** The comp, while one is being climbed. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	FDirtbagCompReadout Comp;
+
+	/** Days until the next one, or -1 outside the announcement window. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
+	int32 DaysUntilComp() const;
+
+	/** Is one on at the gym today? */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
+	bool CompIsToday() const;
+
+	/** Sign in. Costs the entry fee and the day. False if there is no comp,
+	 *  you cannot pay, or you are already in one. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Comp")
+	bool EnterComp();
+
+	/** Spend one of your seven on problem `Which` (zero-based). */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Comp")
+	bool CompAttempt(int32 Which);
+
+	/** Turn in the scorecard. Ranks the field, places you, pays out. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Comp")
+	bool SettleComp();
+
+	/** What the gym has on a poster. Empty outside the window. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
+	FString CompLine() const;
 
 	/** Live session readout for the HUD; the wall keeps this current. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
@@ -1093,6 +1192,9 @@ public:
 
 	/** Rebuild the on-screen options for the current question. */
 	void RefreshCreation();
+
+	/** Rebuild the comp board from the live sim state. */
+	void RefreshComp();
 
 	/** The average of your five skills, on the grade ladder. The number the
 	 *  rival chases, and the one the HUD compares them to -- computed once

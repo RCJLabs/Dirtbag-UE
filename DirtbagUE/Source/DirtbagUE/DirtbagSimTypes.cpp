@@ -173,6 +173,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.climber = ToSim(In.Climber);
 	Out.character = ToSim(In.Character);
 	Out.rival = ToSim(In.Rival);
+	Out.rankingPoints = In.RankingPoints;
 	Out.pastRivals.reserve(In.PastRivals.Num());
 	for (const FDirtbagPastRival& P : In.PastRivals)
 	{
@@ -227,6 +228,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Name = FString(In.name.c_str());
 	Out.Character = FromSim(In.character);
 	Out.Rival = FromSim(In.rival);
+	Out.RankingPoints = In.rankingPoints;
 	Out.PastRivals.Reset(In.pastRivals.size());
 	for (const dirtbag::PastRival& P : In.pastRivals)
 	{

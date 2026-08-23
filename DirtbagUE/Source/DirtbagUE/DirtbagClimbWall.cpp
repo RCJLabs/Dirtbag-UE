@@ -348,10 +348,69 @@ bool ADirtbagClimbWall::TakeShortcut(int32 Which)
 	return true;
 }
 
-void ADirtbagClimbWall::OnShortcut1() { TakeShortcut(0); }
-void ADirtbagClimbWall::OnShortcut2() { TakeShortcut(1); }
-void ADirtbagClimbWall::OnShortcut3() { TakeShortcut(2); }
-void ADirtbagClimbWall::OnShortcut4() { TakeShortcut(3); }
+// **The comp takes the number keys while it is on.** They are the ethics
+// shortcuts otherwise, and there is no overlap in practice -- you are not
+// deciding whether to claim a line you have not done while standing in
+// isolation at a competition -- but the comp is checked first because it is
+// the more urgent of the two and the one with a clock on it.
+bool ADirtbagClimbWall::CompProblem(int32 Which)
+{
+	if (!Game || !Game->Comp.bActive || Game->Comp.bSettled)
+	{
+		return false;
+	}
+	if (!Game->CompAttempt(Which))
+	{
+		// A go that was not taken: already topped, or out of attempts. Said
+		// rather than swallowed, because in a comp a key that appears to do
+		// nothing is indistinguishable from a key that wasted a go.
+		if (Game->Comp.AttemptsLeft <= 0)
+		{
+			Toast(TEXT("That is your seven."), FColor::Orange, 4.f);
+		}
+		else if (Game->Comp.Problems.IsValidIndex(Which) &&
+		         Game->Comp.Problems[Which].bTopped)
+		{
+			Toast(TEXT("You have already had that one."), FColor::Silver, 3.f);
+		}
+		return true;
+	}
+	// Turned in automatically when the last go is spent: there is nothing
+	// left to decide, and making the player press one more key to hear a
+	// result they cannot change is ceremony.
+	if (Game->Comp.AttemptsLeft <= 0)
+	{
+		Game->SettleComp();
+		Toast(Game->Comp.Placing, FColor::Yellow, 10.f);
+	}
+	PushPrompt();
+	return true;
+}
+
+void ADirtbagClimbWall::OnShortcut1()
+{
+	if (CompProblem(0)) { return; }
+	TakeShortcut(0);
+}
+void ADirtbagClimbWall::OnShortcut2()
+{
+	if (CompProblem(1)) { return; }
+	TakeShortcut(1);
+}
+void ADirtbagClimbWall::OnShortcut3()
+{
+	if (CompProblem(2)) { return; }
+	TakeShortcut(2);
+}
+void ADirtbagClimbWall::OnShortcut4()
+{
+	if (CompProblem(3)) { return; }
+	TakeShortcut(3);
+}
+// The fifth problem needs a fifth key, and nothing else on the wall wants
+// it. A board with a problem you cannot press is the bug the ethics prompt
+// had two days ago.
+void ADirtbagClimbWall::OnShortcut5() { CompProblem(4); }
 
 void ADirtbagClimbWall::PushPrompt()
 {
@@ -367,6 +426,66 @@ void ADirtbagClimbWall::PushPrompt()
 		// bLiveSession, because a *watched* attempt is just as much a
 		// session and "E to climb" is just as wrong underneath it.
 		Game->ClearPrompt(this);
+		return;
+	}
+
+	// **The comp owns the panel while it is on.** Everything else this
+	// prompt says -- the read, the belayer, the shortcuts -- is about a
+	// route you might get on, and inside a comp there is exactly one
+	// decision: which of the five, with how many goes left.
+	if (Game->Comp.bActive)
+	{
+		TArray<FDirtbagPromptLine> Lines;
+		const auto Add = [&Lines](const FString& Text)
+		{
+			FDirtbagPromptLine L;
+			L.Text = Text;
+			L.Tone = EDirtbagPromptTone::Plain;
+			Lines.Add(L);
+		};
+		if (Game->Comp.bSettled)
+		{
+			Add(FString::Printf(TEXT("%s comp - %s"), *Game->Comp.Tier,
+			                    *Game->Comp.Placing));
+			for (const FString& Row : Game->Comp.Board)
+			{
+				Add(Row);
+			}
+		}
+		else
+		{
+			Add(FString::Printf(TEXT("%s comp - %d goes left, %.0f banked"),
+			                    *Game->Comp.Tier, Game->Comp.AttemptsLeft,
+			                    Game->Comp.YourScore));
+			for (int32 i = 0; i < Game->Comp.Problems.Num(); i++)
+			{
+				const FDirtbagCompProblem& P = Game->Comp.Problems[i];
+				// What it is worth *to you now*: a flash is off the table
+				// the moment you have touched it, and saying so is the
+				// difference between a board and a scoreboard.
+				const double Worth = P.Tries == 0 ? P.FlashPoints : P.Points;
+				FString State;
+				if (P.bTopped)
+				{
+					State = P.bFlashed ? TEXT("flashed") : TEXT("topped");
+				}
+				else if (P.Zone >= 2) { State = TEXT("high zone"); }
+				else if (P.Zone >= 1) { State = TEXT("low zone"); }
+				else if (P.Tries > 0) { State = TEXT("nothing yet"); }
+				Add(FString::Printf(
+				    TEXT("   %d  %s %s  -  %.0f pts%s%s"), i + 1, *P.Colour,
+				    *P.Grade, Worth,
+				    P.Tries > 0
+				        ? *FString::Printf(TEXT("   %d %s"), P.Tries,
+				                           P.Tries == 1 ? TEXT("go")
+				                                        : TEXT("goes"))
+				        : TEXT(""),
+				    State.IsEmpty() ? TEXT("")
+				                    : *FString::Printf(TEXT("   %s"),
+				                                       *State)));
+			}
+		}
+		Game->SetPrompt(this, Lines);
 		return;
 	}
 
@@ -470,6 +589,24 @@ void ADirtbagClimbWall::PushPrompt()
 		Lines.Add(Body);
 	}
 
+	// **The poster on the gym wall.** Three days of warning, which is the
+	// mechanic: a comp you find out about on the day is a dice roll, and one
+	// you can see coming is a week of deciding whether to rest for it.
+	// Indoors only -- nobody posts a competition at a crag.
+	if (!IsOutdoors(Venue))
+	{
+		const FString Poster = Game->CompLine();
+		if (!Poster.IsEmpty())
+		{
+			FDirtbagPromptLine Notice;
+			Notice.Text = Game->CompIsToday()
+			                  ? Poster + TEXT("  (E) to sign in")
+			                  : Poster;
+			Notice.Tone = EDirtbagPromptTone::Plain;
+			Lines.Add(Notice);
+		}
+	}
+
 	// The shortcut, when it has been asked for. Listed rather than
 	// screened, because this is a thing you do in a moment at the bottom of
 	// a route and not a menu you open.
@@ -561,6 +698,8 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 			                        &ADirtbagClimbWall::OnShortcut3);
 			InputComponent->BindKey(EKeys::Four, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnShortcut4);
+			InputComponent->BindKey(EKeys::Five, IE_Pressed, this,
+			                        &ADirtbagClimbWall::OnShortcut5);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnHoldPressed);
 			InputComponent->BindKey(EKeys::SpaceBar, IE_Released, this,
@@ -596,6 +735,22 @@ void ADirtbagClimbWall::OnApproachEnd(UPrimitiveComponent*, AActor* OtherActor,
 
 void ADirtbagClimbWall::OnInteract()
 {
+	// **Signing in.** A comp happens at the gym on its day, so the door is
+	// the gym wall -- indoors only, because a competition at a crag is not
+	// a thing.
+	if (Game && bPlayerNear && !IsOutdoors(Venue) && !Game->Comp.bActive &&
+	    Game->CompIsToday())
+	{
+		if (Game->EnterComp())
+		{
+			Toast(TEXT("Six hours, five problems, seven goes.  1-5."),
+			      FColor::Yellow, 8.f);
+			PushPrompt();
+			return;
+		}
+		Toast(TEXT("You cannot cover the entry."), FColor::Orange, 5.f);
+		return;
+	}
 	if (Phase == EPhase::Idle && bPlayerNear)
 	{
 		StartAttempt();

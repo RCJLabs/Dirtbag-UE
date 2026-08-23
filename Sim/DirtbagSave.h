@@ -58,7 +58,10 @@ namespace dirtbag {
 // Version 23: the line they are on. v22 shipped the rival a day before the
 //   race existed; a v22 career migrates to **no race running**, which is the
 //   state a career spends most of its time in anyway.
-constexpr int kSaveVersion = 23;
+// Version 24: national ranking points. A v23 career never entered a comp,
+//   so it migrates to **zero**, which is where a career starts anyway and
+//   puts it at the Local tier -- exactly where an unranked climber belongs.
+constexpr int kSaveVersion = 24;
 
 struct SaveGame {
   int version = kSaveVersion;

@@ -9,6 +9,7 @@
 
 #include "../DirtbagCampfire.h"
 #include "../DirtbagCharacter.h"
+#include "../DirtbagComp.h"
 #include "../DirtbagRival.h"
 #include "../DirtbagZones.h"
 #include "../DirtbagConditions.h"
@@ -1424,6 +1425,281 @@ static void TestWhoTurnsUp() {
   }
 }
 
+static void TestComp() {
+  CompDials cd;
+  const Rng world = Rng::FromSeed("comp-day");
+
+  // ---- the calendar ----------------------------------------------------
+  //
+  // **A schedule you can plan around is the whole difference between a comp
+  // and a random event.** Firm dates, announced three days out -- enough to
+  // skip a session for it and not enough to train.
+  CHECK(!CompIsToday(0, cd));       // a career does not open with one
+  CHECK(!CompIsToday(1, cd));
+  CHECK(CompIsToday(cd.everyDays, cd));
+  CHECK(CompIsToday(cd.everyDays * 3, cd));
+  CHECK(!CompIsToday(cd.everyDays + 1, cd));
+  CHECK(NextCompDay(1, cd) == cd.everyDays);
+  CHECK(NextCompDay(cd.everyDays, cd) == cd.everyDays);
+  CHECK(NextCompDay(cd.everyDays + 1, cd) == cd.everyDays * 2);
+  // The poster goes up three days out and not before.
+  CHECK(DaysUntilComp(cd.everyDays, cd) == 0);
+  CHECK(DaysUntilComp(cd.everyDays - 1, cd) == 1);
+  CHECK(DaysUntilComp(cd.everyDays - cd.announceDaysAhead, cd) ==
+        cd.announceDaysAhead);
+  CHECK(DaysUntilComp(cd.everyDays - cd.announceDaysAhead - 1, cd) == -1);
+  CHECK(DaysUntilComp(1, cd) == -1);
+
+  // ---- the tiers gate on ranking, and they mean three things ----------
+  CHECK(TierFor(0.0, cd) == CompTier::Local);
+  CHECK(TierFor(cd.regionalAt - 1.0, cd) == CompTier::Local);
+  CHECK(TierFor(cd.regionalAt, cd) == CompTier::Regional);
+  CHECK(TierFor(cd.nationalAt, cd) == CompTier::National);
+
+  // ---- the board -------------------------------------------------------
+  CompState board = SetTheBoard(world, CompTier::Local, 6.0, 10, cd);
+  CHECK(static_cast<int>(board.problems.size()) == cd.problems);
+  CHECK(board.attemptsLeft == cd.attempts);
+  CHECK(!board.finished);
+
+  // **Seven attempts across five problems is the mechanic.** At most two
+  // can be worked and the rest are one-shot, so this is a real constraint
+  // rather than flavour.
+  CHECK(cd.attempts < cd.problems * 2);
+
+  // A board is a spread, not five copies of one grade -- otherwise there is
+  // no reason to spend attempts anywhere in particular.
+  {
+    int lowest = kMaxGrade, highest = 0;
+    for (const CompProblem& p : board.problems) {
+      lowest = std::min(lowest, p.route.trueGrade);
+      highest = std::max(highest, p.route.trueGrade);
+    }
+    CHECK(highest - lowest >= 2);
+  }
+  // And it is worth more the harder it is, or the spread would be
+  // decoration.
+  {
+    const CompProblem* easiest = &board.problems[0];
+    const CompProblem* hardest = &board.problems[0];
+    for (const CompProblem& p : board.problems) {
+      if (p.route.trueGrade < easiest->route.trueGrade) easiest = &p;
+      if (p.route.trueGrade > hardest->route.trueGrade) hardest = &p;
+    }
+    CHECK(hardest->topPoints > easiest->topPoints * 1.2);
+  }
+  // A flash beats a top beats a zone, on every problem.
+  for (const CompProblem& p : board.problems) {
+    CHECK(p.flashPoints > p.topPoints);
+    CHECK(p.topPoints > p.zonePoints);
+  }
+  // Deterministic: the same day is the same comp, so reloading for a
+  // friendlier board is not a strategy.
+  {
+    const CompState again = SetTheBoard(world, CompTier::Local, 6.0, 10, cd);
+    CHECK(again.problems.size() == board.problems.size());
+    for (std::size_t i = 0; i < again.problems.size(); i++) {
+      CHECK(again.problems[i].route.name == board.problems[i].route.name);
+      CHECK(again.problems[i].route.trueGrade ==
+            board.problems[i].route.trueGrade);
+    }
+    const CompState tomorrow = SetTheBoard(world, CompTier::Local, 6.0, 11, cd);
+    bool differs = false;
+    for (std::size_t i = 0; i < tomorrow.problems.size(); i++) {
+      if (tomorrow.problems[i].route.moves.size() !=
+          board.problems[i].route.moves.size()) {
+        differs = true;
+      }
+    }
+    CHECK(differs);   // and a different day is a different comp
+  }
+  // Harder tiers set harder problems.
+  {
+    const CompState nat = SetTheBoard(world, CompTier::National, 6.0, 10, cd);
+    int localSum = 0, natSum = 0;
+    for (const CompProblem& p : board.problems) localSum += p.route.trueGrade;
+    for (const CompProblem& p : nat.problems) natSum += p.route.trueGrade;
+    CHECK(natSum > localSum + 5);
+  }
+
+  // ---- spending the attempts ------------------------------------------
+  {
+    CompState c = SetTheBoard(world, CompTier::Local, 6.0, 10, cd);
+    Climber body = NewClimber(Rng::FromSeed("competitor"));
+    const Rng compRng = Rng::FromSeed("the-comp");
+
+    // A bad index spends nothing. A comp is seven goes and losing one to a
+    // fat finger is not a mechanic.
+    const int before = c.attemptsLeft;
+    AttemptProblem(c, -1, body, compRng, cd);
+    AttemptProblem(c, 99, body, compRng, cd);
+    CHECK(c.attemptsLeft == before);
+
+    // A real attempt spends exactly one.
+    AttemptProblem(c, 0, body, compRng, cd);
+    CHECK(c.attemptsLeft == before - 1);
+    CHECK(c.progress[0].tries == 1);
+
+    // Run it dry, and it stops.
+    while (c.attemptsLeft > 0) AttemptProblem(c, 4, body, compRng, cd);
+    CHECK(c.finished);
+    const double banked = YourScore(c, cd);
+    AttemptProblem(c, 1, body, compRng, cd);
+    CHECK(c.attemptsLeft == 0);
+    CHECK(YourScore(c, cd) == banked);   // and nothing changes after
+  }
+
+  // Scoring reads what you did. Pinned as magnitudes, not orderings.
+  {
+    CompState c = SetTheBoard(world, CompTier::Local, 6.0, 10, cd);
+    CHECK(YourScore(c, cd) == 0.0);
+    c.progress[0].topped = true;
+    c.progress[0].flashed = true;
+    c.progress[0].tries = 1;
+    const double flash = YourScore(c, cd);
+    CHECK(flash == c.problems[0].flashPoints);
+    c.progress[0].flashed = false;
+    c.progress[0].tries = 3;
+    const double worked = YourScore(c, cd);
+    CHECK(worked == c.problems[0].topPoints);
+    CHECK(flash > worked);
+    // **A flash is worth more than a worked top**, which is the whole
+    // reason to spend a go on the problem you believe in first.
+    c.progress[0] = ProblemProgress{};
+    c.progress[0].zone = 2;
+    CHECK(YourScore(c, cd) == c.problems[0].zonePoints);
+    c.progress[0].zone = 1;
+    CHECK(YourScore(c, cd) < c.problems[0].zonePoints);
+  }
+
+  // ---- the field is a redistribution, not a difficulty setting --------
+  //
+  // **Every competitor has exactly one signature and one weakness**, and no
+  // two of them are the same climber. That is what makes the scoreboard a
+  // set of people rather than a sorted list.
+  {
+    const std::vector<Competitor>& f = TheField();
+    CHECK(f.size() == 7);
+    for (const Competitor& c : f) {
+      CHECK(c.signature != c.weakness);
+      CHECK(std::string(c.name).size() > 0);
+    }
+    // **The offsets sit below you, not around you.** The 2D game shipped
+    // them symmetric and measured 5th on average, 2.2% podiums and 0% wins
+    // forever -- which gated three downstream systems behind an event that
+    // happened one comp in fifty. At most one of the seven is above you.
+    int above = 0;
+    for (const Competitor& c : f) if (c.gradeOffset > 0.0) above++;
+    CHECK(above <= 1);
+  }
+
+  // A competitor scores better on their signature type than their weakness,
+  // with everything else held equal -- and by a real margin.
+  {
+    CompState crimpy = SetTheBoard(world, CompTier::Local, 6.0, 10, cd);
+    for (CompProblem& p : crimpy.problems) p.type = RouteType::Crimp;
+    const double asSig = CompetitorScore(crimpy.problems, 6.0,
+                                         RouteType::Crimp, RouteType::Dyno,
+                                         1.0, cd);
+    const double asWeak = CompetitorScore(crimpy.problems, 6.0,
+                                          RouteType::Dyno, RouteType::Crimp,
+                                          1.0, cd);
+    CHECK(asSig > asWeak * 1.2);
+  }
+
+  // ---- and the whole thing is a contest -------------------------------
+  //
+  // **Form on the day is what makes a comp a contest rather than a table
+  // lookup.** Without it a given board and a given field produce the same
+  // scoreboard every time, and the 2D game shipped exactly that bug on the
+  // rival specifically -- he posted his theoretical maximum in every
+  // qualifier while everybody else had off days.
+  {
+    CompState c = SetTheBoard(world, CompTier::Local, 6.0, 10, cd);
+    // Three tops: a competitive round rather than a perfect one or a blank,
+    // so your score lands *inside* the field and the ordering can move.
+    // The first version of this topped one problem, scored 7, and came
+    // fifth every single time -- behind a Bowen who reliably scored 9. The
+    // check failed with form working perfectly: it was measuring whether
+    // one particular score was near a boundary, not whether form existed.
+    c.progress[0].topped = true;
+    c.progress[1].topped = true;
+    c.progress[2].topped = true;
+    std::vector<int> places;
+    std::vector<std::string> orders;
+    for (int s = 0; s < 40; s++) {
+      const CompResult r =
+          Settle(c, 6.0, "Dex Calloway", 7.0,
+                 Rng::FromSeed("settle#" + std::to_string(s)), cd);
+      CHECK(r.place >= 1 && r.place <= r.fieldSize);
+      CHECK(r.fieldSize == 9);   // you, seven, and the rival
+      places.push_back(r.place);
+      std::string order;
+      for (const CompEntrant& e : r.board) order += e.name + ",";
+      orders.push_back(order);
+    }
+    // The scoreboard is not the same scoreboard twice -- which is the claim
+    // form actually makes, and it holds whatever you happened to score.
+    bool boardVaries = false, placeVaries = false;
+    for (std::size_t i = 1; i < orders.size(); i++) {
+      if (orders[i] != orders[0]) boardVaries = true;
+      if (places[i] != places[0]) placeVaries = true;
+    }
+    CHECK(boardVaries);
+    CHECK(placeVaries);
+  }
+
+  // **Local is yours to lose.** A climber at their own level, topping most
+  // of a local board, should podium often -- not once in fifty.
+  {
+    int podiums = 0, wins = 0;
+    for (int s = 0; s < 60; s++) {
+      CompState c = SetTheBoard(Rng::FromSeed("b#" + std::to_string(s)),
+                                CompTier::Local, 8.0, 10, cd);
+      for (std::size_t i = 0; i < c.problems.size(); i++) {
+        c.progress[i].topped = true;
+        c.progress[i].flashed = (i < 3);
+        c.progress[i].zone = 2;
+      }
+      const CompResult r = Settle(c, 8.0, "", 0.0,
+                                  Rng::FromSeed("s#" + std::to_string(s)), cd);
+      if (r.place <= 3) podiums++;
+      if (r.place == 1) wins++;
+    }
+    // Measured: 60 podiums and 48 wins of 60. **A perfect local round takes
+    // it four times in five and Kai still steals one** -- which is the
+    // difference between a comp and a formality, and is what "Local is
+    // yours to lose" has to mean.
+    CHECK(podiums == 60);
+    CHECK(wins > 40);
+    CHECK(wins < 60);   // and it is not a formality
+  }
+
+  // Placing pays, and beating them is worth its own bump on top.
+  {
+    CompState c = SetTheBoard(world, CompTier::Local, 6.0, 10, cd);
+    for (auto& pr : c.progress) { pr.topped = true; pr.flashed = true; }
+    const CompResult won = Settle(c, 6.0, "", 0.0, world, cd);
+    CHECK(won.cash > 0.0);
+    CHECK(won.rep > 0.0);
+    CHECK(!PlacingText(won).empty());
+    // **Getting nothing up is last, not fourth.** Before the tie-break knew
+    // about zeros, a climber who scored nothing at a comp two tiers above
+    // them sorted ahead of everybody else who also scored nothing, came
+    // *fourth of eight* and collected top-half prize money for it -- because
+    // "you take ties" plus a stable sort plus being pushed onto the board
+    // first meant a room full of people who did not climb was a tie you won.
+    CompState empty = SetTheBoard(world, CompTier::National, 2.0, 10, cd);
+    const CompResult last = Settle(empty, 2.0, "", 0.0, world, cd);
+    CHECK(last.yourScore == 0.0);
+    CHECK(last.place == last.fieldSize);
+    CHECK(last.cash == 0.0);
+    // Turning up is still worth a point. Nobody leaves with literally
+    // nothing.
+    CHECK(last.rep > 0.0);
+  }
+}
+
 static void TestRival() {
   RivalDials rd;
   const Rng world = Rng::FromSeed("somebody-to-beat");
@@ -1865,6 +2141,15 @@ static void TestRivalSave() {
     CHECK(back.player.pastRivals[0].peakGrade == 11.25);
   }
 
+  // Ranking points survive a reload: they are the only thing a comp pays
+  // that lasts, and losing them would reset your tier every time you slept.
+  save.player.rankingPoints = 412.5;
+  SaveGame ranked;
+  CHECK(DeserializeSave(SerializeSave(save), ranked) == LoadResult::Ok);
+  CHECK(ranked.player.rankingPoints == 412.5);
+  CHECK(TierFor(ranked.player.rankingPoints) == CompTier::Regional);
+  save.player.rankingPoints = 0.0;
+
   // The line they are on survives a reload -- a race that forgot its
   // deadline would hand you back days you had already spent.
   save.player.rival.race.routeName = "The Prow";
@@ -1901,7 +2186,8 @@ static void TestRivalSave() {
                         "rival.gen=", "rival.born=", "rival.startage=",
                         "rival.grade=", "rival.laststep=", "rival.peak=",
                         "rival.rivalry=", "rival.allied=", "rival.offered=",
-                        "rival.met=", "rival.retired=", "rival.race=",
+                        "rival.met=", "rival.retired=", "ranking=",
+                        "rival.race=",
                         "rival.raceby=", "rival.racefa=", "rival.fas=",
                         "rival.fa0=", "rival.fa1=", "pastrivals=",
                         "pastrival0.name=", "pastrival0.role=",
@@ -8699,6 +8985,7 @@ int main() {
   TestTheTable();
   TestHowClose();
   TestPumpShows();
+  TestComp();
   TestRival();
   TestRivalRace();
   TestRivalCareer();
