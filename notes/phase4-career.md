@@ -236,6 +236,101 @@ than a tuning. You keep what you commit to and lose what you ignore.
 > projects, so the shipped behaviour was right and the rule was fragile.
 > `brushedEnoughToBeYours` says which it is.
 
+## Re-measured, 2026-08-24 — and the probe was the thing that was wrong
+
+Re-run with the argument collision fixed (`notes/the-arguments-that-meant-
+two-things.md`), the numbers above did not reproduce. **Ninety years gave 4
+to 88 lives depending on the seed**, mean 17.4, against this note's four.
+
+The confound was not the cause: forcing `build=1` — the archetype the broken
+arg 6 had been setting — changes nothing, and on two seeds makes it worse.
+Something else had moved.
+
+### 88 careers, 68 of them retired at 24
+
+Instrumenting which of `TimeToThinkAboutIt`'s two triggers fired made it
+obvious. On the worst seed, **87 of 87 endings were the body**, at a mean
+retirement age of **24.7** — a dynasty of people who inherited the van,
+climbed for a year, got hurt three times and quit. The grade trigger, the
+one this phase's design is actually about, fired **zero** times.
+
+Two causes, one of them a parity bug and one of them the probe modelling a
+person badly.
+
+**The probe and the engine disagreed about the counter they both feed.**
+`TimeToThinkAboutIt` takes `consecutiveInjuries` as an argument, and the two
+consumers built it differently:
+
+| | probe | engine |
+|---|---|---|
+| clean stretch that resets it | **120 days** | **90 days** |
+| a day counts toward that if | not hurt **and** not hurt yesterday | not hurt |
+
+So the measured career was offered the door on a stricter rule than the
+played one. **`check-parity.py` cannot see this** — both consumers call the
+rule, and the divergence is in what they hand it. *"It catches the probe
+running a rule the game never runs; it cannot catch the game running the
+rule and disagreeing about the input"* is that checker's own stated blind
+spot, and this is it. The probe now matches the engine exactly.
+
+**And the probe always said yes.** The justification in the code was *"a
+probe that declines would measure nothing"* — but a probe that accepts at
+twenty-four measures nothing either, and worse, it looks like data.
+Retirement is an offer and never a command (`LegacyDials`), and nobody
+quits at twenty-four over one bad year. There is now a `retire=` policy:
+`always` (the default, so every earlier measurement still reproduces) and
+`late`, which takes the grade offer — it already requires forty-six — and
+declines the body's until then.
+
+### With a person answering the question, this note is right
+
+Ninety years, 10 seeds:
+
+| | always | **late** | this note claimed |
+|---|---|---|---|
+| lives | 17.4 (4–88) | **3.3 (3–4)** | 4 |
+| retired at | 36.5 | **55.1** | 46–52 |
+| ended by the body | most | **none** | — |
+| peak | V7.03 | **V7.61** | ~V7 |
+| lines: player / Lot | 0.5 / 3.1 | 0.5 / 2.7 | 1 / 3 |
+
+**Every structural claim in this note survives.** A career runs to the far
+side of fifty, ninety years is three or four lives, a career peaks around
+V7, and the valley ends with the player having put up about one line and the
+Lot the rest. What had rotted was the probe, not the finding — and it rotted
+because Phase 10 gave the game a body that actually breaks, three phases
+after this note was written.
+
+### The one that is a design call, not a bug
+
+A `late` climber **declines the offer 856 times in ninety years** — about
+nine and a half times a year, every year, from twenty-four. The body trigger
+is not rare and it is not quiet. In the played game that is the one opinion
+the game ever offers about your career, arriving roughly monthly for thirty
+years before it ever means anything.
+
+Whether `injuriesInARowToHint = 3` over a 90-day window is the right shape
+is Evan's call. It is doing exactly what it says; the question is whether
+what it says should have an age floor under it, the way the grade trigger
+does.
+
+### And the commitment rule holds
+
+`SpokenFor` re-tested across the Lot dial, 6 seeds, ninety years:
+
+| `lot=` | player's lines | the Lot's |
+|---|---|---|
+| 0.02 | **0.67** | 2.83 |
+| 0.01 | **0.67** | 2.33 |
+| 0.005 | **0.67** | 2.17 |
+| 0.002 | **0.67** | 2.17 |
+
+The player's column is **identical at every dial value**, which is the half
+the claim is about: *you keep what you commit to*. The Lot's column moves
+with the dial, which is the dial doing its job — this note's older table had
+both columns frozen, and that was the 30-year scale saturating rather than a
+property of the rule.
+
 ## What the probe now supports
 
 `build/season <days> <seed> <rest> v greedy careers=1` runs

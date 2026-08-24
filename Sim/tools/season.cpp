@@ -77,6 +77,14 @@ struct Tally {
   int eveningsSpent = 0;
   int buskSessions = 0;
   double busked = 0.0;
+  // How careers actually end, which nothing has ever counted: the rule has
+  // two triggers and they mean opposite things.
+  int declinedTheOffer = 0;
+  int retiredByBody = 0;
+  int retiredByGrade = 0;
+  double retirementAgeSum = 0.0;
+  double youngestRetirement = 999.0;
+
   int lostSomebodyOnDay = -1;   // -1: never had anybody, or never lost them
   int hadSomebodyOnDay = -1;
   int grievingDays = 0;
@@ -403,7 +411,7 @@ int main(int argc, char** argv) {
   {
     static const char* kKnown[] = {"skin", "pads", "build", "rival",
                                    "norubber", "foam", "careers", "lot",
-                                   "savings", "med"};
+                                   "savings", "med", "retire"};
     for (const auto& kv : opts) {
       bool found = false;
       for (const char* k : kKnown) found = found || kv.first == k;
@@ -470,6 +478,20 @@ int main(int argc, char** argv) {
   // Add "-ins" to any of them to carry a policy. **Orthogonal on purpose
   // too**: the third gate asks whether insurance is a real bet, and a bet
   // can only be measured against the same career without it.
+  // **How this climber answers the one question the game ever asks them.**
+  //
+  //   "always" (default) -- takes the offer the moment it comes, which is
+  //                what every careers measurement before this was taken
+  //                with, so they all still reproduce.
+  //   "late"   -- takes the grade offer, which already needs forty-six, and
+  //                refuses the *body* offer until then. **Nobody retires at
+  //                twenty-four because of one bad year**, and a probe that
+  //                does measures a dynasty of people who never climbed.
+  //
+  // Measured, the difference is the whole shape of a ninety-year run: on a
+  // seed that climbs hard, "always" gives 88 lives with 87 of them ended by
+  // the body at a mean age of 24.7.
+  const std::string retirePolicy = opt("retire", "always");
   const std::string medPolicy = opt("med", "");
   const auto has = [&medPolicy](const char* what) {
     return medPolicy.find(what) != std::string::npos;
@@ -1780,12 +1802,21 @@ int main(int argc, char** argv) {
     } else if (worsened) {
       t.aggravations++;
     }
-    if (!IsHurt(player.climber) && !wasHurt) {
-      // A clean stretch resets the "three in a row" that offers retirement.
-      // Without this every career that ever got hurt three times would be
-      // offered the door for the rest of its life.
+    // **A clean stretch resets the "three in a row" that offers
+    // retirement** -- and this has to be the *engine's* clean stretch, not
+    // a second opinion about one.
+    //
+    // It was neither. The probe waited **120** days and only counted a day
+    // toward them if you were healthy yesterday too; the engine waits
+    // **90** and counts any day you are not hurt. So the measured career
+    // was offered the door on a stricter rule than the played one, and
+    // `check-parity.py` cannot see it -- both consumers call
+    // `TimeToThinkAboutIt`, and the divergence is in what they hand it.
+    // *The game runs the rule and disagrees about the input* is the one
+    // shape that checker names as its own blind spot.
+    if (!IsHurt(player.climber)) {
       sinceHurt++;
-      if (sinceHurt > 120) { consecutiveInjuries = 0; sinceHurt = 0; }
+      if (sinceHurt >= 90) consecutiveInjuries = 0;
     } else {
       sinceHurt = 0;
     }
@@ -1804,6 +1835,26 @@ int main(int argc, char** argv) {
     // measure nothing.
     if (multiLife &&
         TimeToThinkAboutIt(player, consecutiveInjuries, peakGradeEver)) {
+      // **Which of the two triggers fired**, counted rather than assumed.
+      // `TimeToThinkAboutIt` returns one bool for two very different
+      // reasons -- a body that keeps breaking, or a grade two off your best
+      // after forty-six -- and a career ending at twenty-four means
+      // something completely different from one ending at fifty.
+      const bool bodyGaveOut =
+          consecutiveInjuries >= LegacyDials{}.injuriesInARowToHint;
+      // The offer is never a command -- see LegacyDials. A `late` climber
+      // hears the body's opinion at twenty-four and keeps climbing.
+      if (retirePolicy == "late" && bodyGaveOut &&
+          AgeOn(player.day) < LegacyDials{}.retirementAgeHint) {
+        t.declinedTheOffer++;
+        continue;
+      }
+      if (bodyGaveOut) t.retiredByBody++;
+      else t.retiredByGrade++;
+      t.retirementAgeSum += AgeOn(player.day);
+      if (AgeOn(player.day) < t.youngestRetirement) {
+        t.youngestRetirement = AgeOn(player.day);
+      }
       const Legacy done = TallyCareer(player, "Climber " + std::to_string(lives),
                                       1 + player.day / 365);
       legacies.push_back(done);
@@ -1844,7 +1895,15 @@ int main(int argc, char** argv) {
     const std::size_t stillGoing = legacies.size();
     legacies.push_back(TallyCareer(player, "Climber " + std::to_string(lives),
                                    1 + player.day / 365));
-    printf("\n=== %d lives over %d years ===\n\n", lives, DAYS / 365);
+    printf("\n=== %d lives over %d years ===\n", lives, DAYS / 365);
+    // How they ended. A run where most of them ended at twenty-four with a
+    // body that kept breaking is not a dynasty, it is a bug or a dial.
+    const int ended = t.retiredByBody + t.retiredByGrade;
+    printf("ENDINGS\t%d\tbody\t%d\tgrade\t%d\tdeclined\t%.1f\tmean age"
+           "\t%.0f\tyoungest\n\n",
+           t.retiredByBody, t.retiredByGrade, t.declinedTheOffer,
+           ended ? t.retirementAgeSum / ended : 0.0,
+           ended ? t.youngestRetirement : 0.0);
     int lineCount = 0;
     for (std::size_t i = 0; i < legacies.size(); i++) {
       if (i == stillGoing) printf("[still climbing]\n");
