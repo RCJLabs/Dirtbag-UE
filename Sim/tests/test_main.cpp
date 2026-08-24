@@ -5640,11 +5640,28 @@ static void TestCharacter() {
     CHECK(boldSends > shySends + shySends / 40);
   }
 
-  // **`social` has no reader, and the reason is that nobody ever fails to
-  // turn up.** Asserted rather than commented, so the day `LotRegulars`
-  // learns to leave somebody at home the axis is already here and already
-  // separating the temperaments.
+  // **`social` now has a reader**, and this is the assertion that was
+  // waiting for it: it used to check only that the axis separated the
+  // temperaments, because nobody ever failed to turn up. `WhoIsAround`
+  // is the reader -- see Sim/DirtbagPartner.h.
   CHECK(cf.personality.social > cp.personality.social + 40.0);
+  {
+    const Rng world = Rng::FromSeed("who-turns-up");
+    const auto seasonOfCompany = [&](double social) {
+      int seen = 0;
+      for (int day = 1; day <= 365; day++) {
+        seen += static_cast<int>(
+            WhoIsAround(world, day, {}, social, true).size());
+      }
+      return seen;
+    };
+    // The gregarious one has more people around, over a season, on the
+    // same seed and the same weather. A magnitude rather than an ordering:
+    // one person's difference would pass on a build where nothing reads it.
+    const int gregarious = seasonOfCompany(cf.personality.social);
+    const int solitary = seasonOfCompany(cp.personality.social);
+    CHECK(gregarious > solitary + solitary / 20);
+  }
 
   // The line the game says the day a talent stops being a secret: a
   // sentence about noticing something, not a stat readout.
@@ -14069,6 +14086,180 @@ static Local& Counter(Locals& town, Service where) {
   return who ? *who : kNobody;
 }
 
+// How many people were around across a stretch, which is the only way to
+// ask about a thing that is a coin flip on any given day.
+static int CompanyOver(const Rng& world, int days,
+                       const std::vector<PartnerBond>& bonds, double social,
+                       bool rockIsIn, const PartnerDials& d = PartnerDials{}) {
+  int seen = 0;
+  for (int day = 1; day <= days; day++) {
+    seen += static_cast<int>(WhoIsAround(world, day, bonds, social, rockIsIn, d).size());
+  }
+  return seen;
+}
+
+static void TestTheLotDoesNotAlwaysTurnUp() {
+  const Rng world = Rng::FromSeed("who-turns-up");
+  const int cast = static_cast<int>(LotRegulars(world, 1).size());
+  CHECK(cast == 5);
+
+  // **The whole point.** Before turnout, this was `cast` every single day
+  // for ninety years -- which is why `social` had no reader and why the
+  // belayer gate had never once bitten.
+  bool everFewer = false, everSomebody = false;
+  for (int day = 1; day <= 200; day++) {
+    const int here = static_cast<int>(WhoIsAround(world, day, {}, 0.0, true).size());
+    CHECK(here <= cast);
+    everFewer = everFewer || here < cast;
+    everSomebody = everSomebody || here > 0;
+  }
+  CHECK(everFewer);
+  CHECK(everSomebody);
+
+  // Deterministic, and per person per day: asking twice gives the same Lot,
+  // and a reload has to hand back the same one.
+  const std::vector<Partner> once = WhoIsAround(world, 42, {}, 0.0, true);
+  const std::vector<Partner> again = WhoIsAround(world, 42, {}, 0.0, true);
+  CHECK(once.size() == again.size());
+  for (std::size_t i = 0; i < once.size(); i++) {
+    CHECK(once[i].name == again[i].name);
+  }
+  // ...and a different valley is different people.
+  CHECK(CompanyOver(world, 200, {}, 0.0, true) !=
+        CompanyOver(Rng::FromSeed("another-valley"), 200, {}, 0.0, true));
+}
+
+// How many of `days` a particular person was there for.
+static int DaysWith(const Rng& world, const std::string& who, int days,
+                    const std::vector<PartnerBond>& bonds, double social,
+                    bool rockIsIn, const PartnerDials& d = PartnerDials{}) {
+  int seen = 0;
+  for (int day = 1; day <= days; day++) {
+    for (const Partner& p : WhoIsAround(world, day, bonds, social, rockIsIn, d)) {
+      if (p.name == who) seen++;
+    }
+  }
+  return seen;
+}
+
+static void TestNobodyIsNeverThereAndNobodyIsAlways() {
+  PartnerDials d;
+  const Rng world = Rng::FromSeed("who-turns-up");
+  const int days = 400;
+
+  // **Asked of one person rather than of the crowd**, which is the only way
+  // to see a floor or a ceiling: a total across five people is under the
+  // ceiling and over the floor whatever happens to any one of them, so the
+  // first version of this test passed with both removed.
+  std::vector<PartnerBond> known;
+  for (const Partner& p : LotRegulars(world, 1)) {
+    PartnerBond b;
+    b.name = p.name;
+    b.rapport = 1.0;
+    b.everKnew = 1.0;
+    known.push_back(b);
+  }
+
+  // The most reliable person in the valley, for the most gregarious climber
+  // in it, on a perfect day, who knows him well: **still not every day.**
+  const int rayAtBest =
+      DaysWith(world, "Ray", days, known, kPersonalityMax, true, d);
+  CHECK(rayAtBest > 0);
+  CHECK(rayAtBest < days);
+
+  // And the least reliable, for a Loner, in the rain, who does not know
+  // him: **still sometimes.** Measured without the floor, an Influencer was
+  // turned away zero times in thirty years -- an axis switching a mechanic
+  // off rather than bending it.
+  const int boAtWorst =
+      DaysWith(world, "Bo", days, {}, -kPersonalityMax, false, d);
+  CHECK(boAtWorst > 0);
+  CHECK(boAtWorst < days / 4);
+}
+
+static void TestWhoIsHereDoesNotDependOnWhoElseIs() {
+  const Rng world = Rng::FromSeed("who-turns-up");
+  // **One roll per person per day, not one roll per day.** Sharing a
+  // stream makes each person's draw depend on how many were asked about
+  // first, so changing what you know about Margo would silently change
+  // whether Trish was there -- and a Lot where people's absences are
+  // correlated is a Lot that empties all at once.
+  std::vector<PartnerBond> justMargo;
+  PartnerBond b;
+  b.name = "Margo";
+  b.rapport = 1.0;
+  b.everKnew = 1.0;
+  justMargo.push_back(b);
+
+  const int days = 400;
+  for (const char* who : {"Dev", "Trish", "Ray", "Bo"}) {
+    CHECK(DaysWith(world, who, days, {}, 0.0, true) ==
+          DaysWith(world, who, days, justMargo, 0.0, true));
+  }
+  // ...while Margo herself does move, or the bond is doing nothing at all.
+  CHECK(DaysWith(world, "Margo", days, justMargo, 0.0, true) >
+        DaysWith(world, "Margo", days, {}, 0.0, true));
+
+  // **And they are five people, not one dial.** A single stream restarted
+  // per person hands everybody the same number, so presence comes out
+  // perfectly nested -- if Bo is here then everyone more reliable than Bo
+  // is too, and the Lot is never *Bo but not Ray*. It stops being a group
+  // of people and becomes a reading of how busy it is.
+  //
+  // This is the property the per-person stream is actually for, and the
+  // first version of this test could not see it: it asked whether one
+  // person's presence depended on another's, which that mistake does not
+  // break.
+  bool everOutOfOrder = false;
+  for (int day = 1; day <= days && !everOutOfOrder; day++) {
+    bool bo = false, ray = false;
+    for (const Partner& p : WhoIsAround(world, day, {}, 0.0, true)) {
+      bo = bo || p.name == "Bo";        // here 0.45 of the time
+      ray = ray || p.name == "Ray";     // here 0.88 of the time
+    }
+    everOutOfOrder = bo && !ray;
+  }
+  CHECK(everOutOfOrder);
+}
+
+static void TestAWashoutEmptiesTheLot() {
+  const Rng world = Rng::FromSeed("who-turns-up");
+  const int dry = CompanyOver(world, 365, {}, 0.0, true);
+  const int wet = CompanyOver(world, 365, {}, 0.0, false);
+  CHECK(wet < dry);
+  CHECK(wet < dry - dry / 4);   // a magnitude: a washout is properly lonely
+  CHECK(wet > 0);               // ...and Trish is still psyched
+}
+
+static void TestKnowingSomebodyBringsThemOut() {
+  const Rng world = Rng::FromSeed("who-turns-up");
+  std::vector<PartnerBond> known;
+  for (const Partner& p : LotRegulars(world, 1)) {
+    PartnerBond b;
+    b.name = p.name;
+    b.rapport = 1.0;
+    b.everKnew = 1.0;
+    known.push_back(b);
+  }
+  CHECK(RapportWith(known, known.front().name) == 1.0);
+  CHECK(RapportWith(known, "Nobody At All") == 0.0);
+  // Not "they come because you are there" -- you know their week, so you
+  // turn up when they do.
+  CHECK(CompanyOver(world, 365, known, 0.0, true) >
+        CompanyOver(world, 365, {}, 0.0, true));
+}
+
+static void TestTurnoutDoesNotDisturbThePlayersRng() {
+  // Asking who is around must not move any other stream, the same rule the
+  // Lot's own rolls follow.
+  Rng a = Rng::FromSeed("who-turns-up");
+  Rng b = Rng::FromSeed("who-turns-up");
+  const double before = a.NextDouble();
+  const Rng world = Rng::FromSeed("who-turns-up");
+  for (int day = 1; day <= 50; day++) WhoIsAround(world, day, {}, 40.0, true);
+  CHECK(before == b.NextDouble());
+}
+
 static void TestTheDayHappensWhetherOrNotYouDo() {
   DayDials dd;
   const Rng world = Rng::FromSeed("a-day-that-happened");
@@ -14714,6 +14905,12 @@ int main() {
   TestALifeCoolsWhileYouAreAtTheCrag();
   TestABookMakesAnAfternoonWorthMore();
   TestAnEveningCostsTheEvening();
+  TestTheLotDoesNotAlwaysTurnUp();
+  TestNobodyIsNeverThereAndNobodyIsAlways();
+  TestWhoIsHereDoesNotDependOnWhoElseIs();
+  TestAWashoutEmptiesTheLot();
+  TestKnowingSomebodyBringsThemOut();
+  TestTurnoutDoesNotDisturbThePlayersRng();
   TestTheDayHappensWhetherOrNotYouDo();
   TestSleepingHungryIsAThingThatCanHappen();
   TestAStrangerIsServedNotGreeted();

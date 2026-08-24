@@ -648,6 +648,19 @@ int main(int argc, char** argv) {
     const Weather w = GenerateWeather(world, player.day, cd);
     const PrimeWindow win = FindPrimeWindow(w, crag.aspect, cd);
 
+    // **Who is actually at the Lot today.** Rolled once, here, and used by
+    // everything that means *today* -- the belayer, and whose rapport
+    // moves. `LotRegulars` stays the cast: they live their own lives and
+    // take their own lines whether or not you saw them.
+    //
+    // Until this existed the two were the same list, which is why
+    // `Personality::social` had no reader and why `nobelayer` measured
+    // zero across three thirty-year careers.
+    std::vector<Partner> hereToday =
+        WhoIsAround(world, player.day, player.bonds,
+                    player.character.personality.social, win.exists);
+    ApplyBonds(hereToday, player.bonds);
+
     std::string note;
     // **Did you climb *today*.** The rapport call below read
     // `t.daysClimbed > 0` -- the career total, not the day -- so from the
@@ -1322,9 +1335,7 @@ int main(int argc, char** argv) {
       // work the same three moves is a favour.
       int burnsAllowed = INT_MAX;
       if (NeedsABelayer(crag.lines.empty() ? Route{} : crag.lines[0].route)) {
-        std::vector<Partner> atTheLot = LotRegulars(world, player.day);
-        ApplyBonds(atTheLot, player.bonds);
-        const Partner* belayer = BestBelayer(atTheLot);
+        const Partner* belayer = BestBelayer(hereToday);
         if (!belayer) {
           // Walked up there and there is nobody. Not a rest day and not a
           // washout -- a different way for a day to go wrong, and one only
@@ -1493,7 +1504,12 @@ int main(int argc, char** argv) {
     std::vector<Partner> lot = LotRegulars(world, player.day);
     ApplyBonds(lot, player.bonds);
     for (Partner& p : lot) {
-      SpendDayWith(p, t.daysClimbed > climbedBefore);
+      // **Rapport moves with people you actually saw.** A day you climbed
+      // is not a day you climbed *with them* if they were not there, and
+      // before turnout existed there was no difference between the two.
+      bool sawThem = false;
+      for (const Partner& h : hereToday) sawThem = sawThem || h.name == p.name;
+      SpendDayWith(p, sawThem && t.daysClimbed > climbedBefore);
       std::vector<std::string> taken = lotTaken;
       for (const ProjectMemory& m : player.projects)
         if (m.firstAscent) taken.push_back(m.routeName);

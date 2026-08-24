@@ -3555,8 +3555,6 @@ FString UDirtbagGameInstance::DogLine()
 std::vector<dirtbag::Partner> UDirtbagGameInstance::LotToday()
 {
 	const dirtbag::Rng World = dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed));
-	std::vector<dirtbag::Partner> Lot =
-	    dirtbag::LotRegulars(World, Player.Day);
 
 	std::vector<dirtbag::PartnerBond> Bonds;
 	Bonds.reserve(static_cast<size_t>(Player.Bonds.Num()));
@@ -3564,6 +3562,19 @@ std::vector<dirtbag::Partner> UDirtbagGameInstance::LotToday()
 	{
 		Bonds.push_back(DirtbagConvert::ToSim(B));
 	}
+
+	// **Who is actually here**, which this function has always been named
+	// for and never been. `LotRegulars` is the cast and handed back all
+	// five every day for ninety years — see Sim/DirtbagPartner.h, where
+	// turnout is what finally gives `Personality::social` a reader.
+	//
+	// A day with no window empties the Lot, so the loneliest day in this
+	// game is the one where the rock never came good, which is also the
+	// day it should be.
+	std::vector<dirtbag::Partner> Lot = dirtbag::WhoIsAround(
+	    World, Player.Day, Bonds, Player.Character.Social,
+	    TodaysWindow().bExists);
+
 	dirtbag::ApplyBonds(Lot, Bonds);
 	return Lot;
 }

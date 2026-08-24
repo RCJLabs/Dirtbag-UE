@@ -16,30 +16,36 @@ struct Regular {
   double baseSkill;   // where they were on day one
   double ambition;    // how hard they are still trying
   bool climbs;
+  // **How much of the time they are here at all**, before you, the axis or
+  // the weather. Authored per person like everything else about them,
+  // because "who is around" is a fact about their life rather than a
+  // distribution: Trish is always here, Bo is passing through and has been
+  // for four months.
+  double showsUp;
 };
 
 const Regular kRegulars[] = {
     // The three partners.
     {"Margo",
      "twenty seasons here, knows every line and undersells all of them",
-     58.0, 0.35, true},
+     58.0, 0.35, true, 0.70},
     {"Dev",
      "young, strong, and here for the hard stuff — will have your project "
      "if you leave it lying around",
-     72.0, 0.95, true},
+     72.0, 0.95, true, 0.50},
     {"Trish",
      "psyched beyond all reason, gives terrible beta with total confidence",
-     42.0, 0.6, true},
+     42.0, 0.6, true, 0.82},
 
     // The two neighbours: the Lot is not only climbers, and the people who
     // stopped climbing are the ones who remember why the lines are called
     // what they are.
     {"Ray",
      "hasn't pulled on in years, put up half the crag, tells you which half",
-     0.0, 0.0, false},
+     0.0, 0.0, false, 0.88},
     {"Bo",
      "passing through for the last four months, fixes vans for beer",
-     0.0, 0.0, false},
+     0.0, 0.0, false, 0.45},
 };
 constexpr int kRegularCount =
     static_cast<int>(sizeof(kRegulars) / sizeof(kRegulars[0]));
@@ -69,6 +75,39 @@ Climber PartnerOn(const Rng& worldRng, const std::string& name,
   c.skin = 9.0;
   c.psyche = 0.7;
   return c;
+}
+
+double RapportWith(const std::vector<PartnerBond>& bonds,
+                   const std::string& name) {
+  for (const PartnerBond& b : bonds) {
+    if (b.name == name) return b.rapport;
+  }
+  return 0.0;
+}
+
+std::vector<Partner> WhoIsAround(const Rng& worldRng, int day,
+                                 const std::vector<PartnerBond>& bonds,
+                                 double social, bool rockIsIn,
+                                 const PartnerDials& dials) {
+  const std::vector<Partner> cast = LotRegulars(worldRng, day, dials);
+  std::vector<Partner> here;
+  for (std::size_t i = 0; i < cast.size(); i++) {
+    // Its own stream, per person per day: who is here must not depend on
+    // the order anybody was asked about, and a reload has to hand back the
+    // same Lot rather than re-rolling it.
+    Rng rng = worldRng.Derive("turnout:" + cast[i].name + "#" +
+                              std::to_string(day));
+    double chance = kRegulars[i].showsUp;
+    chance += dials.rapportBringsThemOut * RapportWith(bonds, cast[i].name);
+    // Signed on purpose. A Loner does not merely fail to gain here; the
+    // Lot is emptier around them, which is what the axis is *for*.
+    chance += dials.socialBringsThemOut * (social / kPersonalityMax);
+    if (!rockIsIn) chance -= dials.emptyWhenWet;
+    chance = std::min(std::max(chance, dials.neverLessThan),
+                      dials.neverMoreThan);
+    if (rng.Chance(chance)) here.push_back(cast[i]);
+  }
+  return here;
 }
 
 std::vector<Partner> LotRegulars(const Rng& worldRng, int day,

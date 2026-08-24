@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "DirtbagCharacter.h"
 #include "DirtbagCore.h"
 #include "DirtbagCrag.h"
 #include "DirtbagRng.h"
@@ -57,6 +58,51 @@ struct PartnerDials {
   // cannot — reached 237.6. They did not merely out-climb the player, they
   // left the scale. A strong local plateaus; they do not ascend forever.
   double ceiling = 100.0;
+
+  // --- Whether anybody is here ------------------------------------------
+  //
+  // **The Lot never varied.** `LotRegulars` handed back all five, every
+  // day, for ninety years -- which is why `Personality::social` has had no
+  // reader since Phase 7 (*"whether people turn up, and nobody ever fails
+  // to turn up"*), why `nobelayer` measured **0 across three thirty-year
+  // careers** so the belayer gate has never once bitten, and why the
+  // roadmap's own standing question is *"the Lot never varies"*. Three
+  // recorded gaps, one missing mechanic.
+  //
+  // Turnout is that mechanic. Each of them has their own week; these are
+  // what bends it.
+
+  // What knowing somebody is worth to whether you see them. Not *they come
+  // because you are there* -- it is that you know their week, and you turn
+  // up when they do. At full rapport it is worth a quarter, which turns
+  // Dev from somebody you catch half the time into somebody you can plan
+  // around.
+  double rapportBringsThemOut = 0.25;
+
+  // ...and what being Social is worth, at the axis's full +100. Slightly
+  // more than rapport, because this is the difference between a person who
+  // texts the Lot on the way and one who drives up hoping. It is signed:
+  // a Loner at -100 loses the same amount, and that is the point of an
+  // axis rather than a perk.
+  double socialBringsThemOut = 0.30;
+
+  // A day the rock is not in condition empties the Lot. Not to nothing --
+  // Ray is a neighbour and Trish is psyched beyond all reason -- but a
+  // washout is the loneliest day in this game, and now it reads that way.
+  double emptyWhenWet = 0.45;
+
+  // **Nobody is never here and nobody is always here.**
+  //
+  // Measured without these: an Influencer walked up to the Cave and found
+  // nobody **zero times in thirty years**, against a Purist's ninety days.
+  // The axis was not bending the mechanic, it was switching it off -- and
+  // it is only that violent because it applies to three people
+  // independently and their absences multiply. A floor and a ceiling keep
+  // both ends of the axis inside the game: the most gregarious climber in
+  // the valley still gets the odd empty Tuesday, and the most solitary one
+  // still has Trish turn up.
+  double neverLessThan = 0.05;
+  double neverMoreThan = 0.95;
 
   // Rapport per day spent climbing together, and what it decays to when you
   // stop turning up. People remember you, but not forever.
@@ -140,6 +186,25 @@ struct Partner {
 
 // The Lot's regulars for this world, as they stand on `day`. Deterministic:
 // the same seed and day always yields the same people at the same strength.
+// **Who is actually here today.** `LotRegulars` is the cast; this is the
+// call sheet, and until it existed the two were the same list.
+//
+// Rolled per person per day on its own derived stream, so who is here does
+// not depend on the order anybody was asked about, and a reload hands back
+// the same Lot -- the same discipline as every other roll in the game.
+//
+// `social` is `Personality::social`, -100..+100. `rockIsIn` is whether
+// today has a window at all; the caller knows and the Lot does not.
+std::vector<Partner> WhoIsAround(const Rng& worldRng, int day,
+                                 const std::vector<PartnerBond>& bonds,
+                                 double social, bool rockIsIn,
+                                 const PartnerDials& dials = PartnerDials{});
+
+// How well you know somebody by name, or zero. The bonds list is short and
+// keyed by name because partners are rebuilt from the world seed daily.
+double RapportWith(const std::vector<PartnerBond>& bonds,
+                   const std::string& name);
+
 std::vector<Partner> LotRegulars(const Rng& worldRng, int day,
                                  const PartnerDials& dials = PartnerDials{});
 
