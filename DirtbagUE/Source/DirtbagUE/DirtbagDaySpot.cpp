@@ -60,8 +60,27 @@ FString ADirtbagDaySpot::PromptText() const
 	switch (Kind)
 	{
 	case EDirtbagSpotKind::Meal:
-		return FString::Printf(TEXT("Eat something?  (E)  -  hunger %.0f, $%.0f"),
-		                       Game->Day.Hunger, Game->Player.Cash);
+	{
+		// **Whose counter it is.** A diner with a name behind it is the
+		// difference between a vending machine and a place you go -- and
+		// the greeting is shown here rather than only after the fact,
+		// because reading it does not spend it: the sim spends the memory
+		// when you are actually in front of them.
+		const FString Who = Game->WhoIsAtTheCounter(EDirtbagService::Meal);
+		const FString Said = Game->WhatTheyWouldSay(EDirtbagService::Meal);
+		FString Line = FString::Printf(
+		    TEXT("Eat something?  (E)  -  hunger %.0f, $%.0f"),
+		    Game->Day.Hunger, Game->Player.Cash);
+		if (!Who.IsEmpty())
+		{
+			Line += FString::Printf(TEXT("\n   %s"), *Who);
+			if (!Said.IsEmpty())
+			{
+				Line += FString::Printf(TEXT(": \"%s\""), *Said);
+			}
+		}
+		return Line;
+	}
 	case EDirtbagSpotKind::Shift:
 	{
 		// The board, not a shift.

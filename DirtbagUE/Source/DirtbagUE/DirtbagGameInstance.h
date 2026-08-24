@@ -1997,6 +1997,19 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Life")
 	double ThreadHours(EDirtbagThread What) const;
 
+	/** Who is behind that counter, or empty before the first night has
+	 *  opened the roster. A name, not a role — that is the whole point of
+	 *  them. See Sim/DirtbagLocals.h. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Town")
+	FString WhoIsAtTheCounter(EDirtbagService Where) const;
+
+	/** What they would say if you walked in now, or empty, which is most
+	 *  days. **Reading this does not spend it** — the sim spends the memory
+	 *  when you are actually in front of them, so a prompt can show it and
+	 *  a HUD can show it and neither one uses it up. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Town")
+	FString WhatTheyWouldSay(EDirtbagService Where) const;
+
 	/** How that one is going, always answered while it is in your life or
 	 *  after it ended -- the readout you open on purpose. */
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Life")

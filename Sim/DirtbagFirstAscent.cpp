@@ -82,6 +82,9 @@ void CreditFirstAscent(PlayerState& player, const ProjectMemory& memory) {
   const bool goodStyle = memory.firstSendStyle == Style::Onsight ||
                          memory.firstSendStyle == Style::Flash;
   DidFirstAscent(player.standing, goodStyle);
+  // And the town hears about it, under the name you gave it -- which is
+  // the whole reason naming a line is a verb. See Sim/DirtbagLocals.h.
+  Tell(player.locals, Heard::Named, memory.givenName, 0);
 }
 
 bool WriteIntoTheBook(CragLine& line, const NamedLine& named) {

@@ -341,6 +341,16 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // people this career ever climbed with. The honest reconstruction is that
 // you knew them at least as well as you know them now, which is exactly
 // what the runtime would derive on the next `BondsFrom` anyway.
+// v36 -> v37: the people behind the counters. A v36 career walked into a
+// town with nobody in it, and loads into one with nobody in it -- for about
+// a night, because the night tick opens the roster the same way it opens a
+// circuit season. Nobody knows you yet, which is true: nobody did.
+void MigrateV36ToV37(SaveFields& fields) {
+  fields["loc.n"] = "0";
+  fields["loc.titles"] = "0";
+  fields["loc.tier"] = "0";
+}
+
 // v35 -> v36: the life outside it. A v35 career had nothing but climbing
 // in it, and loads with nothing but climbing in it -- every thread not
 // taken up, which is a truthful reconstruction rather than a loss: there
@@ -600,7 +610,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27,
       &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30,
       &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33,
-      &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36};
+      &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36,
+      &MigrateV36ToV37};
   return kMigrations;
 }
 
@@ -1030,6 +1041,24 @@ std::string SerializeSave(const SaveGame& save) {
   out << "life.griefw=" << NumToStr(save.player.life.griefWeight) << "\n";
   out << "life.lost=" << IntToStr(static_cast<int>(save.player.lostToday))
       << "\n";
+
+  // The people behind the counters, and what they are holding. A counted
+  // list, because how many there are is a fact about the town's venues.
+  out << "loc.n="
+      << IntToStr(static_cast<int>(save.player.locals.people.size())) << "\n";
+  for (std::size_t i = 0; i < save.player.locals.people.size(); i++) {
+    const Local& p = save.player.locals.people[i];
+    const std::string k = "loc." + IntToStr(static_cast<int>(i)) + ".";
+    out << k << "name=" << p.name << "\n";
+    out << k << "where=" << IntToStr(static_cast<int>(p.where)) << "\n";
+    out << k << "known=" << NumToStr(p.known) << "\n";
+    out << k << "knew=" << NumToStr(p.everKnew) << "\n";
+    out << k << "holds=" << IntToStr(static_cast<int>(p.holds)) << "\n";
+    out << k << "about=" << p.about << "\n";
+    out << k << "seen=" << IntToStr(p.lastSeen) << "\n";
+  }
+  out << "loc.titles=" << IntToStr(save.player.locals.knownTitles) << "\n";
+  out << "loc.tier=" << IntToStr(save.player.locals.knownTier) << "\n";
 
   out << "rack.pieces=" << IntToStr(save.player.rack.pieces) << "\n";
   out << "rack.quality=" << NumToStr(save.player.rack.quality) << "\n";
@@ -1606,6 +1635,39 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       if (!ParseDouble(fields, "quirk.h" + IntToStr(i), q.heldFor[i])) {
         return LoadResult::BadFormat;
       }
+    }
+  }
+
+  {
+    Locals& town = save.player.locals;
+    int count = 0;
+    if (!ParseInt(fields, "loc.n", count) ||
+        !ParseInt(fields, "loc.titles", town.knownTitles) ||
+        !ParseInt(fields, "loc.tier", town.knownTier)) {
+      return LoadResult::BadFormat;
+    }
+    town.people.clear();
+    for (int i = 0; i < count; i++) {
+      const std::string k = "loc." + IntToStr(i) + ".";
+      Local p;
+      int where = 0, holds = 0;
+      if (!ParseInt(fields, k + "where", where) ||
+          !ParseDouble(fields, k + "known", p.known) ||
+          !ParseDouble(fields, k + "knew", p.everKnew) ||
+          !ParseInt(fields, k + "holds", holds) ||
+          !ParseInt(fields, k + "seen", p.lastSeen)) {
+        return LoadResult::BadFormat;
+      }
+      const auto named = fields.find(k + "name");
+      if (named == fields.end()) return LoadResult::BadFormat;
+      p.name = named->second;
+      const auto said = fields.find(k + "about");
+      if (said != fields.end()) p.about = said->second;
+      // Clamped rather than trusted, the same rule the quirk, the injury
+      // kind and the guidebook's discipline are read under.
+      p.where = static_cast<Service>(where >= 0 && where < 5 ? where : 0);
+      p.holds = static_cast<Heard>(holds > 0 && holds < kHeardCount ? holds : 0);
+      town.people.push_back(p);
     }
   }
 

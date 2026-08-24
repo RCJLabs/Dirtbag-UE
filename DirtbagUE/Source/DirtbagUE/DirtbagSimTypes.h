@@ -48,6 +48,7 @@
 #include "DirtbagHabits.h"
 #include "DirtbagNarrator.h"
 #include "DirtbagLife.h"
+#include "DirtbagLocals.h"
 
 #include "DirtbagSimTypes.generated.h"
 
@@ -1633,6 +1634,72 @@ enum class EDirtbagService : uint8
 	Work,        // somewhere that hires by the shift
 };
 
+/** What somebody heard about you. **The order is the loudness**, quietest
+ *  first — a new memory replaces the held one only if it compares greater,
+ *  so this ordering *is* the rule about what gets talked about. Mirrors
+ *  dirtbag::Heard. */
+UENUM(BlueprintType)
+enum class EDirtbagHeard : uint8
+{
+	None,
+	Away,       // nobody tells them this one
+	Broke,      // and only they saw this one
+	Hurt,
+	Sent,
+	Named,
+	Won,
+	Sponsored
+};
+
+/** One person, at one counter. Mirrors dirtbag::Local — they hold one thing
+ *  about you and say it once. */
+USTRUCT(BlueprintType)
+struct FDirtbagLocal
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	EDirtbagService Where = EDirtbagService::Meal;
+
+	/** How well they know you now, and the best it ever was. The second
+	 *  never falls, and the first floors at a fraction of it. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	double Known = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	double EverKnew = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	EDirtbagHeard Holds = EDirtbagHeard::None;
+
+	/** The noun — a route name, a joint, a comp. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	FString About;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	int32 LastSeen = 0;
+};
+
+/** The town's counters. Mirrors dirtbag::Locals. */
+USTRUCT(BlueprintType)
+struct FDirtbagLocals
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	TArray<FDirtbagLocal> People;
+
+	/** What the town has already been told, so a fact is news once. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	int32 KnownTitles = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	int32 KnownTier = 0;
+};
+
 /** One place in town. The opening hours are the mechanic: the diner shuts
  *  at nine so a long day means eating from a warmer, and the gear shop
  *  keeps banker's hours so a resole competes with the window. */
@@ -2099,6 +2166,12 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
 	EDirtbagThread LostToday = EDirtbagThread::None;
 
+	/** The people behind the counters, and what they are holding. Opened by
+	 *  the night tick, so an old save walks into a town with faces in it.
+	 *  See Sim/DirtbagLocals.h. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
+	FDirtbagLocals Locals;
+
 	/** Somebody to beat. Not the nemesis, which is a route. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
 	FDirtbagRival Rival;
@@ -2239,6 +2312,12 @@ struct FDirtbagDayState
 	 *  once and then climb again. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	FString LastBurn;
+
+	/** What somebody said to you today, or empty, which is most days. On
+	 *  the day rather than in the save for the same reason LastBurn is: you
+	 *  read it once and get on with the day. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	FString Heard;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	FDirtbagSessionState Session;
@@ -2498,6 +2577,10 @@ namespace DirtbagConvert
 	dirtbag::Strand ToSim(const FDirtbagStrand& In);
 	FDirtbagLife FromSim(const dirtbag::Life& In);
 	dirtbag::Life ToSim(const FDirtbagLife& In);
+	FDirtbagLocal FromSim(const dirtbag::Local& In);
+	dirtbag::Local ToSim(const FDirtbagLocal& In);
+	FDirtbagLocals FromSim(const dirtbag::Locals& In);
+	dirtbag::Locals ToSim(const FDirtbagLocals& In);
 	dirtbag::Rack ToSim(const FDirtbagRack& In);
 	dirtbag::Kit ToSim(const FDirtbagKit& In);
 	FDirtbagStanding FromSim(const dirtbag::Standing& In);

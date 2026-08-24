@@ -192,6 +192,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.becameToday = static_cast<dirtbag::Quirk>(In.BecameToday);
 	Out.life = ToSim(In.Life);
 	Out.lostToday = static_cast<dirtbag::Thread>(In.LostToday);
+	Out.locals = ToSim(In.Locals);
 	Out.rival = ToSim(In.Rival);
 	Out.rankingPoints = In.RankingPoints;
 	Out.rankingRecord.reserve(In.RankingRecord.Num());
@@ -257,6 +258,7 @@ dirtbag::DayState ToSim(const FDirtbagDayState& In)
 	Out.indoors = In.bIndoors;
 	Out.firstPullOnHour = In.FirstPullOnHour;
 	Out.lastBurn = TCHAR_TO_UTF8(*In.LastBurn);
+	Out.heard = TCHAR_TO_UTF8(*In.Heard);
 	Out.session = ToSim(In.Session);
 	return Out;
 }
@@ -271,6 +273,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.BecameToday = static_cast<EDirtbagQuirk>(In.becameToday);
 	Out.Life = FromSim(In.life);
 	Out.LostToday = static_cast<EDirtbagThread>(In.lostToday);
+	Out.Locals = FromSim(In.locals);
 	Out.Rival = FromSim(In.rival);
 	Out.RankingPoints = In.rankingPoints;
 	Out.RankingRecord.Reset(In.rankingRecord.size());
@@ -344,6 +347,7 @@ FDirtbagDayState FromSim(const dirtbag::DayState& In)
 	Out.bIndoors = In.indoors;
 	Out.FirstPullOnHour = In.firstPullOnHour;
 	Out.LastBurn = UTF8_TO_TCHAR(In.lastBurn.c_str());
+	Out.Heard = UTF8_TO_TCHAR(In.heard.c_str());
 	Out.Session = FromSim(In.session);
 	return Out;
 }
@@ -527,6 +531,58 @@ dirtbag::Logbook ToSim(const FDirtbagLogbook& In)
 	Out.asOfDay = In.AsOfDay;
 	Out.lifetimeBurns = In.LifetimeBurns;
 	Out.lifetimeDays = In.LifetimeDays;
+	return Out;
+}
+
+FDirtbagLocal FromSim(const dirtbag::Local& In)
+{
+	FDirtbagLocal Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Where = static_cast<EDirtbagService>(In.where);
+	Out.Known = In.known;
+	Out.EverKnew = In.everKnew;
+	Out.Holds = static_cast<EDirtbagHeard>(In.holds);
+	Out.About = UTF8_TO_TCHAR(In.about.c_str());
+	Out.LastSeen = In.lastSeen;
+	return Out;
+}
+
+dirtbag::Local ToSim(const FDirtbagLocal& In)
+{
+	dirtbag::Local Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.where = static_cast<dirtbag::Service>(In.Where);
+	Out.known = In.Known;
+	Out.everKnew = In.EverKnew;
+	Out.holds = static_cast<dirtbag::Heard>(In.Holds);
+	Out.about = TCHAR_TO_UTF8(*In.About);
+	Out.lastSeen = In.LastSeen;
+	return Out;
+}
+
+FDirtbagLocals FromSim(const dirtbag::Locals& In)
+{
+	FDirtbagLocals Out;
+	Out.People.Reserve(In.people.size());
+	for (const dirtbag::Local& P : In.people)
+	{
+		Out.People.Add(FromSim(P));
+	}
+	Out.KnownTitles = In.knownTitles;
+	Out.KnownTier = In.knownTier;
+	return Out;
+}
+
+dirtbag::Locals ToSim(const FDirtbagLocals& In)
+{
+	dirtbag::Locals Out;
+	Out.people.reserve(In.People.Num());
+	for (const FDirtbagLocal& P : In.People)
+	{
+		Out.people.push_back(ToSim(P));
+	}
+	Out.knownTitles = In.KnownTitles;
+	Out.knownTier = In.KnownTier;
 	return Out;
 }
 

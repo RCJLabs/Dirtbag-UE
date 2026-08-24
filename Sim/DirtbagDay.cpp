@@ -180,8 +180,20 @@ bool EatMeal(PlayerState& player, DayState& day, const DayDials& dials) {
   // A stove and the will to use it: cheaper, and it goes further. Both
   // scaled by how much you have actually been cooking, so the discount is
   // a habit rather than a purchase.
-  const double cost = dials.mealCost * LifeMealCost(player.life);
-  if (player.cash < cost) return false;
+  // What being a regular is worth off the bill. Small on purpose -- this
+  // is a relationship, not a loyalty card.
+  const double cost = dials.mealCost * LifeMealCost(player.life) *
+                      LocalPrice(player.locals, Service::Meal);
+  if (player.cash < cost) {
+    // **And they saw it.** Between you and whoever was standing there;
+    // this is the one thing in the file the town does not get told.
+    TellOne(player.locals, Service::Meal, Heard::Broke, "", player.day);
+    return false;
+  }
+  if (Local* who = At(player.locals, Service::Meal)) {
+    day.heard = WhatTheySay(*who, player.day);
+    Seen(*who, player.day);
+  }
   player.cash -= cost;
   day.hunger = std::max(
       0.0, day.hunger - dials.mealHunger * LifeMealHunger(player.life));
@@ -318,6 +330,14 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
       0.0, day.energy - dials.attemptEnergy - dials.attemptEnergyPerGrade * over);
 
   if (result.timeline.empty()) return;
+
+  // **What gets around.** Here rather than anywhere else for the reason
+  // the logbook is here: this is the one function every burn in the game
+  // passes through. The newest send replaces the last, which is exactly
+  // the question a regular is answering -- *what did you do last time.*
+  if (result.sent) {
+    Tell(player.locals, Heard::Sent, route.name, player.day);
+  }
 
   // **What sort of go that was.** The instrumentation Phase 7 said this
   // needed and did not have: the resolver knows what happened on one route
@@ -574,6 +594,31 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // project were written and left uncalled, and every one was found late.
   player.lostToday = LifeNight(player.life, player.day);
 
+  // **And the town.** Seeded here rather than at creation so that a save
+  // written before there were any people in it loads into a town that has
+  // them -- the same lazy-open the circuit uses two hundred lines below,
+  // and for the same reason: a thing that should always exist is better
+  // opened by the tick than by remembering to call something.
+  if (player.locals.people.empty()) {
+    player.locals = TheLocals(DirtbagTown(), worldRng);
+  }
+  LocalsDay(player.locals, player.day);
+
+  // The two facts with nowhere else to be noticed from. A send goes
+  // through `ApplyAttemptToDay`, a first ascent through `ClaimFirstAscent`
+  // and an injury through the roll below; a season title and a signature
+  // are assembled by hand at two call sites each, so this is the only
+  // place both the game and the probe pass through. See the note on
+  // `Locals::knownTitles`.
+  if (player.circuit.titles > player.locals.knownTitles) {
+    player.locals.knownTitles = player.circuit.titles;
+    Tell(player.locals, Heard::Won, "the season", player.day);
+  }
+  if (static_cast<int>(player.sponsor.tier) > player.locals.knownTier) {
+    player.locals.knownTier = static_cast<int>(player.sponsor.tier);
+    Tell(player.locals, Heard::Sponsored, "", player.day);
+  }
+
   // The wall's tab comes home: today's remaining skin is tomorrow's start.
   if (day.atGym) {
     player.climber.skin = day.session.skinLeft;
@@ -611,6 +656,12 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
       // engine-free of *this* too: it decides that you are hurt, and what
       // you do about it is a different file.
       StartComeback(player.medical, player.climber, player.day);
+      // And the town notices you limping before you tell anybody. Here
+      // rather than at the other `StartComeback` because that one is the
+      // in-session roll and this is the night's -- and a person who saw
+      // you at the crag this afternoon is not who this is about.
+      Tell(player.locals, Heard::Hurt,
+           InjuryName(player.climber.injury.kind), player.day);
     }
   }
 
@@ -742,7 +793,7 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
 
   // And the other end of it: the Wednesday night at the gym. Schedules
   // itself, rolls itself forward, and closes its own eight-week block --
-  // and **the regulars turn up whether you do or not**, so a block you
+  // and **the locals turn up whether you do or not**, so a block you
   // skipped is a block you came last in, which is exactly what happens if
   // you stop going to a real one.
   LeagueDay(player.league, worldRng, player.day);

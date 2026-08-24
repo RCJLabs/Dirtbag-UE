@@ -30,6 +30,7 @@
 #include "DirtbagJobs.h"
 #include "DirtbagKit.h"
 #include "DirtbagLife.h"
+#include "DirtbagLocals.h"
 #include "DirtbagEthics.h"
 #include "DirtbagSponsor.h"
 #include "DirtbagVan.h"
@@ -331,6 +332,11 @@ struct PlayerState {
   // that makes the rest a system rather than a menu.
   Life life;
 
+  // **The people behind the counters, and what they are holding.** Seeded
+  // on the first night of a career rather than at creation, so an old save
+  // walks into a town that has faces in it -- see Sim/DirtbagLocals.h.
+  Locals locals;
+
   // **What you lost last night**, or None, which is nearly every night.
   // Carried on the career for the same reason `becameToday` is: the night
   // tick is void, it has four callers, and a line the player is meant to
@@ -363,6 +369,12 @@ struct DayState {
   // a habit about the clock and there was nothing anywhere that remembered
   // what time the first burn happened.
   double firstPullOnHour = -1.0;
+
+  // **What somebody said to you today**, or empty, which is most days.
+  // On the day rather than in the save for the same reason `lastBurn` is:
+  // it is a thing you read once and then get on with the day. The memory
+  // behind it is spent the moment it is said -- see Sim/DirtbagLocals.h.
+  std::string heard;
 
   // **What the last burn was**, in one sentence -- see Sim/DirtbagNarrator.h.
   // On the day rather than in the save because it is a thing you read once

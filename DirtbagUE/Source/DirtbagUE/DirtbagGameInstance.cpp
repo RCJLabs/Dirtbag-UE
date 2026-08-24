@@ -3191,6 +3191,36 @@ double UDirtbagGameInstance::ThreadHours(EDirtbagThread What) const
 	return dirtbag::AsksFor(static_cast<dirtbag::Thread>(What));
 }
 
+FString UDirtbagGameInstance::WhoIsAtTheCounter(EDirtbagService Where) const
+{
+	for (const FDirtbagLocal& Who : Player.Locals.People)
+	{
+		if (Who.Where == Where)
+		{
+			return Who.Name;
+		}
+	}
+	return FString();
+}
+
+FString UDirtbagGameInstance::WhatTheyWouldSay(EDirtbagService Where) const
+{
+	// One person converted rather than the whole roster: this is read from
+	// a spot prompt, which is rebuilt every frame the player is stood near
+	// the door.
+	for (const FDirtbagLocal& Who : Player.Locals.People)
+	{
+		if (Who.Where != Where)
+		{
+			continue;
+		}
+		return UTF8_TO_TCHAR(
+		    dirtbag::WhatTheySay(DirtbagConvert::ToSim(Who), Player.Day)
+		        .c_str());
+	}
+	return FString();
+}
+
 bool UDirtbagGameInstance::SpendTheEvening(EDirtbagThread What)
 {
 	// Through the sim's own day verb rather than by hand, so the hours, the

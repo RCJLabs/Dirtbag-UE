@@ -83,6 +83,15 @@ struct Tally {
   double warmthEnd[kThreadCount] = {0.0};
   double deepest = 0.0;         // the furthest into anything you ever got
 
+  // --- The people behind the counters --------------------------------------
+  // Phase 11's third gate, measured: does anybody in a thirty-year career
+  // ever actually get greeted by what they did last time, and how often.
+  int greeted = 0;
+  int firstGreetingDay = -1;
+  double bestKnown = 0.0;       // at the end, not the high-water mark
+  std::string lastSaid;
+  int greetedByKind[kHeardCount] = {0};
+
   // --- Trad ---------------------------------------------------------------
   // What a career of leading looks like, which is a different question from
   // what an attempt looks like.
@@ -1483,9 +1492,23 @@ int main(int argc, char** argv) {
     // Evening: eat if the day has made you hungry and you can afford it.
     if (today.hunger > 28.0) {
       const double before = player.cash;
+      // **What the counter is holding, before the meal spends it.** Read
+      // rather than derived: `WhatTheySay` is what the game shows, so
+      // asking anything else here would be the probe measuring a different
+      // greeting from the one the player gets.
+      Heard held = Heard::None;
+      if (const Local* who = At(player.locals, Service::Meal)) {
+        held = who->holds;
+      }
       if (EatMeal(player, today, dd)) {
         t.mealsEaten++;
         t.spentFood += before - player.cash;
+        if (!today.heard.empty()) {
+          t.greeted++;
+          if (t.firstGreetingDay < 0) t.firstGreetingDay = player.day;
+          t.lastSaid = today.heard;
+          t.greetedByKind[static_cast<int>(held)]++;
+        }
       } else {
         t.brokeDays++;
       }
@@ -1778,6 +1801,12 @@ int main(int argc, char** argv) {
     t.bestRapport = std::max(t.bestRapport, b.rapport);
   }
 
+  // Who ended up knowing you. Same rule as rapport: the state, not the
+  // high-water mark.
+  for (const Local& p : player.locals.people) {
+    t.bestKnown = std::max(t.bestKnown, p.known);
+  }
+
   // And where the life outside it ended up. Same rule as rapport: the
   // state, not the high-water mark.
   for (int i = 1; i < kThreadCount; i++) {
@@ -1810,7 +1839,9 @@ int main(int argc, char** argv) {
          "\tquirks\tfirstquirk\thabitdays\thabits\tbecame"
          "\tapproach\tnobelayer\tbelaycap\theldburns\trapport"
          "\tevenings\tbusks\tbusked\tmet\tlost\tgrieving\tnag\tdeepest"
-         "\twsomeone\twhome\twmusic\twbooks\twstove\n");
+         "\twsomeone\twhome\twmusic\twbooks\twstove"
+         "\tgreeted\tfirstgreet\tknown\tgsent\tgnamed\tgaway\tghurt"
+         "\tgbroke\tgwon\tgspons\tsaid\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -1826,7 +1857,8 @@ int main(int argc, char** argv) {
          "\t%d\t%d\t%d\t%.2f\t%s"
          "\t%.0f\t%d\t%d\t%d\t%.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%.2f"
-         "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n",
+         "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
+         "\t%d\t%d\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -1912,7 +1944,18 @@ int main(int argc, char** argv) {
          t.warmthEnd[static_cast<int>(Thread::Home)],
          t.warmthEnd[static_cast<int>(Thread::Music)],
          t.warmthEnd[static_cast<int>(Thread::Books)],
-         t.warmthEnd[static_cast<int>(Thread::Cooking)]);
+         t.warmthEnd[static_cast<int>(Thread::Cooking)],
+         // And whether anybody ever greeted you by what you did. `gaway`
+         // is the one nobody had to be told.
+         t.greeted, t.firstGreetingDay, t.bestKnown,
+         t.greetedByKind[static_cast<int>(Heard::Sent)],
+         t.greetedByKind[static_cast<int>(Heard::Named)],
+         t.greetedByKind[static_cast<int>(Heard::None)],
+         t.greetedByKind[static_cast<int>(Heard::Hurt)],
+         t.greetedByKind[static_cast<int>(Heard::Broke)],
+         t.greetedByKind[static_cast<int>(Heard::Won)],
+         t.greetedByKind[static_cast<int>(Heard::Sponsored)],
+         t.lastSaid.empty() ? "nothing" : t.lastSaid.c_str());
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

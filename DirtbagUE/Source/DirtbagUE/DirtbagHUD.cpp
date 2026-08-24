@@ -412,6 +412,20 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	}
 	// And the one that ended. Same slow slot as the quirk, and the same
 	// size: both are things a career finds out about itself.
+	// **What somebody said to you today.** Its own slot rather than a toast
+	// because it is true until you walk out of the door -- and quiet on
+	// almost every day, which is the whole reason it is worth reading on
+	// the days it is not.
+	if (!Game->Day.Heard.IsEmpty())
+	{
+		Y += 22.f;
+		for (const FString& Line : WrapToWidth(Game->Day.Heard, 62))
+		{
+			DrawText(Line, FLinearColor(0.70f, 0.76f, 0.82f, 1.f), X, Y,
+			         GEngine->GetSmallFont(), 1.f);
+			Y += 18.f;
+		}
+	}
 	if (!Game->LifeNews.IsEmpty())
 	{
 		Y += 22.f;

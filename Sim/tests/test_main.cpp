@@ -14,6 +14,7 @@
 #include "../DirtbagWorldStage.h"
 #include "../DirtbagLeague.h"
 #include "../DirtbagLife.h"
+#include "../DirtbagLocals.h"
 #include "../DirtbagMedical.h"
 #include "../DirtbagAilments.h"
 #include "../DirtbagBodyContext.h"
@@ -14025,6 +14026,330 @@ static void TestAnEveningCostsTheEvening() {
   CHECK(player.cash > cash0);           // and the hat had something in it
 }
 
+
+// ---------------------------------------------------------------------
+// The people who remember you between visits
+// ---------------------------------------------------------------------
+
+// Turn up enough times that somebody knows your face.
+static void BecomeAFace(Local& who, int fromDay, int visits) {
+  for (int i = 0; i < visits; i++) Seen(who, fromDay + i);
+}
+
+// **Never dereference `At` without checking it.** The first version of
+// these tests wrote `At(town, Service::Meal)->name` directly, and when the
+// reintroduction pass removed the roster's seeding the test **segfaulted
+// instead of failing** -- which took the whole binary down and silently
+// un-ran every test after it, so four separate defects came back "not
+// caught" from one crash. A test that cannot fail is bad; a test that
+// crashes is worse, because it takes its neighbours with it.
+static const Local& Counter(const Locals& town, Service where) {
+  static Local kNobodyConst;
+  const Local* who = At(town, where);
+  CHECK(who != nullptr);
+  return who ? *who : kNobodyConst;
+}
+
+static Local& Counter(Locals& town, Service where) {
+  static Local kNobody;
+  kNobody = Local{};
+  Local* who = At(town, where);
+  CHECK(who != nullptr);
+  return who ? *who : kNobody;
+}
+
+static void TestAStrangerIsServedNotGreeted() {
+  LocalDials d;
+  Locals town = TheLocals(DirtbagTown(), Rng::FromSeed("crag-1"));
+  CHECK(!town.people.empty());
+  Local& diner = Counter(town, Service::Meal);
+
+  // They have heard. They still do not say anything, because you are a
+  // customer -- which is the gate that makes the greeting read as earned
+  // rather than issued.
+  Tell(town, Heard::Sent, "The Prow", 10);
+  CHECK(diner.holds == Heard::Sent);
+  CHECK(WhatTheySay(diner, 10, d).empty());
+
+  // **And it keeps holding it until somebody hears it.** Which happens on
+  // the visit that takes them over `nodsAt`, not before -- so the memory
+  // survives the strangers' visits and is spent by the first one that was
+  // actually a greeting.
+  BecomeAFace(diner, 1, 3);
+  CHECK(diner.known < d.nodsAt);
+  CHECK(diner.holds == Heard::Sent);      // still held, nobody said anything
+  BecomeAFace(diner, 4, 2);
+  CHECK(diner.known >= d.nodsAt);
+  CHECK(diner.holds == Heard::None);      // and the moment they knew you
+
+  // Measured over thirty years, a version that spent the memory on every
+  // visit -- including the ones where they said nothing -- ate a career's
+  // first two hundred days of sends, and what a regular said came out as
+  // "thought you'd moved on" thirty-seven times out of forty.
+  Tell(town, Heard::Sent, "The Prow", 10);
+  CHECK(WhatTheySay(diner, 10, d) == std::string("Heard you got The Prow."));
+}
+
+static void TestTheySayItOnceAndGoBackToNodding() {
+  LocalDials d;
+  Locals town = TheLocals(DirtbagTown(), Rng::FromSeed("crag-1"));
+  Local& shop = Counter(town, Service::Gear);
+  BecomeAFace(shop, 1, 5);
+
+  Tell(town, Heard::Named, "Slab Wednesday", 40);
+  CHECK(WhatTheySay(shop, 40, d) ==
+        std::string("Slab Wednesday. That was you, then."));
+  Seen(shop, 40, d);
+  // Spent. A line that repeats every visit stops being a greeting inside a
+  // week, which is the whole difference between a person and wallpaper.
+  CHECK(shop.holds == Heard::None);
+  CHECK(WhatTheySay(shop, 41, d).empty());
+}
+
+static void TestTheLoudestThingWins() {
+  LocalDials d;
+  Locals town = TheLocals(DirtbagTown(), Rng::FromSeed("crag-1"));
+  Local& diner = Counter(town, Service::Meal);
+  BecomeAFace(diner, 1, 5);
+
+  Tell(town, Heard::Hurt, "finger", 10);
+  Tell(town, Heard::Sent, "The Prow", 12);
+  CHECK(diner.holds == Heard::Sent);       // louder replaces
+
+  Tell(town, Heard::Hurt, "shoulder", 14);
+  CHECK(diner.holds == Heard::Sent);       // quieter is dropped, not queued
+  CHECK(diner.about == std::string("The Prow"));
+
+  // ...and equal replaces, because the question they are answering is
+  // *what did you do last time*.
+  Tell(town, Heard::Sent, "Gravedigger", 16);
+  CHECK(diner.about == std::string("Gravedigger"));
+  CHECK(WhatTheySay(diner, 16, d) == std::string("Heard you got Gravedigger."));
+}
+
+static void TestOnlyTheOneWhoSawItKnowsAboutTheBill() {
+  Locals town = TheLocals(DirtbagTown(), Rng::FromSeed("crag-1"));
+  TellOne(town, Service::Meal, Heard::Broke, "", 10);
+  CHECK(Counter(town, Service::Meal).holds == Heard::Broke);
+  Local& shop = Counter(town, Service::Gear);
+  CHECK(shop.holds == Heard::None);
+}
+
+static void TestTheyRememberYouAfterAWinter() {
+  LocalDials d;
+  Locals town = TheLocals(DirtbagTown(), Rng::FromSeed("crag-1"));
+  Local& diner = Counter(town, Service::Meal);
+  BecomeAFace(diner, 1, 20);
+  const double best = diner.known;
+  CHECK(best > 0.9);
+
+  // Two years away. It fades, and it floors -- you stop being current with
+  // somebody, you do not become a stranger to them.
+  for (int day = 100; day < 100 + 730; day++) LocalsDay(town, day, d);
+  CHECK(diner.known < best);
+  CHECK(diner.known >= best * d.knownKeeps - 1e-9);
+  CHECK(diner.known > 0.0);
+}
+
+static void TestNobodyTellsThemYouWereAway() {
+  LocalDials d;
+  Locals town = TheLocals(DirtbagTown(), Rng::FromSeed("crag-1"));
+  Local& diner = Counter(town, Service::Meal);
+  BecomeAFace(diner, 1, 10);
+  CHECK(diner.holds == Heard::None);
+  CHECK(WhatTheySay(diner, diner.lastSeen + 1, d).empty());
+  // The one memory in the file that is derived rather than given, and the
+  // only one that fires for doing nothing at all.
+  const int later = diner.lastSeen + static_cast<int>(d.awayDays) + 1;
+  CHECK(WhatTheySay(diner, later, d) == std::string("Thought you'd moved on."));
+}
+
+static void TestBeingAKnownFaceIsWorthSomething() {
+  LocalDials d;
+  Locals town = TheLocals(DirtbagTown(), Rng::FromSeed("crag-1"));
+  CHECK(LocalPrice(town, Service::Meal, d) == 1.0);   // a stranger pays full
+  BecomeAFace(Counter(town, Service::Meal), 1, 20);
+  CHECK(LocalPrice(town, Service::Meal, d) < 1.0);
+  CHECK(LocalPrice(town, Service::Meal, d) > 0.8);    // and never much below
+  CHECK(LocalPrice(town, Service::Gear, d) == 1.0);   // per counter, not global
+}
+
+static void TestTheTownIsSeededByTheNight() {
+  PlayerState player;
+  DayState day;
+  const Rng world = Rng::FromSeed("a-town-with-faces");
+  player.climber = NewClimber(world);
+  CHECK(player.locals.people.empty());
+  SleepToNextDay(player, day, world);
+  // A career that never called anything is still in a town with people in
+  // it -- and an old save walks into the same one.
+  CHECK(!player.locals.people.empty());
+  CHECK(!Counter(player.locals, Service::Meal).name.empty());
+
+  // Deterministic from the world seed: two careers in the same valley meet
+  // the same people.
+  PlayerState twin;
+  DayState twinDay;
+  twin.climber = NewClimber(world);
+  SleepToNextDay(twin, twinDay, world);
+  CHECK(Counter(twin.locals, Service::Meal).name ==
+        Counter(player.locals, Service::Meal).name);
+
+  // **And the night fades them, through the day loop rather than by hand.**
+  // The first version of this called `LocalsDay` directly and therefore
+  // proved only that the function works -- take the call out of
+  // `SleepToNextDay` and nothing failed, which is the "written and never
+  // wired" shape arriving through a test that looked like coverage.
+  BecomeAFace(Counter(player.locals, Service::Meal), player.day, 20);
+  const double best = Counter(player.locals, Service::Meal).known;
+  CHECK(best > 0.9);
+  for (int i = 0; i < 400; i++) SleepToNextDay(player, day, world);
+  const Local& diner = Counter(player.locals, Service::Meal);
+  CHECK(diner.known < best);          // you stopped turning up
+  CHECK(diner.known > 0.0);           // ...and they still know your face
+}
+
+static void TestTheDinerGreetsYouByWhatYouDid() {
+  PlayerState player;
+  DayState day = WakeUp(player);
+  const Rng world = Rng::FromSeed("a-town-with-faces");
+  player.locals = TheLocals(DirtbagTown(), world);
+  BecomeAFace(Counter(player.locals, Service::Meal), 1, 6);
+
+  // A send, through the one function every burn in the game passes through.
+  Route route;
+  route.name = "The Prow";
+  AttemptResult sent;
+  sent.sent = true;
+  sent.timeline.resize(1);
+  ApplyAttemptToDay(player, day, route, sent, world);
+  CHECK(Counter(player.locals, Service::Meal).holds == Heard::Sent);
+
+  // ...and it comes back at you over a burrito.
+  day.heard.clear();
+  player.cash = 500.0;
+  CHECK(EatMeal(player, day));
+  CHECK(day.heard == std::string("Heard you got The Prow."));
+
+  // Once. The second burrito is just a burrito.
+  day.heard.clear();
+  CHECK(EatMeal(player, day));
+  CHECK(day.heard.empty());
+}
+
+static void TestTheTownHearsWhatYouNamedIt() {
+  PlayerState player;
+  player.locals = TheLocals(DirtbagTown(), Rng::FromSeed("crag-1"));
+  BecomeAFace(Counter(player.locals, Service::Gear), 1, 6);
+
+  Crag crag = RoadsideCrag(Rng::FromSeed("crag-1"));
+  CragLine* open = nullptr;
+  for (CragLine& l : crag.lines) {
+    if (l.isProject) { open = &l; break; }
+  }
+  CHECK(open != nullptr);
+  if (!open) return;
+
+  ProjectMemory mem;
+  mem.routeName = open->route.name;
+  mem.sent = true;
+  mem.firstAscent = true;
+  mem.firstSendStyle = Style::Redpoint;
+  mem.confirmedGrade = open->route.grade;
+  CHECK(ClaimFirstAscent(player, mem, *open, "Slab Wednesday"));
+
+  // The whole reason naming a line is a verb: the name is what gets said
+  // back to you.
+  const Local& shop = Counter(player.locals, Service::Gear);
+  CHECK(shop.holds == Heard::Named);
+  CHECK(WhatTheySay(shop, 40) ==
+        std::string("Slab Wednesday. That was you, then."));
+}
+
+static void TestAKnownFaceIsCharacterLessForTheBurrito() {
+  DayDials dd;
+  PlayerState stranger;
+  PlayerState known;
+  stranger.locals = TheLocals(DirtbagTown(), Rng::FromSeed("crag-1"));
+  known.locals = stranger.locals;
+  BecomeAFace(Counter(known.locals, Service::Meal), 1, 20);
+
+  stranger.cash = known.cash = 500.0;
+  DayState a = WakeUp(stranger, dd);
+  DayState b = WakeUp(known, dd);
+  a.hunger = b.hunger = 60.0;
+  CHECK(EatMeal(stranger, a, dd));
+  CHECK(EatMeal(known, b, dd));
+  // Through the day loop, not just the formula -- the same money, taken
+  // twice, differs by whether they know your face.
+  CHECK(known.cash > stranger.cash);
+}
+
+static void TestTheTownSurvivesASave() {
+  SaveGame save;
+  save.seed = "a-town-with-faces";
+  save.player.locals = TheLocals(DirtbagTown(), Rng::FromSeed("a-town-with-faces"));
+  BecomeAFace(*At(save.player.locals, Service::Meal), 1, 9);
+  Tell(save.player.locals, Heard::Named, "Slab Wednesday", 40);
+  save.player.locals.knownTitles = 2;
+  save.player.locals.knownTier = 3;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  const Locals& got = back.player.locals;
+  CHECK(got.people.size() == save.player.locals.people.size());
+  const Local& diner = Counter(got, Service::Meal);
+  CHECK(diner.name == At(save.player.locals, Service::Meal)->name);
+  CHECK(diner.holds == Heard::Named);
+  CHECK(diner.about == std::string("Slab Wednesday"));
+  CHECK(std::fabs(diner.known -
+                  At(save.player.locals, Service::Meal)->known) < 1e-9);
+  CHECK(diner.lastSeen == At(save.player.locals, Service::Meal)->lastSeen);
+  CHECK(got.knownTitles == 2);
+  CHECK(got.knownTier == 3);
+  // You load in with the same thing about to be said to you.
+  CHECK(WhatTheySay(diner, 41) ==
+        WhatTheySay(*At(save.player.locals, Service::Meal), 41));
+}
+
+static void TestLoadsVersion36Save() {
+  SaveGame save;
+  save.seed = "a-town-with-faces";
+  save.player.cash = 137.5;
+
+  std::string v36 = SerializeSave(save);
+  DropSaveLine(v36, "loc.n=");
+  DropSaveLine(v36, "loc.titles=");
+  DropSaveLine(v36, "loc.tier=");
+  SetSaveVersion(v36, 36);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v36, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(std::fabs(old.player.cash - 137.5) < 1e-9);
+  // Nobody knows you, which is the truth about that career: nobody did.
+  CHECK(old.player.locals.people.empty());
+  CHECK(old.player.locals.knownTitles == 0);
+  // ...and the roster opens on the first night, like a circuit season.
+  DayState day;
+  const Rng world = Rng::FromSeed(old.seed);
+  SleepToNextDay(old.player, day, world);
+  CHECK(!old.player.locals.people.empty());
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+}
+
+static void TestTheBillYouCannotCoverIsBetweenYouAndThem() {
+  PlayerState player;
+  DayState day = WakeUp(player);
+  player.locals = TheLocals(DirtbagTown(), Rng::FromSeed("crag-1"));
+  player.cash = 0.0;
+  CHECK(!EatMeal(player, day));
+  CHECK(Counter(player.locals, Service::Meal).holds == Heard::Broke);
+  // And nobody else. The gear shop did not watch you fail to pay for a
+  // burrito, and a town that gossips about that is a different game.
+  CHECK(Counter(player.locals, Service::Gear).holds == Heard::None);
+}
+
 int main() {
   TestRngDeterminism();
   TestRngUnicodeSeeds();
@@ -14287,6 +14612,20 @@ int main() {
   TestALifeCoolsWhileYouAreAtTheCrag();
   TestABookMakesAnAfternoonWorthMore();
   TestAnEveningCostsTheEvening();
+  TestAStrangerIsServedNotGreeted();
+  TestTheySayItOnceAndGoBackToNodding();
+  TestTheLoudestThingWins();
+  TestOnlyTheOneWhoSawItKnowsAboutTheBill();
+  TestTheyRememberYouAfterAWinter();
+  TestNobodyTellsThemYouWereAway();
+  TestBeingAKnownFaceIsWorthSomething();
+  TestTheTownIsSeededByTheNight();
+  TestTheDinerGreetsYouByWhatYouDid();
+  TestTheTownHearsWhatYouNamedIt();
+  TestAKnownFaceIsCharacterLessForTheBurrito();
+  TestTheTownSurvivesASave();
+  TestLoadsVersion36Save();
+  TestTheBillYouCannotCoverIsBetweenYouAndThem();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);
