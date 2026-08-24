@@ -238,7 +238,14 @@ than a tuning. You keep what you commit to and lose what you ignore.
 
 ## What the probe now supports
 
-`build/season <days> <seed> <rest> v greedy 1.5 -1 keep -1 careers` runs
-multi-generation and prints the guidebook with route keys. Ninety years is
+`build/season <days> <seed> <rest> v greedy careers=1` runs
+multi-generation and prints the guidebook with route keys.
+
+**The invocation above used to read `... v greedy 1.5 -1 keep -1 careers`,
+and that form is now refused.** It did not mean what it looks like: arg 6
+was read as the skin regen *and* as the character build, so `1.5` built
+archetype 1 and overwrote the starting cash — every number below was
+measured on that climber rather than on the default one. See
+`notes/the-arguments-that-meant-two-things.md`. Ninety years is
 four lives; thirty is barely one, because a career runs about 29 seasons and
 retires at 46–52.

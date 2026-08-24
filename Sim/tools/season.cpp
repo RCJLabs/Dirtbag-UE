@@ -14,6 +14,7 @@
 
 #include <climits>
 #include <cstdio>
+#include <map>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -360,37 +361,99 @@ int main(int argc, char** argv) {
   // answer is "the weather", then no money mechanic can ever close Phase
   // 3's gate and the gate is what has to move. If the answer is "nothing",
   // then skin was the whole wall and lifting it is a real option.
-  const double skinRegen = argc > 6 ? std::atof(argv[6]) : -1.0;
+  // --- Options, by name --------------------------------------------------
+  //
+  // **Everything past the policy is `key=value`.** It used to be
+  // positional, and two knobs quietly grew onto each slot:
+  //
+  //   arg 6   `skinRegen` *and* `buildSpec`
+  //   arg 7   `startingPads` *and* `withRival`
+  //
+  // Both readers were live, both were documented as "Arg 6" and "Arg 7" a
+  // hundred lines apart, and neither knew about the other. So **every
+  // skin-regen sweep also set the archetype** -- `atoi("1.5")` is 1,
+  // `atoi("9.0")` is 9 -- and overwrote the starting cash with that
+  // character's, which is the sweep `notes/phase3-what-binds.md` is built
+  // on. **And every `rival` run set the pads to zero**, `atoi("rival")`
+  // being 0, so Phase 8's rival career was measured on the padless season
+  // -- the exact knob the comment below calls "the whole mechanic".
+  //
+  // Named options cannot collide silently: a repeated key is a repeated
+  // key, and an unknown one is refused rather than ignored. An unrecognised
+  // token is a hard error for the same reason -- a probe that shrugs at
+  // `pads2` and measures the default is a probe that lies quietly.
+  std::map<std::string, std::string> opts;
+  for (int i = 6; i < argc; i++) {
+    const std::string tok = argv[i];
+    const std::size_t eq = tok.find('=');
+    if (eq == std::string::npos || eq == 0) {
+      std::fprintf(stderr,
+                   "season: options are key=value; got \"%s\".\n"
+                   "  known: skin= pads= build= rival= norubber= foam=\n"
+                   "         careers= lot= savings= med=\n",
+                   tok.c_str());
+      return 2;
+    }
+    const std::string key = tok.substr(0, eq);
+    if (!opts.emplace(key, tok.substr(eq + 1)).second) {
+      std::fprintf(stderr, "season: %s given twice.\n", key.c_str());
+      return 2;
+    }
+  }
+  {
+    static const char* kKnown[] = {"skin", "pads", "build", "rival",
+                                   "norubber", "foam", "careers", "lot",
+                                   "savings", "med"};
+    for (const auto& kv : opts) {
+      bool found = false;
+      for (const char* k : kKnown) found = found || kv.first == k;
+      if (!found) {
+        std::fprintf(stderr, "season: unknown option \"%s\".\n",
+                     kv.first.c_str());
+        return 2;
+      }
+    }
+  }
+  const auto opt = [&opts](const char* key, const char* fallback) {
+    const auto found = opts.find(key);
+    return found == opts.end() ? std::string(fallback) : found->second;
+  };
+  const auto optOn = [&opts](const char* key) {
+    const auto found = opts.find(key);
+    return found != opts.end() && found->second != "0" && found->second != "";
+  };
+
+  const double skinRegen = std::atof(opt("skin", "-1").c_str());
   // Arg 7 overrides the pads you start with (shipped: 1 of the 2 that
   // matter, so padding 0.5). The knob exists because head trains on
   // exposure, and pads are the thing that buys exposure away — 0 pads and 2
   // pads are the bold and the safe season, and the gap between them is the
   // whole mechanic.
-  const int startingPads = argc > 7 ? std::atoi(argv[7]) : -1;
+  const int startingPads = std::atoi(opt("pads", "-1").c_str());
   // Arg 8: never buy or resole shoes. Dead rubber has never once been felt
   // in the actual game -- ToSim dropped shoeWear, so every attempt resolved
   // on new shoes -- so before calling that fixed it is worth knowing what
   // the thing nobody has felt is actually worth.
-  const bool neverBuysRubber = argc > 8 && std::string(argv[8]) == "norubber";
+  const bool neverBuysRubber = optOn("norubber");
   // Arg 9 overrides the most foam can ever do, for finding a cap at which
   // the pad is a trade rather than a switch.
-  const double foamCap = argc > 9 ? std::atof(argv[9]) : -1.0;
+  const double foamCap = std::atof(opt("foam", "-1").c_str());
   // Arg 10 = "careers": retire and inherit when the game offers it, instead
   // of running one immortal climber forever. Everything the legacy system
   // does -- TimeToThinkAboutIt, TallyCareer, Inherit, the guidebook -- was
   // reachable only from the engine, so nothing had ever simulated more than
   // one lifetime. Phase 4's gate is a career playing end to end, and this
   // is the only way to look at one without living it.
-  const bool multiLife = argc > 10 && std::string(argv[10]) == "careers";
+  const bool multiLife = optOn("careers");
   // Arg 11 overrides how often somebody at the Lot takes an open line. The
   // dial's own comment says "the player should usually get the chance if
   // they commit" -- which was intuition, never measured, and measurable
   // only once the Lot's claims actually reached the book.
-  const double lotChance = argc > 11 ? std::atof(argv[11]) : -1.0;
+  const double lotChance = std::atof(opt("lot", "-1").c_str());
   // Arg 12: what a hoarder is working towards. The whole point of the sweep
   // -- at zero this is stakeout, and every dollar above it is bought with
   // days that could have been climbing.
-  const double savingsTarget = argc > 12 ? std::atof(argv[12]) : 20000.0;
+  const double savingsTarget = std::atof(opt("savings", "20000").c_str());
 
   // **Arg 13: how this climber handles being hurt.** Orthogonal to the
   // climbing policy on purpose -- Phase 10's second gate asks whether a
@@ -407,7 +470,7 @@ int main(int argc, char** argv) {
   // Add "-ins" to any of them to carry a policy. **Orthogonal on purpose
   // too**: the third gate asks whether insurance is a real bet, and a bet
   // can only be measured against the same career without it.
-  const std::string medPolicy = argc > 13 ? argv[13] : "";
+  const std::string medPolicy = opt("med", "");
   const auto has = [&medPolicy](const char* what) {
     return medPolicy.find(what) != std::string::npos;
   };
@@ -470,13 +533,13 @@ int main(int argc, char** argv) {
   // Arg 7 is "rival" to give the career somebody to beat. Absent means
   // nobody, which is what every measurement before Phase 8 was taken with,
   // so those all still reproduce.
-  const bool withRival = argc > 7 && std::string(argv[7]) == "rival";
+  const bool withRival = optOn("rival");
 
   // Arg 6 is the build, as "archetype/origin/flaw/temperament" by index --
   // e.g. "0/2/4/1" is a Boulderer from the desert with tweaky fingers who
   // is send-or-bust. Absent means unbuilt, which is neutral in every lane,
   // so every measurement taken before Phase 7 reproduces exactly.
-  const std::string buildSpec = argc > 6 ? argv[6] : "";
+  const std::string buildSpec = opt("build", "");
 
   PlayerState player;
   player.name = "Climber 1";

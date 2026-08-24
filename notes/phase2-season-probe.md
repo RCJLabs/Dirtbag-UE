@@ -1,6 +1,12 @@
 # Playing a season headless
 
-`Sim/tools/build-season.sh [days] [seed] [restUntilSkin] [quiet]`
+`Sim/tools/build-season.sh <days> <seed> <restUntilSkin> <q|v> <policy> [key=value ...]`
+
+**Everything past the policy is `key=value`** — `skin=` `pads=` `build=`
+`rival=` `norubber=` `foam=` `careers=` `lot=` `savings=` `med=`. It used to
+be positional, and two of the slots quietly grew a second reader each; see
+`notes/the-arguments-that-meant-two-things.md`. An unrecognised token is a
+hard error rather than a shrug.
 
 Phase 2's last gate is *"a full season plays start to finish"*, and the way
 to test that without a person at the keyboard is to actually play it: a
