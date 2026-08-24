@@ -15,6 +15,7 @@
 #include "../DirtbagLeague.h"
 #include "../DirtbagLife.h"
 #include "../DirtbagLocals.h"
+#include "../DirtbagGym.h"
 #include "../DirtbagMedical.h"
 #include "../DirtbagAilments.h"
 #include "../DirtbagBodyContext.h"
@@ -14098,6 +14099,319 @@ static int CompanyOver(const Rng& world, int days,
   return seen;
 }
 
+// ---------------------------------------------------------------------
+// The gym you bought
+// ---------------------------------------------------------------------
+
+static Gym ABoughtGym(double& cash, int day = 1) {
+  Gym g;
+  cash = GymDials{}.price + 20000.0;
+  CHECK(BuyTheGym(g, cash, "The Woodshed", day));
+  return g;
+}
+
+static void TestYouCannotBuyWhatYouCannotAfford() {
+  GymDials d;
+  Gym g;
+  // **$25,000**, which is the original's price and lands just under Home
+  // Base's $30,000 -- so it is a choice against the dream rather than a
+  // tier above it.
+  double broke = d.price - 1.0;
+  CHECK(!BuyTheGym(g, broke, "The Woodshed", 1));
+  CHECK(!g.owned);
+  CHECK(broke == d.price - 1.0);          // and it cost them nothing
+
+  double enough = d.price;
+  CHECK(BuyTheGym(g, enough, "The Woodshed", 1));
+  CHECK(g.owned);
+  CHECK(enough == 0.0);
+  CHECK(g.members == d.seedMembers);
+  CHECK(!BuyTheGym(g, enough, "Another One", 1));   // and only the one
+}
+
+static void TestTheFloorIsAMeterAndNotASwitch() {
+  GymDials d;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+
+  // Budget pulls a packed floor; the members do **not** jump to it. The
+  // original's own comment: a meter, not a switch -- pricing takes several
+  // days to show what it did, the same shape as every other value in this
+  // port that ages toward something.
+  SetPrice(g, GymPrice::Budget);
+  const double target = MembersItPullsToward(g, d);
+  CHECK(target > g.members + 10.0);
+  const double started = g.members;
+  GymDay(g, world, 2, d);
+  CHECK(g.members > started);
+  CHECK(g.members < target);              // nowhere near it yet
+
+  for (int day = 3; day <= 60; day++) GymDay(g, world, day, d);
+  // ...and a couple of months later it is there, within the daily wobble.
+  CHECK(std::fabs(g.members - target) <= d.memberNoise * 2.0);
+}
+
+static void TestTheLeversTradeVolumeAgainstMargin() {
+  GymDials d;
+  Gym budget, premium;
+  double a = 0.0, b = 0.0;
+  budget = ABoughtGym(a);
+  premium = ABoughtGym(b);
+  SetPrice(budget, GymPrice::Budget);
+  SetPrice(premium, GymPrice::Premium);
+
+  // The trade the whole system rests on: a packed floor on thin margins
+  // against fewer members who are each worth real money.
+  CHECK(MembersItPullsToward(budget, d) > MembersItPullsToward(premium, d));
+  CHECK(RatePerMember(budget, d) < RatePerMember(premium, d));
+
+  // And the set mix leans the same axis the other way, which is why it is
+  // a second lever rather than more of the first.
+  Gym hardcore = budget;
+  SetMix(hardcore, GymSetMix::Hardcore);
+  CHECK(MembersItPullsToward(hardcore, d) < MembersItPullsToward(budget, d));
+  CHECK(RatePerMember(hardcore, d) > RatePerMember(budget, d));
+}
+
+static void TestEquipmentIsALadderAndStaffAreAWage() {
+  GymDials d;
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+
+  const double pulled = MembersItPullsToward(g, d);
+  const double owed = DailyOverhead(g, d);
+  CHECK(UpgradeEquipment(g, cash, d));
+  CHECK(g.equip == GymEquip::HoldsAndMats);
+  CHECK(MembersItPullsToward(g, d) > pulled);
+  CHECK(DailyOverhead(g, d) > owed);       // it costs to keep, as well
+  CHECK(UpgradeEquipment(g, cash, d));
+  CHECK(g.equip == GymEquip::FullRenovation);
+  CHECK(!UpgradeEquipment(g, cash, d));    // and the ladder ends
+
+  // Cumulative rather than incremental: the two rungs together cost the
+  // top rung's price, not the sum of both.
+  double fresh = 0.0;
+  Gym straight = ABoughtGym(fresh);
+  const double before = fresh;
+  UpgradeEquipment(straight, fresh, d);
+  UpgradeEquipment(straight, fresh, d);
+  CHECK(std::fabs((before - fresh) - d.equipCost[2]) < 1e-9);
+
+  // A hire pulls members and costs a wage every day after.
+  const double pulling = MembersItPullsToward(g, d);
+  const double paying = DailyOverhead(g, d);
+  CHECK(Hire(g, cash, true, d));
+  CHECK(MembersItPullsToward(g, d) > pulling);
+  CHECK(DailyOverhead(g, d) - paying == d.frontDeskWage);
+  CHECK(!Hire(g, cash, true, d));          // one desk, one person
+}
+
+static void TestACampaignRunsOutAndOnlyOneRunsAtATime() {
+  GymDials d;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+
+  const double quiet = MembersItPullsToward(g, d);
+  CHECK(LaunchCampaign(g, cash, GymCampaign::Social, 1, d));
+  CHECK(MembersItPullsToward(g, d) > quiet);
+  // Launching does not stack, and the gate is the running one rather than
+  // the money.
+  CHECK(!LaunchCampaign(g, cash, GymCampaign::Flyers, 1, d));
+
+  bool ended = false;
+  for (int day = 2; day <= 1 + d.campaignDays[2] + 2; day++) {
+    ended = ended || GymDay(g, world, day, d).campaignEnded;
+  }
+  CHECK(ended);
+  CHECK(g.campaign == GymCampaign::None);
+  CHECK(MembersItPullsToward(g, d) == quiet);   // and the pull goes with it
+  // ...after which you can run another.
+  CHECK(LaunchCampaign(g, cash, GymCampaign::Flyers, 40, d));
+}
+
+static void TestTheBankTakesItBack() {
+  GymDials d;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+
+  // **Premium pricing with a hardcore mix and nobody on staff.** Six
+  // members at $25 against $180 of rent is thirty dollars a day under, and
+  // it does not recover on its own.
+  //
+  // The first version of this test hired both staff on the theory that two
+  // wages would sink it, and it was **wrong in an interesting way**: a hire
+  // raises the target it is paid out of, so at premium rates the desk
+  // returns $110 a day for a $25 wage. Staffing does not sink a gym in
+  // these numbers -- an empty floor at full overhead does.
+  SetPrice(g, GymPrice::Premium);
+  SetMix(g, GymSetMix::Hardcore);
+  CHECK(MembersItPullsToward(g, d) * RatePerMember(g, d) <
+        DailyOverhead(g, d));
+
+  bool foreclosed = false;
+  int day = 2;
+  for (; day < 400 && !foreclosed; day++) {
+    foreclosed = GymDay(g, world, day, d).foreclosed;
+    // **It resets the moment you are not in the red**, which is what makes
+    // a fortnight a grace period rather than a countdown.
+    if (g.owned && g.balance >= 0.0) CHECK(g.debtDays == 0);
+    if (g.owned) CHECK(g.debtDays < d.bankruptcyDays);
+  }
+  CHECK(foreclosed);
+  CHECK(!g.owned);                         // the building is gone
+  CHECK(g.name.empty());
+
+  // A gym nobody owns has no books and says nothing.
+  CHECK(GymDay(g, world, day, d).net == 0.0);
+  CHECK(GymLine(g, d).empty());
+  CHECK(GymWarning(g, d).empty());
+}
+
+static void TestTheNoticeboardIsQuietWhileTheBooksAreFine() {
+  GymDials d;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+  SetPrice(g, GymPrice::Budget);
+
+  for (int day = 2; day <= 40; day++) GymDay(g, world, day, d);
+  CHECK(g.balance > 0.0);
+  CHECK(GymWarning(g, d).empty());          // nothing to say, so nothing said
+  CHECK(!GymLine(g, d).empty());            // ...but the readout still reads
+
+  // And it speaks once the books do not.
+  Gym sinking = g;
+  sinking.balance = -1.0;
+  sinking.debtDays = 4;
+  CHECK(!GymWarning(sinking, d).empty());
+  sinking.debtDays = d.bankruptcyDays - 1;
+  const std::string last = GymWarning(sinking, d);
+  CHECK(last.find("from the bank taking it") != std::string::npos);
+}
+
+static void TestTheGymRunsOnItsOwnRng() {
+  // The floor's daily wobble must not move any other stream.
+  Rng a = Rng::FromSeed("the-woodshed");
+  Rng b = Rng::FromSeed("the-woodshed");
+  const double before = a.NextDouble();
+  const Rng world = Rng::FromSeed("the-woodshed");
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+  for (int day = 2; day <= 80; day++) GymDay(g, world, day);
+  CHECK(before == b.NextDouble());
+
+  // ...and it is replayable: the same gym, the same days, the same floor.
+  double twin = 0.0;
+  Gym again = ABoughtGym(twin);
+  for (int day = 2; day <= 80; day++) GymDay(again, world, day);
+  CHECK(again.members == g.members);
+  CHECK(std::fabs(again.balance - g.balance) < 1e-9);
+}
+
+static void TestTheGymSurvivesASave() {
+  SaveGame save;
+  save.seed = "the-woodshed";
+  double cash = GymDials{}.price;
+  CHECK(BuyTheGym(save.player.gym, cash, "The Woodshed", 40));
+  SetPrice(save.player.gym, GymPrice::Premium);
+  SetMix(save.player.gym, GymSetMix::Hardcore);
+  cash = 20000.0;
+  CHECK(UpgradeEquipment(save.player.gym, cash));
+  CHECK(Hire(save.player.gym, cash, false));
+  CHECK(LaunchCampaign(save.player.gym, cash, GymCampaign::Social, 40));
+  save.player.gym.members = 31.0;
+  save.player.gym.balance = -412.5;
+  save.player.gym.debtDays = 6;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  const Gym& g = back.player.gym;
+  CHECK(g.owned);
+  CHECK(g.name == std::string("The Woodshed"));
+  CHECK(g.price == GymPrice::Premium);
+  CHECK(g.mix == GymSetMix::Hardcore);
+  CHECK(g.equip == GymEquip::HoldsAndMats);
+  CHECK(g.campaign == GymCampaign::Social);
+  CHECK(g.campaignUntil == save.player.gym.campaignUntil);
+  CHECK(!g.frontDesk);
+  CHECK(g.setter);
+  CHECK(g.members == 31.0);
+  CHECK(std::fabs(g.balance + 412.5) < 1e-9);
+  CHECK(g.debtDays == 6);
+  // **You load in exactly as close to losing it**, which is the only
+  // honest answer -- otherwise saving is a payment.
+  CHECK(GymWarning(g) == GymWarning(save.player.gym));
+  CHECK(std::fabs(MembersItPullsToward(g) -
+                  MembersItPullsToward(save.player.gym)) < 1e-9);
+}
+
+static void TestLoadsVersion38Save() {
+  SaveGame save;
+  save.seed = "the-woodshed";
+  save.player.cash = 137.5;
+
+  std::string v38 = SerializeSave(save);
+  for (const char* k : {"gym.owned=", "gym.name=", "gym.day=", "gym.price=",
+                        "gym.mix=", "gym.equip=", "gym.camp=", "gym.campuntil=",
+                        "gym.desk=", "gym.setter=", "gym.members=",
+                        "gym.balance=", "gym.debtdays=", "gym.tick="}) {
+    DropSaveLine(v38, k);
+  }
+  SetSaveVersion(v38, 38);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v38, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(std::fabs(old.player.cash - 137.5) < 1e-9);
+  // A v38 career never had the option -- it was a recorded cut -- so it
+  // owns nothing, which is exactly what it owned.
+  CHECK(!old.player.gym.owned);
+  CHECK(old.player.gym.members == 0.0);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+}
+
+static void TestLosingTheGymIsToldOnceAndCostsStanding() {
+  PlayerState player;
+  DayState day;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  player.climber = NewClimber(world);
+  double cash = GymDials{}.price;
+  CHECK(BuyTheGym(player.gym, cash, "The Woodshed", player.day));
+  SetPrice(player.gym, GymPrice::Premium);
+  SetMix(player.gym, GymSetMix::Hardcore);
+
+  const double sceneBefore = StandingWith(player.standing, Faction::Scene);
+  int toldOn = -1;
+  // **It takes a while, and that is the system working.** You inherit
+  // fifteen members and premium-hardcore only pulls six, so the floor
+  // drifts *down* over a fortnight while the books are still healthy --
+  // banking a surplus that then has to burn off before a single day is
+  // spent in the red. A gym does not fail the week you misprice it.
+  double sceneAtTheTime = sceneBefore;
+  for (int i = 0; i < 400; i++) {
+    const double justBefore = StandingWith(player.standing, Faction::Scene);
+    SleepToNextDay(player, day, world);
+    if (!player.gymNews.empty()) {
+      CHECK(toldOn < 0);          // exactly once, never twice
+      toldOn = player.day;
+      // **Read on the night it happens.** The scene forgets slowly and
+      // `FactionDay` runs every night, so by the end of the run the hit
+      // has decayed back to neutral -- comparing the end against the start
+      // measures the forgetting, not the setback.
+      sceneAtTheTime = StandingWith(player.standing, Faction::Scene);
+      CHECK(sceneAtTheTime < justBefore);
+    }
+  }
+  CHECK(toldOn > 0);
+  CHECK(!player.gym.owned);
+  // Losing a business is a visible setback in the scene rather than only
+  // your own loss.
+  CHECK(sceneAtTheTime < sceneBefore);
+}
+
 static void TestInsuranceIsWhatGetsADirtbagRepaired() {
   MedicalDials d;
   const Rng world = Rng::FromSeed("a-bad-one");
@@ -14958,6 +15272,17 @@ int main() {
   TestALifeCoolsWhileYouAreAtTheCrag();
   TestABookMakesAnAfternoonWorthMore();
   TestAnEveningCostsTheEvening();
+  TestYouCannotBuyWhatYouCannotAfford();
+  TestTheGymSurvivesASave();
+  TestLoadsVersion38Save();
+  TestLosingTheGymIsToldOnceAndCostsStanding();
+  TestTheFloorIsAMeterAndNotASwitch();
+  TestTheLeversTradeVolumeAgainstMargin();
+  TestEquipmentIsALadderAndStaffAreAWage();
+  TestACampaignRunsOutAndOnlyOneRunsAtATime();
+  TestTheBankTakesItBack();
+  TestTheNoticeboardIsQuietWhileTheBooksAreFine();
+  TestTheGymRunsOnItsOwnRng();
   TestInsuranceIsWhatGetsADirtbagRepaired();
   TestTheLotDoesNotAlwaysTurnUp();
   TestNobodyIsNeverThereAndNobodyIsAlways();

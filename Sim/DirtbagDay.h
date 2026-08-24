@@ -30,6 +30,7 @@
 #include "DirtbagJobs.h"
 #include "DirtbagKit.h"
 #include "DirtbagLife.h"
+#include "DirtbagGym.h"
 #include "DirtbagLocals.h"
 #include "DirtbagEthics.h"
 #include "DirtbagSponsor.h"
@@ -372,6 +373,17 @@ struct PlayerState {
   // give them a day. See Sim/DirtbagLife.h; the one that leaves is the one
   // that makes the rest a system rather than a menu.
   Life life;
+
+  // **The gym, if you bought one.** The one purchase above the dreams'
+  // range and the only thing in this game that pays you back -- see
+  // Sim/DirtbagGym.h, and `concepts/DECISION-gym-ownership.md` for why a
+  // recorded cut came back.
+  Gym gym;
+
+  // **What the bank did last night**, or empty. Carried on the career for
+  // the same reason `becameToday` and `lostToday` are: the night tick is
+  // void, and losing a building is a thing you must be told exactly once.
+  std::string gymNews;
 
   // **The people behind the counters, and what they are holding.** Seeded
   // on the first night of a career rather than at creation, so an old save

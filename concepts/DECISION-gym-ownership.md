@@ -42,7 +42,58 @@ was *the port has one arc and the 2D game has two*. This one is *the port
 has a money curve with a ceiling at $30,000 and a wallet that reaches
 $600,000*, and the 2D game's answer to that is a business you buy and run.
 
-## What this is NOT yet, and why
+## SCOPED FROM SOURCE, 2026-08-24 — and the guess was wrong
+
+Evan supplied `dirtbag_v0957`. Read from it rather than from the audit's
+table row, two things change.
+
+**It is a business, and it has its own taxonomy family.** `GYM-1` through
+`GYM-12`, not `COACH-n`. The audit files it under *Coaching & mentoring*
+and that is misleading: the youth team is one **wing** you can build onto it
+later, not what it is. Everything below is from `App.tsx`.
+
+**And the price is $25,000** — `OWN_GYM_PRICE` — which lands *inside* the
+range measured above and just under Home Base's $30,000. The gap this was
+brought back to fill is the gap it was already built for, and the original
+prices it as a choice against the dream rather than a tier above it.
+
+### What `GameState` persists
+
+```
+ownGym: { name, ownedDay, priceTier, setMix, equipTier,
+          campaign: { kind, until } | null, members, balance, lastTickDay,
+          staff: { frontDesk, setter }, crew?: { frontDesk?, setter? },
+          incident?, wings?, passive, debtDays } | null
+```
+
+### The engine, in one line
+
+`members` drift 15% of the gap toward a target each night; `net = members ×
+rate − overhead − wages`; the balance banks it; fourteen consecutive days in
+the red and the bank takes the building, with a standing hit.
+
+The original's own comment on the drift: *"not an instant jump — pricing
+takes several days to fully show its effect, same 'meter, not switch' feel
+as training load elsewhere in the game."* **This port already has that idiom
+three times** — `Thread::warmth`, `Local::known`, `PartnerBond::rapport` —
+so it arrives already fluent.
+
+### **The balance is a scoreboard, not income**
+
+Checked in the source rather than assumed, and it is the thing most likely
+to be got wrong: **every cost is paid from the player's wallet, never from
+the gym's balance.** Wings, leagues, the comp bid, the youth foundation,
+staff, equipment, campaigns, incident choices — all `needs.cash`. The only
+interaction with the balance at all is `coverGymDebt`, which pays *in* to
+clear a shortfall.
+
+So a gym does not pay you. **It absorbs money by giving you a permanent
+stream of things worth spending on**, and the balance is how you know
+whether it is working. That is a better answer to the ceiling than an income
+source would have been, and it is not what I would have designed from the
+money argument alone.
+
+## What was NOT yet known when this was written
 
 **It has not been scoped from the 2D source, and it must not be built until
 it is.**

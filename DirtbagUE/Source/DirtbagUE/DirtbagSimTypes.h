@@ -48,6 +48,7 @@
 #include "DirtbagHabits.h"
 #include "DirtbagNarrator.h"
 #include "DirtbagLife.h"
+#include "DirtbagGym.h"
 #include "DirtbagLocals.h"
 
 #include "DirtbagSimTypes.generated.h"
@@ -1634,6 +1635,75 @@ enum class EDirtbagService : uint8
 	Work,        // somewhere that hires by the shift
 };
 
+/** What you charge. Mirrors dirtbag::GymPrice. */
+UENUM(BlueprintType)
+enum class EDirtbagGymPrice : uint8 { Budget, Standard, Premium };
+
+/** What gets set on the walls — not the same question as whether you employ
+ *  a setter. Mirrors dirtbag::GymSetMix. */
+UENUM(BlueprintType)
+enum class EDirtbagGymSetMix : uint8 { Beginner, AllComers, Hardcore };
+
+/** A capital ladder rather than a toggle. Mirrors dirtbag::GymEquip. */
+UENUM(BlueprintType)
+enum class EDirtbagGymEquip : uint8 { AsBought, HoldsAndMats, FullRenovation };
+
+/** Discretionary and time-limited. Mirrors dirtbag::GymCampaign. */
+UENUM(BlueprintType)
+enum class EDirtbagGymCampaign : uint8 { None, Flyers, Social };
+
+/** The gym you bought. Mirrors dirtbag::Gym — see Sim/DirtbagGym.h, and
+ *  concepts/DECISION-gym-ownership.md for why a recorded cut came back. */
+USTRUCT(BlueprintType)
+struct FDirtbagGym
+{
+	GENERATED_BODY()
+
+	/** A career mostly has none, and this is what says so. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	bool bOwned = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 OwnedDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	EDirtbagGymPrice Price = EDirtbagGymPrice::Standard;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	EDirtbagGymSetMix Mix = EDirtbagGymSetMix::AllComers;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	EDirtbagGymEquip Equip = EDirtbagGymEquip::AsBought;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	EDirtbagGymCampaign Campaign = EDirtbagGymCampaign::None;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 CampaignUntil = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	bool bFrontDesk = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	bool bSetter = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	double Members = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	double Balance = 0.0;
+
+	/** Consecutive days in the red. The bank takes it at fourteen. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 DebtDays = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 LastTickDay = 0;
+};
+
 /** What somebody heard about you. **The order is the loudness**, quietest
  *  first — a new memory replaces the held one only if it compares greater,
  *  so this ordering *is* the rule about what gets talked about. Mirrors
@@ -2179,6 +2249,14 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
 	FDirtbagLocals Locals;
 
+	/** The gym, if you bought one. See Sim/DirtbagGym.h. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FDirtbagGym Gym;
+
+	/** What the bank did last night, or empty. A line you read once. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FString GymNews;
+
 	/** Somebody to beat. Not the nemesis, which is a route. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
 	FDirtbagRival Rival;
@@ -2588,6 +2666,8 @@ namespace DirtbagConvert
 	dirtbag::Local ToSim(const FDirtbagLocal& In);
 	FDirtbagLocals FromSim(const dirtbag::Locals& In);
 	dirtbag::Locals ToSim(const FDirtbagLocals& In);
+	FDirtbagGym FromSim(const dirtbag::Gym& In);
+	dirtbag::Gym ToSim(const FDirtbagGym& In);
 	dirtbag::Rack ToSim(const FDirtbagRack& In);
 	dirtbag::Kit ToSim(const FDirtbagKit& In);
 	FDirtbagStanding FromSim(const dirtbag::Standing& In);

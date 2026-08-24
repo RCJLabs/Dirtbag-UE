@@ -602,6 +602,23 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // project were written and left uncalled, and every one was found late.
   player.lostToday = LifeNight(player.life, player.day);
 
+  // **The books, before anything else the night does**, because a
+  // foreclosure is the kind of news that has to survive the rest of the
+  // tick rather than be written over by it.
+  player.gymNews.clear();
+  if (player.gym.owned) {
+    const std::string was = player.gym.name;
+    const GymNight night = GymDay(player.gym, worldRng, player.day);
+    if (night.foreclosed) {
+      // The standing hit is here rather than in the gym, because standing
+      // is the scene's and the gym does not know about the scene.
+      Shift(player.standing, Faction::Scene,
+            -GymDials{}.foreclosureStandingHit / 100.0);
+      player.gymNews = "The bank took " + was +
+                       " back. Word gets around fast.";
+    }
+  }
+
   // **And the town.** Seeded here rather than at creation so that a save
   // written before there were any people in it loads into a town that has
   // them -- the same lazy-open the circuit uses two hundred lines below,

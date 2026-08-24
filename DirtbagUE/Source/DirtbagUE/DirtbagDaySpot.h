@@ -41,6 +41,12 @@ enum class EDirtbagSpotKind : uint8
 	Van,
 	/** The gear shop: resole while the uppers hold, replace when not. */
 	GearShop,
+	/** **The gym you own, or the one for sale.** Buying it is the one
+	 *  purchase in this game that pays you back, and the levers are all
+	 *  here on keys 1-6, which already exist: pricing (1/2/3), the set mix
+	 *  (4, cycling), equipment (5) and staffing (6, the desk then the
+	 *  setter). See Sim/DirtbagGym.h. */
+	Gym,
 	/** **An evening on something that is not climbing.** The phone box, the
 	 *  tailgate with the guitar out, the milk crate of paperbacks, the
 	 *  stove. One spot per thread, set by `Thread` below -- see
@@ -94,6 +100,12 @@ protected:
 	 *  wait for. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Rest")
 	double RestHours = 1.0;
+
+	/** Gym only. What the building gets called when you buy it. Named here
+	 *  rather than prompted for, because a naming widget is Evan's to place
+	 *  and this has to be reachable before it exists. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Gym")
+	FString GymNameToBuy = TEXT("The Woodshed");
 
 	/** Evening only. Which thread this spot is. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Life")
@@ -215,6 +227,10 @@ private:
 	bool AnswerTheRival(bool bYes);
 
 	void ChooseDreamAt(EDirtbagDream Which);
+
+	/** The gym's levers on keys 1-6. Returns true when it handled the
+	 *  press, so the chain below it never sees it. */
+	bool PullGymLever(int32 Index);
 	/** Returns true if it handled the key, i.e. this is the fire. */
 	bool SetStakeNotch(int32 Notch);
 

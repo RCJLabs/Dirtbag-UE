@@ -1997,6 +1997,49 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Life")
 	double ThreadHours(EDirtbagThread What) const;
 
+	/** **Buy the building.** $25,000, which is just under Home Base's
+	 *  $30,000 — so it is a choice against the dream rather than a tier
+	 *  above it. See Sim/DirtbagGym.h. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool BuyTheGym(const FString& GymName);
+
+	/** What it would cost. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	double GymPrice() const;
+
+	/** The levers. Pricing and the set mix are free — they are an identity
+	 *  rather than a purchase; the rest cost money. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	void SetGymPrice(EDirtbagGymPrice Tier);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	void SetGymMix(EDirtbagGymSetMix Mix);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool UpgradeGymEquipment();
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool HireForTheGym(bool bFrontDesk);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool LaunchGymCampaign(EDirtbagGymCampaign Which);
+
+	/** **What the levers are set to**, named, and what the one you are
+	 *  about to change would do. The blurbs are the shop copy and this is
+	 *  the shop — a prompt that says "Premium, Hardcore" is worth more than
+	 *  a list of keys. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString GymLeverLine() const;
+
+	/** How it is doing, in one line, or empty if you own nothing. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString GymLine() const;
+
+	/** **Quiet while the books are fine**, and it says so when they are
+	 *  not — the same rule the injury line and the life label follow. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString GymWarningLine() const;
+
 	/** Who is behind that counter, or empty before the first night has
 	 *  opened the roster. A name, not a role — that is the whole point of
 	 *  them. See Sim/DirtbagLocals.h. */

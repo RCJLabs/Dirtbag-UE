@@ -395,6 +395,24 @@ FString ADirtbagDaySpot::PromptText() const
 		                      *Game->ShoeLine(), Game->Player.Cash)) +
 		       Kit + Care + Deal;
 	}
+	case EDirtbagSpotKind::Gym:
+	{
+		if (!Game->Player.Gym.bOwned)
+		{
+			return FString::Printf(
+			    TEXT("Buy the gym?  (E)  -  $%.0f.  You have $%.0f"),
+			    Game->GymPrice(), Game->Player.Cash);
+		}
+		FString Line = FString::Printf(
+		    TEXT("%s\n   %s\n   price (1/2/3)   sets (4)   kit (5)   hire (6)"),
+		    *Game->GymLine(), *Game->GymLeverLine());
+		const FString Trouble = Game->GymWarningLine();
+		if (!Trouble.IsEmpty())
+		{
+			Line += FString::Printf(TEXT("\n   %s"), *Trouble);
+		}
+		return Line;
+	}
 	case EDirtbagSpotKind::Evening:
 	{
 		// Two different prompts, because taking a thing up and keeping it
@@ -1240,6 +1258,29 @@ void ADirtbagDaySpot::OnInteract()
 		}
 		break;
 	}
+	case EDirtbagSpotKind::Gym:
+	{
+		if (!Game->Player.Gym.bOwned)
+		{
+			Say(Game->BuyTheGym(Game->GymNameToBuy)
+			        ? FString::Printf(TEXT("%s is yours."),
+			                          *Game->GymNameToBuy)
+			        : FString(TEXT("Not for that.")),
+			    FColor::Yellow, 6.f);
+			break;
+		}
+		// **Pressing E on a gym you already own runs the ads.** The five
+		// levers above are states you set; a campaign is a thing you do,
+		// so it belongs on the verb key rather than on a number.
+		if (Game->LaunchGymCampaign(EDirtbagGymCampaign::Social) ||
+		    Game->LaunchGymCampaign(EDirtbagGymCampaign::Flyers))
+		{
+			Say(TEXT("The ads are out."), FColor::Yellow, 5.f);
+			break;
+		}
+		Say(Game->GymLine(), FColor::Yellow, 5.f);
+		break;
+	}
 	case EDirtbagSpotKind::Evening:
 	{
 		// **One press, whether or not it is yours yet.** The sim takes it
@@ -1750,8 +1791,46 @@ bool ADirtbagDaySpot::SetStakeNotch(int32 Notch)
 // because it is up from the first frame of a career and the player is not
 // standing anywhere yet. Same reason the road owns every key while it is on
 // screen: there is nothing else to be doing.
+bool ADirtbagDaySpot::PullGymLever(int32 Index)
+{
+	if (!Game || !bPlayerNear || Kind != EDirtbagSpotKind::Gym) { return false; }
+	if (!Game->Player.Gym.bOwned) { return false; }
+	switch (Index)
+	{
+	case 0: Game->SetGymPrice(EDirtbagGymPrice::Budget); break;
+	case 1: Game->SetGymPrice(EDirtbagGymPrice::Standard); break;
+	case 2: Game->SetGymPrice(EDirtbagGymPrice::Premium); break;
+	case 3:
+	{
+		// Cycles, because three mixes on one key is a cycle and three more
+		// keys for a lever nobody pulls twice a season is not.
+		const uint8 Next = (static_cast<uint8>(Game->Player.Gym.Mix) + 1) % 3;
+		Game->SetGymMix(static_cast<EDirtbagGymSetMix>(Next));
+		break;
+	}
+	case 4:
+		Say(Game->UpgradeGymEquipment()
+		        ? TEXT("The kit is in.")
+		        : TEXT("Not for that, or there is nothing left to buy."),
+		    FColor::Yellow, 5.f);
+		return true;
+	case 5:
+		// The desk first, then the setter — the cheaper hire before the
+		// dearer one, which is the order anybody would do it in.
+		Say(Game->HireForTheGym(!Game->Player.Gym.bFrontDesk)
+		        ? TEXT("They start tomorrow.")
+		        : TEXT("Not for that, or they are already on."),
+		    FColor::Yellow, 5.f);
+		return true;
+	default: return false;
+	}
+	Say(Game->GymLine(), FColor::Yellow, 5.f);
+	return true;
+}
+
 void ADirtbagDaySpot::OnChoose1()
 {
+	if (PullGymLever(0)) { return; }
 	if (Game && Game->ChooseInCreation(0)) { return; }
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(0)) { return; }
@@ -1761,6 +1840,7 @@ void ADirtbagDaySpot::OnChoose1()
 }
 void ADirtbagDaySpot::OnChoose2()
 {
+	if (PullGymLever(1)) { return; }
 	if (Game && Game->ChooseInCreation(1)) { return; }
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(1)) { return; }
@@ -1770,6 +1850,7 @@ void ADirtbagDaySpot::OnChoose2()
 }
 void ADirtbagDaySpot::OnChoose3()
 {
+	if (PullGymLever(2)) { return; }
 	if (Game && Game->ChooseInCreation(2)) { return; }
 	if (SkipTravel()) { return; }
 	if (ChooseArrival(2)) { return; }
@@ -1786,14 +1867,17 @@ void ADirtbagDaySpot::OnChoose3()
 // buys a dream trying to fold a hand.
 void ADirtbagDaySpot::OnChoose4()
 {
+	if (PullGymLever(3)) { return; }
 	if (Game) { Game->ChooseInCreation(3); }
 }
 void ADirtbagDaySpot::OnChoose5()
 {
+	if (PullGymLever(4)) { return; }
 	if (Game) { Game->ChooseInCreation(4); }
 }
 void ADirtbagDaySpot::OnChoose6()
 {
+	if (PullGymLever(5)) { return; }
 	if (Game) { Game->ChooseInCreation(5); }
 }
 

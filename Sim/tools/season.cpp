@@ -79,6 +79,13 @@ struct Tally {
   double busked = 0.0;
   // How careers actually end, which nothing has ever counted: the rule has
   // two triggers and they mean opposite things.
+  // The gym, if the policy bought one.
+  int boughtGymOnDay = -1;
+  double gymBalanceEnd = 0.0;
+  double gymMembersEnd = 0.0;
+  int gymDaysOwned = 0;
+  int gymLost = 0;
+
   int declinedTheOffer = 0;
   int retiredByBody = 0;
   int retiredByGrade = 0;
@@ -411,7 +418,8 @@ int main(int argc, char** argv) {
   {
     static const char* kKnown[] = {"skin", "pads", "build", "rival",
                                    "norubber", "foam", "careers", "lot",
-                                   "savings", "med", "retire", "covers"};
+                                   "savings", "med", "retire", "covers",
+                                   "gym"};
     for (const auto& kv : opts) {
       bool found = false;
       for (const char* k : kKnown) found = found || kv.first == k;
@@ -494,6 +502,11 @@ int main(int argc, char** argv) {
   // What insurance pays of a bill, for finding the fraction at which the
   // thing it exists for actually happens.
   const double coversOverride = std::atof(opt("covers", "-1").c_str());
+  // **Buy the gym the day you can afford it, and run it.** The whole
+  // reason the cut was reversed is that nothing in this game absorbs what
+  // a saving career holds -- so the measurement that matters is whether a
+  // career that buys one is better or worse off for it.
+  const bool buysAGym = optOn("gym");
   const std::string retirePolicy = opt("retire", "always");
   const std::string medPolicy = opt("med", "");
   const auto has = [&medPolicy](const char* what) {
@@ -1790,7 +1803,20 @@ int main(int argc, char** argv) {
     }
   noEvening:;
 
+    // **The one purchase above the dreams' range.** Bought the day it is
+    // affordable, with the levers left where they start -- a policy that
+    // tuned them would be measuring my tuning rather than the system. The
+    // books themselves tick inside SleepToNextDay, like everything else
+    // that counts down at night.
+    if (buysAGym && !player.gym.owned && player.cash >= GymDials{}.price) {
+      BuyTheGym(player.gym, player.cash, "The Woodshed", player.day);
+      t.boughtGymOnDay = player.day;
+    }
+
     SleepToNextDay(player, today, world, dd);
+
+    if (player.gym.owned) t.gymDaysOwned++;
+    if (!player.gymNews.empty()) t.gymLost++;
 
     // What the night did to it. Counted rather than asserted, because the
     // question is *how often* and no harness check can ask that.
@@ -1955,6 +1981,9 @@ int main(int argc, char** argv) {
     t.bestRapport = std::max(t.bestRapport, b.rapport);
   }
 
+  t.gymBalanceEnd = player.gym.balance;
+  t.gymMembersEnd = player.gym.members;
+
   // Who ended up knowing you. Same rule as rapport: the state, not the
   // high-water mark.
   for (const Local& p : player.locals.people) {
@@ -1995,7 +2024,8 @@ int main(int argc, char** argv) {
          "\tevenings\tbusks\tbusked\tmet\tlost\tgrieving\tnag\tdeepest"
          "\twsomeone\twhome\twmusic\twbooks\twstove"
          "\tgreeted\tfirstgreet\tknown\tgsent\tgnamed\tgaway\tghurt"
-         "\tgbroke\tgwon\tgspons\tsaid\n");
+         "\tgbroke\tgwon\tgspons\tsaid"
+         "\tgymday\tgymdays\tgymbal\tgymmem\tgymlost\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -2012,7 +2042,8 @@ int main(int argc, char** argv) {
          "\t%.0f\t%d\t%d\t%d\t%.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%.2f"
          "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
-         "\t%d\t%d\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\n",
+         "\t%d\t%d\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s"
+         "\t%d\t%d\t%.0f\t%.0f\t%d\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -2109,7 +2140,9 @@ int main(int argc, char** argv) {
          t.greetedByKind[static_cast<int>(Heard::Broke)],
          t.greetedByKind[static_cast<int>(Heard::Won)],
          t.greetedByKind[static_cast<int>(Heard::Sponsored)],
-         t.lastSaid.empty() ? "nothing" : t.lastSaid.c_str());
+         t.lastSaid.empty() ? "nothing" : t.lastSaid.c_str(),
+         t.boughtGymOnDay, t.gymDaysOwned, t.gymBalanceEnd, t.gymMembersEnd,
+         t.gymLost);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

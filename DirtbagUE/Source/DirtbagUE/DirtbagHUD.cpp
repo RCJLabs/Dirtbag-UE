@@ -238,6 +238,21 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		Y -= 16.f;
 	}
 
+	// **And the books, when they are bad.** Quiet while the gym is fine,
+	// like everything else in this column.
+	const FString Books = Game->GymWarningLine();
+	if (!Books.IsEmpty())
+	{
+		Y += 20.f;
+		for (const FString& L : WrapToWidth(Books, 34))
+		{
+			DrawText(L, FLinearColor(0.86f, 0.62f, 0.50f, 1.f), X, Y,
+			         GEngine->GetSmallFont(), 1.f);
+			Y += 16.f;
+		}
+		Y -= 16.f;
+	}
+
 	// **And what is going cold while you climb.** Same rule again, and this
 	// is the one it was written for: the whole of Phase 11's neglect
 	// mechanic is that you can see it coming, and a line that only appears
@@ -412,6 +427,20 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	}
 	// And the one that ended. Same slow slot as the quirk, and the same
 	// size: both are things a career finds out about itself.
+	// **The bank taking your building.** Same slow slot as the quirk and
+	// the ending, because it is the same size of event: a thing a career
+	// finds out about itself.
+	if (!Game->Player.GymNews.IsEmpty())
+	{
+		Y += 22.f;
+		for (const FString& Line : WrapToWidth(Game->Player.GymNews, 62))
+		{
+			DrawText(Line, FLinearColor(0.85f, 0.55f, 0.35f, 1.f), X, Y,
+			         GEngine->GetSmallFont(), 1.f);
+			Y += 18.f;
+		}
+	}
+
 	// **What somebody said to you today.** Its own slot rather than a toast
 	// because it is true until you walk out of the door -- and quiet on
 	// almost every day, which is the whole reason it is worth reading on

@@ -193,6 +193,8 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.life = ToSim(In.Life);
 	Out.lostToday = static_cast<dirtbag::Thread>(In.LostToday);
 	Out.locals = ToSim(In.Locals);
+	Out.gym = ToSim(In.Gym);
+	Out.gymNews = TCHAR_TO_UTF8(*In.GymNews);
 	Out.rival = ToSim(In.Rival);
 	Out.rankingPoints = In.RankingPoints;
 	Out.rankingRecord.reserve(In.RankingRecord.Num());
@@ -275,6 +277,8 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Life = FromSim(In.life);
 	Out.LostToday = static_cast<EDirtbagThread>(In.lostToday);
 	Out.Locals = FromSim(In.locals);
+	Out.Gym = FromSim(In.gym);
+	Out.GymNews = UTF8_TO_TCHAR(In.gymNews.c_str());
 	Out.Rival = FromSim(In.rival);
 	Out.RankingPoints = In.rankingPoints;
 	Out.RankingRecord.Reset(In.rankingRecord.size());
@@ -533,6 +537,46 @@ dirtbag::Logbook ToSim(const FDirtbagLogbook& In)
 	Out.asOfDay = In.AsOfDay;
 	Out.lifetimeBurns = In.LifetimeBurns;
 	Out.lifetimeDays = In.LifetimeDays;
+	return Out;
+}
+
+FDirtbagGym FromSim(const dirtbag::Gym& In)
+{
+	FDirtbagGym Out;
+	Out.bOwned = In.owned;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.OwnedDay = In.ownedDay;
+	Out.Price = static_cast<EDirtbagGymPrice>(In.price);
+	Out.Mix = static_cast<EDirtbagGymSetMix>(In.mix);
+	Out.Equip = static_cast<EDirtbagGymEquip>(In.equip);
+	Out.Campaign = static_cast<EDirtbagGymCampaign>(In.campaign);
+	Out.CampaignUntil = In.campaignUntil;
+	Out.bFrontDesk = In.frontDesk;
+	Out.bSetter = In.setter;
+	Out.Members = In.members;
+	Out.Balance = In.balance;
+	Out.DebtDays = In.debtDays;
+	Out.LastTickDay = In.lastTickDay;
+	return Out;
+}
+
+dirtbag::Gym ToSim(const FDirtbagGym& In)
+{
+	dirtbag::Gym Out;
+	Out.owned = In.bOwned;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.ownedDay = In.OwnedDay;
+	Out.price = static_cast<dirtbag::GymPrice>(In.Price);
+	Out.mix = static_cast<dirtbag::GymSetMix>(In.Mix);
+	Out.equip = static_cast<dirtbag::GymEquip>(In.Equip);
+	Out.campaign = static_cast<dirtbag::GymCampaign>(In.Campaign);
+	Out.campaignUntil = In.CampaignUntil;
+	Out.frontDesk = In.bFrontDesk;
+	Out.setter = In.bSetter;
+	Out.members = In.Members;
+	Out.balance = In.Balance;
+	Out.debtDays = In.DebtDays;
+	Out.lastTickDay = In.LastTickDay;
 	return Out;
 }
 

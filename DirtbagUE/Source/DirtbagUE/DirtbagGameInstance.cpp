@@ -3191,6 +3191,121 @@ double UDirtbagGameInstance::ThreadHours(EDirtbagThread What) const
 	return dirtbag::AsksFor(static_cast<dirtbag::Thread>(What));
 }
 
+double UDirtbagGameInstance::GymPrice() const
+{
+	return dirtbag::GymDials{}.price;
+}
+
+bool UDirtbagGameInstance::BuyTheGym(const FString& GymName)
+{
+	dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	double Cash = Player.Cash;
+	if (!dirtbag::BuyTheGym(Sim, Cash, TCHAR_TO_UTF8(*GymName), Player.Day))
+	{
+		return false;
+	}
+	Player.Gym = DirtbagConvert::FromSim(Sim);
+	Player.Cash = Cash;
+	return true;
+}
+
+void UDirtbagGameInstance::SetGymPrice(EDirtbagGymPrice Tier)
+{
+	dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	dirtbag::SetPrice(Sim, static_cast<dirtbag::GymPrice>(Tier));
+	Player.Gym = DirtbagConvert::FromSim(Sim);
+}
+
+void UDirtbagGameInstance::SetGymMix(EDirtbagGymSetMix Mix)
+{
+	dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	dirtbag::SetMix(Sim, static_cast<dirtbag::GymSetMix>(Mix));
+	Player.Gym = DirtbagConvert::FromSim(Sim);
+}
+
+bool UDirtbagGameInstance::UpgradeGymEquipment()
+{
+	dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	double Cash = Player.Cash;
+	if (!dirtbag::UpgradeEquipment(Sim, Cash))
+	{
+		return false;
+	}
+	Player.Gym = DirtbagConvert::FromSim(Sim);
+	Player.Cash = Cash;
+	return true;
+}
+
+bool UDirtbagGameInstance::HireForTheGym(bool bFrontDesk)
+{
+	dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	double Cash = Player.Cash;
+	if (!dirtbag::Hire(Sim, Cash, bFrontDesk))
+	{
+		return false;
+	}
+	Player.Gym = DirtbagConvert::FromSim(Sim);
+	Player.Cash = Cash;
+	return true;
+}
+
+bool UDirtbagGameInstance::LaunchGymCampaign(EDirtbagGymCampaign Which)
+{
+	dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	double Cash = Player.Cash;
+	if (!dirtbag::LaunchCampaign(
+	        Sim, Cash, static_cast<dirtbag::GymCampaign>(Which), Player.Day))
+	{
+		return false;
+	}
+	Player.Gym = DirtbagConvert::FromSim(Sim);
+	Player.Cash = Cash;
+	return true;
+}
+
+FString UDirtbagGameInstance::GymLeverLine() const
+{
+	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	if (!Sim.owned)
+	{
+		return FString();
+	}
+	FString Out = FString::Printf(
+	    TEXT("%s  -  %s  -  %s"), UTF8_TO_TCHAR(dirtbag::GymPriceName(Sim.price)),
+	    UTF8_TO_TCHAR(dirtbag::GymSetMixName(Sim.mix)),
+	    UTF8_TO_TCHAR(dirtbag::GymEquipName(Sim.equip)));
+	if (Sim.campaign != dirtbag::GymCampaign::None)
+	{
+		Out += FString::Printf(TEXT("  -  %s"),
+		                       UTF8_TO_TCHAR(dirtbag::GymCampaignName(Sim.campaign)));
+	}
+	// The copy for whichever lever the player is most likely to pull next:
+	// the mix while the kit is bought, the kit while it is not.
+	Out += FString::Printf(
+	    TEXT("\n   %s"),
+	    Sim.equip == dirtbag::GymEquip::FullRenovation
+	        ? UTF8_TO_TCHAR(dirtbag::GymSetMixBlurb(Sim.mix))
+	        : UTF8_TO_TCHAR(dirtbag::GymEquipBlurb(Sim.equip)));
+	if (Sim.campaign != dirtbag::GymCampaign::None)
+	{
+		Out += FString::Printf(TEXT("\n   %s"),
+		                       UTF8_TO_TCHAR(dirtbag::GymCampaignBlurb(Sim.campaign)));
+	}
+	return Out;
+}
+
+FString UDirtbagGameInstance::GymLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::GymLine(DirtbagConvert::ToSim(Player.Gym)).c_str());
+}
+
+FString UDirtbagGameInstance::GymWarningLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::GymWarning(DirtbagConvert::ToSim(Player.Gym)).c_str());
+}
+
 FString UDirtbagGameInstance::WhoIsAtTheCounter(EDirtbagService Where) const
 {
 	for (const FDirtbagLocal& Who : Player.Locals.People)

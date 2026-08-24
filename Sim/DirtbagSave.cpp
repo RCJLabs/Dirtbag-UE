@@ -341,6 +341,26 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // people this career ever climbed with. The honest reconstruction is that
 // you knew them at least as well as you know them now, which is exactly
 // what the runtime would derive on the next `BondsFrom` anyway.
+// v38 -> v39: the gym. A v38 career never had the option -- gym ownership
+// was a recorded cut until 2026-08-24 -- so it loads owning nothing, which
+// is exactly what it owned.
+void MigrateV38ToV39(SaveFields& fields) {
+  fields["gym.owned"] = "0";
+  fields["gym.name"] = "";
+  fields["gym.day"] = "0";
+  fields["gym.price"] = "1";     // Standard, the shape a fresh Gym has
+  fields["gym.mix"] = "1";       // All-Comers
+  fields["gym.equip"] = "0";
+  fields["gym.camp"] = "0";
+  fields["gym.campuntil"] = "0";
+  fields["gym.desk"] = "0";
+  fields["gym.setter"] = "0";
+  fields["gym.members"] = "0";
+  fields["gym.balance"] = "0";
+  fields["gym.debtdays"] = "0";
+  fields["gym.tick"] = "0";
+}
+
 // v37 -> v38: what you went to bed with. A v37 career woke level every
 // morning however it had lived, because hunger reset at dawn -- so it loads
 // level, which is exactly the day it was having.
@@ -618,7 +638,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30,
       &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33,
       &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36,
-      &MigrateV36ToV37, &MigrateV37ToV38};
+      &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39};
   return kMigrations;
 }
 
@@ -1064,6 +1084,25 @@ std::string SerializeSave(const SaveGame& save) {
     out << k << "about=" << p.about << "\n";
     out << k << "seen=" << IntToStr(p.lastSeen) << "\n";
   }
+  // The gym. A career mostly has none, and `owned` is what says so.
+  out << "gym.owned=" << IntToStr(save.player.gym.owned ? 1 : 0) << "\n";
+  out << "gym.name=" << save.player.gym.name << "\n";
+  out << "gym.day=" << IntToStr(save.player.gym.ownedDay) << "\n";
+  out << "gym.price=" << IntToStr(static_cast<int>(save.player.gym.price))
+      << "\n";
+  out << "gym.mix=" << IntToStr(static_cast<int>(save.player.gym.mix)) << "\n";
+  out << "gym.equip=" << IntToStr(static_cast<int>(save.player.gym.equip))
+      << "\n";
+  out << "gym.camp=" << IntToStr(static_cast<int>(save.player.gym.campaign))
+      << "\n";
+  out << "gym.campuntil=" << IntToStr(save.player.gym.campaignUntil) << "\n";
+  out << "gym.desk=" << IntToStr(save.player.gym.frontDesk ? 1 : 0) << "\n";
+  out << "gym.setter=" << IntToStr(save.player.gym.setter ? 1 : 0) << "\n";
+  out << "gym.members=" << NumToStr(save.player.gym.members) << "\n";
+  out << "gym.balance=" << NumToStr(save.player.gym.balance) << "\n";
+  out << "gym.debtdays=" << IntToStr(save.player.gym.debtDays) << "\n";
+  out << "gym.tick=" << IntToStr(save.player.gym.lastTickDay) << "\n";
+
   out << "hunger.carried=" << NumToStr(save.player.hungerCarried) << "\n";
   out << "loc.titles=" << IntToStr(save.player.locals.knownTitles) << "\n";
   out << "loc.tier=" << IntToStr(save.player.locals.knownTier) << "\n";
@@ -1649,6 +1688,38 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   {
     Locals& town = save.player.locals;
     int count = 0;
+    {
+      Gym& gym = save.player.gym;
+      int owned = 0, price = 0, mix = 0, equip = 0, camp = 0, desk = 0, set = 0;
+      if (!ParseInt(fields, "gym.owned", owned) ||
+          !ParseInt(fields, "gym.day", gym.ownedDay) ||
+          !ParseInt(fields, "gym.price", price) ||
+          !ParseInt(fields, "gym.mix", mix) ||
+          !ParseInt(fields, "gym.equip", equip) ||
+          !ParseInt(fields, "gym.camp", camp) ||
+          !ParseInt(fields, "gym.campuntil", gym.campaignUntil) ||
+          !ParseInt(fields, "gym.desk", desk) ||
+          !ParseInt(fields, "gym.setter", set) ||
+          !ParseDouble(fields, "gym.members", gym.members) ||
+          !ParseDouble(fields, "gym.balance", gym.balance) ||
+          !ParseInt(fields, "gym.debtdays", gym.debtDays) ||
+          !ParseInt(fields, "gym.tick", gym.lastTickDay)) {
+        return LoadResult::BadFormat;
+      }
+      const auto named = fields.find("gym.name");
+      if (named == fields.end()) return LoadResult::BadFormat;
+      gym.name = named->second;
+      gym.owned = owned != 0;
+      gym.frontDesk = desk != 0;
+      gym.setter = set != 0;
+      // Clamped rather than trusted, the same rule the quirk, the injury
+      // kind and the guidebook's discipline are read under.
+      const auto within = [](int v, int n) { return v >= 0 && v < n ? v : 0; };
+      gym.price = static_cast<GymPrice>(within(price, kGymPriceCount));
+      gym.mix = static_cast<GymSetMix>(within(mix, kGymSetMixCount));
+      gym.equip = static_cast<GymEquip>(within(equip, kGymEquipCount));
+      gym.campaign = static_cast<GymCampaign>(within(camp, kGymCampaignCount));
+    }
     if (!ParseDouble(fields, "hunger.carried", save.player.hungerCarried)) {
       return LoadResult::BadFormat;
     }
