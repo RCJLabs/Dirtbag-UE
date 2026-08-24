@@ -1751,6 +1751,12 @@ int main(int argc, char** argv) {
            n(Did::BurnAtYourLimit) / burns, n(Did::BurnOnThinSkin) / burns,
            n(Did::DawnStart) / days, n(Did::DayIndoors) / days,
            n(Did::StoppedEarly) / days);
+    // Both forms, because the HUD draws the short one and the handover
+    // draws the long one, and a probe that only ever measured the long one
+    // would not notice the short one going empty.
+    printf("    corner of the screen: [%s] [%s]\n",
+           DoingLabel(book, player.day, hd).c_str(),
+           AreLabel(player.quirks).c_str());
     printf("    %s\n", HowYouClimb(player.quirks, player.logbook, player.day).c_str());
   }
   printf("  where the burns went:\n");

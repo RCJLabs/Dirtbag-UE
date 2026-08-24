@@ -146,12 +146,44 @@ And a name collision, the fourth in a fortnight: `Record` is already a
 - Creation gained a fifth question, and it is the only place a picked quirk
   can ever come from.
 
-## Still open
+## On screen
 
-- **`becameToday` is carried and nothing says it out loud yet.** The sim
-  produces the line (`QuirkLanded`) and the engine can read it; no HUD reads
-  it. Same shape as `WorkedOn`'s returned talent, which has been discarded
-  at its call site since Phase 7.
+*Added 2026-08-24.* Three surfaces, and which one a fact goes on is decided
+by how long it is true for:
+
+- **The night you became something** — `QuirkNews`, set from `becameToday`
+  after the night tick, drawn in the same slot, colour and size as a talent
+  surfacing. Deliberately identical treatment: both are things you found out
+  about yourself rather than things you won, and a career should not be able
+  to tell them apart by how loudly the game said them. Unlike the talent,
+  the *noticing* is the sim's — `HabitsDay` hands back the quirk that landed
+  — so the probe sees the same event the player does.
+- **The corner of the screen** — two short labels in the same tier as the
+  standing line, because "what the valley thinks of you" and "what you have
+  turned into" are the same kind of fact from two sides. Two lines and two
+  colours rather than one, because the rule the whole system is built on is
+  that they are not the same thing: what you are *doing* has a bit of life
+  in it and can stop today; what you *are* is just there.
+- **The handover** — the long form under the epitaph. A list of ascents says
+  what a career did; this says who was doing it, and that is the question an
+  epitaph cannot answer.
+
+**Both short labels are empty when there is nothing to say**, which is the
+entire reason they exist next to `HowYouClimb` — that one always answers.
+The HUD's own standing rule is that a line printing "fine" every frame for a
+season teaches you to stop reading the one that will eventually say
+otherwise, and it is why the injury line and the load warning stay quiet.
+
+And one claim corrected by measuring rather than assuming: the label is
+never trimmed, and the comment said a career holds "four at the very most".
+A gym member holds **five** — *"dawn patrol, grinding, never warming up,
+indoors and climbing on nothing"* — every word of it true of somebody who
+gets on plastic at dawn every day and goes straight to the hard one. The sim
+does not know how wide the screen is, so it does not get to decide what
+fits; the HUD wraps. A cap in the sim would be it silently deciding a
+climber is less than they are.
+
+## Still open
 - **Personality drift** — the third thing Phase 7 named — is not here. The
   axes still hold whatever creation set them to. Habits are the observable
   half; drifting the axes themselves off the same logbook is a third pass.

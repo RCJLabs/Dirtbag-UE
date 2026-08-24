@@ -1947,6 +1947,33 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
 	FString TalentNews;
 
+	/** **The night you became something.** Two seasons of doing a thing the
+	 *  same way, and one morning it is not a thing you are doing any more,
+	 *  it is a thing you are.
+	 *
+	 *  Said in the same slow slot and the same register as a talent
+	 *  surfacing, because it is the same kind of news: something you found
+	 *  out about yourself rather than something you won. Unlike the talent,
+	 *  the *noticing* is the sim's -- `HabitsDay` returns the quirk that
+	 *  landed and the career carries it, so the probe sees it too. See
+	 *  Sim/DirtbagHabits.h. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
+	FString QuirkNews;
+
+	/** How you have been climbing, in two or three words, or empty. Live:
+	 *  stop doing it and this goes. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	FString HabitDoingLine() const;
+
+	/** What you have turned into, or empty. Permanent. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	FString HabitAreLine() const;
+
+	/** Both of them as one sentence, for a screen with room -- the career's
+	 *  own answer to "what sort of climber was that". */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	FString HowYouClimbLine() const;
+
 	/** The rival came around, or one of them hung it up. Slow news, said
 	 *  once, in the same register as a secret coming out. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")

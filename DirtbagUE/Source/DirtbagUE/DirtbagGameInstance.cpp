@@ -82,6 +82,7 @@ void UDirtbagGameInstance::Sleep()
 	DirtbagYearNews.Reset();
 	CrewNews.Reset();
 	DreamNews.Reset();
+	QuirkNews.Reset();
 	const bool bHadACrewName = !Player.Crew.Name.IsEmpty();
 
 	// SleepToNextDay ticks the streak, so a year completing is visible as
@@ -113,6 +114,19 @@ void UDirtbagGameInstance::Sleep()
 	Player.Name = ClimberName;
 
 	UDirtbagSimLibrary::SleepToNextDay(Seed, Player, Day);
+
+	// **What you turned into overnight**, if anything, which is almost
+	// never. Read off the career rather than detected across the call like
+	// the news above it: `HabitsDay` already decides which quirk landed and
+	// hands it back, so re-deriving it here would be a second opinion about
+	// a thing the sim has already answered.
+	if (Player.BecameToday != EDirtbagQuirk::None)
+	{
+		QuirkNews = FString(
+		    dirtbag::QuirkLanded(
+		        static_cast<dirtbag::Quirk>(Player.BecameToday))
+		        .c_str());
+	}
 
 	if (bWasHurt && !Player.Climber.Injury.bActive)
 	{
@@ -3154,6 +3168,27 @@ bool UDirtbagGameInstance::BuyTradRack()
 	Player.Rack = DirtbagConvert::FromSim(SimRack);
 	Player.Cash = Money;
 	return true;
+}
+
+FString UDirtbagGameInstance::HabitDoingLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::DoingLabel(DirtbagConvert::ToSim(Player.Logbook), Player.Day)
+	        .c_str());
+}
+
+FString UDirtbagGameInstance::HabitAreLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::AreLabel(DirtbagConvert::ToSim(Player.Quirks)).c_str());
+}
+
+FString UDirtbagGameInstance::HowYouClimbLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::HowYouClimb(DirtbagConvert::ToSim(Player.Quirks),
+	                         DirtbagConvert::ToSim(Player.Logbook), Player.Day)
+	        .c_str());
 }
 
 FString UDirtbagGameInstance::MembershipLine() const

@@ -195,6 +195,49 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		         X, Y, GEngine->GetSmallFont(), 1.f);
 	}
 
+	// **How you have been climbing, and what it has made you.** In the same
+	// tier as the standing line, because they are the same kind of fact
+	// answered from two sides: what the valley thinks of you, and what you
+	// have turned into.
+	//
+	// Two lines rather than one, and coloured differently, because the rule
+	// the whole system is built on is that they are not the same thing: a
+	// habit is live and can stop today, and a quirk is you. And **both are
+	// silent when there is nothing to say** -- the sim's DoingLabel and
+	// AreLabel return empty rather than "climbing the way most people
+	// climb", which is the same discipline as the injury line above and for
+	// the same reason: a line that prints "fine" every frame for a season
+	// teaches you to stop reading the one that will eventually say
+	// otherwise.
+	// Wrapped, both of them, because the sim does not get to decide what
+	// fits on a screen it cannot see and a career can genuinely hold five
+	// habits at once -- a gym member who is up at dawn, on one line, on the
+	// hard one, indoors and on no skin is all five of those and every word
+	// of it is true.
+	const FString Doing = Game->HabitDoingLine();
+	if (!Doing.IsEmpty())
+	{
+		Y += 20.f;
+		for (const FString& L : WrapToWidth(Doing, 34))
+		{
+			DrawText(L, FLinearColor(0.72f, 0.78f, 0.70f, 1.f), X, Y,
+			         GEngine->GetSmallFont(), 1.f);
+			Y += 16.f;
+		}
+		Y -= 16.f;
+	}
+	const FString Are = Game->HabitAreLine();
+	if (!Are.IsEmpty())
+	{
+		Y += 20.f;
+		for (const FString& L : WrapToWidth(Are, 34))
+		{
+			DrawText(L, kDim, X, Y, GEngine->GetSmallFont(), 1.f);
+			Y += 16.f;
+		}
+		Y -= 16.f;
+	}
+
 	// What the Lot did while you were not looking. Gold, like the naming
 	// prompt, because losing a line and getting one are the same size of
 	// event from opposite ends.
@@ -329,6 +372,20 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 	if (!Game->TalentNews.IsEmpty())
 	{
 		for (const FString& Line : WrapToWidth(Game->TalentNews, 62))
+		{
+			DrawText(Line, FLinearColor(0.65f, 0.80f, 0.62f, 1.f), X, Y,
+			         GEngine->GetSmallFont(), 1.f);
+			Y += 18.f;
+		}
+	}
+	// And what you turned into. Same slot, same colour and same size as the
+	// talent, deliberately: both are things you found out about yourself
+	// rather than things you won, and a career should not be able to tell
+	// them apart by how loudly the game said them.
+	if (!Game->QuirkNews.IsEmpty())
+	{
+		Y += 22.f;
+		for (const FString& Line : WrapToWidth(Game->QuirkNews, 62))
 		{
 			DrawText(Line, FLinearColor(0.65f, 0.80f, 0.62f, 1.f), X, Y,
 			         GEngine->GetSmallFont(), 1.f);
@@ -799,6 +856,23 @@ void ADirtbagHUD::DrawHandover(UDirtbagGameInstance* Game, float W, float H)
 		{
 			DrawText(Line, kInk, X, Y, GEngine->GetMediumFont(), 1.f);
 			Y += 26.f;
+		}
+
+		// **And what sort of climber that was**, which is a different
+		// question from what they climbed and is the one the epitaph cannot
+		// answer -- a list of ascents says what a career did and this says
+		// who was doing it. The long form here rather than the two-word
+		// labels the HUD carries, because this is a screen with room and
+		// nobody is going to read it twice.
+		const FString Became = Game->HowYouClimbLine();
+		if (!Became.IsEmpty())
+		{
+			Y += 8.f;
+			for (const FString& Line : WrapToWidth(Became, 78))
+			{
+				DrawText(Line, kDim, X, Y, GEngine->GetSmallFont(), 1.f);
+				Y += 20.f;
+			}
 		}
 		Y += 26.f;
 	}

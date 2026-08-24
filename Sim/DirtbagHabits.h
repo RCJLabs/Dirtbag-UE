@@ -318,6 +318,21 @@ double HabitNerve(const Quirks& quirks, const Logbook& record, int today,
 double HabitShiftPay(const Quirks& quirks);
 double HabitDailyCost(const Quirks& quirks);
 
+// **Terse, for a corner of a screen.** Two halves, deliberately separate:
+// what you are doing lately, and what you have become. They are different
+// facts with different lifespans and a HUD should be able to colour them
+// differently -- the first is live and can stop today, the second is you.
+//
+// **Both are empty when there is nothing to say**, and that is the whole
+// difference between these and `HowYouClimb`, which always answers. A
+// readout that prints "climbing the way most people climb" every frame for
+// a season teaches you to stop reading the line that will one day say
+// otherwise -- the same rule the HUD already applies to the injury line and
+// the load warning, and the reason both of those stay quiet.
+std::string DoingLabel(const Logbook& record, int today,
+                       const HabitDials& dials = HabitDials{});
+std::string AreLabel(const Quirks& quirks);
+
 // One sentence, in the game's voice, about how you have been climbing —
 // and what you have become, which are different questions and are answered
 // separately on purpose.

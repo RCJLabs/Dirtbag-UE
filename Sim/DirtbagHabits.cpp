@@ -428,6 +428,46 @@ double HabitDailyCost(const Quirks& quirks) {
   return out;
 }
 
+namespace {
+
+// "obsessive", "obsessive and leathery", "obsessive, leathery and cautious".
+// One place for the comma rule, because two would eventually disagree about
+// the last one.
+std::string JoinNames(const std::vector<Quirk>& held) {
+  std::string s;
+  for (std::size_t i = 0; i < held.size(); i++) {
+    if (i > 0) s += i + 1 == held.size() ? " and " : ", ";
+    s += QuirkName(held[i]);
+  }
+  return s;
+}
+
+}  // namespace
+
+std::string DoingLabel(const Logbook& record, int today,
+                       const HabitDials& dials) {
+  const std::vector<Habit> now = HabitsNow(record, today, dials);
+  std::string s;
+  for (std::size_t i = 0; i < now.size(); i++) {
+    if (i > 0) s += i + 1 == now.size() ? " and " : ", ";
+    s += HabitName(now[i]);
+  }
+  // **Never trimmed, and it can run long.** Measured across nine
+  // thirty-year careers the average held at once is 1.09 to 3.88, and a gym
+  // member peaks at *five* -- "dawn patrol, grinding, never warming up,
+  // indoors and climbing on nothing", every word of it true of somebody who
+  // gets on plastic at dawn every day and gets straight onto the hard one.
+  //
+  // The sim does not know how wide the screen is, so it does not get to
+  // decide what fits; a caller with a narrow panel wraps. A cap here would
+  // be the sim silently deciding a climber is less than they are, which is
+  // the same class of mistake as a probe reporting a top-N and calling it
+  // coverage.
+  return s;
+}
+
+std::string AreLabel(const Quirks& quirks) { return JoinNames(quirks.held); }
+
 std::string HowYouClimb(const Quirks& quirks, const Logbook& record, int today,
                         const HabitDials& dials) {
   // Two questions, answered separately on purpose: what you have been doing
@@ -445,10 +485,7 @@ std::string HowYouClimb(const Quirks& quirks, const Logbook& record, int today,
 
   if (!quirks.held.empty()) {
     s += " And by now you are ";
-    for (std::size_t i = 0; i < quirks.held.size(); i++) {
-      if (i > 0) s += i + 1 == quirks.held.size() ? " and " : ", ";
-      s += QuirkName(quirks.held[i]);
-    }
+    s += JoinNames(quirks.held);
     s += ".";
   }
   return s;

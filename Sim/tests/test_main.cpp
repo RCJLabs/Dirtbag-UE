@@ -12247,6 +12247,51 @@ static AttemptResult Timeline(const Route& route, int moves,
   return r;
 }
 
+static void TestTheCornerOfTheScreenStaysQuiet() {
+  // The HUD's own standing rule, applied to this file: a line that says
+  // "fine" every frame for a season teaches you to stop reading the one
+  // that will eventually say otherwise. `HowYouClimb` always answers, and
+  // these two do not -- which is the only reason both exist.
+  HabitDials d;
+  Logbook fresh;
+  Quirks nobody;
+  CHECK(DoingLabel(fresh, 500, d).empty());
+  CHECK(AreLabel(nobody).empty());
+  // ...where the sentence form still says something, because it is asked
+  // rather than drawn.
+  CHECK(!HowYouClimb(nobody, fresh, 500, d).empty());
+
+  // Doing something says what.
+  Logbook book;
+  for (int i = 1; i <= 40; i++) {
+    Note(book, Did::Burn, 1.0, i, d);
+    Note(book, Did::DayOut, 1.0, i, d);
+    Note(book, Did::BurnOnOneLine, 1.0, i, d);
+  }
+  CHECK(DoingLabel(book, 41, d) == HabitName(Habit::Grinder));
+  // And it stops saying it when you stop, which a quirk never does.
+  CHECK(DoingLabel(book, 41 + 4 * static_cast<int>(d.remembersDays), d).empty());
+
+  // Being something says what, with the commas in the right places.
+  Quirks one;
+  one.held.push_back(Quirk::Obsessive);
+  CHECK(AreLabel(one) == QuirkName(Quirk::Obsessive));
+  Quirks two = one;
+  two.held.push_back(Quirk::Leathery);
+  CHECK(AreLabel(two).find(" and ") != std::string::npos);
+  CHECK(AreLabel(two).find(",") == std::string::npos);
+  Quirks three = two;
+  three.held.push_back(Quirk::Cautious);
+  CHECK(AreLabel(three).find(",") != std::string::npos);
+  CHECK(AreLabel(three).find(" and ") != std::string::npos);
+  // The long form says the same thing, because there is one comma rule.
+  CHECK(HowYouClimb(three, book, 41, d).find(AreLabel(three)) !=
+        std::string::npos);
+  // Never a number, in either half.
+  CHECK(!AnyDigit(AreLabel(three)));
+  CHECK(!AnyDigit(DoingLabel(book, 41, d)));
+}
+
 static void TestTheNarratorKnowsWhenToShutUp() {
   // **The gate this file is most likely to fail.** A line per move is a
   // log, not commentary, and the moment that mattered is somewhere in the
@@ -13634,6 +13679,7 @@ int main() {
   TestAHabitReachesTheWall();
   TestWhoYouBecameSurvivesTheSave();
   TestYouCanSayHowYouClimbInOneSentence();
+  TestTheCornerOfTheScreenStaysQuiet();
   TestTheNarratorKnowsWhenToShutUp();
   TestEveryFallIsADifferentFall();
   TestTheReasonIsNeverTheMomentItEnded();
