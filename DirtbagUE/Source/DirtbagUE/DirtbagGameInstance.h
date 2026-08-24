@@ -1997,6 +1997,37 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Life")
 	double ThreadHours(EDirtbagThread What) const;
 
+	/** What you smell like, in a word: fresh, lived-in, ripe, feral. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Living")
+	FString GrimeWord() const;
+
+	/** **Quiet until something runs out** — empty while you are lived-in
+	 *  with full jugs, and one sentence the day one of them does. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Living")
+	FString LivingLine() const;
+
+	/** A rag and a jug. Costs water, and cannot get you properly clean. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Living")
+	bool WashInTheVan();
+
+	/** The truck stop's stall — the only thing that gets you to nothing. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Living")
+	bool ShowerAtTheTruckStop();
+
+	/** The lake. Free, takes an afternoon, a rinse rather than a scrub. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Living")
+	void SwimInTheLake();
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Living")
+	bool FillTheJugs();
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Living")
+	bool SwapTheBottle();
+
+	/** Enough in the bottle and the jugs to cook on. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Living")
+	bool CanCook() const;
+
 	/** **Buy the building.** $25,000, which is just under Home Base's
 	 *  $30,000 — so it is a choice against the dream rather than a tier
 	 *  above it. See Sim/DirtbagGym.h. */

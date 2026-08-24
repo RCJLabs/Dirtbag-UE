@@ -87,7 +87,7 @@ double RapportWith(const std::vector<PartnerBond>& bonds,
 
 std::vector<Partner> WhoIsAround(const Rng& worldRng, int day,
                                  const std::vector<PartnerBond>& bonds,
-                                 double social, bool rockIsIn,
+                                 double social, bool rockIsIn, double smell,
                                  const PartnerDials& dials) {
   const std::vector<Partner> cast = LotRegulars(worldRng, day, dials);
   std::vector<Partner> here;
@@ -98,10 +98,16 @@ std::vector<Partner> WhoIsAround(const Rng& worldRng, int day,
     Rng rng = worldRng.Derive("turnout:" + cast[i].name + "#" +
                               std::to_string(day));
     double chance = kRegulars[i].showsUp;
-    chance += dials.rapportBringsThemOut * RapportWith(bonds, cast[i].name);
-    // Signed on purpose. A Loner does not merely fail to gain here; the
-    // Lot is emptier around them, which is what the axis is *for*.
-    chance += dials.socialBringsThemOut * (social / kPersonalityMax);
+    // **What you bring to it is what the smell discounts.** Their own
+    // reliability is theirs -- Trish is here on a Tuesday whatever you
+    // smell like -- so grime multiplies the two terms that are about you
+    // and leaves the row's `showsUp` alone.
+    const double yours =
+        dials.rapportBringsThemOut * RapportWith(bonds, cast[i].name) +
+        // Signed on purpose. A Loner does not merely fail to gain here;
+        // the Lot is emptier around them, which is what the axis is *for*.
+        dials.socialBringsThemOut * (social / kPersonalityMax);
+    chance += yours * Clamp01(smell);
     if (!rockIsIn) chance -= dials.emptyWhenWet;
     chance = std::min(std::max(chance, dials.neverLessThan),
                       dials.neverMoreThan);
@@ -176,9 +182,11 @@ double PsycheFrom(const Partner& partner, const PartnerDials& dials) {
   return dials.psychePerRapport * partner.rapport * base;
 }
 
-void SpendDayWith(Partner& partner, bool together, const PartnerDials& dials) {
+void SpendDayWith(Partner& partner, bool together, double smell,
+                  const PartnerDials& dials) {
   if (together) {
-    partner.rapport = std::min(1.0, partner.rapport + dials.rapportPerDay);
+    partner.rapport =
+        std::min(1.0, partner.rapport + dials.rapportPerDay * Clamp01(smell));
     // The high-water mark only ever goes up, which is what makes it a
     // memory rather than a second copy of the current value.
     partner.everKnew = std::max(partner.everKnew, partner.rapport);

@@ -16,6 +16,7 @@
 #include "../DirtbagLife.h"
 #include "../DirtbagLocals.h"
 #include "../DirtbagGym.h"
+#include "../DirtbagLiving.h"
 #include "../DirtbagMedical.h"
 #include "../DirtbagAilments.h"
 #include "../DirtbagBodyContext.h"
@@ -7797,16 +7798,16 @@ static void TestRapportGrowsAndFades() {
   p.name = "Margo";
   p.climbs = true;
 
-  for (int i = 0; i < 5; i++) SpendDayWith(p, true, d);
+  for (int i = 0; i < 5; i++) SpendDayWith(p, true, 1.0, d);
   const double warm = p.rapport;
   CHECK(warm > 0.0);
 
-  for (int i = 0; i < 5; i++) SpendDayWith(p, false, d);
+  for (int i = 0; i < 5; i++) SpendDayWith(p, false, 1.0, d);
   CHECK(p.rapport < warm);       // people remember you, not forever
   CHECK(p.rapport > 0.0);        // and five days away is not amnesia
 
   // It saturates rather than running away.
-  for (int i = 0; i < 500; i++) SpendDayWith(p, true, d);
+  for (int i = 0; i < 500; i++) SpendDayWith(p, true, 1.0, d);
   CHECK(p.rapport == 1.0);
   CHECK(p.everKnew == 1.0);
 
@@ -7815,7 +7816,7 @@ static void TestRapportGrowsAndFades() {
   // was what let three thirty-year careers end as strangers to everybody at
   // the Lot -- including one that climbed 2,085 days. You do not forget
   // somebody you spent five years with; you stop being current with them.
-  for (int i = 0; i < 5000; i++) SpendDayWith(p, false, d);
+  for (int i = 0; i < 5000; i++) SpendDayWith(p, false, 1.0, d);
   CHECK(p.rapport > 0.0);
   CHECK(std::fabs(p.rapport - d.rapportKeeps) < 1e-9);
   // The memory itself never falls -- it is what the drift floors against.
@@ -7826,9 +7827,9 @@ static void TestRapportGrowsAndFades() {
   // not a constant everybody gets.
   Partner nodding;
   nodding.name = "Dev";
-  SpendDayWith(nodding, true, d);
+  SpendDayWith(nodding, true, 1.0, d);
   const double slight = nodding.everKnew;
-  for (int i = 0; i < 5000; i++) SpendDayWith(nodding, false, d);
+  for (int i = 0; i < 5000; i++) SpendDayWith(nodding, false, 1.0, d);
   CHECK(nodding.rapport < p.rapport);
   CHECK(std::fabs(nodding.rapport - slight * d.rapportKeeps) < 1e-9);
 
@@ -14094,7 +14095,8 @@ static int CompanyOver(const Rng& world, int days,
                        bool rockIsIn, const PartnerDials& d = PartnerDials{}) {
   int seen = 0;
   for (int day = 1; day <= days; day++) {
-    seen += static_cast<int>(WhoIsAround(world, day, bonds, social, rockIsIn, d).size());
+    seen += static_cast<int>(
+        WhoIsAround(world, day, bonds, social, rockIsIn, 1.0, d).size());
   }
   return seen;
 }
@@ -14108,6 +14110,176 @@ static Gym ABoughtGym(double& cash, int day = 1) {
   cash = GymDials{}.price + 20000.0;
   CHECK(BuyTheGym(g, cash, "The Woodshed", day));
   return g;
+}
+
+// ---------------------------------------------------------------------
+// Living in the van
+// ---------------------------------------------------------------------
+
+static void TestGrimeOnlyEverCostsYouCompany() {
+  LivingDials d;
+  Living clean;
+  CHECK(GrimeSocial(clean.grime, d) == 1.0);
+  CHECK(GrimeWord(clean.grime, d) == std::string("fresh"));
+
+  // **The only mechanical bite in the whole system**, and it is narrow on
+  // purpose: three quarters when ripe, half when feral, and one the rest
+  // of the time -- because lived-in is what everybody in this valley is.
+  CHECK(GrimeSocial(30.0, d) == 1.0);
+  CHECK(GrimeWord(30.0, d) == std::string("lived-in"));
+  CHECK(GrimeSocial(d.ripeAt, d) == d.ripeSocial);
+  CHECK(GrimeWord(d.ripeAt, d) == std::string("ripe"));
+  CHECK(GrimeSocial(d.feralAt, d) == d.feralSocial);
+  CHECK(GrimeWord(d.feralAt, d) == std::string("feral"));
+}
+
+static void TestYouCannotGetCleanOutOfAJug() {
+  LivingDials d;
+  Living living;
+  living.grime = 70.0;
+  living.water = d.waterCap;
+
+  CHECK(WashInTheVan(living, d));
+  CHECK(living.grime == 70.0 - d.jugWash);
+  CHECK(living.water == d.waterCap - d.waterWash);
+
+  // ...and it floors. A rag and a jug does not get you to nothing, which
+  // is the whole reason the truck stop is worth eight dollars.
+  for (int i = 0; i < 10; i++) {
+    living.water = d.waterCap;
+    WashInTheVan(living, d);
+  }
+  CHECK(living.grime == d.jugFloor);
+  CHECK(!WashInTheVan(living, d));       // nothing left to buy
+
+  // The stall does what the jug cannot.
+  double cash = 100.0, hours = 8.0;
+  CHECK(ShowerAtTheTruckStop(living, cash, hours, d));
+  CHECK(living.grime == 0.0);
+  CHECK(cash == 100.0 - d.showerCost);
+  CHECK(hours == 8.0 + d.showerHours);
+
+  // And no water is no wash, whatever you smell like.
+  Living dry;
+  dry.grime = 90.0;
+  dry.water = 0.0;
+  CHECK(!WashInTheVan(dry, d));
+}
+
+static void TestTheJugsAndTheBottleRunOut() {
+  LivingDials d;
+  Living living;
+  double cash = 100.0;
+
+  CHECK(CanCook(living, d));
+  const double propane = living.propane;
+  Cooked(living, d);
+  CHECK(living.propane == propane - d.propaneCook);
+
+  // Cook until the bottle is done, and then you cannot.
+  for (int i = 0; i < 40 && CanCook(living, d); i++) Cooked(living, d);
+  CHECK(!CanCook(living, d));
+  CHECK(!LivingLine(living, d).empty());   // and the van says so
+
+  CHECK(SwapTheBottle(living, cash, d));
+  CHECK(living.propane == d.propaneCap);
+  CHECK(cash == 100.0 - d.propaneBottleCost);
+  CHECK(!SwapTheBottle(living, cash, d));  // it is already full
+
+  Living empty;
+  empty.water = 0.0;
+  double broke = 0.0;
+  CHECK(!FillTheJugs(empty, broke, d));    // two dollars is still two dollars
+  double coins = 5.0;
+  CHECK(FillTheJugs(empty, coins, d));
+  CHECK(empty.water == d.waterJug);
+}
+
+static void TestAWeekOutHereGetsRipe() {
+  LivingDials d;
+  Living living;
+  living.grime = 8.0;
+  // A night out and a day on the rock, over and over. Nobody showers on a
+  // road trip and the game should be able to tell.
+  for (int i = 0; i < 7; i++) {
+    ClimbedToday(living, d);
+    LivingNight(living, false, false, d);
+  }
+  CHECK(living.grime >= d.ripeAt);
+  CHECK(GrimeSocial(living.grime, d) < 1.0);
+  // ...and the water goes with it.
+  CHECK(living.water < 30.0);
+}
+
+static void TestBeingRipeEmptiesTheLotAroundYou() {
+  const Rng world = Rng::FromSeed("who-turns-up");
+  // **The seam this whole system exists for.** Grime discounts what *you*
+  // bring -- your rapport and your Social axis -- and leaves each person's
+  // own reliability alone, because Trish being here on a Tuesday is not
+  // about you.
+  std::vector<PartnerBond> known;
+  for (const Partner& p : LotRegulars(world, 1)) {
+    PartnerBond b;
+    b.name = p.name;
+    b.rapport = 1.0;
+    b.everKnew = 1.0;
+    known.push_back(b);
+  }
+  const auto over = [&](double smell) {
+    int seen = 0;
+    for (int day = 1; day <= 365; day++) {
+      seen += static_cast<int>(
+          WhoIsAround(world, day, known, 60.0, true, smell).size());
+    }
+    return seen;
+  };
+  const int fresh = over(1.0);
+  const int ripe = over(LivingDials{}.ripeSocial);
+  const int feral = over(LivingDials{}.feralSocial);
+  CHECK(ripe < fresh);
+  CHECK(feral < ripe);
+  // But never to nothing: the floor still holds, so somebody still turns
+  // up for the most feral climber in the valley.
+  CHECK(feral > 0);
+}
+
+static void TestGrimeCostsYouRapportAndTheCounter() {
+  // The other two social gains. Same multiplier, same shape.
+  Partner a, b;
+  a.name = b.name = "Margo";
+  for (int i = 0; i < 10; i++) {
+    SpendDayWith(a, true, 1.0);
+    SpendDayWith(b, true, LivingDials{}.feralSocial);
+  }
+  CHECK(b.rapport < a.rapport);
+
+  Locals town = TheLocals(DirtbagTown(), Rng::FromSeed("crag-1"));
+  Locals ripe = town;
+  for (int i = 0; i < 6; i++) {
+    Seen(Counter(town, Service::Meal), i + 1, 1.0);
+    Seen(Counter(ripe, Service::Meal), i + 1, LivingDials{}.feralSocial);
+  }
+  CHECK(Counter(ripe, Service::Meal).known <
+        Counter(town, Service::Meal).known);
+}
+
+static void TestTheVanIsQuietUntilSomethingRunsOut() {
+  LivingDials d;
+  Living fine;
+  CHECK(LivingLine(fine, d).empty());     // lived-in with full jugs says nothing
+
+  Living dry = fine;
+  dry.water = 0.0;
+  CHECK(!LivingLine(dry, d).empty());
+
+  // One line, loudest first -- a van with four warnings on it is a
+  // dashboard, and this is the edge of a screen.
+  Living everything;
+  everything.grime = 95.0;
+  everything.water = 0.0;
+  everything.propane = 0.0;
+  const std::string said = LivingLine(everything, d);
+  CHECK(said.find("further away") != std::string::npos);
 }
 
 static void TestYouCannotBuyWhatYouCannotAfford() {
@@ -14502,7 +14674,8 @@ static int DaysWith(const Rng& world, const std::string& who, int days,
                     bool rockIsIn, const PartnerDials& d = PartnerDials{}) {
   int seen = 0;
   for (int day = 1; day <= days; day++) {
-    for (const Partner& p : WhoIsAround(world, day, bonds, social, rockIsIn, d)) {
+    for (const Partner& p :
+         WhoIsAround(world, day, bonds, social, rockIsIn, 1.0, d)) {
       if (p.name == who) seen++;
     }
   }
@@ -14736,7 +14909,7 @@ static void TestTheySayItOnceAndGoBackToNodding() {
   Tell(town, Heard::Named, "Slab Wednesday", 40);
   CHECK(WhatTheySay(shop, 40, d) ==
         std::string("Slab Wednesday. That was you, then."));
-  Seen(shop, 40, d);
+  Seen(shop, 40, 1.0, d);
   // Spent. A line that repeats every visit stops being a greeting inside a
   // week, which is the whole difference between a person and wallpaper.
   CHECK(shop.holds == Heard::None);
@@ -15272,6 +15445,13 @@ int main() {
   TestALifeCoolsWhileYouAreAtTheCrag();
   TestABookMakesAnAfternoonWorthMore();
   TestAnEveningCostsTheEvening();
+  TestGrimeOnlyEverCostsYouCompany();
+  TestYouCannotGetCleanOutOfAJug();
+  TestTheJugsAndTheBottleRunOut();
+  TestAWeekOutHereGetsRipe();
+  TestBeingRipeEmptiesTheLotAroundYou();
+  TestGrimeCostsYouRapportAndTheCounter();
+  TestTheVanIsQuietUntilSomethingRunsOut();
   TestYouCannotBuyWhatYouCannotAfford();
   TestTheGymSurvivesASave();
   TestLoadsVersion38Save();

@@ -118,7 +118,7 @@ std::string WhatTheySay(const Local& who, int today,
   return "";
 }
 
-void Seen(Local& who, int today, const LocalDials& dials) {
+void Seen(Local& who, int today, double smell, const LocalDials& dials) {
   // Asked before the visit is counted, so it is the same answer the player
   // just read -- they greet you as they knew you walking in, not as they
   // know you walking out. Which also makes this spend exactly what
@@ -126,7 +126,8 @@ void Seen(Local& who, int today, const LocalDials& dials) {
   // conditions agreeing.
   const bool saidIt = !WhatTheySay(who, today, dials).empty();
 
-  who.known = std::min(1.0, who.known + dials.knownPerVisit);
+  who.known =
+      std::min(1.0, who.known + dials.knownPerVisit * Clamp01(smell));
   who.everKnew = std::max(who.everKnew, who.known);
   who.lastSeen = today;
 

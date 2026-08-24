@@ -195,9 +195,15 @@ struct Partner {
 //
 // `social` is `Personality::social`, -100..+100. `rockIsIn` is whether
 // today has a window at all; the caller knows and the Lot does not.
+// `smell` is `GrimeSocial` -- 1.0 unless you are ripe, and the only thing
+// in the game that reads how long it has been since you washed. See
+// Sim/DirtbagLiving.h; it multiplies the *gain* each of the three social
+// terms contributes rather than the person's own reliability, because
+// Trish being here on a Tuesday is not about you.
 std::vector<Partner> WhoIsAround(const Rng& worldRng, int day,
                                  const std::vector<PartnerBond>& bonds,
                                  double social, bool rockIsIn,
+                                 double smell = 1.0,
                                  const PartnerDials& dials = PartnerDials{});
 
 // How well you know somebody by name, or zero. The bonds list is short and
@@ -240,7 +246,9 @@ double PsycheFrom(const Partner& partner,
 
 // A day at the Lot with them: rapport grows if you turned up, decays if you
 // did not.
-void SpendDayWith(Partner& partner, bool together,
+// `smell` again -- a day out with somebody is worth less to them when you
+// are ripe, which is the second of the three social gains grime touches.
+void SpendDayWith(Partner& partner, bool together, double smell,
                   const PartnerDials& dials = PartnerDials{});
 
 // Lines nobody at the Lot will touch: already claimed, or **visibly being

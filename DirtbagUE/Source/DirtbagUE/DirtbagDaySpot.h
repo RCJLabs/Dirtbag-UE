@@ -41,6 +41,11 @@ enum class EDirtbagSpotKind : uint8
 	Van,
 	/** The gear shop: resole while the uppers hold, replace when not. */
 	GearShop,
+	/** **Keeping yourself and the van going.** Washing, water and propane,
+	 *  with `Keeps` choosing which of the five this placement is — one spot
+	 *  kind rather than five, because they are one sentence each. See
+	 *  Sim/DirtbagLiving.h. */
+	Keeping,
 	/** **The gym you own, or the one for sale.** Buying it is the one
 	 *  purchase in this game that pays you back, and the levers are all
 	 *  here on keys 1-6, which already exist: pricing (1/2/3), the set mix
@@ -53,6 +58,22 @@ enum class EDirtbagSpotKind : uint8
 	 *  Sim/DirtbagLife.h. The hours it takes are the hours it takes; that
 	 *  is the whole trade. */
 	Evening
+};
+
+/** Which of the five things a Keeping spot is. */
+UENUM(BlueprintType)
+enum class EDirtbagKeepService : uint8
+{
+	/** A rag and a jug. Costs water, cannot get you properly clean. */
+	WashInTheVan,
+	/** The truck stop's stall — the only thing that gets you to nothing. */
+	TruckStop,
+	/** The lake. Free, an afternoon, a rinse rather than a scrub. */
+	Lake,
+	/** Fill the jugs at the tap. */
+	Water,
+	/** Swap the bottle. */
+	Propane
 };
 
 UCLASS()
@@ -100,6 +121,10 @@ protected:
 	 *  wait for. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Rest")
 	double RestHours = 1.0;
+
+	/** Keeping only. Which of the five this placement offers. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Living")
+	EDirtbagKeepService Keeps = EDirtbagKeepService::WashInTheVan;
 
 	/** Gym only. What the building gets called when you buy it. Named here
 	 *  rather than prompted for, because a naming widget is Evan's to place

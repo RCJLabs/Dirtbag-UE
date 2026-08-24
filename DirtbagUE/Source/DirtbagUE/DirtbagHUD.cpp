@@ -238,6 +238,21 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		Y -= 16.f;
 	}
 
+	// **And how you are living**, when it is worth saying. Quiet while you
+	// are lived-in with full jugs, which is most of a career.
+	const FString Van = Game->LivingLine();
+	if (!Van.IsEmpty())
+	{
+		Y += 20.f;
+		for (const FString& L : WrapToWidth(Van, 34))
+		{
+			DrawText(L, FLinearColor(0.74f, 0.78f, 0.60f, 1.f), X, Y,
+			         GEngine->GetSmallFont(), 1.f);
+			Y += 16.f;
+		}
+		Y -= 16.f;
+	}
+
 	// **And the books, when they are bad.** Quiet while the gym is fine,
 	// like everything else in this column.
 	const FString Books = Game->GymWarningLine();

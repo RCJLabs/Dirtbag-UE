@@ -3191,6 +3191,85 @@ double UDirtbagGameInstance::ThreadHours(EDirtbagThread What) const
 	return dirtbag::AsksFor(static_cast<dirtbag::Thread>(What));
 }
 
+FString UDirtbagGameInstance::GrimeWord() const
+{
+	return UTF8_TO_TCHAR(dirtbag::GrimeWord(Player.Living.Grime));
+}
+
+FString UDirtbagGameInstance::LivingLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::LivingLine(DirtbagConvert::ToSim(Player.Living)).c_str());
+}
+
+bool UDirtbagGameInstance::WashInTheVan()
+{
+	dirtbag::Living Sim = DirtbagConvert::ToSim(Player.Living);
+	if (!dirtbag::WashInTheVan(Sim))
+	{
+		return false;
+	}
+	Player.Living = DirtbagConvert::FromSim(Sim);
+	return true;
+}
+
+bool UDirtbagGameInstance::ShowerAtTheTruckStop()
+{
+	dirtbag::Living Sim = DirtbagConvert::ToSim(Player.Living);
+	double Cash = Player.Cash;
+	double Hours = Day.Hour;
+	if (!dirtbag::ShowerAtTheTruckStop(Sim, Cash, Hours))
+	{
+		return false;
+	}
+	Player.Living = DirtbagConvert::FromSim(Sim);
+	Player.Cash = Cash;
+	// Through the day's own clock rather than by assignment: an hour you
+	// set rather than spend is an hour that costs no hunger.
+	Rest(Hours - Day.Hour);
+	return true;
+}
+
+void UDirtbagGameInstance::SwimInTheLake()
+{
+	dirtbag::Living Sim = DirtbagConvert::ToSim(Player.Living);
+	double Hours = Day.Hour;
+	dirtbag::SwimInTheLake(Sim, Hours);
+	Player.Living = DirtbagConvert::FromSim(Sim);
+	Rest(Hours - Day.Hour);
+}
+
+bool UDirtbagGameInstance::FillTheJugs()
+{
+	dirtbag::Living Sim = DirtbagConvert::ToSim(Player.Living);
+	double Cash = Player.Cash;
+	if (!dirtbag::FillTheJugs(Sim, Cash))
+	{
+		return false;
+	}
+	Player.Living = DirtbagConvert::FromSim(Sim);
+	Player.Cash = Cash;
+	return true;
+}
+
+bool UDirtbagGameInstance::SwapTheBottle()
+{
+	dirtbag::Living Sim = DirtbagConvert::ToSim(Player.Living);
+	double Cash = Player.Cash;
+	if (!dirtbag::SwapTheBottle(Sim, Cash))
+	{
+		return false;
+	}
+	Player.Living = DirtbagConvert::FromSim(Sim);
+	Player.Cash = Cash;
+	return true;
+}
+
+bool UDirtbagGameInstance::CanCook() const
+{
+	return dirtbag::CanCook(DirtbagConvert::ToSim(Player.Living));
+}
+
 double UDirtbagGameInstance::GymPrice() const
 {
 	return dirtbag::GymDials{}.price;

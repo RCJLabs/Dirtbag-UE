@@ -31,6 +31,7 @@
 #include "DirtbagKit.h"
 #include "DirtbagLife.h"
 #include "DirtbagGym.h"
+#include "DirtbagLiving.h"
 #include "DirtbagLocals.h"
 #include "DirtbagEthics.h"
 #include "DirtbagSponsor.h"
@@ -373,6 +374,11 @@ struct PlayerState {
   // give them a day. See Sim/DirtbagLife.h; the one that leaves is the one
   // that makes the rest a system rather than a menu.
   Life life;
+
+  // **How you are living**, which is four meters and one rule: grime
+  // multiplies social gains and touches nothing else. See
+  // Sim/DirtbagLiving.h.
+  Living living;
 
   // **The gym, if you bought one.** The one purchase above the dreams'
   // range and the only thing in this game that pays you back -- see

@@ -181,9 +181,18 @@ bool EatMeal(PlayerState& player, DayState& day, const DayDials& dials) {
   // A stove and the will to use it: cheaper, and it goes further. Both
   // scaled by how much you have actually been cooking, so the discount is
   // a habit rather than a purchase.
+  //
+  // **And the discount is only real when the bottle is.** Phase 11's stove
+  // thread makes a meal cheaper; the propane and the water are what makes
+  // it a meal, so a cook with an empty bottle pays the diner's price like
+  // everybody else. Two systems built a day apart that want each other
+  // exactly here.
+  const bool onTheStove =
+      Going(player.life, Thread::Cooking) && CanCook(player.living);
   // What being a regular is worth off the bill. Small on purpose -- this
   // is a relationship, not a loyalty card.
-  const double cost = dials.mealCost * LifeMealCost(player.life) *
+  const double cost = dials.mealCost *
+                      (onTheStove ? LifeMealCost(player.life) : 1.0) *
                       LocalPrice(player.locals, Service::Meal);
   if (player.cash < cost) {
     // **And they saw it.** Between you and whoever was standing there;
@@ -193,11 +202,15 @@ bool EatMeal(PlayerState& player, DayState& day, const DayDials& dials) {
   }
   if (Local* who = At(player.locals, Service::Meal)) {
     day.heard = WhatTheySay(*who, player.day);
-    Seen(*who, player.day);
+    // Third of the three social gains grime discounts: they still see you
+    // and the memory is still spent, you just get less of them for it.
+    Seen(*who, player.day, GrimeSocial(player.living.grime));
   }
   player.cash -= cost;
+  if (onTheStove) Cooked(player.living);
   day.hunger = std::max(
-      0.0, day.hunger - dials.mealHunger * LifeMealHunger(player.life));
+      0.0, day.hunger - dials.mealHunger *
+                            (onTheStove ? LifeMealHunger(player.life) : 1.0));
   PassHours(day, 0.5, dials);
   return true;
 }
@@ -601,6 +614,24 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // this file has now written four times: three per-day rules in this
   // project were written and left uncalled, and every one was found late.
   player.lostToday = LifeNight(player.life, player.day);
+
+  // **A night out here, and a day of chalk on top of it.** Grime is the
+  // only one of the four that anything else reads, and the only thing it
+  // reads into is how much of you a room is willing to take today.
+  if (day.atGym && day.firstPullOnHour >= 0.0) ClimbedToday(player.living);
+  {
+    const Weather tonight = GenerateWeather(worldRng, player.day);
+    // Cold enough for the heater, and wet enough to count as a rinse. Both
+    // off the same weather the crag reads, because there is only one sky.
+    //
+    // **This port has no rain**, only humidity -- so "the sky washed you"
+    // is read off `ConditionsDials::humidityBite`, the line the game
+    // already uses for *humid enough to matter*, rather than off a rain
+    // flag invented here to make one dial fire.
+    const ConditionsDials cd;
+    LivingNight(player.living, tonight.lowTempF < 40.0,
+                tonight.humidity >= cd.humidityBite);
+  }
 
   // **The books, before anything else the night does**, because a
   // foreclosure is the kind of news that has to survive the rest of the

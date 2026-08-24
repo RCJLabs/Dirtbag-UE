@@ -168,7 +168,11 @@ std::string WhatTheySay(const Local& who, int today,
 // thirty years the thing a regular said was *"thought you'd moved on"*
 // thirty-seven times out of forty. What they are holding survives until
 // somebody hears it.
-void Seen(Local& who, int today, const LocalDials& dials = LocalDials{});
+// `smell` -- the third and last of the social gains grime discounts. They
+// still see you and the memory is still spent; you just get less of them
+// for it, which is exactly what being ripe at a counter is like.
+void Seen(Local& who, int today, double smell = 1.0,
+          const LocalDials& dials = LocalDials{});
 
 // The nightly fade, with everything else in this game that counts down at
 // night.

@@ -395,6 +395,31 @@ FString ADirtbagDaySpot::PromptText() const
 		                      *Game->ShoeLine(), Game->Player.Cash)) +
 		       Kit + Care + Deal;
 	}
+	case EDirtbagSpotKind::Keeping:
+	{
+		const FString Smell = Game->GrimeWord();
+		switch (Keeps)
+		{
+		case EDirtbagKeepService::WashInTheVan:
+			return FString::Printf(
+			    TEXT("Wash?  (E)  -  a rag and a jug.  You are %s"), *Smell);
+		case EDirtbagKeepService::TruckStop:
+			return FString::Printf(
+			    TEXT("Shower?  (E)  -  $8, an hour.  You are %s"), *Smell);
+		case EDirtbagKeepService::Lake:
+			return FString::Printf(
+			    TEXT("Swim?  (E)  -  free, an afternoon.  You are %s"), *Smell);
+		case EDirtbagKeepService::Water:
+			return FString::Printf(
+			    TEXT("Fill the jugs?  (E)  -  $2.  %.0f litres left%s"),
+			    Game->Player.Living.Water,
+			    Game->CanCook() ? TEXT("") : TEXT(", and you cannot cook"));
+		default:
+			return FString::Printf(
+			    TEXT("Swap the bottle?  (E)  -  $18.  %.0f%% left"),
+			    Game->Player.Living.Propane);
+		}
+	}
 	case EDirtbagSpotKind::Gym:
 	{
 		if (!Game->Player.Gym.bOwned)
@@ -1256,6 +1281,22 @@ void ADirtbagDaySpot::OnInteract()
 			Say(FString::Printf(TEXT("Fed it.  %s"), *Game->DogLine()),
 			    FColor::Green);
 		}
+		break;
+	}
+	case EDirtbagSpotKind::Keeping:
+	{
+		bool bDid = false;
+		switch (Keeps)
+		{
+		case EDirtbagKeepService::WashInTheVan: bDid = Game->WashInTheVan(); break;
+		case EDirtbagKeepService::TruckStop: bDid = Game->ShowerAtTheTruckStop(); break;
+		case EDirtbagKeepService::Lake: Game->SwimInTheLake(); bDid = true; break;
+		case EDirtbagKeepService::Water: bDid = Game->FillTheJugs(); break;
+		default: bDid = Game->SwapTheBottle(); break;
+		}
+		Say(bDid ? FString::Printf(TEXT("You are %s."), *Game->GrimeWord())
+		         : FString(TEXT("Not for that, or there is nothing to do.")),
+		    bDid ? FColor::Yellow : FColor::Silver, 5.f);
 		break;
 	}
 	case EDirtbagSpotKind::Gym:

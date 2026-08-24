@@ -49,6 +49,7 @@
 #include "DirtbagNarrator.h"
 #include "DirtbagLife.h"
 #include "DirtbagGym.h"
+#include "DirtbagLiving.h"
 #include "DirtbagLocals.h"
 
 #include "DirtbagSimTypes.generated.h"
@@ -1635,6 +1636,26 @@ enum class EDirtbagService : uint8
 	Work,        // somewhere that hires by the shift
 };
 
+/** How you are living: four meters, and one rule. Grime multiplies social
+ *  gains and touches nothing else. Mirrors dirtbag::Living. */
+USTRUCT(BlueprintType)
+struct FDirtbagLiving
+{
+	GENERATED_BODY()
+
+	/** 0 is showered this morning; 100 is the crux being finding a
+	 *  belayer. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Living")
+	double Grime = 8.0;
+
+	/** Litres in the jugs, because that is how you think about a jug. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Living")
+	double Water = 30.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Living")
+	double Propane = 70.0;
+};
+
 /** What you charge. Mirrors dirtbag::GymPrice. */
 UENUM(BlueprintType)
 enum class EDirtbagGymPrice : uint8 { Budget, Standard, Premium };
@@ -2249,6 +2270,10 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
 	FDirtbagLocals Locals;
 
+	/** How you are living. See Sim/DirtbagLiving.h. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Living")
+	FDirtbagLiving Living;
+
 	/** The gym, if you bought one. See Sim/DirtbagGym.h. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	FDirtbagGym Gym;
@@ -2668,6 +2693,8 @@ namespace DirtbagConvert
 	dirtbag::Locals ToSim(const FDirtbagLocals& In);
 	FDirtbagGym FromSim(const dirtbag::Gym& In);
 	dirtbag::Gym ToSim(const FDirtbagGym& In);
+	FDirtbagLiving FromSim(const dirtbag::Living& In);
+	dirtbag::Living ToSim(const FDirtbagLiving& In);
 	dirtbag::Rack ToSim(const FDirtbagRack& In);
 	dirtbag::Kit ToSim(const FDirtbagKit& In);
 	FDirtbagStanding FromSim(const dirtbag::Standing& In);

@@ -341,6 +341,17 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // people this career ever climbed with. The honest reconstruction is that
 // you knew them at least as well as you know them now, which is exactly
 // what the runtime would derive on the next `BondsFrom` anyway.
+// v39 -> v40: how you are living. A v39 career washed as often as it liked
+// and never ran out of anything, so it loads at the same place a new one
+// starts -- which is a fresh climber with most of a bottle, and true enough
+// for a career that has never had jugs to empty.
+void MigrateV39ToV40(SaveFields& fields) {
+  const Living fresh;
+  fields["live.grime"] = NumToStr(fresh.grime);
+  fields["live.water"] = NumToStr(fresh.water);
+  fields["live.propane"] = NumToStr(fresh.propane);
+}
+
 // v38 -> v39: the gym. A v38 career never had the option -- gym ownership
 // was a recorded cut until 2026-08-24 -- so it loads owning nothing, which
 // is exactly what it owned.
@@ -638,7 +649,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30,
       &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33,
       &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36,
-      &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39};
+      &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39,
+      &MigrateV39ToV40};
   return kMigrations;
 }
 
@@ -1084,6 +1096,10 @@ std::string SerializeSave(const SaveGame& save) {
     out << k << "about=" << p.about << "\n";
     out << k << "seen=" << IntToStr(p.lastSeen) << "\n";
   }
+  out << "live.grime=" << NumToStr(save.player.living.grime) << "\n";
+  out << "live.water=" << NumToStr(save.player.living.water) << "\n";
+  out << "live.propane=" << NumToStr(save.player.living.propane) << "\n";
+
   // The gym. A career mostly has none, and `owned` is what says so.
   out << "gym.owned=" << IntToStr(save.player.gym.owned ? 1 : 0) << "\n";
   out << "gym.name=" << save.player.gym.name << "\n";
@@ -1688,6 +1704,11 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   {
     Locals& town = save.player.locals;
     int count = 0;
+    if (!ParseDouble(fields, "live.grime", save.player.living.grime) ||
+        !ParseDouble(fields, "live.water", save.player.living.water) ||
+        !ParseDouble(fields, "live.propane", save.player.living.propane)) {
+      return LoadResult::BadFormat;
+    }
     {
       Gym& gym = save.player.gym;
       int owned = 0, price = 0, mix = 0, equip = 0, camp = 0, desk = 0, set = 0;
