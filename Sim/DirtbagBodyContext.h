@@ -37,6 +37,7 @@
 
 #include "DirtbagAilments.h"
 #include "DirtbagCharacter.h"
+#include "DirtbagHabits.h"
 #include "DirtbagMedical.h"
 #include "DirtbagSession.h"
 
@@ -55,7 +56,13 @@ struct BodyContext {
   // What is left of the rubber. **Zero is new shoes**, and a comp on
   // permanently new rubber was the quietest part of the same hole.
   double shoeWear = 0.0;
-  // Scars and joints are priced off the date.
+  // **What you have been doing lately, and what it made you.** Here rather
+  // than on the caller's side because a habit is part of the body you climb
+  // in, and because this struct exists precisely so that a second attempt
+  // path cannot be built that forgets half of one. See Sim/DirtbagHabits.h.
+  Quirks quirks;
+  Logbook logbook;
+  // Scars and joints are priced off the date. The logbook is too.
   int day = 0;
 };
 

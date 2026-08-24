@@ -248,6 +248,11 @@ enum class EDirtbagCreationStep : uint8
 	Flaw,
 	/** What you are like. Four. */
 	Temperament,
+	/** And one thing about you that is nobody's business but yours. Six,
+	 *  each a small perk against a small cost — the only quirks you can
+	 *  ever choose, because every other one has to be earned by climbing a
+	 *  certain way for two seasons. See Sim/DirtbagHabits.h. */
+	Quirk,
 	/** Who that turned out to be. */
 	Done,
 };

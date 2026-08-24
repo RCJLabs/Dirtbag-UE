@@ -10,6 +10,11 @@ void ApplyBody(AttemptInput& in, const BodyContext& body) {
   // Temperament: how steady you are above the last piece, over and above
   // what your head skill says.
   in.boldness += NerveShift(body.who);
+  // And what you have become since, which is the same axis arriving from
+  // the other direction: a temperament is what you were like and a habit is
+  // what you have been doing. They add, for the same reason a comp's nerves
+  // add to a flaw -- two reasons, not one replacing the other.
+  in.boldness += HabitNerve(body.quirks, body.logbook, body.day);
 
   // What is left of the rubber. Assigned rather than added, because it is
   // a state and not a modifier.

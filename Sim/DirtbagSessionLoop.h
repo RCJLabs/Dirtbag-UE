@@ -14,6 +14,7 @@
 
 #include "DirtbagCharacter.h"
 #include "DirtbagCore.h"
+#include "DirtbagHabits.h"
 #include "DirtbagAilments.h"
 #include "DirtbagBodyContext.h"
 #include "DirtbagMedical.h"
@@ -118,6 +119,17 @@ struct SessionState {
   // exactly as it always did, and a leader who forgot the rack solos the
   // pitch, which is the honest answer rather than a crash.
   Rack rack;
+
+  // **What the person climbing costs and learns**, copied off the career
+  // when the session starts, exactly like the padding and the rack.
+  //
+  // On the session rather than passed down through CommitAttempt because
+  // that is the one place every path already meets: the batch loop, the
+  // live attempt the minigame drives, and the engine's own commit all read
+  // a SessionState, and a parameter would have reached one of the three.
+  // See Sim/DirtbagHabits.h.
+  double betaRate = 1.0;   // how fast this climber wires a line
+  double skinRate = 1.0;   // what a burn costs their tips
 };
 
 SessionState StartSession(const Climber& climber);
@@ -170,7 +182,10 @@ AttemptInput BuildSessionAttemptInput(
     // every golden vector resolves exactly as it did.
     const Medical& med = Medical{}, int day = 0,
     // Being ill, and the tooth. Both neutral by default.
-    const Sickness& sick = Sickness{}, const Teeth& teeth = Teeth{});
+    const Sickness& sick = Sickness{}, const Teeth& teeth = Teeth{},
+    // ...and how you have been climbing, which reaches an attempt the same
+    // way a temperament does. Neutral by default like the rest of the tail.
+    const Quirks& quirks = Quirks{}, const Logbook& logbook = Logbook{});
 void CommitAttempt(SessionState& session, ProjectMemory& memory,
                    const Route& route, const AttemptResult& result,
                    const SessionLoopDials& loop = SessionLoopDials{});
@@ -193,6 +208,8 @@ AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
                                const Character& who = Character{},
                                const Medical& med = Medical{}, int day = 0,
                                const Sickness& sick = Sickness{},
-                               const Teeth& teeth = Teeth{});
+                               const Teeth& teeth = Teeth{},
+                               const Quirks& quirks = Quirks{},
+                               const Logbook& logbook = Logbook{});
 
 }  // namespace dirtbag

@@ -42,6 +42,7 @@
 #include "../DirtbagSponsor.h"
 #include "../DirtbagSport.h"
 #include "../DirtbagTrad.h"
+#include "../DirtbagHabits.h"
 #include "../DirtbagSessionLoop.h"
 
 using namespace dirtbag;
@@ -11646,6 +11647,554 @@ static void TestTheButtressIsTradRock() {
   CHECK(GearOn("Bombproof") > GearOn("Ropeless in a Sense"));
 }
 
+// --- Habits and quirks -------------------------------------------------------
+//
+// One rule, and every test below is about it: a habit is what you have been
+// doing lately and it can change; a quirk is what you turned out to be and
+// it does not.
+
+static void ClimbLike(Logbook& book, int fromDay, int days, Did what,
+                      double perDay, const HabitDials& d = HabitDials{}) {
+  for (int i = 0; i < days; i++) {
+    const int day = fromDay + i;
+    Note(book, Did::Burn, 1.0, day, d);
+    Note(book, Did::DayOut, 1.0, day, d);
+    if (perDay > 0.0) Note(book, what, perDay, day, d);
+  }
+}
+
+static void TestTheLogbookForgets() {
+  HabitDials d;
+  Logbook book;
+  ClimbLike(book, 1, 60, Did::BurnOnOneLine, 1.0, d);
+
+  const double burns = book.count[static_cast<int>(Did::Burn)];
+  CHECK(burns > 0.0);
+  CHECK(book.lifetimeBurns == 60.0);
+
+  // Half a life later, half of it is gone -- and the lifetime count is not,
+  // because the two answer different questions.
+  Logbook faded = book;
+  RememberTo(faded, 60 + static_cast<int>(d.remembersDays), d);
+  const double after = faded.count[static_cast<int>(Did::Burn)];
+  CHECK(after < burns * 0.55 && after > burns * 0.45);
+  CHECK(faded.lifetimeBurns == 60.0);
+
+  // Folding forward twice is folding forward once. The scars shipped a
+  // version of this that compounded, and the ranking shipped one before
+  // that, so it is pinned here rather than trusted.
+  Logbook once = book;
+  RememberTo(once, 200, d);
+  Logbook twice = book;
+  RememberTo(twice, 130, d);
+  RememberTo(twice, 200, d);
+  for (int i = 0; i < kDidCount; i++) {
+    CHECK(std::abs(once.count[i] - twice.count[i]) < 1e-9);
+  }
+
+  // A clock that goes backwards decays nothing rather than growing it.
+  Logbook back = book;
+  RememberTo(back, 1, d);
+  CHECK(std::abs(back.count[static_cast<int>(Did::Burn)] -
+                 book.count[static_cast<int>(Did::Burn)]) < 1e-9);
+}
+
+static void TestOneAfternoonIsNotAHabit() {
+  HabitDials d;
+  Logbook book;
+  // Three days of pure grinding: every burn on one line, which is a ratio
+  // of 1.0 and is still not a habit.
+  ClimbLike(book, 1, 3, Did::BurnOnOneLine, 1.0, d);
+  CHECK(!Doing(book, Habit::Grinder, 4, d));
+  CHECK(HabitsNow(book, 4, d).empty());
+
+  // Keep it up for a season and it is who you have been.
+  ClimbLike(book, 4, 40, Did::BurnOnOneLine, 1.0, d);
+  CHECK(Doing(book, Habit::Grinder, 45, d));
+}
+
+static void TestAHabitCanBeStoppedAndAQuirkCannot() {
+  HabitDials d;
+  Logbook book;
+  Quirks q;
+
+  // Two seasons of grinding, with the night tick running.
+  int day = 1;
+  for (; day <= 40; day++) {
+    Note(book, Did::Burn, 1.0, day, d);
+    Note(book, Did::DayOut, 1.0, day, d);
+    Note(book, Did::BurnOnOneLine, 1.0, day, d);
+    HabitsDay(q, book, day, d);
+  }
+  CHECK(Doing(book, Habit::Grinder, day, d));
+  CHECK(!Has(q, Quirk::Obsessive));   // doing it is not being it, yet
+
+  // Stop, and the habit goes. This is the half a badge system would not
+  // have: nothing was taken away, you simply stopped doing it.
+  for (; day <= 40 + 3 * static_cast<int>(d.remembersDays); day++) {
+    HabitsDay(q, book, day, d);
+  }
+  CHECK(!Doing(book, Habit::Grinder, day, d));
+  CHECK(!Has(q, Quirk::Obsessive));
+  // And the progress toward the quirk drained rather than waiting for you.
+  CHECK(q.heldFor[static_cast<int>(Habit::Grinder)] == 0.0);
+
+  // Now do it long enough that it stops being something you do.
+  Quirks stuck;
+  Logbook book2;
+  int landedOn = -1;
+  for (int i = 1; i <= 400; i++) {
+    Note(book2, Did::Burn, 1.0, i, d);
+    Note(book2, Did::DayOut, 1.0, i, d);
+    Note(book2, Did::BurnOnOneLine, 1.0, i, d);
+    if (HabitsDay(stuck, book2, i, d) == Quirk::Obsessive) landedOn = i;
+  }
+  CHECK(Has(stuck, Quirk::Obsessive));
+  // Two seasons, not two weeks and not two careers.
+  CHECK(landedOn > 180 && landedOn < 260);
+  CHECK(!QuirkLanded(Quirk::Obsessive).empty());
+
+  // And now stop for three years. The habit goes; the person does not.
+  for (int i = 401; i <= 401 + 1000; i++) HabitsDay(stuck, book2, i, d);
+  CHECK(!Doing(book2, Habit::Grinder, 1401, d));
+  CHECK(Has(stuck, Quirk::Obsessive));
+  // Which is the whole trap: the beta bonus stays, and so does the cost.
+  CHECK(HabitBetaRate(stuck, book2, 1401, d) > 1.0);
+  CHECK(HabitSkillGain(stuck, book2, Skill::Head, 1401, d) ==
+        HabitSkillGain(Quirks{}, Logbook{}, Skill::Head, 1401, d));
+}
+
+static void TestNothingHappensToSomebodyWithNoHabits() {
+  // The same invariant Phase 7's `built` flag exists to protect, and for
+  // the same reason: this file multiplies numbers the whole game is
+  // balanced on, and a default that is not exactly neutral silently
+  // rebalances every measurement in the repo.
+  HabitDials d;
+  const Quirks none;
+  const Logbook fresh;
+  for (int i = 0; i < kSkillCount; i++) {
+    CHECK(HabitSkillGain(none, fresh, static_cast<Skill>(i), 500, d) == 1.0);
+  }
+  CHECK(HabitInjuryRisk(none, fresh, 500, d) == 1.0);
+  CHECK(HabitBetaRate(none, fresh, 500, d) == 1.0);
+  CHECK(HabitSkinCost(none, fresh, 500, d) == 1.0);
+  CHECK(HabitNerve(none, fresh, 500, d) == 0.0);
+  CHECK(HabitShiftPay(none) == 1.0);
+  CHECK(HabitDailyCost(none) == 1.0);
+  CHECK(HabitsNow(fresh, 500, d).empty());
+  CHECK(HowYouClimb(none, fresh, 500, d).find("most people") !=
+        std::string::npos);
+}
+
+static void TestEveryHabitCostsSomething() {
+  // A habit that was only ever a bonus would be the game telling you how to
+  // play. Every one of them either starves a lane, costs risk, or is paid
+  // for by the thing it stops you doing.
+  HabitDials d;
+  const auto with = [&](Habit h) {
+    Quirks q;
+    q.held.push_back(HardensInto(h));
+    return q;
+  };
+  const Logbook none;
+
+  // Never warming up: strong, and it catches up with you.
+  CHECK(HabitSkillGain(with(Habit::NeverWarmsUp), none, Skill::Power, 9, d) > 1.0);
+  CHECK(HabitInjuryRisk(with(Habit::NeverWarmsUp), none, 9, d) > 1.0);
+
+  // Plastic: fingers, and a head that has never been anywhere.
+  CHECK(HabitSkillGain(with(Habit::GymRat), none, Skill::Fingers, 9, d) > 1.0);
+  CHECK(HabitSkillGain(with(Habit::GymRat), none, Skill::Head, 9, d) < 1.0);
+
+  // The two leaders. Both real, neither free.
+  CHECK(HabitSkillGain(with(Habit::RunsItOut), none, Skill::Head, 9, d) > 1.0);
+  CHECK(HabitInjuryRisk(with(Habit::RunsItOut), none, 9, d) > 1.0);
+  CHECK(HabitNerve(with(Habit::RunsItOut), none, 9, d) > 0.0);
+  CHECK(HabitSkillGain(with(Habit::SewsItUp), none, Skill::Head, 9, d) < 1.0);
+  CHECK(HabitInjuryRisk(with(Habit::SewsItUp), none, 9, d) < 1.0);
+
+  // Walking away is the right call and it teaches you nothing.
+  CHECK(HabitInjuryRisk(with(Habit::KnowsWhenToStop), none, 9, d) < 1.0);
+  CHECK(HabitSkillGain(with(Habit::KnowsWhenToStop), none, Skill::Head, 9, d) < 1.0);
+  CHECK(HabitNerve(with(Habit::KnowsWhenToStop), none, 9, d) < 0.0);
+
+  // The grinder and the magpie are each other's cost, which is the neatest
+  // pair in the file: one learns lines and the other learns crags.
+  CHECK(HabitBetaRate(with(Habit::Grinder), none, 9, d) > 1.0);
+  CHECK(HabitBetaRate(with(Habit::Tourist), none, 9, d) < 1.0);
+  CHECK(HabitSkillGain(with(Habit::Grinder), none, Skill::Technique, 9, d) > 1.0);
+  CHECK(HabitSkillGain(with(Habit::Tourist), none, Skill::Head, 9, d) > 1.0);
+
+  // Skin of Steel gets exactly one thing and it is the right one -- skin is
+  // not a joint, and a tough-tips discount on tendon injuries would be the
+  // file handing out a bonus twice.
+  CHECK(HabitSkinCost(with(Habit::SkinOfSteel), none, 9, d) < 1.0);
+  CHECK(HabitInjuryRisk(with(Habit::SkinOfSteel), none, 9, d) == 1.0);
+
+  // Every earned quirk has a habit behind it and every habit hardens into
+  // one. A quirk nothing can earn is a save field with a name on it.
+  for (int i = 1; i < kHabitCount; i++) {
+    const Habit h = static_cast<Habit>(i);
+    CHECK(HardensInto(h) != Quirk::None);
+    CHECK(HabitBehind(HardensInto(h)) == h);
+    CHECK(!IsPicked(HardensInto(h)));
+    CHECK(std::string(HabitLine(h)).size() > 10);
+    CHECK(std::string(QuirkLine(HardensInto(h))).size() > 10);
+  }
+}
+
+static void TestPickingOneIsNotBecomingOne() {
+  Quirks q;
+  // The picked ones are the picked ones. Choosing to be obsessive at the
+  // counter is not the same thing as becoming it over two seasons, and this
+  // file's only rule is that the difference matters.
+  CHECK(!Pick(q, Quirk::Obsessive));
+  CHECK(!Pick(q, Quirk::None));
+  CHECK(q.held.empty());
+
+  CHECK(Pick(q, Quirk::Stubborn));
+  CHECK(Has(q, Quirk::Stubborn));
+  CHECK(q.picked == Quirk::Stubborn);
+  // One, and it holds. A career does not get to shop for a second.
+  CHECK(!Pick(q, Quirk::Quiet));
+  CHECK(!Has(q, Quirk::Quiet));
+
+  // And it does something, in a lane no earned quirk touches.
+  CHECK(HabitNerve(q, Logbook{}, 9) > 0.0);
+  Quirks money;
+  CHECK(Pick(money, Quirk::BadWithMoney));
+  CHECK(HabitDailyCost(money) > 1.0);
+  Quirks loud;
+  CHECK(Pick(loud, Quirk::Gregarious));
+  CHECK(HabitShiftPay(loud) < 1.0);
+  Quirks quiet;
+  CHECK(Pick(quiet, Quirk::Quiet));
+  CHECK(HabitShiftPay(quiet) > 1.0);
+
+  // Every pickable one is offered and named.
+  for (int i = 0; i < kQuirkCount; i++) {
+    const Quirk k = static_cast<Quirk>(i);
+    CHECK(std::string(QuirkName(k)).size() > 3);
+    if (!IsPicked(k)) continue;
+    Quirks one;
+    CHECK(Pick(one, k));
+    CHECK(HabitBehind(k) == Habit::None);
+  }
+}
+
+static void TestTheLogbookIsWrittenByClimbing() {
+  // The instrumentation, which is the half of this Phase 7 said it did not
+  // have. Nothing below calls Note: it climbs, and the book fills in.
+  DayDials dd;
+  HabitDials hd;
+  PlayerState player;
+  player.climber = MakeClimber(60, 60, 60, 60, 60);
+  player.day = 1;
+
+  Rng world = Rng::FromStream("habits", Stream::Worldgen);
+  const Route warmup = BuildRoute(world, "Easy Ticket", 0, 0,
+                                  RouteType::Endurance, Discipline::Boulder);
+  const Route limit = BuildRoute(world, "The Hard One", 9, 9,
+                                 RouteType::Crimp, Discipline::Boulder);
+
+  DayState day = WakeUp(player, dd);
+  StartGymSession(player, day, KitDials{}, dd);
+  const Rng session = Rng::FromSeed("book");
+
+  // Climbed through the real path, not a bare ResolveAttempt. The first
+  // draft of this test used one and caught a real ordering: the ledger is
+  // incremented by CommitAttempt, so a first burn read *before* the commit
+  // and a first burn read *after* it are different numbers, and only the
+  // day loop's ordering is the one that ships.
+  const auto burnOn = [&](const Route& route) {
+    ProjectMemory& m = MemoryFor(player, route);
+    const AttemptResult res =
+        AttemptInSession(session, day.session, m, player.climber, route,
+                         Conditions{}, {}, 0.72, SessionDials{},
+                         SessionLoopDials{}, player.character, player.medical,
+                         player.day, player.sickness, player.teeth,
+                         player.quirks, player.logbook);
+    ApplyAttemptToDay(player, day, route, res, world, dd);
+  };
+
+  burnOn(limit);
+  const ProjectMemory& mem = MemoryFor(player, limit);
+
+  const Logbook& book = player.logbook;
+  CHECK(book.count[static_cast<int>(Did::Burn)] == 1.0);
+  // A V9 for a grade-6.4 climber is not a warmup, and the book judges it
+  // the way the player reading it from the ground does.
+  CHECK(book.count[static_cast<int>(Did::BurnAtYourLimit)] == 1.0);
+  CHECK(book.count[static_cast<int>(Did::LineTouched)] == 1.0);
+  CHECK(mem.attempts == 1);
+
+  // A warmup is not a limit burn, and a second go on the same line is not a
+  // new line.
+  burnOn(warmup);
+  CHECK(book.count[static_cast<int>(Did::Burn)] == 2.0);
+  CHECK(book.count[static_cast<int>(Did::BurnAtYourLimit)] == 1.0);
+  CHECK(book.count[static_cast<int>(Did::LineTouched)] == 2.0);
+
+  burnOn(limit);
+  CHECK(book.count[static_cast<int>(Did::Burn)] == 3.0);
+  CHECK(book.count[static_cast<int>(Did::LineTouched)] == 2.0);
+
+  // ...and a line you have fed six burns is a grind.
+  for (int i = 0; i < dd.grindingAfter; i++) burnOn(limit);
+  CHECK(book.count[static_cast<int>(Did::BurnOnOneLine)] > 0.0);
+
+  // The night says what kind of day it was.
+  CHECK(day.firstPullOnHour > 0.0);
+  SleepToNextDay(player, day, world, dd);
+  CHECK(book.count[static_cast<int>(Did::DayOut)] == 1.0);
+  CHECK(book.count[static_cast<int>(Did::DayIndoors)] == 0.0);
+
+  // Nine burns on a V9 takes the tips off, and somebody who climbs until
+  // their skin is gone is not the one who knows when to stop.
+  CHECK(book.count[static_cast<int>(Did::StoppedEarly)] == 0.0);
+
+  // Going home with something left is the decision that makes somebody
+  // cautious, and it is a decision rather than a forecast.
+  // Fresh tips, because yesterday took them all and a night does not give
+  // nine back -- the point of this day is what the climber chose, not what
+  // their skin allowed.
+  player.climber.skin = 9.0;
+  DayState shortDay = WakeUp(player, dd);
+  StartGymSession(player, shortDay, KitDials{}, dd);
+  {
+    ProjectMemory& m = MemoryFor(player, warmup);
+    const AttemptResult res = AttemptInSession(
+        session, shortDay.session, m, player.climber, warmup, Conditions{}, {},
+        0.72, SessionDials{}, SessionLoopDials{}, player.character,
+        player.medical, player.day, player.sickness, player.teeth,
+        player.quirks, player.logbook);
+    ApplyAttemptToDay(player, shortDay, warmup, res, world, dd);
+  }
+  CHECK(shortDay.session.skinLeft > SessionLoopDials{}.thinSkin);
+  SleepToNextDay(player, shortDay, world, dd);
+  CHECK(book.count[static_cast<int>(Did::StoppedEarly)] == 1.0);
+  CHECK(book.count[static_cast<int>(Did::DayOut)] > 1.0);
+
+  // **A session that started and produced nothing is not a day out and is
+  // not a bail.** Measured with the first version of this, which counted
+  // it, a career's last season came out 71 days out and zero burns -- all
+  // of them read as backing off -- so every career in the game ended up
+  // cautious and the weather is what made them that way.
+  PlayerState washedOut;
+  washedOut.climber = player.climber;
+  DayState quiet = WakeUp(washedOut, dd);
+  StartGymSession(washedOut, quiet, KitDials{}, dd);
+  SleepToNextDay(washedOut, quiet, world, dd);
+  CHECK(washedOut.logbook.count[static_cast<int>(Did::StoppedEarly)] == 0.0);
+  CHECK(washedOut.logbook.count[static_cast<int>(Did::DayOut)] == 0.0);
+
+  // ...and a rest day is neither. It only ages the book.
+  PlayerState resting;
+  DayState off = WakeUp(resting, dd);
+  SleepToNextDay(resting, off, world, dd);
+  CHECK(resting.logbook.count[static_cast<int>(Did::DayOut)] == 0.0);
+  CHECK(resting.logbook.count[static_cast<int>(Did::StoppedEarly)] == 0.0);
+  (void)hd;
+}
+
+static void TestGoingToTheGymIsWrittenDownAsGoingToTheGym() {
+  // `atGym` has meant "a session started" since Phase 1 and both the wall
+  // and the crag set it. Nothing needed the distinction until the logbook
+  // did, and getting it wrong would have made every outdoor career a
+  // plastic merchant.
+  DayDials dd;
+  PlayerState player;
+  player.climber = MakeClimber(60, 60, 60, 60, 60);
+  player.kit.membershipDaysLeft = 30;
+  Rng world = Rng::FromStream("gym", Stream::Worldgen);
+
+  Rng session = Rng::FromStream("gymday", Stream::Session);
+  const Route problem = BuildRoute(world, "The Set", 2, 2, RouteType::Crimp,
+                                   Discipline::Boulder);
+  const auto pullOn = [&](DayState& day) {
+    ProjectMemory& m = MemoryFor(player, problem);
+    const AttemptResult res = AttemptInSession(
+        session, day.session, m, player.climber, problem, Conditions{}, {},
+        0.72, SessionDials{}, SessionLoopDials{}, player.character,
+        player.medical, player.day, player.sickness, player.teeth,
+        player.quirks, player.logbook);
+    ApplyAttemptToDay(player, day, problem, res, world, dd);
+  };
+
+  DayState crag = WakeUp(player, dd);
+  StartGymSession(player, crag, KitDials{}, dd);
+  CHECK(crag.atGym);        // a session, which is what the flag means
+  CHECK(!crag.indoors);     // and it is outside
+  pullOn(crag);
+  SleepToNextDay(player, crag, world, dd);
+  CHECK(player.logbook.count[static_cast<int>(Did::DayOut)] == 1.0);
+  CHECK(player.logbook.count[static_cast<int>(Did::DayIndoors)] == 0.0);
+
+  DayState plastic = WakeUp(player, dd);
+  CHECK(GoToTheGym(player, plastic, KitDials{}, dd));
+  CHECK(plastic.indoors);
+  pullOn(plastic);
+  SleepToNextDay(player, plastic, world, dd);
+  CHECK(player.logbook.count[static_cast<int>(Did::DayIndoors)] > 0.0);
+}
+
+static void TestAHabitReachesTheWall() {
+  // The thing every one of these systems has shipped without at least once:
+  // the effect existing and nothing reading it. Three seams, three checks,
+  // each against the number the game actually uses.
+  HabitDials hd;
+  Quirks bold;
+  bold.held.push_back(Quirk::Bold);
+
+  // Nerve, through the body context and onto the attempt -- which is how a
+  // temperament gets there, and is why this is the same line rather than a
+  // second one.
+  Climber c = MakeClimber(60, 60, 60, 60, 60);
+  Rng world = Rng::FromStream("wall", Stream::Worldgen);
+  const Route pitch = BuildRoute(world, "Above The Gear", 5, 5,
+                                 RouteType::Crack, Discipline::Trad);
+  AttemptInput steady = MakeInput(c, pitch);
+  AttemptInput brave = MakeInput(c, pitch);
+  BodyContext plain;
+  plain.day = 500;
+  BodyContext theirs = plain;
+  theirs.quirks = bold;
+  ApplyBody(steady, plain);
+  ApplyBody(brave, theirs);
+  CHECK(brave.boldness > steady.boldness);
+
+  // Skin and beta, through the session state, which is where a habit meets
+  // a burn -- and both of them off the career rather than off a parameter,
+  // because a parameter would have reached one of the three attempt paths.
+  DayDials dd;
+  PlayerState tough;
+  tough.climber = c;
+  tough.quirks.held.push_back(Quirk::Leathery);
+  tough.day = 500;
+  DayState day = WakeUp(tough, dd);
+  StartGymSession(tough, day, KitDials{}, dd);
+  CHECK(day.session.skinRate < 1.0);
+
+  PlayerState keen;
+  keen.climber = c;
+  keen.quirks.held.push_back(Quirk::Obsessive);
+  keen.day = 500;
+  DayState keenDay = WakeUp(keen, dd);
+  StartGymSession(keen, keenDay, KitDials{}, dd);
+  CHECK(keenDay.session.betaRate > 1.0);
+
+  // And the skin rate is spent rather than stored: the same burn costs a
+  // leathery climber less of their tips.
+  SessionState plainSession = StartSession(c);
+  SessionState hard = plainSession;
+  hard.skinRate = HabitSkinCost(tough.quirks, tough.logbook, 500, hd);
+  ProjectMemory m1, m2;
+  AttemptResult burn;
+  burn.skinCost = 1.0;
+  burn.timeline.push_back(MoveResult{});
+  CommitAttempt(plainSession, m1, pitch, burn);
+  CommitAttempt(hard, m2, pitch, burn);
+  CHECK(hard.skinLeft > plainSession.skinLeft);
+  // ...and the beta rate the same way.
+  SessionState slow = StartSession(c);
+  SessionState fast = slow;
+  fast.betaRate = HabitBetaRate(keen.quirks, keen.logbook, 500, hd);
+  ProjectMemory m3, m4;
+  AttemptResult go;
+  go.highpoint = 4;
+  for (int i = 0; i < 4; i++) go.timeline.push_back(MoveResult{});
+  CommitAttempt(slow, m3, pitch, go);
+  CommitAttempt(fast, m4, pitch, go);
+  CHECK(m4.beta > m3.beta);
+}
+
+static void TestWhoYouBecameSurvivesTheSave() {
+  HabitDials d;
+  SaveGame save;
+  save.seed = "two-seasons";
+  save.player.day = 400;
+  Note(save.player.logbook, Did::Burn, 40.0, 380, d);
+  Note(save.player.logbook, Did::BurnOnOneLine, 33.0, 380, d);
+  Note(save.player.logbook, Did::DayOut, 30.0, 380, d);
+  save.player.quirks.held.push_back(Quirk::Obsessive);
+  save.player.quirks.held.push_back(Quirk::Leathery);
+  save.player.quirks.heldFor[static_cast<int>(Habit::Tourist)] = 44.0;
+  CHECK(Pick(save.player.quirks, Quirk::Superstitious));
+  save.player.becameToday = Quirk::Leathery;
+
+  const std::string text = SerializeSave(save);
+  SaveGame back;
+  CHECK(DeserializeSave(text, back) == LoadResult::Ok);
+  CHECK(back.player.logbook.asOfDay == 380);
+  CHECK(back.player.logbook.lifetimeBurns == 40.0);
+  CHECK(Has(back.player.quirks, Quirk::Obsessive));
+  CHECK(Has(back.player.quirks, Quirk::Leathery));
+  CHECK(Has(back.player.quirks, Quirk::Superstitious));
+  CHECK(back.player.quirks.picked == Quirk::Superstitious);
+  CHECK(back.player.quirks.heldFor[static_cast<int>(Habit::Tourist)] == 44.0);
+  CHECK(back.player.becameToday == Quirk::Leathery);
+  // And the effects come back with it, which is the thing that matters:
+  // a save that carried the flags and dropped the counters would load a
+  // climber who is obsessive and learns lines at the ordinary rate.
+  CHECK(HabitBetaRate(back.player.quirks, back.player.logbook, 400, d) ==
+        HabitBetaRate(save.player.quirks, save.player.logbook, 400, d));
+
+  // A v33 career climbed without anybody counting, and loads as nobody.
+  std::string v33 = text;
+  DropSaveLine(v33, "log.asof=");
+  for (int i = 0; i < kDidCount; i++) {
+    DropSaveLine(v33, ("log.n" + std::to_string(i) + "=").c_str());
+  }
+  DropSaveLine(v33, "log.burns=");
+  DropSaveLine(v33, "log.days=");
+  DropSaveLine(v33, "quirk.picked=");
+  DropSaveLine(v33, "quirk.n=");
+  DropSaveLine(v33, "quirk.0=");
+  DropSaveLine(v33, "quirk.1=");
+  DropSaveLine(v33, "quirk.2=");
+  DropSaveLine(v33, "quirk.became=");
+  for (int i = 0; i < kHabitCount; i++) {
+    DropSaveLine(v33, ("quirk.h" + std::to_string(i) + "=").c_str());
+  }
+  SetSaveVersion(v33, 33);
+  SaveGame old;
+  CHECK(DeserializeSave(v33, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(old.player.quirks.held.empty());
+  CHECK(old.player.logbook.lifetimeBurns == 0.0);
+  // Exactly neutral, so a career loads with the numbers it was measured
+  // with rather than being ambushed by a system that did not exist for it.
+  CHECK(HabitBetaRate(old.player.quirks, old.player.logbook, 400, d) == 1.0);
+  CHECK(old.seed == save.seed);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+}
+
+static void TestYouCanSayHowYouClimbInOneSentence() {
+  // Phase 7's gate 3 asked that a player can say who their climber is
+  // without reading a stat line. This is the other half of that question --
+  // *how do you climb* -- and it is answered separately on purpose,
+  // because a phase and a person are not the same thing.
+  HabitDials d;
+  Logbook book;
+  Quirks q;
+  for (int i = 1; i <= 40; i++) {
+    Note(book, Did::Burn, 1.0, i, d);
+    Note(book, Did::DayOut, 1.0, i, d);
+    Note(book, Did::BurnOnOneLine, 1.0, i, d);
+  }
+  const std::string doing = HowYouClimb(q, book, 41, d);
+  CHECK(doing.find("One line") != std::string::npos);
+  CHECK(doing.find("by now you are") == std::string::npos);
+
+  q.held.push_back(Quirk::Obsessive);
+  q.held.push_back(Quirk::Leathery);
+  const std::string both = HowYouClimb(q, book, 41, d);
+  CHECK(both.find("One line") != std::string::npos);
+  CHECK(both.find("obsessive and leathery") != std::string::npos);
+  // Never a number.
+  for (char ch : both) CHECK(!(ch >= '0' && ch <= '9'));
+}
+
 // --- Age ---------------------------------------------------------------------
 
 static void TestAgeIsDerivedNotStored() {
@@ -12632,6 +13181,17 @@ int main() {
   TestARackIsTheMostExpensiveThingYouOwn();
   TestTheRackSurvivesTheSave();
   TestTheButtressIsTradRock();
+  TestTheLogbookForgets();
+  TestOneAfternoonIsNotAHabit();
+  TestAHabitCanBeStoppedAndAQuirkCannot();
+  TestNothingHappensToSomebodyWithNoHabits();
+  TestEveryHabitCostsSomething();
+  TestPickingOneIsNotBecomingOne();
+  TestTheLogbookIsWrittenByClimbing();
+  TestGoingToTheGymIsWrittenDownAsGoingToTheGym();
+  TestAHabitReachesTheWall();
+  TestWhoYouBecameSurvivesTheSave();
+  TestYouCanSayHowYouClimbInOneSentence();
   TestAgeIsDerivedNotStored();
   TestNothingIsTakenBeforeThePeak();
   TestPowerGoesFirstAndTechniqueNeverGoes();

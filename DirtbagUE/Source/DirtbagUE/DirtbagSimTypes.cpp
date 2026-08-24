@@ -6,6 +6,8 @@ static_assert(static_cast<int>(EDirtbagHold::Crack) == static_cast<int>(dirtbag:
 static_assert(static_cast<int>(EDirtbagRouteType::Crack) == static_cast<int>(dirtbag::RouteType::Crack), "RouteType enums out of sync");
 static_assert(static_cast<int>(EDirtbagDiscipline::Trad) == static_cast<int>(dirtbag::Discipline::Trad), "Discipline enums out of sync");
 static_assert(static_cast<int>(EDirtbagRackTier::Doubles) == static_cast<int>(dirtbag::RackTier::Doubles), "RackTier enums out of sync");
+static_assert(static_cast<int>(EDirtbagHabit::SewsItUp) == static_cast<int>(dirtbag::Habit::SewsItUp), "Habit enums out of sync");
+static_assert(static_cast<int>(EDirtbagQuirk::Quiet) == static_cast<int>(dirtbag::Quirk::Quiet), "Quirk enums out of sync");
 static_assert(static_cast<int>(EDirtbagStyle::Fell) == static_cast<int>(dirtbag::Style::Fell), "Style enums out of sync");
 static_assert(static_cast<int>(EDirtbagMorphology::Powerful) == static_cast<int>(dirtbag::Morphology::Powerful), "Morphology enums out of sync");
 static_assert(static_cast<int>(EDirtbagRouteRead::NotThisYear) == static_cast<int>(dirtbag::RouteRead::NotThisYear), "RouteRead enums out of sync");
@@ -69,6 +71,8 @@ dirtbag::SessionState ToSim(const FDirtbagSessionState& In)
 	Out.padding = In.Padding;
 	Out.shoeWear = In.ShoeWear;
 	Out.rack = ToSim(In.Rack);
+	Out.betaRate = In.BetaRate;
+	Out.skinRate = In.SkinRate;
 	return Out;
 }
 
@@ -153,6 +157,8 @@ FDirtbagSessionState FromSim(const dirtbag::SessionState& In)
 	Out.AttemptsMade = In.attemptsMade;
 	Out.Padding = In.padding;
 	Out.Rack = FromSim(In.rack);
+	Out.BetaRate = In.betaRate;
+	Out.SkinRate = In.skinRate;
 	return Out;
 }
 
@@ -180,6 +186,9 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.name = TCHAR_TO_UTF8(*In.Name);
 	Out.climber = ToSim(In.Climber);
 	Out.character = ToSim(In.Character);
+	Out.logbook = ToSim(In.Logbook);
+	Out.quirks = ToSim(In.Quirks);
+	Out.becameToday = static_cast<dirtbag::Quirk>(In.BecameToday);
 	Out.rival = ToSim(In.Rival);
 	Out.rankingPoints = In.RankingPoints;
 	Out.rankingRecord.reserve(In.RankingRecord.Num());
@@ -242,6 +251,8 @@ dirtbag::DayState ToSim(const FDirtbagDayState& In)
 	Out.hunger = In.Hunger;
 	Out.atGym = In.bAtGym;
 	Out.hangboardDone = In.bHangboardDone;
+	Out.indoors = In.bIndoors;
+	Out.firstPullOnHour = In.FirstPullOnHour;
 	Out.session = ToSim(In.Session);
 	return Out;
 }
@@ -251,6 +262,9 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	FDirtbagPlayerState Out;
 	Out.Name = FString(In.name.c_str());
 	Out.Character = FromSim(In.character);
+	Out.Logbook = FromSim(In.logbook);
+	Out.Quirks = FromSim(In.quirks);
+	Out.BecameToday = static_cast<EDirtbagQuirk>(In.becameToday);
 	Out.Rival = FromSim(In.rival);
 	Out.RankingPoints = In.rankingPoints;
 	Out.RankingRecord.Reset(In.rankingRecord.size());
@@ -321,6 +335,8 @@ FDirtbagDayState FromSim(const dirtbag::DayState& In)
 	Out.Hunger = In.hunger;
 	Out.bAtGym = In.atGym;
 	Out.bHangboardDone = In.hangboardDone;
+	Out.bIndoors = In.indoors;
+	Out.FirstPullOnHour = In.firstPullOnHour;
 	Out.Session = FromSim(In.session);
 	return Out;
 }
@@ -463,6 +479,71 @@ dirtbag::Sponsorship ToSim(const FDirtbagSponsorship& In)
 	Out.daysHurtThisSeason = In.DaysHurtThisSeason;
 	Out.gradeAtLastReview = In.GradeAtLastReview;
 	Out.seasonsWithoutProgress = In.SeasonsWithoutProgress;
+	return Out;
+}
+
+FDirtbagLogbook FromSim(const dirtbag::Logbook& In)
+{
+	FDirtbagLogbook Out;
+	Out.Count.Reserve(dirtbag::kDidCount);
+	for (int i = 0; i < dirtbag::kDidCount; i++)
+	{
+		Out.Count.Add(In.count[i]);
+	}
+	Out.AsOfDay = In.asOfDay;
+	Out.LifetimeBurns = In.lifetimeBurns;
+	Out.LifetimeDays = In.lifetimeDays;
+	return Out;
+}
+
+dirtbag::Logbook ToSim(const FDirtbagLogbook& In)
+{
+	dirtbag::Logbook Out;
+	// A mirror arriving with the wrong number of lanes is a mirror from
+	// another build; take what fits and leave the rest at zero rather than
+	// reading off the end of it.
+	const int Lanes = FMath::Min(In.Count.Num(), dirtbag::kDidCount);
+	for (int i = 0; i < Lanes; i++)
+	{
+		Out.count[i] = In.Count[i];
+	}
+	Out.asOfDay = In.AsOfDay;
+	Out.lifetimeBurns = In.LifetimeBurns;
+	Out.lifetimeDays = In.LifetimeDays;
+	return Out;
+}
+
+FDirtbagQuirks FromSim(const dirtbag::Quirks& In)
+{
+	FDirtbagQuirks Out;
+	Out.Held.Reserve(In.held.size());
+	for (dirtbag::Quirk Q : In.held)
+	{
+		Out.Held.Add(static_cast<EDirtbagQuirk>(Q));
+	}
+	Out.HeldFor.Reserve(dirtbag::kHabitCount);
+	for (int i = 0; i < dirtbag::kHabitCount; i++)
+	{
+		Out.HeldFor.Add(In.heldFor[i]);
+	}
+	Out.Picked = static_cast<EDirtbagQuirk>(In.picked);
+	return Out;
+}
+
+dirtbag::Quirks ToSim(const FDirtbagQuirks& In)
+{
+	dirtbag::Quirks Out;
+	Out.held.reserve(In.Held.Num());
+	for (EDirtbagQuirk Q : In.Held)
+	{
+		Out.held.push_back(static_cast<dirtbag::Quirk>(Q));
+	}
+	const int Lanes = FMath::Min(In.HeldFor.Num(), dirtbag::kHabitCount);
+	for (int i = 0; i < Lanes; i++)
+	{
+		Out.heldFor[i] = In.HeldFor[i];
+	}
+	Out.picked = static_cast<dirtbag::Quirk>(In.Picked);
 	return Out;
 }
 

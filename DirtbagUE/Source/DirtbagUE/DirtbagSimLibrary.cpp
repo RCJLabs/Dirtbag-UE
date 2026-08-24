@@ -285,7 +285,10 @@ FDirtbagAttemptResult UDirtbagSimLibrary::DayAttempt(
 	const dirtbag::AttemptResult Result = dirtbag::AttemptInSession(
 	    SessionRng, SimDay.session, dirtbag::MemoryFor(SimPlayer, SimRoute),
 	    dirtbag::ClimberForSession(SimPlayer, SimDay), SimRoute, Conditions, {},
-	    BotExecution);
+	    BotExecution, dirtbag::SessionDials{}, dirtbag::SessionLoopDials{},
+	    SimPlayer.character, SimPlayer.medical, SimPlayer.day,
+	    SimPlayer.sickness, SimPlayer.teeth, SimPlayer.quirks,
+	    SimPlayer.logbook);
 	dirtbag::ApplyAttemptToDay(SimPlayer, SimDay, SimRoute, Result,
 	                           dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*SessionSeed)));
 
@@ -706,6 +709,67 @@ FString UDirtbagSimLibrary::RackText(const FDirtbagRack& Rack)
 {
 	return UTF8_TO_TCHAR(
 	    dirtbag::RackText(DirtbagConvert::ToSim(Rack)).c_str());
+}
+
+// --- Habits and quirks -------------------------------------------------------
+
+TArray<EDirtbagHabit> UDirtbagSimLibrary::HabitsNow(
+    const FDirtbagLogbook& Logbook, int32 Today)
+{
+	TArray<EDirtbagHabit> Out;
+	for (dirtbag::Habit H :
+	     dirtbag::HabitsNow(DirtbagConvert::ToSim(Logbook), Today))
+	{
+		Out.Add(static_cast<EDirtbagHabit>(H));
+	}
+	return Out;
+}
+
+FString UDirtbagSimLibrary::HabitName(EDirtbagHabit Habit)
+{
+	return UTF8_TO_TCHAR(dirtbag::HabitName(static_cast<dirtbag::Habit>(Habit)));
+}
+
+FString UDirtbagSimLibrary::HabitLine(EDirtbagHabit Habit)
+{
+	return UTF8_TO_TCHAR(dirtbag::HabitLine(static_cast<dirtbag::Habit>(Habit)));
+}
+
+FString UDirtbagSimLibrary::QuirkName(EDirtbagQuirk Quirk)
+{
+	return UTF8_TO_TCHAR(dirtbag::QuirkName(static_cast<dirtbag::Quirk>(Quirk)));
+}
+
+FString UDirtbagSimLibrary::QuirkLine(EDirtbagQuirk Quirk)
+{
+	return UTF8_TO_TCHAR(dirtbag::QuirkLine(static_cast<dirtbag::Quirk>(Quirk)));
+}
+
+EDirtbagHabit UDirtbagSimLibrary::HabitBehind(EDirtbagQuirk Quirk)
+{
+	return static_cast<EDirtbagHabit>(
+	    dirtbag::HabitBehind(static_cast<dirtbag::Quirk>(Quirk)));
+}
+
+bool UDirtbagSimLibrary::IsPickedQuirk(EDirtbagQuirk Quirk)
+{
+	return dirtbag::IsPicked(static_cast<dirtbag::Quirk>(Quirk));
+}
+
+FString UDirtbagSimLibrary::QuirkLanded(EDirtbagQuirk Quirk)
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::QuirkLanded(static_cast<dirtbag::Quirk>(Quirk)).c_str());
+}
+
+FString UDirtbagSimLibrary::HowYouClimb(const FDirtbagQuirks& Quirks,
+                                        const FDirtbagLogbook& Logbook,
+                                        int32 Today)
+{
+	return UTF8_TO_TCHAR(dirtbag::HowYouClimb(DirtbagConvert::ToSim(Quirks),
+	                                          DirtbagConvert::ToSim(Logbook),
+	                                          Today)
+	                         .c_str());
 }
 
 // --- The town ----------------------------------------------------------------

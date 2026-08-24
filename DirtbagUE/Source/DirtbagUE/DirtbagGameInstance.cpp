@@ -1336,6 +1336,8 @@ const TCHAR* CreationQuestion(EDirtbagCreationStep Step)
 		return TEXT("How did you end up here?");
 	case EDirtbagCreationStep::Flaw:
 		return TEXT("And what is wrong with you?");
+	case EDirtbagCreationStep::Quirk:
+		return TEXT("One more thing about you.");
 	default:
 		return TEXT("What are you like?");
 	}
@@ -1380,6 +1382,18 @@ void UDirtbagGameInstance::RefreshCreation()
 			Add(UTF8_TO_TCHAR(D.name),
 			    *FString::Printf(TEXT("%s  %s"), UTF8_TO_TCHAR(D.blurb),
 			                     UTF8_TO_TCHAR(D.perk)));
+		}
+		break;
+	case EDirtbagCreationStep::Quirk:
+		// Only the pickable ones, and read off the sim's own enum rather
+		// than restated here -- a second list of six quirks in engine code
+		// is two lists that disagree by Christmas.
+		for (int32 i = static_cast<int32>(dirtbag::Quirk::LightSleeper);
+		     i < dirtbag::kQuirkCount; i++)
+		{
+			const dirtbag::Quirk Q = static_cast<dirtbag::Quirk>(i);
+			Add(UTF8_TO_TCHAR(dirtbag::QuirkName(Q)),
+			    UTF8_TO_TCHAR(dirtbag::QuirkLine(Q)));
 		}
 		break;
 	case EDirtbagCreationStep::Flaw:
@@ -2405,10 +2419,23 @@ bool UDirtbagGameInstance::ChooseInCreation(int32 Which)
 		Player.Character.Flaw = static_cast<EDirtbagFlaw>(Which);
 		C.Step = EDirtbagCreationStep::Temperament;
 		break;
-	default:
-	{
+	case EDirtbagCreationStep::Temperament:
 		Player.Character.Temperament =
 		    static_cast<EDirtbagTemperament>(Which);
+		C.Step = EDirtbagCreationStep::Quirk;
+		break;
+	default:
+	{
+		// The picked quirk. Through the sim's own Pick, which refuses an
+		// earned one -- choosing to be obsessive at the counter is not the
+		// same thing as becoming it over two seasons, and that difference
+		// is the whole rule the habits file is built on.
+		{
+			dirtbag::Quirks Q = DirtbagConvert::ToSim(Player.Quirks);
+			const int First = static_cast<int>(dirtbag::Quirk::LightSleeper);
+			dirtbag::Pick(Q, static_cast<dirtbag::Quirk>(First + Which));
+			Player.Quirks = DirtbagConvert::FromSim(Q);
+		}
 
 		// Everything answered, so the sim builds the person: the archetype's
 		// shape, the origin's life, the temperament leaned by where you came

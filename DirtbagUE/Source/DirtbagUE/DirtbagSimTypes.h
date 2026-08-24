@@ -45,6 +45,7 @@
 // DirtbagGameInstance.cpp and the build died on a container-green commit.
 #include "DirtbagSport.h"
 #include "DirtbagTrad.h"
+#include "DirtbagHabits.h"
 
 #include "DirtbagSimTypes.generated.h"
 
@@ -262,6 +263,88 @@ struct FDirtbagAttemptResult
 	TArray<double> Gear;
 };
 
+/** What you have been doing lately. Counters that decay on a half-life,
+ *  so this is "the last season" without storing three months of dated
+ *  entries. Mirrors dirtbag::Logbook. */
+USTRUCT(BlueprintType)
+struct FDirtbagLogbook
+{
+	GENERATED_BODY()
+
+	/** Parallel to dirtbag::Did, and decayed to AsOfDay. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
+	TArray<double> Count;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
+	int32 AsOfDay = 0;
+
+	/** Never decays. What a career did, as opposed to what it is doing. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
+	double LifetimeBurns = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
+	double LifetimeDays = 0.0;
+};
+
+/** How you have been climbing. Derived from the logbook, never stored —
+ *  stop doing the thing and it goes. Mirrors dirtbag::Habit. */
+UENUM(BlueprintType)
+enum class EDirtbagHabit : uint8
+{
+	None,
+	DawnPatrol,
+	Grinder,
+	Tourist,
+	NeverWarmsUp,
+	GymRat,
+	SkinOfSteel,
+	KnowsWhenToStop,
+	RunsItOut,
+	SewsItUp
+};
+
+/** What you turned out to be. Permanent. Mirrors dirtbag::Quirk. */
+UENUM(BlueprintType)
+enum class EDirtbagQuirk : uint8
+{
+	None,
+	MorningPerson,
+	Obsessive,
+	Magpie,
+	Impatient,
+	PlasticMerchant,
+	Leathery,
+	Cautious,
+	Bold,
+	Fastidious,
+	LightSleeper,
+	BadWithMoney,
+	Superstitious,
+	Stubborn,
+	Gregarious,
+	Quiet
+};
+
+/** What has stuck, and how close the rest are. Mirrors dirtbag::Quirks. */
+USTRUCT(BlueprintType)
+struct FDirtbagQuirks
+{
+	GENERATED_BODY()
+
+	/** In the order they landed, which is a small biography. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
+	TArray<EDirtbagQuirk> Held;
+
+	/** Days each habit has held, drained when it lapses. Parallel to
+	 *  dirtbag::Habit. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
+	TArray<double> HeldFor;
+
+	/** What you chose at the start, if anything. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
+	EDirtbagQuirk Picked = EDirtbagQuirk::None;
+};
+
 /** What is on the shelf, in the order a dirtbag buys it. Mirrors
  *  dirtbag::RackTier. */
 UENUM(BlueprintType)
@@ -333,6 +416,15 @@ struct FDirtbagSessionState
 	 *  leader whose rack was erased solos the pitch. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	FDirtbagRack Rack;
+
+	/** What the person climbing costs and learns, copied off the career
+	 *  when the session starts. A grinder wires a line faster than anybody;
+	 *  a leathery climber's tips last longer. See Sim/DirtbagHabits.h. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double BetaRate = 1.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double SkinRate = 1.0;
 };
 
 USTRUCT(BlueprintType)
@@ -1860,6 +1952,18 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Character")
 	FDirtbagCharacter Character;
 
+	/** How you have been climbing, and what it made you. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
+	FDirtbagLogbook Logbook;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
+	FDirtbagQuirks Quirks;
+
+	/** What you became last night, or None, which is almost every night.
+	 *  A line the player reads once. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
+	EDirtbagQuirk BecameToday = EDirtbagQuirk::None;
+
 	/** Somebody to beat. Not the nemesis, which is a route. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
 	FDirtbagRival Rival;
@@ -1983,6 +2087,17 @@ struct FDirtbagDayState
 	/** One board session a day. Without the cap, skin bought eleven. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	bool bHangboardDone = false;
+
+	/** Was it plastic. `bAtGym` means *a session started today* and both
+	 *  the wall and the crag set it — a name that has been wrong since
+	 *  Phase 1 and that nothing needed until the logbook did. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	bool bIndoors = false;
+
+	/** When you actually pulled on, or -1 if you never did. The dawn
+	 *  patrol is a habit about the clock. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double FirstPullOnHour = -1.0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	FDirtbagSessionState Session;
@@ -2233,6 +2348,10 @@ namespace DirtbagConvert
 	dirtbag::Sponsorship ToSim(const FDirtbagSponsorship& In);
 	FDirtbagKit FromSim(const dirtbag::Kit& In);
 	FDirtbagRack FromSim(const dirtbag::Rack& In);
+	FDirtbagLogbook FromSim(const dirtbag::Logbook& In);
+	dirtbag::Logbook ToSim(const FDirtbagLogbook& In);
+	FDirtbagQuirks FromSim(const dirtbag::Quirks& In);
+	dirtbag::Quirks ToSim(const FDirtbagQuirks& In);
 	dirtbag::Rack ToSim(const FDirtbagRack& In);
 	dirtbag::Kit ToSim(const FDirtbagKit& In);
 	FDirtbagStanding FromSim(const dirtbag::Standing& In);

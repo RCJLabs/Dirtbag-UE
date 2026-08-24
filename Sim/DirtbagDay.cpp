@@ -1,6 +1,7 @@
 #include "DirtbagDay.h"
 
 #include "DirtbagBody.h"
+#include "DirtbagSport.h"
 
 #include <algorithm>
 #include <cmath>
@@ -94,6 +95,7 @@ bool WorkOddJob(PlayerState& player, DayState& day, const OddJob& job,
   // choice; and **how good you are at the job**, which is the only one of
   // the three you can do anything about.
   Pay(player, job.pay * ShiftPayMultiplier(player.character) *
+                  HabitShiftPay(player.quirks) *
                   CraftPay(player.hand, craft) * went.payMultiplier);
   player.job.daysWorked++;
 
@@ -215,7 +217,15 @@ void StartGymSession(PlayerState& player, DayState& day, const KitDials& kit,
   // carried in. GoToTheGym does not override it — there is nothing indoors
   // to place it on, and a trad route in a gym is not a thing.
   day.session.rack = player.rack;
+  // And who is climbing, which is the same rule again: what you walked in
+  // with. Read once at the start of the session rather than per burn,
+  // because a habit does not change between goes.
+  day.session.betaRate =
+      HabitBetaRate(player.quirks, player.logbook, player.day);
+  day.session.skinRate =
+      HabitSkinCost(player.quirks, player.logbook, player.day);
   day.atGym = true;
+  day.indoors = false;   // GoToTheGym says otherwise, and it is the only thing that does
 }
 
 bool GoToTheGym(PlayerState& player, DayState& day, const KitDials& kit,
@@ -226,6 +236,7 @@ bool GoToTheGym(PlayerState& player, DayState& day, const KitDials& kit,
   // Full mats, every time. This is what you are actually paying for on the
   // days the weather has already decided for you.
   day.session.padding = 1.0;
+  day.indoors = true;
   return true;
 }
 
@@ -277,6 +288,61 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
 
   if (result.timeline.empty()) return;
 
+  // **What sort of go that was.** The instrumentation Phase 7 said this
+  // needed and did not have: the resolver knows what happened on one route
+  // and the ledger knows what has happened on one line, and until now
+  // nothing anywhere could answer *what sort of climber is this*.
+  //
+  // Here rather than in the session loop because this is the one function
+  // every burn in the game passes through -- the batch loop, the live
+  // attempt, the engine's own commit -- and because it is the only one that
+  // has the whole career in its hands.
+  {
+    Logbook& book = player.logbook;
+    if (day.firstPullOnHour < 0.0) day.firstPullOnHour = day.hour;
+    Note(book, Did::Burn, 1.0, player.day);
+
+    // Your limit, judged the way the guidebook judges it, so "never warms
+    // up" means the same thing to the logbook as to the player reading the
+    // line from the ground.
+    const RouteRead read = ReadRoute(player.climber, route);
+    if (read == RouteRead::AtYourLimit || read == RouteRead::Project ||
+        read == RouteRead::NotThisYear) {
+      Note(book, Did::BurnAtYourLimit, 1.0, player.day);
+    }
+    // The session advice's own number, read rather than copied: "climbs on
+    // nothing" and "your tips are gone" have to mean the same thing.
+    if (day.session.skinLeft <= SessionLoopDials{}.thinSkin) {
+      Note(book, Did::BurnOnThinSkin, 1.0, player.day);
+    }
+
+    // The line, and whether it is a new one. `attempts` has not been
+    // incremented for this burn yet on the live path, so the ledger is
+    // read before the commit rather than after -- a first burn read
+    // afterwards is never the first burn.
+    const ProjectMemory& mem = MemoryFor(player, route);
+    if (mem.attempts <= 1) Note(book, Did::LineTouched, 1.0, player.day);
+    if (mem.attempts >= dials.grindingAfter) {
+      Note(book, Did::BurnOnOneLine, 1.0, player.day);
+    }
+
+    // And how it was led, which only means anything on gear.
+    if (route.discipline == Discipline::Trad) {
+      const int moves = static_cast<int>(result.timeline.size());
+      Note(book, Did::MoveOnGear, moves, player.day);
+      int pieces = 0, unprotected = 0;
+      for (int i = 0; i < moves; i++) {
+        if (i < static_cast<int>(result.gear.quality.size()) &&
+            result.gear.quality[i] > 0.0) {
+          pieces++;
+        }
+        if (!OnTheRope(route, i, SportDials{}, result.gear)) unprotected++;
+      }
+      Note(book, Did::PiecePlaced, pieces, player.day);
+      Note(book, Did::MoveRunOut, unprotected, player.day);
+    }
+  }
+
   // Rubber goes by the move, and faster the harder you pull.
   WearShoes(player.shoes, static_cast<int>(result.timeline.size()),
             route.trueGrade);
@@ -324,6 +390,11 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
                    day.session.attemptsMade, challenge, hardest,
                    day.session.warmth, BodyDials{}, AgeDials{},
                    InjuryRiskMultiplier(player.character) *
+                       // And how you have been climbing, which is the one
+                       // of these three you chose by doing rather than by
+                       // being born or by paying.
+                       HabitInjuryRisk(player.quirks, player.logbook,
+                                       player.day) *
                        BodyRisk(player.medical, player.day) *
                        // **Twenty minutes of a morning, and the only thing
                        // in the medical half of this game that makes the
@@ -365,7 +436,9 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
   const bool indoor = day.atGym;
   const auto teach = [&](Skill lane, double base) {
     const double mult = SkillGainMultiplier(player.character, lane, indoor,
-                                           false, player.climber.psyche);
+                                           false, player.climber.psyche) *
+                        HabitSkillGain(player.quirks, player.logbook, lane,
+                                       player.day);
     WorkedOn(player.character, lane, base > 0.0 ? 1.0 : 0.0);
     return base * mult;
   };
@@ -411,6 +484,36 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
 
 void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
                     const DayDials& dials) {
+  // **What kind of day that was.** Counted at the end because that is the
+  // only point where the answer is known -- whether you got on anything is
+  // not a thing you can ask at breakfast.
+  // A day out is a day you got on something. A session that started and
+  // produced nothing is not a day out and is not a bail either -- it is the
+  // rock not being in condition, which happens constantly here and is not a
+  // fact about the climber.
+  if (day.atGym && day.firstPullOnHour >= 0.0) {
+    Note(player.logbook, Did::DayOut, 1.0, player.day);
+    if (day.indoors) Note(player.logbook, Did::DayIndoors, 1.0, player.day);
+    if (day.firstPullOnHour <= dials.dawnBefore) {
+      Note(player.logbook, Did::DawnStart, 1.0, player.day);
+    }
+    // **Went home with something left**, which is a decision rather than a
+    // forecast. Read against the same thin-skin line the session advice
+    // uses to say "your tips are gone; jugs or go home" -- somebody who
+    // stops above it stopped because they chose to.
+    if (day.session.skinLeft > SessionLoopDials{}.thinSkin) {
+      Note(player.logbook, Did::StoppedEarly, 1.0, player.day);
+    }
+  } else {
+    // A day you did not climb still passes, and the logbook has to know --
+    // otherwise a winter off reads as a winter of whatever you were doing
+    // in the autumn, forever, because nothing decayed it.
+    RememberTo(player.logbook, player.day);
+  }
+  // And whether any of it has been going on long enough to have stopped
+  // being something you do.
+  player.becameToday = HabitsDay(player.quirks, player.logbook, player.day);
+
   // The wall's tab comes home: today's remaining skin is tomorrow's start.
   if (day.atGym) {
     player.climber.skin = day.session.skinLeft;
@@ -609,7 +712,8 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
       (player.day - 1) % dials.billsEveryDays == 0) {
     // What living costs *you*. The Desert Local's lane: you know how to
     // live on nothing, and it never stops being true.
-    Charge(player, dials.billsAmount * DailyCostMultiplier(player.character));
+    Charge(player, dials.billsAmount * DailyCostMultiplier(player.character) *
+                       HabitDailyCost(player.quirks));
   }
 
   // A hungry night is a bad night: recovery scales down toward the floor.

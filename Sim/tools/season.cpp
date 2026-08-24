@@ -25,6 +25,7 @@
 #include "DirtbagCrag.h"
 #include "DirtbagSport.h"
 #include "DirtbagTrad.h"
+#include "DirtbagHabits.h"
 #include "DirtbagDay.h"
 #include "DirtbagDog.h"
 #include "DirtbagFirstAscent.h"
@@ -47,6 +48,16 @@ namespace {
 struct LineTally { std::string name; int burns = 0, sends = 0, best = 0; int moves = 0; };
 
 struct Tally {
+  // --- Habits ---------------------------------------------------------------
+  // What a career turned into, which is a question nothing in this probe
+  // could ask before: every measurement here has been about what a climber
+  // *did*, and this is the first about what they became.
+  int quirksEarned = 0;
+  int firstQuirkDay = -1;
+  std::string became;            // in the order they landed
+  int daysWithAHabit = 0;        // nights the player was doing something
+  double habitDaysSum = 0.0;     // habits held per night, for the average
+
   // --- Trad ---------------------------------------------------------------
   // What a career of leading looks like, which is a different question from
   // what an attempt looks like.
@@ -1036,7 +1047,8 @@ int main(int argc, char** argv) {
                                  Conditions{}, {}, 0.72, SessionDials{},
                                  SessionLoopDials{}, player.character,
                                  player.medical, player.day,
-                                 player.sickness, player.teeth);
+                                 player.sickness, player.teeth,
+                                 player.quirks, player.logbook);
             ApplyAttemptToDay(player, today, *pick, r, world, dd);
             t.burns++;
             t.movesClimbed += static_cast<int>(r.timeline.size());
@@ -1135,7 +1147,8 @@ int main(int argc, char** argv) {
                                cond, {}, 0.72, SessionDials{},
                                SessionLoopDials{}, player.character,
                                player.medical, player.day,
-                               player.sickness, player.teeth);
+                               player.sickness, player.teeth,
+                               player.quirks, player.logbook);
           ApplyAttemptToDay(player, today, line->route, r, world, dd);
           t.burns++;
           burnsToday++;
@@ -1421,6 +1434,22 @@ int main(int argc, char** argv) {
                           (player.climber.injury.severity > sev + 1e-9 ||
                            player.climber.injury.daysLeft > left);
     SleepToNextDay(player, today, world, dd);
+
+    // What the night made of you. Read after the tick, because that is when
+    // it is true -- and counted rather than asserted, because the question
+    // this probe exists to answer is *how often*, which no harness check
+    // can ask.
+    {
+      const std::vector<Habit> doing = HabitsNow(player.logbook, player.day);
+      if (!doing.empty()) t.daysWithAHabit++;
+      t.habitDaysSum += static_cast<double>(doing.size());
+      if (player.becameToday != Quirk::None) {
+        t.quirksEarned++;
+        if (t.firstQuirkDay < 0) t.firstQuirkDay = player.day;
+        if (!t.became.empty()) t.became += "+";
+        t.became += QuirkName(player.becameToday);
+      }
+    }
     if (!wasHurt && IsHurt(player.climber)) {
       t.injuries++;
       consecutiveInjuries++;
@@ -1537,7 +1566,8 @@ int main(int argc, char** argv) {
          "\tsickdays\ttimesill\tmeds\tprehab\ttoothdays\ttoothfixes"
          "\tworsttooth"
          "\tmoments\tbotched\tducked\tsackings\tbestcraft\ttrade"
-         "\track\trackday\track$\tleads\tpieces\tranout\tleadfear\n");
+         "\track\trackday\track$\tleads\tpieces\tranout\tleadfear"
+         "\tquirks\tfirstquirk\thabitdays\thabits\tbecame\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -1549,7 +1579,8 @@ int main(int argc, char** argv) {
          "\t%d\t%d\t%d\t%d\t%.0f\t%.0f\t%.0f\t%.3f\t%d"
          "\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
          "\t%d\t%d\t%d\t%d\t%.0f\t%s"
-         "\t%s\t%d\t%.0f\t%d\t%d\t%d\t%.2f\n",
+         "\t%s\t%d\t%.0f\t%d\t%d\t%d\t%.2f"
+         "\t%d\t%d\t%d\t%.2f\t%s\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -1613,7 +1644,13 @@ int main(int argc, char** argv) {
          // does not exist, however well it resolves in the harness.
          RackTierName(TierOf(player.rack)), t.gotTheRackOnDay, t.spentRack,
          t.leadsOnGear, t.piecesPlaced, t.ranItOut,
-         t.leadsOnGear ? t.leadFearSum / t.leadsOnGear : 0.0);
+         t.leadsOnGear ? t.leadFearSum / t.leadsOnGear : 0.0,
+         // And who the career turned into. `became` is the whole point:
+         // a list of quirks in the order they landed is a biography, and
+         // no other column in this table is one.
+         t.quirksEarned, t.firstQuirkDay, t.daysWithAHabit,
+         DAYS > 0 ? t.habitDaysSum / DAYS : 0.0,
+         t.became.empty() ? "nobody in particular" : t.became.c_str());
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,
@@ -1697,6 +1734,25 @@ int main(int argc, char** argv) {
          t.burns ? t.warmthSum / t.burns : 0.0,
          t.burns ? t.skinSum / t.burns : 0.0,
          t.oddsN ? 100.0 * t.oddsSum / t.oddsN : 0.0);
+  // The logbook as it stands, which is the only way to see *why* a career
+  // became what it became rather than just that it did.
+  {
+    const HabitDials hd;
+    Logbook book = player.logbook;
+    RememberTo(book, player.day, hd);
+    const auto n = [&](Did w) { return book.count[static_cast<int>(w)]; };
+    const double burns = std::max(1.0, n(Did::Burn));
+    const double days = std::max(1.0, n(Did::DayOut));
+    printf("  the logbook, at the end: %.0f burns and %.0f days out in the "
+           "last season\n", n(Did::Burn), n(Did::DayOut));
+    printf("    one line %.2f  new line %.2f  at limit %.2f  thin skin %.2f  "
+           "| dawn %.2f  indoors %.2f  stopped early %.2f\n",
+           n(Did::BurnOnOneLine) / burns, n(Did::LineTouched) / burns,
+           n(Did::BurnAtYourLimit) / burns, n(Did::BurnOnThinSkin) / burns,
+           n(Did::DawnStart) / days, n(Did::DayIndoors) / days,
+           n(Did::StoppedEarly) / days);
+    printf("    %s\n", HowYouClimb(player.quirks, player.logbook, player.day).c_str());
+  }
   printf("  where the burns went:\n");
   std::sort(t.perLine.begin(), t.perLine.end(),
             [](const LineTally& a, const LineTally& b) {

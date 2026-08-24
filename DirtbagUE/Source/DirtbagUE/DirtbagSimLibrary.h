@@ -415,6 +415,51 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
 	static FString RackText(const FDirtbagRack& Rack);
 
+	// --- Habits and quirks ------------------------------------------------
+	// A habit is what you have been doing lately and it can change; a quirk
+	// is what you turned out to be and it does not. Everything here is a
+	// read: the logbook is written by climbing, and nothing else writes it.
+
+	/** How you have been climbing, loudest first. Usually one or two, and
+	 *  empty until you have done enough for the question to mean anything. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static TArray<EDirtbagHabit> HabitsNow(const FDirtbagLogbook& Logbook,
+	                                       int32 Today);
+
+	/** "grinding" / "never warming up" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString HabitName(EDirtbagHabit Habit);
+
+	/** One dry second-person line about it. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString HabitLine(EDirtbagHabit Habit);
+
+	/** "obsessive" / "a morning person" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString QuirkName(EDirtbagQuirk Quirk);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString QuirkLine(EDirtbagQuirk Quirk);
+
+	/** Which habit this quirk hardened out of, or None for a picked one. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static EDirtbagHabit HabitBehind(EDirtbagQuirk Quirk);
+
+	/** Is this one you choose at the start rather than become? */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static bool IsPickedQuirk(EDirtbagQuirk Quirk);
+
+	/** The line the game says on the night a habit stops being a habit.
+	 *  Empty for None, which is almost every night. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString QuirkLanded(EDirtbagQuirk Quirk);
+
+	/** One sentence: what you have been doing lately, and what you have
+	 *  become. Two questions, answered separately on purpose. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString HowYouClimb(const FDirtbagQuirks& Quirks,
+	                           const FDirtbagLogbook& Logbook, int32 Today);
+
 	// --- The town --------------------------------------------------------
 	// Six venues, authored. The opening hours are the mechanic: the diner
 	// shuts at nine so a long day means eating from a warmer, and the gear

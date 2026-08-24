@@ -327,6 +327,26 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // v32 → v33: the rack. A v32 career owned no gear and could not have —
 // there was no trad in the game to place it on — so it loads with an empty
 // harness, which is exactly what it had.
+// v33 → v34: the logbook and what it made of you. A v33 career climbed
+// without anybody counting, so it loads with an empty book and no quirks —
+// which is not a loss, because the book only remembers a season anyway and
+// a career that keeps climbing the way it has been will earn the same ones
+// back inside two.
+void MigrateV33ToV34(SaveFields& fields) {
+  fields["log.asof"] = "0";
+  for (int i = 0; i < kDidCount; i++) {
+    fields["log.n" + IntToStr(i)] = "0";
+  }
+  fields["log.burns"] = "0";
+  fields["log.days"] = "0";
+  fields["quirk.picked"] = "0";
+  fields["quirk.n"] = "0";
+  for (int i = 0; i < kHabitCount; i++) {
+    fields["quirk.h" + IntToStr(i)] = "0";
+  }
+  fields["quirk.became"] = "0";
+}
+
 void MigrateV32ToV33(SaveFields& fields) {
   fields["rack.pieces"] = "0";
   fields["rack.quality"] = "0";
@@ -531,7 +551,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV21ToV22, &MigrateV22ToV23, &MigrateV23ToV24,
       &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27,
       &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30,
-      &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33};
+      &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33,
+      &MigrateV33ToV34};
   return kMigrations;
 }
 
@@ -922,6 +943,29 @@ std::string SerializeSave(const SaveGame& save) {
   out << "injury.days=" << IntToStr(save.player.climber.injury.daysLeft)
       << "\n";
   out << "physio.last=" << IntToStr(save.player.lastPhysioDay) << "\n";
+  // The logbook, and what it has made of you so far.
+  out << "log.asof=" << IntToStr(save.player.logbook.asOfDay) << "\n";
+  for (int i = 0; i < kDidCount; i++) {
+    out << "log.n" << IntToStr(i) << "="
+        << NumToStr(save.player.logbook.count[i]) << "\n";
+  }
+  out << "log.burns=" << NumToStr(save.player.logbook.lifetimeBurns) << "\n";
+  out << "log.days=" << NumToStr(save.player.logbook.lifetimeDays) << "\n";
+  out << "quirk.picked=" << IntToStr(static_cast<int>(save.player.quirks.picked))
+      << "\n";
+  out << "quirk.n="
+      << IntToStr(static_cast<int>(save.player.quirks.held.size())) << "\n";
+  for (std::size_t i = 0; i < save.player.quirks.held.size(); i++) {
+    out << "quirk." << IntToStr(static_cast<int>(i)) << "="
+        << IntToStr(static_cast<int>(save.player.quirks.held[i])) << "\n";
+  }
+  for (int i = 0; i < kHabitCount; i++) {
+    out << "quirk.h" << IntToStr(i) << "="
+        << NumToStr(save.player.quirks.heldFor[i]) << "\n";
+  }
+  out << "quirk.became=" << IntToStr(static_cast<int>(save.player.becameToday))
+      << "\n";
+
   out << "rack.pieces=" << IntToStr(save.player.rack.pieces) << "\n";
   out << "rack.quality=" << NumToStr(save.player.rack.quality) << "\n";
   out << "kit.pads=" << IntToStr(save.player.kit.pads) << "\n";
@@ -1456,6 +1500,49 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       injuryKind >= 0 && injuryKind < kInjuryKindCount ? injuryKind : 0);
 
   int hangboard = 0;
+  {
+    Logbook& book = save.player.logbook;
+    if (!ParseInt(fields, "log.asof", book.asOfDay) ||
+        !ParseDouble(fields, "log.burns", book.lifetimeBurns) ||
+        !ParseDouble(fields, "log.days", book.lifetimeDays)) {
+      return LoadResult::BadFormat;
+    }
+    for (int i = 0; i < kDidCount; i++) {
+      if (!ParseDouble(fields, "log.n" + IntToStr(i), book.count[i])) {
+        return LoadResult::BadFormat;
+      }
+    }
+    Quirks& q = save.player.quirks;
+    int picked = 0, held = 0, became = 0;
+    if (!ParseInt(fields, "quirk.picked", picked) ||
+        !ParseInt(fields, "quirk.n", held) ||
+        !ParseInt(fields, "quirk.became", became)) {
+      return LoadResult::BadFormat;
+    }
+    // Clamped rather than trusted, the same rule the guidebook's discipline
+    // and the injury's kind are read under: a hand-edited save must not be
+    // able to hand the game a quirk that does not exist.
+    const auto asQuirk = [](int v) {
+      return static_cast<Quirk>(v > 0 && v < kQuirkCount ? v : 0);
+    };
+    q.picked = asQuirk(picked);
+    save.player.becameToday = asQuirk(became);
+    q.held.clear();
+    for (int i = 0; i < held; i++) {
+      int one = 0;
+      if (!ParseInt(fields, "quirk." + IntToStr(i), one)) {
+        return LoadResult::BadFormat;
+      }
+      const Quirk got = asQuirk(one);
+      if (got != Quirk::None && !Has(q, got)) q.held.push_back(got);
+    }
+    for (int i = 0; i < kHabitCount; i++) {
+      if (!ParseDouble(fields, "quirk.h" + IntToStr(i), q.heldFor[i])) {
+        return LoadResult::BadFormat;
+      }
+    }
+  }
+
   if (!ParseInt(fields, "rack.pieces", save.player.rack.pieces) ||
       !ParseDouble(fields, "rack.quality", save.player.rack.quality)) {
     return LoadResult::BadFormat;

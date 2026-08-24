@@ -54,7 +54,9 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
                                       const Character& who,
                                       const Medical& med, int day,
                                       const Sickness& sick,
-                                      const Teeth& teeth) {
+                                      const Teeth& teeth,
+                                      const Quirks& quirks,
+                                      const Logbook& logbook) {
   AttemptInput in;
   in.climber = climber;
   in.climber.skin = session.skinLeft;    // the body as it is now,
@@ -77,6 +79,8 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
   body.sickness = sick;
   body.teeth = teeth;
   body.shoeWear = session.shoeWear;   // the pair you pulled on with today
+  body.quirks = quirks;
+  body.logbook = logbook;
   body.day = day;
   ApplyBody(in, body);
 
@@ -90,7 +94,8 @@ void CommitAttempt(SessionState& session, ProjectMemory& memory,
                    const SessionLoopDials& loop) {
   // The session pays for the burn: skin spent, warmth earned per move
   // actually climbed (a one-move flail warms nobody up).
-  session.skinLeft = std::max(0.0, session.skinLeft - result.skinCost);
+  session.skinLeft =
+      std::max(0.0, session.skinLeft - result.skinCost * session.skinRate);
   session.warmth = std::min(
       1.0, session.warmth + loop.warmupPerMove *
                                 static_cast<double>(result.timeline.size()));
@@ -124,10 +129,15 @@ void CommitAttempt(SessionState& session, ProjectMemory& memory,
         memory.sent || result.sent
             ? 1.0
             : std::min(1.0, (memory.bestHighpoint + 1) / moveCount);
+    // ...at whatever rate this climber learns lines. A grinder wires one
+    // faster than anybody; a magpie has been up everything and could not
+    // tell you the moves on any of it.
     if (touched > memory.beta) {
-      memory.beta += (touched - memory.beta) * loop.betaLearnRate;
+      memory.beta +=
+          (touched - memory.beta) * loop.betaLearnRate * session.betaRate;
     } else {
-      memory.beta = std::min(memory.beta + loop.betaRehearsalGain, touchedBest);
+      memory.beta = std::min(
+          memory.beta + loop.betaRehearsalGain * session.betaRate, touchedBest);
     }
   }
   if (result.sent && !memory.sent) {
@@ -144,11 +154,12 @@ AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
                                const SessionLoopDials& loop,
                                const Character& who, const Medical& med,
                                int day, const Sickness& sick,
-                               const Teeth& teeth) {
+                               const Teeth& teeth, const Quirks& quirks,
+                               const Logbook& logbook) {
   Rng rng = DeriveAttemptRng(sessionRng, memory, route);
   const AttemptInput in = BuildSessionAttemptInput(
       session, memory, climber, route, conditions, execution, botExecution,
-      who, med, day, sick, teeth);
+      who, med, day, sick, teeth, quirks, logbook);
   const AttemptResult result = ResolveAttempt(rng, in, dials);
   CommitAttempt(session, memory, route, result, loop);
   return result;

@@ -11,6 +11,7 @@
 
 #include "DirtbagAge.h"
 #include "DirtbagCharacter.h"
+#include "DirtbagHabits.h"
 #include "DirtbagComp.h"
 #include "DirtbagTeam.h"
 #include "DirtbagLeague.h"
@@ -42,6 +43,22 @@ namespace dirtbag {
 // when they move.
 struct DayDials {
   double wakeHour = 7.0;
+
+  // --- What the logbook counts ------------------------------------------
+  // Three thresholds, here rather than in HabitDials because all three are
+  // facts about *a day in this game* rather than about habits: what hour
+  // counts as early is a property of the light, what counts as thin skin is
+  // the same number the session advice uses, and what counts as grinding is
+  // a fact about how long a project takes here. HabitDials owns the shapes;
+  // these own the day.
+  double dawnBefore = 8.0;      // pulled on before the sun got to the rock
+  int grindingAfter = 6;        // burns on one line before it is a grind
+  //
+  // What counts as thin skin is deliberately *not* here. SessionLoopDials
+  // already owns that number -- it is what the session advice reads to say
+  // "your tips are gone; jugs or go home" -- and a second copy would have
+  // been a silent mirror. The checker caught it within a minute of it
+  // being written, which is the checker doing exactly its job.
 
   // Hunger 0..100 climbs through the day; two meals keeps it civilized.
   // Sleeping hungry ruins the night's recovery — the dirtbag's oldest trap.
@@ -262,6 +279,20 @@ struct PlayerState {
   // the game that arrives *because* you climbed rather than instead of it.
   Sponsorship sponsor;
 
+  // **How you have been climbing, and what it made you.** A tally nothing
+  // else in the game keeps: the session resolver knows what you did on one
+  // route and the ledger knows what you did on one line, and neither of
+  // them can answer *what sort of climber is this*. See Sim/DirtbagHabits.h.
+  Logbook logbook;
+  Quirks quirks;
+
+  // **What you became last night**, or None, which is almost every night.
+  // Carried on the career rather than returned from `SleepToNextDay`
+  // because that function is void and has four callers, and a line the
+  // player is supposed to read once must not depend on which of them
+  // remembered to look. Cleared at the top of every night.
+  Quirk becameToday = Quirk::None;
+
   // **The rack**, which is the only thing you can own that unlocks a whole
   // discipline rather than improving one — no rack, no trad lead, and the
   // rope stays in the van for a different reason than when nobody will
@@ -308,6 +339,18 @@ struct DayState {
   // the only thing stopping you was skin — which bought eleven hangs and
   // a day that trained more than the wall ever could.
   bool hangboardDone = false;
+
+  // **Was it plastic.** `atGym` is misnamed and has been since Phase 1: it
+  // means *a session was started today*, and both the wall and the crag set
+  // it. Nothing needed the distinction until the logbook did, and inferring
+  // it from padding would have been a guess.
+  bool indoors = false;
+
+  // When you actually pulled on, or -1 if you never did. The dawn patrol is
+  // a habit about the clock and there was nothing anywhere that remembered
+  // what time the first burn happened.
+  double firstPullOnHour = -1.0;
+
   SessionState session;  // meaningful once StartGymSession has run
 };
 
