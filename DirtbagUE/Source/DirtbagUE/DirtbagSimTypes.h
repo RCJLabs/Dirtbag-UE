@@ -46,6 +46,7 @@
 #include "DirtbagSport.h"
 #include "DirtbagTrad.h"
 #include "DirtbagHabits.h"
+#include "DirtbagNarrator.h"
 
 #include "DirtbagSimTypes.generated.h"
 
@@ -261,6 +262,47 @@ struct FDirtbagAttemptResult
 	 *  cannot know which without this. See Sim/DirtbagTrad.h. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	TArray<double> Gear;
+};
+
+/** What kind of moment this is. The camera and the sound key off this
+ *  rather than off the words, so restaging a beat does not mean re-reading
+ *  it. Mirrors dirtbag::BeatKind. */
+UENUM(BlueprintType)
+enum class EDirtbagBeatKind : uint8
+{
+	Ground,
+	OffTheDeck,
+	Placed,
+	Crux,
+	NearlyBlew,
+	Shake,
+	Pumped,
+	Runout,
+	Fell,
+	Topped
+};
+
+/** One moment of an attempt, as a watcher would say it. Mirrors
+ *  dirtbag::Beat. */
+USTRUCT(BlueprintType)
+struct FDirtbagBeat
+{
+	GENERATED_BODY()
+
+	/** Which move, or -1 for the ground. The staging scrubs by this. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Narrator")
+	int32 Move = -1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Narrator")
+	EDirtbagBeatKind Kind = EDirtbagBeatKind::Ground;
+
+	/** 0 background .. 1 the moment of the attempt. A HUD takes the
+	 *  loudest; a camera pushes in past a threshold. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Narrator")
+	double Weight = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Narrator")
+	FString Line;
 };
 
 /** What you have been doing lately. Counters that decay on a half-life,
@@ -2099,6 +2141,12 @@ struct FDirtbagDayState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	double FirstPullOnHour = -1.0;
 
+	/** What the last burn was, in one sentence — see Sim/DirtbagNarrator.h.
+	 *  On the day rather than in the save because it is a thing you read
+	 *  once and then climb again. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	FString LastBurn;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	FDirtbagSessionState Session;
 };
@@ -2348,6 +2396,7 @@ namespace DirtbagConvert
 	dirtbag::Sponsorship ToSim(const FDirtbagSponsorship& In);
 	FDirtbagKit FromSim(const dirtbag::Kit& In);
 	FDirtbagRack FromSim(const dirtbag::Rack& In);
+	FDirtbagBeat FromSim(const dirtbag::Beat& In);
 	FDirtbagLogbook FromSim(const dirtbag::Logbook& In);
 	dirtbag::Logbook ToSim(const FDirtbagLogbook& In);
 	FDirtbagQuirks FromSim(const dirtbag::Quirks& In);

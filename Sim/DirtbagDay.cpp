@@ -1,6 +1,7 @@
 #include "DirtbagDay.h"
 
 #include "DirtbagBody.h"
+#include "DirtbagNarrator.h"
 #include "DirtbagSport.h"
 
 #include <algorithm>
@@ -341,6 +342,29 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
       Note(book, Did::PiecePlaced, pieces, player.day);
       Note(book, Did::MoveRunOut, unprotected, player.day);
     }
+  }
+
+  // **And what that was, in words.** Here rather than at any of the three
+  // call sites above it, because this is the one function every burn in the
+  // game passes through -- the batch loop, the live attempt the minigame
+  // drives, and the engine's own commit -- and a line the player reads once
+  // must not depend on which of them remembered to ask for it.
+  {
+    AttemptInput told;
+    told.climber = player.climber;
+    told.route = route;
+    told.warmth = day.session.warmth;
+    told.shoeWear = day.session.shoeWear;
+    told.padding = day.session.padding;
+    told.rack = day.session.rack;
+    const ProjectMemory& mem = MemoryFor(player, route);
+    told.attemptNumber = mem.attempts;
+    told.beta = mem.beta;
+    told.cleanliness = mem.cleanliness;
+    // body-ok: nothing is resolved from this. It is the narrator's copy of
+    // what the burn was climbed under, and the burn has already happened --
+    // stamping a body on it would price an attempt that is over.
+    day.lastBurn = HowItWent(told, result);
   }
 
   // Rubber goes by the move, and faster the harder you pull.

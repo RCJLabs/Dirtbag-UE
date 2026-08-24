@@ -8,6 +8,7 @@ static_assert(static_cast<int>(EDirtbagDiscipline::Trad) == static_cast<int>(dir
 static_assert(static_cast<int>(EDirtbagRackTier::Doubles) == static_cast<int>(dirtbag::RackTier::Doubles), "RackTier enums out of sync");
 static_assert(static_cast<int>(EDirtbagHabit::SewsItUp) == static_cast<int>(dirtbag::Habit::SewsItUp), "Habit enums out of sync");
 static_assert(static_cast<int>(EDirtbagQuirk::Quiet) == static_cast<int>(dirtbag::Quirk::Quiet), "Quirk enums out of sync");
+static_assert(static_cast<int>(EDirtbagBeatKind::Topped) == static_cast<int>(dirtbag::BeatKind::Topped), "BeatKind enums out of sync");
 static_assert(static_cast<int>(EDirtbagStyle::Fell) == static_cast<int>(dirtbag::Style::Fell), "Style enums out of sync");
 static_assert(static_cast<int>(EDirtbagMorphology::Powerful) == static_cast<int>(dirtbag::Morphology::Powerful), "Morphology enums out of sync");
 static_assert(static_cast<int>(EDirtbagRouteRead::NotThisYear) == static_cast<int>(dirtbag::RouteRead::NotThisYear), "RouteRead enums out of sync");
@@ -253,6 +254,7 @@ dirtbag::DayState ToSim(const FDirtbagDayState& In)
 	Out.hangboardDone = In.bHangboardDone;
 	Out.indoors = In.bIndoors;
 	Out.firstPullOnHour = In.FirstPullOnHour;
+	Out.lastBurn = TCHAR_TO_UTF8(*In.LastBurn);
 	Out.session = ToSim(In.Session);
 	return Out;
 }
@@ -337,6 +339,7 @@ FDirtbagDayState FromSim(const dirtbag::DayState& In)
 	Out.bHangboardDone = In.hangboardDone;
 	Out.bIndoors = In.indoors;
 	Out.FirstPullOnHour = In.firstPullOnHour;
+	Out.LastBurn = UTF8_TO_TCHAR(In.lastBurn.c_str());
 	Out.Session = FromSim(In.session);
 	return Out;
 }
@@ -479,6 +482,16 @@ dirtbag::Sponsorship ToSim(const FDirtbagSponsorship& In)
 	Out.daysHurtThisSeason = In.DaysHurtThisSeason;
 	Out.gradeAtLastReview = In.GradeAtLastReview;
 	Out.seasonsWithoutProgress = In.SeasonsWithoutProgress;
+	return Out;
+}
+
+FDirtbagBeat FromSim(const dirtbag::Beat& In)
+{
+	FDirtbagBeat Out;
+	Out.Move = In.move;
+	Out.Kind = static_cast<EDirtbagBeatKind>(In.kind);
+	Out.Weight = In.weight;
+	Out.Line = UTF8_TO_TCHAR(In.line.c_str());
 	return Out;
 }
 

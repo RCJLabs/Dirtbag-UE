@@ -81,6 +81,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
 	bool WouldPlaceGear() const;
 
+	/** **The newest thing worth saying**, for a wall driving the attempt
+	 *  move by move. An empty Line and Move of -1 mean silence, which is
+	 *  the right answer most moves and is the whole design — a line a move
+	 *  is a log, not commentary. See Sim/DirtbagNarrator.h. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	FDirtbagBeat LastWord();
+
+	/** The whole attempt as a watcher would tell it — for the replay, the
+	 *  highlight reel and the camera. Safe to call mid-attempt: it tells
+	 *  what has happened so far and does not invent an ending. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	TArray<FDirtbagBeat> Beats();
+
 	/** Pieces still on the harness. Zero is a solo from here up. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
 	int32 GetRackLeft() const;
@@ -414,6 +427,18 @@ public:
 	/** "a rack of cams, eleven pieces left" */
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
 	static FString RackText(const FDirtbagRack& Rack);
+
+	// --- The narrator -----------------------------------------------------
+
+	/** The loudest few, in the order they happened, for a caller with three
+	 *  lines of room rather than eight. The ending always makes the cut. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Narrator")
+	static TArray<FDirtbagBeat> Loudest(const TArray<FDirtbagBeat>& Beats,
+	                                    int32 HowMany);
+
+	/** "crux" / "runout" / "nearly blew it" — what the camera keys off. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Narrator")
+	static FString BeatKindName(EDirtbagBeatKind Kind);
 
 	// --- Habits and quirks ------------------------------------------------
 	// A habit is what you have been doing lately and it can change; a quirk

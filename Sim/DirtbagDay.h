@@ -351,6 +351,11 @@ struct DayState {
   // what time the first burn happened.
   double firstPullOnHour = -1.0;
 
+  // **What the last burn was**, in one sentence -- see Sim/DirtbagNarrator.h.
+  // On the day rather than in the save because it is a thing you read once
+  // and then climb again; a career's history is the project ledger's job.
+  std::string lastBurn;
+
   SessionState session;  // meaningful once StartGymSession has run
 };
 

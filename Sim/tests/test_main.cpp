@@ -43,6 +43,7 @@
 #include "../DirtbagSport.h"
 #include "../DirtbagTrad.h"
 #include "../DirtbagHabits.h"
+#include "../DirtbagNarrator.h"
 #include "../DirtbagSessionLoop.h"
 
 using namespace dirtbag;
@@ -12195,6 +12196,447 @@ static void TestYouCanSayHowYouClimbInOneSentence() {
   for (char ch : both) CHECK(!(ch >= '0' && ch <= '9'));
 }
 
+// --- The narrator ------------------------------------------------------------
+//
+// The gate is that somebody watching over your shoulder knows what happened
+// without reading a stat line, and the way this file fails is not by
+// missing a moment -- it is by narrating a Tuesday.
+
+static bool AnyDigit(const std::string& s) {
+  for (char c : s) {
+    if (c >= '0' && c <= '9') return true;
+  }
+  return false;
+}
+
+static bool Says(const std::vector<Beat>& beats, BeatKind kind) {
+  for (const Beat& b : beats) {
+    if (b.kind == kind) return true;
+  }
+  return false;
+}
+
+static std::string LineFor(const std::vector<Beat>& beats, BeatKind kind) {
+  for (const Beat& b : beats) {
+    if (b.kind == kind) return b.line;
+  }
+  return "";
+}
+
+// A result assembled by hand, so a test can ask the narrator about a climb
+// the resolver never produced. This is the whole point of the narrator
+// reading rather than recomputing: what it says is a function of the
+// timeline and nothing else, so a timeline is all a test needs.
+static AttemptResult Timeline(const Route& route, int moves,
+                              double odds, double pumpPerMove, bool fell) {
+  AttemptResult r;
+  double pump = 0.0;
+  for (int i = 0; i < moves; i++) {
+    MoveResult mr;
+    mr.index = i;
+    mr.odds = odds;
+    pump = std::min(100.0, pump + pumpPerMove);
+    mr.pumpAfter = pump;
+    mr.success = !(fell && i == moves - 1);
+    r.timeline.push_back(mr);
+    if (mr.success) r.highpoint = i + 1;
+  }
+  r.peakPump = pump;
+  r.sent = r.highpoint == static_cast<int>(route.moves.size());
+  r.style = r.sent ? Style::Onsight : Style::Fell;
+  return r;
+}
+
+static void TestTheNarratorKnowsWhenToShutUp() {
+  // **The gate this file is most likely to fail.** A line per move is a
+  // log, not commentary, and the moment that mattered is somewhere in the
+  // middle of it.
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  const Route pitch = Pitch("The Long Haul", 4);
+  const int moves = static_cast<int>(pitch.moves.size());
+  AttemptInput in = MakeInput(c, pitch);
+
+  // A cruise: every move landed, nothing was ever in doubt, no pump.
+  const std::vector<Beat> quiet =
+      CallTheAttempt(in, Timeline(pitch, moves, 0.97, 1.0, false));
+  // The ground and the top and whatever the rope did. Nowhere near a line
+  // a move.
+  CHECK(static_cast<int>(quiet.size()) < moves / 2);
+  CHECK(!quiet.empty());
+  CHECK(!Says(quiet, BeatKind::Pumped));
+  CHECK(!Says(quiet, BeatKind::NearlyBlew));
+  CHECK(!Says(quiet, BeatKind::Crux));
+
+  // The same route, fought for: desperate odds all the way and the pump
+  // going. It should have more to say, and still not one line a move.
+  const std::vector<Beat> loud =
+      CallTheAttempt(in, Timeline(pitch, moves, 0.2, 7.0, true));
+  CHECK(loud.size() > quiet.size());
+  CHECK(static_cast<int>(loud.size()) < moves);
+  CHECK(Says(loud, BeatKind::Pumped));
+  CHECK(Says(loud, BeatKind::NearlyBlew));
+
+  // And a boulder, which is six moves and should be three or four lines at
+  // the very most -- there is not room in a boulder for a story.
+  Rng world = Rng::FromStream("narr", Stream::Worldgen);
+  const Route boulder = BuildRoute(world, "Short Story", 6, 6,
+                                   RouteType::Power, Discipline::Boulder);
+  AttemptInput bin = MakeInput(c, boulder);
+  const std::vector<Beat> shortOne = CallTheAttempt(
+      bin, Timeline(boulder, static_cast<int>(boulder.moves.size()), 0.9, 4.0,
+                    false));
+  CHECK(shortOne.size() <= 4);
+}
+
+static void TestEveryFallIsADifferentFall() {
+  // **The gate.** A watcher does not say "you fell"; they say what went
+  // wrong. Four falls, four causes, four sentences -- and the day log gets
+  // the fact rather than the flourish.
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  const Route pitch = Pitch("The Long Haul", 6);
+  const int moves = static_cast<int>(pitch.moves.size());
+  AttemptInput in = MakeInput(c, pitch);
+  const SportDials sd;
+
+  // Redlined: the hands open, and no roll was ever taken.
+  AttemptResult redline = Timeline(pitch, 6, 0.9, 25.0, true);
+  CHECK(redline.timeline[4].pumpAfter >= 100.0);
+  const std::string opened = HowItWent(in, redline);
+
+  // Blown clip: fell on a bolt, with pump to spare.
+  int clipAt = -1;
+  for (int bolt : BoltsFor(pitch, sd)) {
+    if (bolt > 2) { clipAt = bolt; break; }
+  }
+  CHECK(clipAt > 0);
+  AttemptResult clip = Timeline(pitch, clipAt + 1, 0.8, 2.0, true);
+  const std::string blew = HowItWent(in, clip);
+
+  // One move short.
+  AttemptResult nearly = Timeline(pitch, moves, 0.8, 2.0, true);
+  const std::string oneMove = HowItWent(in, nearly);
+
+  // And off the second move, which is a different day entirely.
+  AttemptResult early = Timeline(pitch, 2, 0.8, 2.0, true);
+  const std::string offEarly = HowItWent(in, early);
+
+  // Every one of them different, and every one of them naming the cause
+  // rather than the position.
+  CHECK(opened != blew && opened != oneMove && opened != offEarly);
+  CHECK(blew != oneMove && blew != offEarly);
+  CHECK(oneMove != offEarly);
+  CHECK(opened.find("hands") != std::string::npos);
+  CHECK(blew.find("clip") != std::string::npos);
+  CHECK(oneMove.find("One move") != std::string::npos);
+
+  // A send is not a fall, and it says which kind of send.
+  AttemptResult sent = Timeline(pitch, moves, 0.9, 2.0, false);
+  CHECK(sent.sent);
+  sent.style = Style::Onsight;
+  const std::string onsight = HowItWent(in, sent);
+  sent.style = Style::Redpoint;
+  const std::string redpoint = HowItWent(in, sent);
+  CHECK(onsight != redpoint);
+  CHECK(onsight.find("nsight") != std::string::npos);
+
+  // And an attempt still going says so rather than inventing an ending.
+  AttemptResult partial = Timeline(pitch, 4, 0.9, 2.0, false);
+  CHECK(HowItWent(in, partial) == "Still on it.");
+  CHECK(!Says(CallTheAttempt(in, partial), BeatKind::Fell));
+  CHECK(!Says(CallTheAttempt(in, partial), BeatKind::Topped));
+}
+
+static void TestTheReasonIsNeverTheMomentItEnded() {
+  // What happened at the moment it ended is the ending, not the reason for
+  // it. Without this rule the log said a bare "Off at the crux" and stopped
+  // -- because the crux beat outranked the pump that actually explained the
+  // afternoon, and then declined to say anything about itself.
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  const Route pitch = Pitch("The Long Haul", 6);
+  int cruxAt = -1;
+  for (int i = 0; i < static_cast<int>(pitch.moves.size()); i++) {
+    if (pitch.moves[i].crux) cruxAt = i;
+  }
+  CHECK(cruxAt > 3);
+
+  NarratorDials nd;
+  AttemptInput in = MakeInput(c, pitch);
+  AttemptResult res = Timeline(pitch, cruxAt + 1, 0.7, 1.0, true);
+  // Pumped well before the crux, and not redlined at it -- so the ending is
+  // the crux and the reason is somewhere behind it.
+  for (int i = 0; i < static_cast<int>(res.timeline.size()); i++) {
+    res.timeline[i].pumpAfter =
+        i >= cruxAt - 3 ? nd.forearmsGoingAt + 4.0 : 20.0;
+  }
+  const std::vector<Beat> beats = CallTheAttempt(in, res, nd);
+  CHECK(Says(beats, BeatKind::Fell));
+  CHECK(Says(beats, BeatKind::Pumped));
+  CHECK(Says(beats, BeatKind::Crux));
+
+  const std::string log = HowItWent(in, res, nd);
+  CHECK(log.find("crux") != std::string::npos);
+  // ...and it says why, from before the end rather than from the end.
+  CHECK(log.find("pump") != std::string::npos);
+  CHECK(log.size() > std::string("Off at the crux.").size());
+}
+
+static void TestItReadsAndNeverRecomputes() {
+  // The narrator is handed a timeline the resolver never produced and
+  // agrees with it. That is the contract: what it says is a function of
+  // the result, so it can never disagree with the climb that happened.
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  const Route pitch = Pitch("The Long Haul", 4);
+  const int moves = static_cast<int>(pitch.moves.size());
+  AttemptInput in = MakeInput(c, pitch);
+  NarratorDials nd;
+
+  // Odds just above the bar: nothing to say. Just below: it was desperate,
+  // and the narrator says so -- on a route the climber could do in their
+  // sleep, because it is reading the roll rather than judging the grade.
+  AttemptResult safe = Timeline(pitch, moves, nd.nearlyBlewBelow + 0.01, 1.0, false);
+  AttemptResult lucky = Timeline(pitch, moves, nd.nearlyBlewBelow - 0.01, 1.0, false);
+  CHECK(!Says(CallTheAttempt(in, safe, nd), BeatKind::NearlyBlew));
+  CHECK(Says(CallTheAttempt(in, lucky, nd), BeatKind::NearlyBlew));
+
+  // Same for the forearms, which are read off the pump the resolver
+  // recorded and not off anything this file works out for itself.
+  AttemptResult fresh = Timeline(pitch, moves, 0.9, 1.0, false);
+  AttemptResult cooked = Timeline(pitch, moves, 0.9, 20.0, false);
+  CHECK(!Says(CallTheAttempt(in, fresh, nd), BeatKind::Pumped));
+  CHECK(Says(CallTheAttempt(in, cooked, nd), BeatKind::Pumped));
+
+  // A rest is a fall in the pump across a move, which is the only way pump
+  // can go down -- so a hand-built drop is a shake and the narrator sees it.
+  AttemptResult rested = Timeline(pitch, 6, 0.9, 10.0, false);
+  rested.timeline[4].pumpAfter =
+      rested.timeline[3].pumpAfter - nd.shakeWorthIt - 1.0;
+  CHECK(Says(CallTheAttempt(in, rested, nd), BeatKind::Shake));
+
+  // Determinism, because everything else in this project is.
+  CHECK(HowItWent(in, cooked) == HowItWent(in, cooked));
+  const std::vector<Beat> once = CallTheAttempt(in, cooked, nd);
+  const std::vector<Beat> twice = CallTheAttempt(in, cooked, nd);
+  CHECK(once.size() == twice.size());
+  for (std::size_t i = 0; i < once.size(); i++) {
+    CHECK(once[i].line == twice[i].line);
+    CHECK(once[i].weight == twice[i].weight);
+    CHECK(once[i].move == twice[i].move);
+  }
+}
+
+static void TestTheNarratorNeverSaysANumber() {
+  // The standing rule for text in this project, and `HowCloseText` says why:
+  // "you fell at move nine of twelve" is a thing you read and "one move,
+  // that was the go" is a thing you see.
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  Rng world = Rng::FromStream("narr", Stream::Worldgen);
+  const Route boulder = BuildRoute(world, "Short Story", 6, 6,
+                                   RouteType::Power, Discipline::Boulder);
+  const Route pitch = Pitch("The Long Haul", 6);
+  const Route gear = TradPitch("Last Piece Below You", 6);
+
+  for (const Route* r : {&boulder, &pitch, &gear}) {
+    const int moves = static_cast<int>(r->moves.size());
+    for (int taken = 1; taken <= moves; taken++) {
+      for (bool fell : {true, false}) {
+        for (double odds : {0.1, 0.5, 0.95}) {
+          for (double pump : {1.0, 9.0, 26.0}) {
+            AttemptInput in = MakeInput(c, *r);
+            in.rack = RackOf(RackTier::Cams);
+            AttemptResult res = Timeline(*r, taken, odds, pump, fell);
+            for (const Beat& b : CallTheAttempt(in, res)) {
+              CHECK(!AnyDigit(b.line));
+              CHECK(!b.line.empty());
+              CHECK(b.weight >= 0.0 && b.weight <= 1.0);
+            }
+            CHECK(!AnyDigit(HowItWent(in, res)));
+          }
+        }
+      }
+    }
+  }
+  // And every kind has a name, for the camera that keys off it.
+  for (int i = 0; i < kBeatKindCount; i++) {
+    CHECK(std::string(BeatKindName(static_cast<BeatKind>(i))).size() > 2);
+  }
+}
+
+static void TestAGearLeadIsNotToldInBolts() {
+  // A borrowed vocabulary is how a narrator stops being trusted. `RunoutText`
+  // says *bolt* -- right for the HUD it was written for, and wrong out loud
+  // on a lead where the whole point is that nobody drilled anything.
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  const Route gear = TradPitch("Last Piece Below You", 5);
+  const int moves = static_cast<int>(gear.moves.size());
+  AttemptInput in = MakeInput(c, gear);
+  in.rack = RackOf(RackTier::Cams);
+
+  // One good piece low down and then nothing, which is a lead that gets
+  // frightening on its own.
+  AttemptResult res = Timeline(gear, moves, 0.85, 3.0, false);
+  res.gear.quality.assign(gear.moves.size(), 0.0);
+  res.gear.quality[1] = 0.9;
+  const std::vector<Beat> beats = CallTheAttempt(in, res);
+  CHECK(Says(beats, BeatKind::OffTheDeck));
+  CHECK(Says(beats, BeatKind::Runout));
+  for (const Beat& b : beats) CHECK(b.line.find("bolt") == std::string::npos);
+  CHECK(LineFor(beats, BeatKind::OffTheDeck).find("piece") != std::string::npos);
+
+  // A piece you do not believe in is said differently from one you do, and
+  // the runout above it is said differently again.
+  AttemptResult dodgy = res;
+  dodgy.gear.quality[1] = 0.2;
+  const std::vector<Beat> scared = CallTheAttempt(in, dodgy);
+  CHECK(LineFor(scared, BeatKind::OffTheDeck) !=
+        LineFor(beats, BeatKind::OffTheDeck));
+  CHECK(LineFor(scared, BeatKind::Runout) != LineFor(beats, BeatKind::Runout));
+  CHECK(LineFor(scared, BeatKind::Runout).find("believe") != std::string::npos);
+
+  // A sport route is told in bolts, which is correct there and is the
+  // reason the two have to be different at all.
+  const Route bolted = Pitch("The Long Haul", 5);
+  AttemptInput sin_ = MakeInput(c, bolted);
+  const std::vector<Beat> clipped =
+      CallTheAttempt(sin_, Timeline(bolted, static_cast<int>(bolted.moves.size()),
+                                    0.85, 3.0, false));
+  CHECK(Says(clipped, BeatKind::OffTheDeck));
+  CHECK(LineFor(clipped, BeatKind::OffTheDeck).find("Clipped") !=
+        std::string::npos);
+
+  // And a boulder is told in neither. Nothing about a rope reaches it.
+  Rng world = Rng::FromStream("narr", Stream::Worldgen);
+  const Route boulder = BuildRoute(world, "Short Story", 6, 6,
+                                   RouteType::Power, Discipline::Boulder);
+  AttemptInput bin = MakeInput(c, boulder);
+  const std::vector<Beat> pad = CallTheAttempt(
+      bin, Timeline(boulder, static_cast<int>(boulder.moves.size()), 0.85, 3.0,
+                    false));
+  CHECK(!Says(pad, BeatKind::OffTheDeck));
+  CHECK(!Says(pad, BeatKind::Runout));
+  CHECK(!Says(pad, BeatKind::Placed));
+}
+
+static void TestTheLiveWallAndTheReplayAgree() {
+  // `LiveAttempt::partial` is an `AttemptResult`, so the wall calls the
+  // same function move by move and takes what is new. One implementation on
+  // purpose: this project has twice shipped two paths that drifted, and the
+  // narrator is the last place that should be allowed to say two different
+  // things about one climb.
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  const Route pitch = Pitch("The Long Haul", 7);
+  AttemptInput in = MakeInput(c, pitch);
+  in.beta = 0.5;
+
+  LiveAttempt la = BeginAttempt(Rng::FromSeed("live"), in);
+  std::vector<Beat> asItHappened;
+  while (!AttemptOver(la)) {
+    StepMove(la, 0.72);
+    if (!AttemptOver(la) && la.input.route.moves[la.nextMove - 1].restQuality > 0.0) {
+      ShakeOut(la);
+    }
+    const Beat said = LastWord(in, la.partial);
+    if (!said.line.empty()) asItHappened.push_back(said);
+  }
+  const AttemptResult finished = FinishAttempt(la);
+
+  // Everything the wall said as it happened is in the replay, word for
+  // word and at the same move.
+  const std::vector<Beat> replay = CallTheAttempt(in, finished);
+  for (const Beat& live : asItHappened) {
+    bool found = false;
+    for (const Beat& b : replay) {
+      if (b.move == live.move && b.line == live.line) found = true;
+    }
+    CHECK(found);
+  }
+  // The wall is quiet most moves, which is the whole design.
+  CHECK(asItHappened.size() < finished.timeline.size());
+}
+
+static void TestThreeLinesOfRoomGetTheRightThree() {
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  const Route pitch = Pitch("The Long Haul", 6);
+  const int moves = static_cast<int>(pitch.moves.size());
+  AttemptInput in = MakeInput(c, pitch);
+  const std::vector<Beat> all =
+      CallTheAttempt(in, Timeline(pitch, moves, 0.2, 8.0, true));
+  CHECK(all.size() > 3);
+
+  const std::vector<Beat> three = Loudest(all, 3);
+  CHECK(three.size() == 3);
+
+  // The loudest three, whichever they are.
+  double lowestKept = 1.0;
+  for (const Beat& b : three) lowestKept = std::min(lowestKept, b.weight);
+  for (const Beat& b : all) {
+    bool kept = false;
+    for (const Beat& k : three) {
+      if (k.move == b.move && k.line == b.line) kept = true;
+    }
+    if (!kept) CHECK(b.weight <= lowestKept);
+  }
+
+  // In the order they happened, and the ending last -- the forearms going
+  // and the top-out land on the same move, and a reel that read "you know
+  // you cannot hold on / top / the forearms are going" was three true lines
+  // in an order nobody climbed them in.
+  for (std::size_t i = 1; i < three.size(); i++) {
+    CHECK(three[i].move >= three[i - 1].move);
+  }
+  CHECK(three.back().kind == BeatKind::Fell ||
+        three.back().kind == BeatKind::Topped);
+
+  // The ending always makes the cut, however few lines there are.
+  CHECK(Loudest(all, 1).size() == 1);
+  CHECK(Loudest(all, 1)[0].kind == BeatKind::Fell);
+  // No room is no room rather than a request for everything.
+  CHECK(Loudest(all, 0).empty());
+  CHECK(Loudest(all, 99).size() == all.size());
+}
+
+static void TestTheGroundKnowsWhichGoThisIs() {
+  // After the first go the interesting thing is not what the route looks
+  // like, it is how many times you have been here -- which is the whole
+  // difference between an onsight and a project.
+  Climber c = MakeClimber(70, 70, 70, 75, 60);
+  const Route pitch = Pitch("The Long Haul", 8);
+  const int moves = static_cast<int>(pitch.moves.size());
+  const AttemptResult res = Timeline(pitch, moves / 2, 0.7, 3.0, true);
+  NarratorDials nd;
+
+  AttemptInput first = MakeInput(c, pitch);
+  AttemptInput second = MakeInput(c, pitch);
+  second.attemptNumber = 2;
+  AttemptInput wired = MakeInput(c, pitch);
+  wired.attemptNumber = 30;
+  wired.beta = 0.95;
+  AttemptInput lost = MakeInput(c, pitch);
+  lost.attemptNumber = nd.lostCountAt + 1;
+
+  const std::string a = LineFor(CallTheAttempt(first, res, nd), BeatKind::Ground);
+  const std::string b = LineFor(CallTheAttempt(second, res, nd), BeatKind::Ground);
+  const std::string d = LineFor(CallTheAttempt(wired, res, nd), BeatKind::Ground);
+  const std::string e = LineFor(CallTheAttempt(lost, res, nd), BeatKind::Ground);
+  CHECK(a != b);
+  CHECK(b != d && b != e && d != e);
+  CHECK(d.find("every move") != std::string::npos);
+
+  // And whatever is wrong with you today gets said, over the top of any of
+  // them -- because it is the thing a climber standing at the bottom is
+  // actually thinking about.
+  AttemptInput hurt = MakeInput(c, pitch);
+  hurt.climber.injury.active = true;
+  AttemptInput cold = MakeInput(c, pitch);
+  cold.warmth = 0.1;
+  AttemptInput shot = MakeInput(c, pitch);
+  shot.climber.skin = 1.0;
+  const std::string h = LineFor(CallTheAttempt(hurt, res, nd), BeatKind::Ground);
+  const std::string k = LineFor(CallTheAttempt(cold, res, nd), BeatKind::Ground);
+  const std::string s = LineFor(CallTheAttempt(shot, res, nd), BeatKind::Ground);
+  CHECK(h.size() > a.size() && k.size() > a.size() && s.size() > a.size());
+  CHECK(h != k && k != s && h != s);
+}
+
 // --- Age ---------------------------------------------------------------------
 
 static void TestAgeIsDerivedNotStored() {
@@ -13192,6 +13634,15 @@ int main() {
   TestAHabitReachesTheWall();
   TestWhoYouBecameSurvivesTheSave();
   TestYouCanSayHowYouClimbInOneSentence();
+  TestTheNarratorKnowsWhenToShutUp();
+  TestEveryFallIsADifferentFall();
+  TestTheReasonIsNeverTheMomentItEnded();
+  TestItReadsAndNeverRecomputes();
+  TestTheNarratorNeverSaysANumber();
+  TestAGearLeadIsNotToldInBolts();
+  TestTheLiveWallAndTheReplayAgree();
+  TestThreeLinesOfRoomGetTheRightThree();
+  TestTheGroundKnowsWhichGoThisIs();
   TestAgeIsDerivedNotStored();
   TestNothingIsTakenBeforeThePeak();
   TestPowerGoesFirstAndTechniqueNeverGoes();

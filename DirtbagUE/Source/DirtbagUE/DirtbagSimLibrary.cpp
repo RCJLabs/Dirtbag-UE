@@ -90,6 +90,29 @@ double UDirtbagLiveAttempt::GetLastPieceTrust() const
 	return dirtbag::PieceAt(Live.input.route, Last, Sd, Live.gear);
 }
 
+FDirtbagBeat UDirtbagLiveAttempt::LastWord()
+{
+	return DirtbagConvert::FromSim(
+	    dirtbag::LastWord(Live.input, Live.partial));
+}
+
+TArray<FDirtbagBeat> UDirtbagLiveAttempt::Beats()
+{
+	// A finished attempt is told from the finished result, because the
+	// top-out is a *style* judgement FinishAttempt makes -- read off the
+	// partial, the wall said a bare "Top." while the replay of the same
+	// climb said "first go, no idea what was coming, and it went".
+	const dirtbag::AttemptResult Told = dirtbag::AttemptOver(Live)
+	                                        ? dirtbag::FinishAttempt(Live)
+	                                        : Live.partial;
+	TArray<FDirtbagBeat> Out;
+	for (const dirtbag::Beat& B : dirtbag::CallTheAttempt(Live.input, Told))
+	{
+		Out.Add(DirtbagConvert::FromSim(B));
+	}
+	return Out;
+}
+
 bool UDirtbagLiveAttempt::IsOver() const
 {
 	return dirtbag::AttemptOver(Live);
@@ -709,6 +732,39 @@ FString UDirtbagSimLibrary::RackText(const FDirtbagRack& Rack)
 {
 	return UTF8_TO_TCHAR(
 	    dirtbag::RackText(DirtbagConvert::ToSim(Rack)).c_str());
+}
+
+// --- The narrator ------------------------------------------------------------
+
+TArray<FDirtbagBeat> UDirtbagSimLibrary::Loudest(
+    const TArray<FDirtbagBeat>& Beats, int32 HowMany)
+{
+	// Back through the sim rather than sorted here: the tie-break that puts
+	// an ending last among beats on the same move is a rule, and a second
+	// copy of it in engine code is two rules that disagree by Christmas.
+	std::vector<dirtbag::Beat> In;
+	In.reserve(Beats.Num());
+	for (const FDirtbagBeat& B : Beats)
+	{
+		dirtbag::Beat S;
+		S.move = B.Move;
+		S.kind = static_cast<dirtbag::BeatKind>(B.Kind);
+		S.weight = B.Weight;
+		S.line = TCHAR_TO_UTF8(*B.Line);
+		In.push_back(S);
+	}
+	TArray<FDirtbagBeat> Out;
+	for (const dirtbag::Beat& B : dirtbag::Loudest(In, HowMany))
+	{
+		Out.Add(DirtbagConvert::FromSim(B));
+	}
+	return Out;
+}
+
+FString UDirtbagSimLibrary::BeatKindName(EDirtbagBeatKind Kind)
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::BeatKindName(static_cast<dirtbag::BeatKind>(Kind)));
 }
 
 // --- Habits and quirks -------------------------------------------------------
