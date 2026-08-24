@@ -49,6 +49,7 @@
 #include "DirtbagNarrator.h"
 #include "DirtbagLife.h"
 #include "DirtbagGym.h"
+#include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
 #include "DirtbagLocals.h"
 
@@ -1636,7 +1637,45 @@ enum class EDirtbagService : uint8
 	Work,        // somewhere that hires by the shift
 };
 
-/** How you are living: four meters, and one rule. Grime multiplies social
+/** Where you are parking tonight. Mirrors dirtbag::Spot. */
+UENUM(BlueprintType)
+enum class EDirtbagSpot : uint8
+{
+	Lot,
+	UpperTrail,
+	Ridge,
+	TruckStop,
+	Driveway
+};
+
+/** Where you park, and what the city thinks of it. Mirrors dirtbag::Bivy —
+ *  see Sim/DirtbagBivy.h. */
+USTRUCT(BlueprintType)
+struct FDirtbagBivy
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Bivy")
+	EDirtbagSpot Tonight = EDirtbagSpot::Lot;
+
+	/** The last day you slept at each, parallel to EDirtbagSpot. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Bivy")
+	TArray<int32> LastSlept;
+
+	/** Consecutive nights in the Lot — what the ticket odds climb with,
+	 *  and the only counter here that resets by going somewhere else. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Bivy")
+	int32 LotNights = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Bivy")
+	int32 TicketsOwed = 0;
+
+	/** A boot on the wheel. Nothing moves until the city is paid. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Bivy")
+	bool bBooted = false;
+};
+
+/** How you are living: three meters, and one rule. Grime multiplies social
  *  gains and touches nothing else. Mirrors dirtbag::Living. */
 USTRUCT(BlueprintType)
 struct FDirtbagLiving
@@ -2270,6 +2309,10 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Town")
 	FDirtbagLocals Locals;
 
+	/** Where you are parking tonight. See Sim/DirtbagBivy.h. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Bivy")
+	FDirtbagBivy Bivy;
+
 	/** How you are living. See Sim/DirtbagLiving.h. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Living")
 	FDirtbagLiving Living;
@@ -2695,6 +2738,8 @@ namespace DirtbagConvert
 	dirtbag::Gym ToSim(const FDirtbagGym& In);
 	FDirtbagLiving FromSim(const dirtbag::Living& In);
 	dirtbag::Living ToSim(const FDirtbagLiving& In);
+	FDirtbagBivy FromSim(const dirtbag::Bivy& In);
+	dirtbag::Bivy ToSim(const FDirtbagBivy& In);
 	dirtbag::Rack ToSim(const FDirtbagRack& In);
 	dirtbag::Kit ToSim(const FDirtbagKit& In);
 	FDirtbagStanding FromSim(const dirtbag::Standing& In);

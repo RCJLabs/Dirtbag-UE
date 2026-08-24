@@ -16,6 +16,7 @@
 #include "../DirtbagLife.h"
 #include "../DirtbagLocals.h"
 #include "../DirtbagGym.h"
+#include "../DirtbagBivy.h"
 #include "../DirtbagLiving.h"
 #include "../DirtbagMedical.h"
 #include "../DirtbagAilments.h"
@@ -9916,11 +9917,21 @@ static void TestBillsLandWeekly() {
   PlayerState player;
   DayState day = WakeUp(player);
   const double start = player.cash;
+  // **Parked somewhere the city does not write tickets.** This test is
+  // about the bill clock and nothing else, and the Lot -- which is the
+  // default, free, and exactly where the city knows to look -- starts
+  // ticketing after two nights. That is the bivy system working; it just
+  // is not what this check is asking about. See Sim/DirtbagBivy.h.
+  CHECK(ParkAt(player.bivy, Spot::UpperTrail, player.day, false, 0.0));
+  const double drive = FuelFor(Describe(Spot::UpperTrail).driveHours);
+
   for (int i = 0; i < 7; i++) SleepToNextDay(player, day, Rng::FromSeed("body"));
   CHECK(player.day == 8);
-  CHECK(player.cash == start - DayDials{}.billsAmount);
+  CHECK(std::fabs(player.cash -
+                  (start - DayDials{}.billsAmount - 7 * drive)) < 1e-9);
   for (int i = 0; i < 7; i++) SleepToNextDay(player, day, Rng::FromSeed("body"));
-  CHECK(player.cash == start - 2 * DayDials{}.billsAmount);
+  CHECK(std::fabs(player.cash -
+                  (start - 2 * DayDials{}.billsAmount - 14 * drive)) < 1e-9);
 }
 
 static void TestSkinRegrowsOvernight() {
@@ -14116,6 +14127,142 @@ static Gym ABoughtGym(double& cash, int day = 1) {
 // Living in the van
 // ---------------------------------------------------------------------
 
+// ---------------------------------------------------------------------
+// Where you are parking tonight
+// ---------------------------------------------------------------------
+
+static void TestNoSpotIsTheBestSpot() {
+  // **The trade is the system.** If one of the five won on every axis the
+  // decision would not exist, so the check is that none does.
+  for (int i = 0; i < kSpotCount; i++) {
+    const SpotDef& mine = Describe(static_cast<Spot>(i));
+    bool beatenSomewhere = false;
+    for (int j = 0; j < kSpotCount && !beatenSomewhere; j++) {
+      if (i == j) continue;
+      const SpotDef& theirs = Describe(static_cast<Spot>(j));
+      beatenSomewhere = theirs.psyche > mine.psyche ||
+                        theirs.driveHours < mine.driveHours ||
+                        theirs.exposure < mine.exposure ||
+                        theirs.grime < mine.grime ||
+                        theirs.cooldownDays < mine.cooldownDays;
+    }
+    CHECK(beatenSomewhere);
+  }
+  // And the free one is the one the city can tag, which is the whole
+  // shape of it.
+  CHECK(Describe(Spot::Lot).driveHours == 0.0);
+  CHECK(Describe(Spot::Lot).tickets);
+  for (int i = 1; i < kSpotCount; i++) {
+    CHECK(!Describe(static_cast<Spot>(i)).tickets);
+  }
+}
+
+static void TestTheGoodSpotsHaveToBeEarned() {
+  BivyDials d;
+  Bivy bivy;
+  // The Lot and the trailhead are open to anybody with a van.
+  CHECK(SpotIsOpen(bivy, Spot::Lot, 1, false, 0.0, d));
+  CHECK(SpotIsOpen(bivy, Spot::UpperTrail, 1, false, 0.0, d));
+
+  // The ridge is not in the guidebook -- somebody has to tell you.
+  CHECK(!SpotIsOpen(bivy, Spot::Ridge, 1, false, 0.0, d));
+  CHECK(!WhyNot(bivy, Spot::Ridge, 1, false, 0.0, d).empty());
+  CHECK(SpotIsOpen(bivy, Spot::Ridge, 1, true, 0.0, d));
+
+  // And a driveway is a favour rather than an address.
+  CHECK(!SpotIsOpen(bivy, Spot::Driveway, 1, true, 0.0, d));
+  CHECK(WhyNot(bivy, Spot::Driveway, 1, true, 0.0, d) ==
+        std::string("nobody knows you well enough to offer yet"));
+  CHECK(SpotIsOpen(bivy, Spot::Driveway, 1, true, 1.0, d));
+  CHECK(WhyNot(bivy, Spot::Driveway, 1, true, 1.0, d).empty());
+}
+
+static void TestADrivewayIsNotAnAddress() {
+  BivyDials d;
+  Bivy bivy;
+  const Rng world = Rng::FromSeed("parked-up");
+  CHECK(ParkAt(bivy, Spot::Driveway, 10, true, 1.0, d));
+  NightAt(bivy, world, 10, d);
+  // Four nights before you can ask again, which is what stops the best
+  // spot in the game from being the only one anybody uses.
+  CHECK(!SpotIsOpen(bivy, Spot::Driveway, 11, true, 1.0, d));
+  CHECK(!ParkAt(bivy, Spot::Driveway, 11, true, 1.0, d));
+  CHECK(!WhyNot(bivy, Spot::Driveway, 11, true, 1.0, d).empty());
+  CHECK(SpotIsOpen(bivy, Spot::Driveway,
+                   10 + Describe(Spot::Driveway).cooldownDays, true, 1.0, d));
+}
+
+static void TestTheCityNoticesYouEventually() {
+  BivyDials d;
+  Bivy bivy;
+  const Rng world = Rng::FromSeed("parked-up");
+  // **Two nights grace, and then it climbs.** The Lot works, and then it
+  // stops working, which is the entire reason the other four exist.
+  bool ticketed = false;
+  for (int day = 1; day <= d.ticketGrace; day++) {
+    ticketed = ticketed || NightAt(bivy, world, day, d).ticketed;
+  }
+  CHECK(!ticketed);
+  CHECK(bivy.lotNights == d.ticketGrace);
+
+  int day = d.ticketGrace + 1;
+  for (; day <= 200 && !bivy.booted; day++) NightAt(bivy, world, day, d);
+  CHECK(bivy.ticketsOwed >= d.bootAt);
+  CHECK(bivy.booted);
+  CHECK(!BivyWarning(bivy, d).empty());
+
+  // Going anywhere else resets the streak -- that is what the other spots
+  // are *for*.
+  Bivy moved;
+  const Rng w2 = Rng::FromSeed("parked-up");
+  for (int i = 1; i <= 20; i++) {
+    ParkAt(moved, i % 2 ? Spot::Lot : Spot::UpperTrail, i, false, 0.0, d);
+    NightAt(moved, w2, i, d);
+  }
+  CHECK(moved.lotNights <= 1);
+  CHECK(!moved.booted);
+}
+
+static void TestTheCityDoesNotDoInstalments() {
+  BivyDials d;
+  Bivy bivy;
+  bivy.ticketsOwed = 3;
+  bivy.booted = true;
+  const double owed = WhatYouOwe(bivy, d);
+  CHECK(owed == 3 * d.ticketFine + d.impoundFee);
+
+  double nearly = owed - 1.0;
+  CHECK(!PayTheTickets(bivy, nearly, d));
+  CHECK(bivy.booted);                    // and it is still clamped
+  CHECK(nearly == owed - 1.0);           // and it cost them nothing
+
+  double enough = owed;
+  CHECK(PayTheTickets(bivy, enough, d));
+  CHECK(enough == 0.0);
+  CHECK(bivy.ticketsOwed == 0);
+  CHECK(!bivy.booted);
+  CHECK(BivyWarning(bivy, d).empty());   // and it goes quiet again
+  CHECK(!PayTheTickets(bivy, enough, d));  // nothing left to pay
+}
+
+static void TestWhereYouSleptFollowsYouIntoTheDay() {
+  PlayerState ridge;
+  PlayerState lot;
+  DayState a, b;
+  const Rng world = Rng::FromSeed("parked-up");
+  ridge.climber = NewClimber(world);
+  lot.climber = ridge.climber;
+  ridge.climber.psyche = lot.climber.psyche = 0.5;
+  CHECK(ParkAt(ridge.bivy, Spot::Ridge, ridge.day, true, 1.0));
+
+  SleepToNextDay(ridge, a, world);
+  SleepToNextDay(lot, b, world);
+  // The ridge is worth six psyche points and costs a drive; the Lot is
+  // free and worth nothing. Both true on the same night.
+  CHECK(ridge.climber.psyche > lot.climber.psyche);
+  CHECK(ridge.cash < lot.cash);
+}
+
 static void TestGrimeOnlyEverCostsYouCompany() {
   LivingDials d;
   Living clean;
@@ -15445,6 +15592,12 @@ int main() {
   TestALifeCoolsWhileYouAreAtTheCrag();
   TestABookMakesAnAfternoonWorthMore();
   TestAnEveningCostsTheEvening();
+  TestNoSpotIsTheBestSpot();
+  TestTheGoodSpotsHaveToBeEarned();
+  TestADrivewayIsNotAnAddress();
+  TestTheCityNoticesYouEventually();
+  TestTheCityDoesNotDoInstalments();
+  TestWhereYouSleptFollowsYouIntoTheDay();
   TestGrimeOnlyEverCostsYouCompany();
   TestYouCannotGetCleanOutOfAJug();
   TestTheJugsAndTheBottleRunOut();

@@ -615,6 +615,17 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // project were written and left uncalled, and every one was found late.
   player.lostToday = LifeNight(player.life, player.day);
 
+  // **Where you slept, and what it cost.** Before the weather reads below,
+  // because the exposure multiplier is an argument to it: a friend's
+  // driveway is a third as cold as the ridge, and that is the difference
+  // between a cold you caught and a night you got away with.
+  const BivyNight slept = NightAt(player.bivy, worldRng, player.day);
+  player.living.grime = std::max(0.0, player.living.grime + slept.grime);
+  player.climber.psyche =
+      Clamp01(player.climber.psyche + slept.psyche / 100.0);
+  if (slept.fuel > 0.0) Charge(player, slept.fuel);
+  if (slept.ticketed) Charge(player, BivyDials{}.ticketFine);
+
   // **A night out here, and a day of chalk on top of it.** Grime is the
   // only one of the four that anything else reads, and the only thing it
   // reads into is how much of you a room is willing to take today.

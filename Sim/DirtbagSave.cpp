@@ -341,6 +341,17 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // people this career ever climbed with. The honest reconstruction is that
 // you knew them at least as well as you know them now, which is exactly
 // what the runtime would derive on the next `BondsFrom` anyway.
+// v40 -> v41: where you park. A v40 career had one place to sleep and no
+// city writing tickets, so it loads parked in the Lot with a clean record
+// -- which is where it was and what it had.
+void MigrateV40ToV41(SaveFields& fields) {
+  fields["bivy.tonight"] = "0";
+  for (int i = 0; i < kSpotCount; i++) fields["bivy.last" + IntToStr(i)] = "0";
+  fields["bivy.lotnights"] = "0";
+  fields["bivy.tickets"] = "0";
+  fields["bivy.booted"] = "0";
+}
+
 // v39 -> v40: how you are living. A v39 career washed as often as it liked
 // and never ran out of anything, so it loads at the same place a new one
 // starts -- which is a fresh climber with most of a bottle, and true enough
@@ -650,7 +661,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33,
       &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36,
       &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39,
-      &MigrateV39ToV40};
+      &MigrateV39ToV40, &MigrateV40ToV41};
   return kMigrations;
 }
 
@@ -1096,6 +1107,16 @@ std::string SerializeSave(const SaveGame& save) {
     out << k << "about=" << p.about << "\n";
     out << k << "seen=" << IntToStr(p.lastSeen) << "\n";
   }
+  out << "bivy.tonight=" << IntToStr(static_cast<int>(save.player.bivy.tonight))
+      << "\n";
+  for (int i = 0; i < kSpotCount; i++) {
+    out << "bivy.last" << IntToStr(i) << "="
+        << IntToStr(save.player.bivy.lastSlept[i]) << "\n";
+  }
+  out << "bivy.lotnights=" << IntToStr(save.player.bivy.lotNights) << "\n";
+  out << "bivy.tickets=" << IntToStr(save.player.bivy.ticketsOwed) << "\n";
+  out << "bivy.booted=" << IntToStr(save.player.bivy.booted ? 1 : 0) << "\n";
+
   out << "live.grime=" << NumToStr(save.player.living.grime) << "\n";
   out << "live.water=" << NumToStr(save.player.living.water) << "\n";
   out << "live.propane=" << NumToStr(save.player.living.propane) << "\n";
@@ -1704,6 +1725,26 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   {
     Locals& town = save.player.locals;
     int count = 0;
+    {
+      Bivy& bivy = save.player.bivy;
+      int where = 0, booted = 0;
+      if (!ParseInt(fields, "bivy.tonight", where) ||
+          !ParseInt(fields, "bivy.lotnights", bivy.lotNights) ||
+          !ParseInt(fields, "bivy.tickets", bivy.ticketsOwed) ||
+          !ParseInt(fields, "bivy.booted", booted)) {
+        return LoadResult::BadFormat;
+      }
+      for (int i = 0; i < kSpotCount; i++) {
+        if (!ParseInt(fields, "bivy.last" + IntToStr(i), bivy.lastSlept[i])) {
+          return LoadResult::BadFormat;
+        }
+      }
+      // Clamped rather than trusted, the same rule every other enum here
+      // is read under.
+      bivy.tonight =
+          static_cast<Spot>(where >= 0 && where < kSpotCount ? where : 0);
+      bivy.booted = booted != 0;
+    }
     if (!ParseDouble(fields, "live.grime", save.player.living.grime) ||
         !ParseDouble(fields, "live.water", save.player.living.water) ||
         !ParseDouble(fields, "live.propane", save.player.living.propane)) {

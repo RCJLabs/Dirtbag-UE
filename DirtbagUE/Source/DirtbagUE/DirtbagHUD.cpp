@@ -238,6 +238,21 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		Y -= 16.f;
 	}
 
+	// **And what the city is owed**, which is louder than the rest of this
+	// column because a boot on the van stops the game.
+	const FString Owed = Game->BivyWarningLine();
+	if (!Owed.IsEmpty())
+	{
+		Y += 20.f;
+		for (const FString& L : WrapToWidth(Owed, 34))
+		{
+			DrawText(L, FLinearColor(0.90f, 0.58f, 0.42f, 1.f), X, Y,
+			         GEngine->GetSmallFont(), 1.f);
+			Y += 16.f;
+		}
+		Y -= 16.f;
+	}
+
 	// **And how you are living**, when it is worth saying. Quiet while you
 	// are lived-in with full jugs, which is most of a career.
 	const FString Van = Game->LivingLine();

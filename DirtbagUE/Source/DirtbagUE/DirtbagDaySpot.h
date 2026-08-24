@@ -41,6 +41,9 @@ enum class EDirtbagSpotKind : uint8
 	Van,
 	/** The gear shop: resole while the uppers hold, replace when not. */
 	GearShop,
+	/** **Where you are parking tonight**, on keys 1-5, and clearing what
+	 *  the city is owed on E. See Sim/DirtbagBivy.h. */
+	Bivy,
 	/** **Keeping yourself and the van going.** Washing, water and propane,
 	 *  with `Keeps` choosing which of the five this placement is — one spot
 	 *  kind rather than five, because they are one sentence each. See
@@ -252,6 +255,10 @@ private:
 	bool AnswerTheRival(bool bYes);
 
 	void ChooseDreamAt(EDirtbagDream Which);
+
+	/** Where you park, on keys 1-5. Returns true when it handled the
+	 *  press, so the chain below it never sees it. */
+	bool PickABivy(int32 Index);
 
 	/** The gym's levers on keys 1-6. Returns true when it handled the
 	 *  press, so the chain below it never sees it. */

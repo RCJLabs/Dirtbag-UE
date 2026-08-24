@@ -31,6 +31,8 @@
 #include "DirtbagKit.h"
 #include "DirtbagLife.h"
 #include "DirtbagGym.h"
+#include "DirtbagBivy.h"
+#include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
 #include "DirtbagLocals.h"
 #include "DirtbagEthics.h"
@@ -375,7 +377,12 @@ struct PlayerState {
   // that makes the rest a system rather than a menu.
   Life life;
 
-  // **How you are living**, which is four meters and one rule: grime
+  // **Where you are parking tonight**, and what the city thinks of it.
+  // See Sim/DirtbagBivy.h -- the one decision somebody living like this
+  // makes every single day.
+  Bivy bivy;
+
+  // **How you are living**, which is three meters and one rule: grime
   // multiplies social gains and touches nothing else. See
   // Sim/DirtbagLiving.h.
   Living living;

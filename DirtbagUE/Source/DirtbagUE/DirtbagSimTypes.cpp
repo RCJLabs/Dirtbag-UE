@@ -195,6 +195,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.locals = ToSim(In.Locals);
 	Out.gym = ToSim(In.Gym);
 	Out.living = ToSim(In.Living);
+	Out.bivy = ToSim(In.Bivy);
 	Out.gymNews = TCHAR_TO_UTF8(*In.GymNews);
 	Out.rival = ToSim(In.Rival);
 	Out.rankingPoints = In.RankingPoints;
@@ -280,6 +281,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Locals = FromSim(In.locals);
 	Out.Gym = FromSim(In.gym);
 	Out.Living = FromSim(In.living);
+	Out.Bivy = FromSim(In.bivy);
 	Out.GymNews = UTF8_TO_TCHAR(In.gymNews.c_str());
 	Out.Rival = FromSim(In.rival);
 	Out.RankingPoints = In.rankingPoints;
@@ -539,6 +541,36 @@ dirtbag::Logbook ToSim(const FDirtbagLogbook& In)
 	Out.asOfDay = In.AsOfDay;
 	Out.lifetimeBurns = In.LifetimeBurns;
 	Out.lifetimeDays = In.LifetimeDays;
+	return Out;
+}
+
+FDirtbagBivy FromSim(const dirtbag::Bivy& In)
+{
+	FDirtbagBivy Out;
+	Out.Tonight = static_cast<EDirtbagSpot>(In.tonight);
+	Out.LastSlept.Reserve(dirtbag::kSpotCount);
+	for (int i = 0; i < dirtbag::kSpotCount; i++)
+	{
+		Out.LastSlept.Add(In.lastSlept[i]);
+	}
+	Out.LotNights = In.lotNights;
+	Out.TicketsOwed = In.ticketsOwed;
+	Out.bBooted = In.booted;
+	return Out;
+}
+
+dirtbag::Bivy ToSim(const FDirtbagBivy& In)
+{
+	dirtbag::Bivy Out;
+	Out.tonight = static_cast<dirtbag::Spot>(In.Tonight);
+	const int Count = FMath::Min(In.LastSlept.Num(), dirtbag::kSpotCount);
+	for (int i = 0; i < Count; i++)
+	{
+		Out.lastSlept[i] = In.LastSlept[i];
+	}
+	Out.lotNights = In.LotNights;
+	Out.ticketsOwed = In.TicketsOwed;
+	Out.booted = In.bBooted;
 	return Out;
 }
 

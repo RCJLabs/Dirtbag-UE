@@ -1997,6 +1997,37 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Life")
 	double ThreadHours(EDirtbagThread What) const;
 
+	/** **Park here tonight.** Refuses a spot that is not open to you —
+	 *  the ridge wants you to be a local somewhere and the driveway wants
+	 *  somebody who knows you. See Sim/DirtbagBivy.h. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Bivy")
+	bool ParkAt(EDirtbagSpot Where);
+
+	/** What that one is, and what it is like. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Bivy")
+	FString SpotName(EDirtbagSpot Where) const;
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Bivy")
+	FString SpotBlurb(EDirtbagSpot Where) const;
+
+	/** Why it is not open to you, or empty when it is — the prompt needs
+	 *  to say *nobody knows you well enough to offer yet* rather than just
+	 *  greying a row out. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Bivy")
+	FString SpotWhyNot(EDirtbagSpot Where) const;
+
+	/** What the city is owed, and clearing it. All of it or none — the
+	 *  city does not do instalments. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Bivy")
+	double WhatTheCityIsOwed() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Bivy")
+	bool PayTheTickets();
+
+	/** **Quiet until the city has noticed you.** */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Bivy")
+	FString BivyWarningLine() const;
+
 	/** What you smell like, in a word: fresh, lived-in, ripe, feral. */
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Living")
 	FString GrimeWord() const;

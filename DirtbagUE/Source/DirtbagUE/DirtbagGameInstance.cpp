@@ -3191,6 +3191,86 @@ double UDirtbagGameInstance::ThreadHours(EDirtbagThread What) const
 	return dirtbag::AsksFor(static_cast<dirtbag::Thread>(What));
 }
 
+namespace
+{
+// The two facts the bivy needs about the rest of the career, gathered in
+// one place so the four verbs below cannot disagree about them.
+bool ALocalSomewhere(const FDirtbagPlayerState& Player)
+{
+	// A tier-2 mark anywhere is what "somebody has to tell you about it"
+	// means. Standing with the scene is the nearest thing this port has.
+	return Player.Standing.With.Num() > 0 &&
+	       dirtbag::StandingWith(DirtbagConvert::ToSim(Player.Standing),
+	                             dirtbag::Faction::Scene) > 0.25;
+}
+
+double BestRapport(const FDirtbagPlayerState& Player)
+{
+	double Best = 0.0;
+	for (const FDirtbagPartnerBond& B : Player.Bonds)
+	{
+		Best = FMath::Max(Best, B.Rapport);
+	}
+	return Best;
+}
+}  // namespace
+
+bool UDirtbagGameInstance::ParkAt(EDirtbagSpot Where)
+{
+	dirtbag::Bivy Sim = DirtbagConvert::ToSim(Player.Bivy);
+	if (!dirtbag::ParkAt(Sim, static_cast<dirtbag::Spot>(Where), Player.Day,
+	                     ALocalSomewhere(Player), BestRapport(Player)))
+	{
+		return false;
+	}
+	Player.Bivy = DirtbagConvert::FromSim(Sim);
+	return true;
+}
+
+FString UDirtbagGameInstance::SpotName(EDirtbagSpot Where) const
+{
+	return UTF8_TO_TCHAR(dirtbag::SpotName(static_cast<dirtbag::Spot>(Where)));
+}
+
+FString UDirtbagGameInstance::SpotBlurb(EDirtbagSpot Where) const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::Describe(static_cast<dirtbag::Spot>(Where)).blurb);
+}
+
+FString UDirtbagGameInstance::SpotWhyNot(EDirtbagSpot Where) const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::WhyNot(DirtbagConvert::ToSim(Player.Bivy),
+	                    static_cast<dirtbag::Spot>(Where), Player.Day,
+	                    ALocalSomewhere(Player), BestRapport(Player))
+	        .c_str());
+}
+
+double UDirtbagGameInstance::WhatTheCityIsOwed() const
+{
+	return dirtbag::WhatYouOwe(DirtbagConvert::ToSim(Player.Bivy));
+}
+
+bool UDirtbagGameInstance::PayTheTickets()
+{
+	dirtbag::Bivy Sim = DirtbagConvert::ToSim(Player.Bivy);
+	double Cash = Player.Cash;
+	if (!dirtbag::PayTheTickets(Sim, Cash))
+	{
+		return false;
+	}
+	Player.Bivy = DirtbagConvert::FromSim(Sim);
+	Player.Cash = Cash;
+	return true;
+}
+
+FString UDirtbagGameInstance::BivyWarningLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::BivyWarning(DirtbagConvert::ToSim(Player.Bivy)).c_str());
+}
+
 FString UDirtbagGameInstance::GrimeWord() const
 {
 	return UTF8_TO_TCHAR(dirtbag::GrimeWord(Player.Living.Grime));

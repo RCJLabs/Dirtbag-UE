@@ -395,6 +395,27 @@ FString ADirtbagDaySpot::PromptText() const
 		                      *Game->ShoeLine(), Game->Player.Cash)) +
 		       Kit + Care + Deal;
 	}
+	case EDirtbagSpotKind::Bivy:
+	{
+		FString Line = FString::Printf(
+		    TEXT("Tonight: %s"),
+		    *Game->SpotName(Game->Player.Bivy.Tonight));
+		for (int32 i = 0; i < 5; i++)
+		{
+			const EDirtbagSpot S = static_cast<EDirtbagSpot>(i);
+			const FString Why = Game->SpotWhyNot(S);
+			Line += FString::Printf(
+			    TEXT("\n   %d  %-22s %s"), i + 1, *Game->SpotName(S),
+			    Why.IsEmpty() ? *Game->SpotBlurb(S) : *Why);
+		}
+		const FString Owed = Game->BivyWarningLine();
+		if (!Owed.IsEmpty())
+		{
+			Line += FString::Printf(TEXT("\n   %s  -  pay $%.0f (E)"), *Owed,
+			                        Game->WhatTheCityIsOwed());
+		}
+		return Line;
+	}
 	case EDirtbagSpotKind::Keeping:
 	{
 		const FString Smell = Game->GrimeWord();
@@ -1283,6 +1304,15 @@ void ADirtbagDaySpot::OnInteract()
 		}
 		break;
 	}
+	case EDirtbagSpotKind::Bivy:
+	{
+		// E clears what the city is owed; where you park is on the numbers.
+		Say(Game->PayTheTickets()
+		        ? FString(TEXT("Paid. The van is yours again."))
+		        : FString(TEXT("Nothing owed, or not enough to clear it.")),
+		    FColor::Yellow, 5.f);
+		break;
+	}
 	case EDirtbagSpotKind::Keeping:
 	{
 		bool bDid = false;
@@ -1832,6 +1862,21 @@ bool ADirtbagDaySpot::SetStakeNotch(int32 Notch)
 // because it is up from the first frame of a career and the player is not
 // standing anywhere yet. Same reason the road owns every key while it is on
 // screen: there is nothing else to be doing.
+bool ADirtbagDaySpot::PickABivy(int32 Index)
+{
+	if (!Game || !bPlayerNear || Kind != EDirtbagSpotKind::Bivy) { return false; }
+	if (Index < 0 || Index >= 5) { return false; }
+	const EDirtbagSpot Where = static_cast<EDirtbagSpot>(Index);
+	if (!Game->ParkAt(Where))
+	{
+		Say(Game->SpotWhyNot(Where), FColor::Silver, 5.f);
+		return true;
+	}
+	Say(FString::Printf(TEXT("Tonight: %s"), *Game->SpotName(Where)),
+	    FColor::Yellow, 5.f);
+	return true;
+}
+
 bool ADirtbagDaySpot::PullGymLever(int32 Index)
 {
 	if (!Game || !bPlayerNear || Kind != EDirtbagSpotKind::Gym) { return false; }
@@ -1871,6 +1916,7 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 
 void ADirtbagDaySpot::OnChoose1()
 {
+	if (PickABivy(0)) { return; }
 	if (PullGymLever(0)) { return; }
 	if (Game && Game->ChooseInCreation(0)) { return; }
 	if (SkipTravel()) { return; }
@@ -1881,6 +1927,7 @@ void ADirtbagDaySpot::OnChoose1()
 }
 void ADirtbagDaySpot::OnChoose2()
 {
+	if (PickABivy(1)) { return; }
 	if (PullGymLever(1)) { return; }
 	if (Game && Game->ChooseInCreation(1)) { return; }
 	if (SkipTravel()) { return; }
@@ -1891,6 +1938,7 @@ void ADirtbagDaySpot::OnChoose2()
 }
 void ADirtbagDaySpot::OnChoose3()
 {
+	if (PickABivy(2)) { return; }
 	if (PullGymLever(2)) { return; }
 	if (Game && Game->ChooseInCreation(2)) { return; }
 	if (SkipTravel()) { return; }
@@ -1908,16 +1956,19 @@ void ADirtbagDaySpot::OnChoose3()
 // buys a dream trying to fold a hand.
 void ADirtbagDaySpot::OnChoose4()
 {
+	if (PickABivy(3)) { return; }
 	if (PullGymLever(3)) { return; }
 	if (Game) { Game->ChooseInCreation(3); }
 }
 void ADirtbagDaySpot::OnChoose5()
 {
+	if (PickABivy(4)) { return; }
 	if (PullGymLever(4)) { return; }
 	if (Game) { Game->ChooseInCreation(4); }
 }
 void ADirtbagDaySpot::OnChoose6()
 {
+	if (PickABivy(5)) { return; }
 	if (PullGymLever(5)) { return; }
 	if (Game) { Game->ChooseInCreation(5); }
 }
