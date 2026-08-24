@@ -341,6 +341,13 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // people this career ever climbed with. The honest reconstruction is that
 // you knew them at least as well as you know them now, which is exactly
 // what the runtime would derive on the next `BondsFrom` anyway.
+// v37 -> v38: what you went to bed with. A v37 career woke level every
+// morning however it had lived, because hunger reset at dawn -- so it loads
+// level, which is exactly the day it was having.
+void MigrateV37ToV38(SaveFields& fields) {
+  fields["hunger.carried"] = "0";
+}
+
 // v36 -> v37: the people behind the counters. A v36 career walked into a
 // town with nobody in it, and loads into one with nobody in it -- for about
 // a night, because the night tick opens the roster the same way it opens a
@@ -611,7 +618,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30,
       &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33,
       &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36,
-      &MigrateV36ToV37};
+      &MigrateV36ToV37, &MigrateV37ToV38};
   return kMigrations;
 }
 
@@ -1057,6 +1064,7 @@ std::string SerializeSave(const SaveGame& save) {
     out << k << "about=" << p.about << "\n";
     out << k << "seen=" << IntToStr(p.lastSeen) << "\n";
   }
+  out << "hunger.carried=" << NumToStr(save.player.hungerCarried) << "\n";
   out << "loc.titles=" << IntToStr(save.player.locals.knownTitles) << "\n";
   out << "loc.tier=" << IntToStr(save.player.locals.knownTier) << "\n";
 
@@ -1641,6 +1649,9 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   {
     Locals& town = save.player.locals;
     int count = 0;
+    if (!ParseDouble(fields, "hunger.carried", save.player.hungerCarried)) {
+      return LoadResult::BadFormat;
+    }
     if (!ParseInt(fields, "loc.n", count) ||
         !ParseInt(fields, "loc.titles", town.knownTitles) ||
         !ParseInt(fields, "loc.tier", town.knownTier)) {

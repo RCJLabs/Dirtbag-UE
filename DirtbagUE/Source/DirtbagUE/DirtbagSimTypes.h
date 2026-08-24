@@ -2127,6 +2127,13 @@ struct FDirtbagPlayerState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	double Cash = 420.0;
 
+	/** **What you went to bed with.** On the career rather than the day
+	 *  because a day does not survive the night — every caller builds
+	 *  tomorrow with WakeUp, which is exactly where a hunger carried on the
+	 *  day would be thrown away. See DayDials::hungerKeptOvernight. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double HungerCarried = 0.0;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	int32 Day = 1;
 

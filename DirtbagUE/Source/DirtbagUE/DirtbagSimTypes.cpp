@@ -216,6 +216,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 		Out.pastRivals.push_back(ToSim(P));
 	}
 	Out.cash = In.Cash;
+	Out.hungerCarried = In.HungerCarried;
 	Out.day = In.Day;
 	Out.dog = ToSim(In.Dog);
 	Out.shoes = ToSim(In.Shoes);
@@ -305,6 +306,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Climber.Skin = In.climber.skin;
 	Out.Climber.Psyche = In.climber.psyche;
 	Out.Cash = In.cash;
+	Out.HungerCarried = In.hungerCarried;
 	Out.Day = In.day;
 	Out.Dog = FromSim(In.dog);
 	Out.Shoes = FromSim(In.shoes);

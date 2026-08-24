@@ -142,7 +142,8 @@ DayState WakeUp(const PlayerState& player, const DayDials& dials) {
   DayState day;
   day.hour = dials.wakeHour;
   day.energy = 100.0;
-  day.hunger = 0.0;
+  // You do not wake up level after going to bed on nothing.
+  day.hunger = std::max(0.0, player.hungerCarried);
 
   // **You do not wake up at a hundred when you are ill.** A night's sleep
   // gives back what it gives back, and a body fighting something gives
@@ -558,6 +559,13 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
 
 void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
                     const DayDials& dials) {
+  // **The rest of the day happened.** First, before anything reads the
+  // hunger -- the meal you did or did not have is already behind you, and
+  // what sleep recovers depends on which. See `DayDials::bedtimeHour`.
+  if (day.hour < dials.bedtimeHour) {
+    PassHours(day, dials.bedtimeHour - day.hour, dials);
+  }
+
   // **What kind of day that was.** Counted at the end because that is the
   // only point where the answer is known -- whether you got on anything is
   // not a thing you can ask at breakfast.
@@ -838,9 +846,14 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   const double recovered =
       100.0 - (100.0 - dials.sleepEnergyFloor) * hungerPenalty;
 
+  // What you take into the morning. Here rather than on the DayState below
+  // because that one is thrown away by the next `WakeUp`.
+  player.hungerCarried = day.hunger * Clamp01(dials.hungerKeptOvernight);
+
   day = DayState{};
   day.hour = dials.wakeHour;
   day.energy = recovered;
+  day.hunger = player.hungerCarried;
 }
 
 CareerSummary SummarizeCareer(const PlayerState& player) {

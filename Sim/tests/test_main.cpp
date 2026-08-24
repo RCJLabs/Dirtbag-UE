@@ -13958,10 +13958,21 @@ static void TestALifeCoolsWhileYouAreAtTheCrag() {
   // project have been written and left uncalled.
   CHECK(TakeUp(player.life, Thread::Someone, player.day));
   CHECK(TakeUp(player.life, Thread::Home, player.day));
+  // **Fed.** Sleeping now charges for the hours you did not spend, so a
+  // climber who never eats is a climber slowly starving -- which is
+  // correct, and which would make this test about food rather than about
+  // who is not around any more.
+  const auto liveADay = [&](PlayerState& p, DayState& d) {
+    p.cash = 500.0;
+    d = WakeUp(p);
+    PassHours(d, 12.0);
+    EatMeal(p, d);
+    SleepToNextDay(p, d, world);
+  };
   for (int i = 0; i < 180; i++) {
     GiveItTime(player.life, Thread::Someone, 3.0, player.day);
     GiveItTime(player.life, Thread::Home, 1.0, player.day);
-    SleepToNextDay(player, day, world);
+    liveADay(player, day);
   }
   CHECK(WarmthOf(player.life, Thread::Someone) == 1.0);
   const double keptWarm = player.climber.psyche;
@@ -13970,7 +13981,7 @@ static void TestALifeCoolsWhileYouAreAtTheCrag() {
   // here; the night does.
   bool announced = false;
   for (int i = 0; i < 120; i++) {
-    SleepToNextDay(player, day, world);
+    liveADay(player, day);
     if (player.lostToday == Thread::Someone) announced = true;
   }
   CHECK(announced);                            // and it said so, once
@@ -14056,6 +14067,74 @@ static Local& Counter(Locals& town, Service where) {
   Local* who = At(town, where);
   CHECK(who != nullptr);
   return who ? *who : kNobody;
+}
+
+static void TestTheDayHappensWhetherOrNotYouDo() {
+  DayDials dd;
+  const Rng world = Rng::FromSeed("a-day-that-happened");
+
+  // Two identical people. One spends twelve hours doing things; the other
+  // walks back to the van at ten in the morning and goes to bed.
+  PlayerState busy;
+  PlayerState idle;
+  DayState b = WakeUp(busy, dd);
+  DayState i = WakeUp(idle, dd);
+  PassHours(b, 12.0, dd);
+  CHECK(b.hunger > i.hunger);            // during the day, obviously
+  SleepToNextDay(busy, b, world, dd);
+  SleepToNextDay(idle, i, world, dd);
+  // **The night cost them the same**, because the hours happened to both
+  // of them. Before this, sleeping at ten in the morning was free, and a
+  // measured thirty-year career ate 595 meals.
+  CHECK(std::fabs(busy.hungerCarried - idle.hungerCarried) < 1e-9);
+  CHECK(idle.hungerCarried > 0.0);
+  CHECK(i.hunger == idle.hungerCarried);   // and you wake up with it
+}
+
+static void TestSleepingHungryIsAThingThatCanHappen() {
+  DayDials dd;
+  const Rng world = Rng::FromSeed("the-oldest-trap");
+
+  // **This could not happen at all until hunger carried.** Fifteen waking
+  // hours at three an hour is forty-five, and `starvingHunger` is seventy,
+  // so one day could never reach it however it went -- the probe measured
+  // zero hungry nights across thirty years, in every career it ever ran.
+  PlayerState fed;
+  PlayerState unfed;
+  fed.cash = 500.0;
+  unfed.cash = 0.0;
+  double fedEnergy = 0.0;
+  double unfedEnergy = 0.0;
+  for (int i = 0; i < 5; i++) {
+    DayState f = WakeUp(fed, dd);
+    DayState u = WakeUp(unfed, dd);
+    EatMeal(fed, f, dd);          // and nothing for the other one
+    SleepToNextDay(fed, f, world, dd);
+    SleepToNextDay(unfed, u, world, dd);
+    fedEnergy = f.energy;
+    unfedEnergy = u.energy;
+  }
+  // Eating once a day keeps you level; not eating compounds. The penalty
+  // reads the hunger you went to bed on, which is what carried plus a
+  // day's worth comes to -- `hungerCarried` is what is left of it by
+  // morning and is the smaller number.
+  const double unfedAtBedtime =
+      unfed.hungerCarried / dd.hungerKeptOvernight;
+  CHECK(unfedAtBedtime > dd.starvingHunger);
+  CHECK(fed.hungerCarried / dd.hungerKeptOvernight < dd.starvingHunger);
+  CHECK(fedEnergy == 100.0);            // fed and rested is fed and rested
+  CHECK(unfedEnergy < fedEnergy);
+  CHECK(unfedEnergy <= dd.sleepEnergyFloor + 1e-9);
+
+  // ...and it is a slide rather than a cliff: **one missed day is not
+  // this.** Fifteen waking hours is forty-five and the trap is at seventy,
+  // so the first night on nothing costs you nothing, the second is bad,
+  // and the third is worse. That shape is the whole point of it.
+  PlayerState missedOne;
+  DayState m = WakeUp(missedOne, dd);
+  SleepToNextDay(missedOne, m, world, dd);
+  CHECK(m.energy == 100.0);
+  CHECK(missedOne.hungerCarried / dd.hungerKeptOvernight < dd.starvingHunger);
 }
 
 static void TestAStrangerIsServedNotGreeted() {
@@ -14235,6 +14314,29 @@ static void TestTheDinerGreetsYouByWhatYouDid() {
   day.heard.clear();
   CHECK(EatMeal(player, day));
   CHECK(day.heard.empty());
+}
+
+static void TestWhatYouWentToBedWithSurvivesASave() {
+  SaveGame save;
+  save.seed = "the-oldest-trap";
+  save.player.hungerCarried = 41.5;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(std::fabs(back.player.hungerCarried - 41.5) < 1e-9);
+  // You load in as hungry as you saved, which is the only honest answer --
+  // otherwise saving is a meal.
+  CHECK(WakeUp(back.player).hunger == back.player.hungerCarried);
+
+  // And a v37 career woke level however it had lived, so it loads level.
+  std::string v37 = SerializeSave(save);
+  DropSaveLine(v37, "hunger.carried=");
+  SetSaveVersion(v37, 37);
+  SaveGame old;
+  CHECK(DeserializeSave(v37, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(old.player.hungerCarried == 0.0);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
 }
 
 static void TestTheTownHearsWhatYouNamedIt() {
@@ -14612,6 +14714,8 @@ int main() {
   TestALifeCoolsWhileYouAreAtTheCrag();
   TestABookMakesAnAfternoonWorthMore();
   TestAnEveningCostsTheEvening();
+  TestTheDayHappensWhetherOrNotYouDo();
+  TestSleepingHungryIsAThingThatCanHappen();
   TestAStrangerIsServedNotGreeted();
   TestTheySayItOnceAndGoBackToNodding();
   TestTheLoudestThingWins();
@@ -14621,6 +14725,7 @@ int main() {
   TestBeingAKnownFaceIsWorthSomething();
   TestTheTownIsSeededByTheNight();
   TestTheDinerGreetsYouByWhatYouDid();
+  TestWhatYouWentToBedWithSurvivesASave();
   TestTheTownHearsWhatYouNamedIt();
   TestAKnownFaceIsCharacterLessForTheBurrito();
   TestTheTownSurvivesASave();

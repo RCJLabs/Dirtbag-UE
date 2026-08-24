@@ -658,7 +658,10 @@ int main(int argc, char** argv) {
         if (lr.rep > 0.0) Shift(player.standing, Faction::Scene, lr.rep);
         t.leagueNights++;
         if (lr.personalBest) t.leaguePBs++;
-        today.hour = 21.0;
+        // Through PassHours, not by assignment: a clock you set rather
+        // than spend is a day that costs no hunger, which is the same
+        // bug the night tick just had -- see DayDials::bedtimeHour.
+        if (today.hour < 21.0) PassHours(today, 21.0 - today.hour, dd);
         note = "league: " + std::to_string(lr.place);
       }
 
@@ -678,7 +681,10 @@ int main(int argc, char** argv) {
                      player.olympics.nextDay);
         t.gamesEntered++;
         if (r.place <= 3) t.medals++;
-        today.hour = 23.0;
+        // Through PassHours, not by assignment: a clock you set rather
+        // than spend is a day that costs no hunger, which is the same
+        // bug the night tick just had -- see DayDials::bedtimeHour.
+        if (today.hour < 23.0) PassHours(today, 23.0 - today.hour, dd);
         note = "THE GAMES: " + std::to_string(r.place);
       } else if (flight.can) {
         player.cash -= flight.cost;
@@ -688,7 +694,10 @@ int main(int argc, char** argv) {
             board, world.Derive("probe-wc#" + std::to_string(day)), wsd);
         BankRound(player.worldCup, flight.round, &r,
                   world.Derive("probe-bank#" + std::to_string(day)), wsd);
-        today.hour = 23.0;
+        // Through PassHours, not by assignment: a clock you set rather
+        // than spend is a day that costs no hunger, which is the same
+        // bug the night tick just had -- see DayDials::bedtimeHour.
+        if (today.hour < 23.0) PassHours(today, 23.0 - today.hour, dd);
         note = "World Cup " +
                std::string(TheVenues()[
                    player.worldCup.schedule[flight.round].venue].city) +
@@ -757,7 +766,10 @@ int main(int argc, char** argv) {
           // season's close would report five years for every one.
           t.teamSeasons = player.team.seasons;
         }
-        today.hour = 23.0;
+        // Through PassHours, not by assignment: a clock you set rather
+        // than spend is a day that costs no hunger, which is the same
+        // bug the night tick just had -- see DayDials::bedtimeHour.
+        if (today.hour < 23.0) PassHours(today, 23.0 - today.hour, dd);
         note = "comp: " + std::to_string(r.place);
       }
       t.rankingPeak = std::max(t.rankingPeak, player.rankingPoints);

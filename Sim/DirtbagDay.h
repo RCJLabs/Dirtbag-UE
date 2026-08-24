@@ -69,6 +69,40 @@ struct DayDials {
   double mealHunger = 45.0;     // one meal buys back this much
   double starvingHunger = 70.0; // above this, sleep recovers poorly
 
+  // **When the day ends, whatever you did with it.**
+  //
+  // Hunger only ever accrued through `PassHours`, so it only counted the
+  // hours you *spent* -- and a day you spent nothing on was a day you did
+  // not get hungry. Sleep at ten in the morning and the night cost you
+  // nothing, which is how a measured thirty-year career came to eat **595
+  // meals**, one every eighteen days, and be a stranger in its own town.
+  //
+  // The engine does exactly the same thing, so this was never a probe
+  // artefact: a player who walks to the van and presses sleep skips the
+  // day at the same discount. The hours between now and bedtime happen to
+  // you whether or not you find something to do with them, and
+  // `SleepToNextDay` is the one place that is true of both consumers.
+  //
+  // Ten at night. Not "last light", which would make a winter cheaper to
+  // live through than a summer -- you go to bed when you go to bed.
+  double bedtimeHour = 22.0;
+
+  // **How much of last night's hunger is still there in the morning.**
+  //
+  // Without this, `starvingHunger` is unreachable by construction and
+  // always has been: hunger reset to nothing at `WakeUp`, and fifteen
+  // waking hours at three an hour is forty-five, so seventy could not
+  // happen inside one day however the day went. The probe agrees -- **zero
+  // hungry nights across thirty years**, in every career ever measured.
+  // *"Sleeping hungry ruins the night's recovery -- the dirtbag's oldest
+  // trap"* has been in this file since Phase 1 and has never once fired.
+  //
+  // At 0.6 the arithmetic works out to the trap it was meant to be: eat
+  // once and you are level, skip a day and you wake at 27 and go to bed at
+  // 72, which is the first bad night, and the day after that is worse. Two
+  // days without food is trouble and one is not, which is about right.
+  double hungerKeptOvernight = 0.6;
+
   // Work: the classic four-hour belay-desk shift.
   double shiftHours = 4.0;
   double shiftWage = 60.0;
@@ -233,6 +267,13 @@ struct PlayerState {
 
   double cash = 420.0;  // the war chest you left home with
   int day = 1;
+
+  // **What you went to bed with.** On the career rather than the day
+  // because a `DayState` does not survive the night -- every caller builds
+  // tomorrow with `WakeUp`, which is exactly where a hunger carried on the
+  // day would have been silently thrown away. See
+  // `DayDials::hungerKeptOvernight`.
+  double hungerCarried = 0.0;
 
   // What you could not pay. Bills land whether or not the money is there;
   // cash floors at nothing and the shortfall goes here, because a bill you
