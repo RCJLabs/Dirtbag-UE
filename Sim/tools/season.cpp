@@ -411,7 +411,7 @@ int main(int argc, char** argv) {
   {
     static const char* kKnown[] = {"skin", "pads", "build", "rival",
                                    "norubber", "foam", "careers", "lot",
-                                   "savings", "med", "retire"};
+                                   "savings", "med", "retire", "covers"};
     for (const auto& kv : opts) {
       bool found = false;
       for (const char* k : kKnown) found = found || kv.first == k;
@@ -491,6 +491,9 @@ int main(int argc, char** argv) {
   // Measured, the difference is the whole shape of a ninety-year run: on a
   // seed that climbs hard, "always" gives 88 lives with 87 of them ended by
   // the body at a mean age of 24.7.
+  // What insurance pays of a bill, for finding the fraction at which the
+  // thing it exists for actually happens.
+  const double coversOverride = std::atof(opt("covers", "-1").c_str());
   const std::string retirePolicy = opt("retire", "always");
   const std::string medPolicy = opt("med", "");
   const auto has = [&medPolicy](const char* what) {
@@ -878,7 +881,8 @@ int main(int argc, char** argv) {
     // day.** Phase 10's whole point is that this is a decision and not a
     // wait, so it is taken here where the other decisions are.
     if (IsHurt(player.climber) && (medSensible || medImpatient)) {
-      const MedicalDials mdl;
+      MedicalDials mdl;
+      if (coversOverride >= 0.0) mdl.covers = coversOverride;
       const double before = player.cash;
       if (medSensible) {
         // See somebody, then rest every stage out to the day.

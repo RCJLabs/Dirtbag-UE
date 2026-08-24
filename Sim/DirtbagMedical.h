@@ -192,7 +192,31 @@ struct MedicalDials {
   // not a bet, it is a tax with a story.
   double premium = 8.0;
   int premiumEveryDays = 14;
-  double covers = 0.80;
+
+  // **What it pays of the bill, and the number that decides whether this
+  // system has a customer at all.**
+  //
+  // At 0.80 it had none, measured. A surgery lists at $2,200, so the copay
+  // was $440 -- and a climbing-first career's *highest balance in thirty
+  // years* is $474, usually holding a couple of hundred. So the insured
+  // poor climber scanned every injury and **still never once had the
+  // operation**: 0.00 surgeries across eight seeds, with $6,256 of
+  // premiums paid and $612 of claims back.
+  //
+  // Meanwhile a career that saves affords the whole $2,200 unaided and has
+  // no use for cover. **The people who needed it could not use it and the
+  // people who could use it did not need it**, which is a system with
+  // nobody in the middle.
+  //
+  // Swept: the cliff is between a $330 copay (0.00 surgeries) and a $220
+  // one (1.50). 0.90 is the least change that makes the mechanic exist,
+  // and $220 is still a real decision for somebody who ends the year on
+  // two hundred. After it, insurance is **the only way a climbing-first
+  // career is ever repaired** -- uninsured 0.00 surgeries, insured 1.50 --
+  // which is what the note at the top of this block always said it was
+  // for. It stays a losing bet on average, at $0.61 back per dollar, and
+  // that is what insurance is.
+  double covers = 0.90;
   // You cannot buy it while you are already hurt. Everybody tries.
   bool refuseWhenHurt = true;
   // And there is a wait before it pays, so buying it the week before a

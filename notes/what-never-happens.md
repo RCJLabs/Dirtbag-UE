@@ -60,14 +60,66 @@ checked it against the probe's own flags.**
 
 Nine counters, across 29 configurations × 3 seeds.
 
-### The one that is a real balance finding: nobody can afford to be treated
+### Corrected again: the wallet exists, and `greedy` is the one that has none
 
-`surgeries` stays at **zero even for `med=careful-up`** — the policy whose
-own comment calls it *"the only policy that uses the expensive end of the
-medical system, and therefore the only one against which insurance can be a
-bet at all."* It scans every injury and never once operates.
+**The section below overstated it and is kept for the record.** I wrote
+that the expensive end was *"priced against a wallet this game does not
+have"*. The wallet exists. Measured, the highest balance a thirty-year
+career ever holds:
 
-The reason is not the gate. It is the price:
+| policy | peak |
+|---|---|
+| greedy, saver, stakeout, sponsored | **$471 – $510** |
+| hoarder, dreamer | **$20,372** |
+| salary | **$609,045** |
+
+And a career that saves **does** get treated: a hoarder on `med=careful-up`
+has **1.2 surgeries** in thirty years and spends $2,963 on medicine. The
+medical system works exactly as written. It was `greedy` — climb everything,
+save nothing — that could not afford it, which is a fact about that policy
+and arguably the honest one.
+
+**Fourth time in this chain I read a zero as a fact about the game when it
+was a fact about the policy**, and the second time it reached a note. The
+tool's docstring says to check the flags before believing an entry; the
+harder discipline is to check the *policy* before believing a price.
+
+### What was actually broken: insurance had no customer
+
+Narrowed down, the real defect was one number. A surgery lists at $2,200
+and `covers` was **0.80**, so the insured copay was **$440** — against a
+climbing-first career whose best day in thirty years is **$474**. So an
+insured poor climber scanned every injury and **still never once had the
+operation**: 0.00 surgeries across eight seeds, $6,256 of premiums paid and
+$612 back.
+
+Meanwhile the hoarder who could pay the whole $2,200 unaided had no use for
+cover. **The people who needed it could not use it, and the people who could
+use it did not need it.** A system with nobody in the middle.
+
+Swept, the cliff is sharp:
+
+| `covers` | copay | surgeries in thirty years |
+|---|---|---|
+| 0.80 | $440 | **0.00** |
+| 0.85 | $330 | **0.00** |
+| **0.90** | **$220** | **1.50** |
+| 0.95 | $110 | 1.50 |
+
+**0.90 is the least change that makes the mechanic exist**, and $220 is
+still a real decision for somebody who ends the year on two hundred. After
+it, insurance is *the only way a climbing-first career is ever repaired* —
+uninsured 0.00, insured 1.50 — which is what the block's own header always
+said it was for. It remains a losing bet on average, $0.61 back per dollar,
+and that is what insurance is.
+
+`TestInsuranceIsWhatGetsADirtbagRepaired` pins it: a $300 climber cannot
+have the operation uninsured and can insured, and putting `covers` back to
+0.80 fails three checks. **Nothing asserted this dial before** — the whole
+suite passed unchanged when I moved it, which is how it drifted to a value
+where the system it governs had no users.
+
+The prices, for the record:
 
 | | costs | a thirty-year career's **richest single moment** |
 |---|---|---|

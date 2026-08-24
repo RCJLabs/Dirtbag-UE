@@ -14098,6 +14098,59 @@ static int CompanyOver(const Rng& world, int days,
   return seen;
 }
 
+static void TestInsuranceIsWhatGetsADirtbagRepaired() {
+  MedicalDials d;
+  const Rng world = Rng::FromSeed("a-bad-one");
+
+  // A career that spends everything it earns on climbing. Its **highest
+  // balance in thirty years** is about $474, measured, and it usually
+  // holds a couple of hundred -- so this is what it is like to be hurt
+  // while poor, which is the state the whole insurance block exists for.
+  const double whatAPoorCareerHolds = 300.0;
+
+  const auto tryIt = [&](bool insured) {
+    Climber c = NewClimber(world);
+    c.injury.active = true;
+    c.injury.kind = InjuryKind::Pulley;
+    // Bad enough to be worth operating on.
+    c.injury.severity = std::max(0.9, d.surgeryNeedsSeverity + 0.2);
+    c.injury.daysLeft = 60;
+
+    Medical med;
+    med.diagnosis = Diagnosis::Scanned;   // nobody operates on a guess
+    if (insured) {
+      med.insured = true;
+      // Bought long enough ago that the wait is served -- buying it the
+      // week before a planned operation is deliberately not a strategy.
+      med.insuredOnDay = 1;
+    }
+    double cash = whatAPoorCareerHolds;
+    const int day = 1 + d.waitingDays + 1;
+    CHECK(!insured || CoverIsLive(med, day, d));
+    const bool had = HaveSurgery(med, c, cash, day, d);
+    return std::make_pair(had, cash);
+  };
+
+  // **Uninsured, they cannot be repaired.** $2,200 against $300.
+  const auto alone = tryIt(false);
+  CHECK(!alone.first);
+  CHECK(alone.second == whatAPoorCareerHolds);   // and it cost them nothing
+
+  // **Insured, they can** -- and that is the entire point of the system.
+  // At the old `covers = 0.80` the copay was $440 against a career whose
+  // best ever day was $474, so an insured poor climber scanned every
+  // injury and still never once had the operation: 0.00 surgeries across
+  // eight thirty-year careers. This check is what would have said so.
+  const auto covered = tryIt(true);
+  CHECK(covered.first);
+  CHECK(covered.second < whatAPoorCareerHolds);   // it still cost them
+  CHECK(covered.second > 0.0);                    // ...and not everything
+
+  // The copay has to stay a real decision rather than becoming free.
+  const double paid = whatAPoorCareerHolds - covered.second;
+  CHECK(paid > 100.0);
+}
+
 static void TestTheLotDoesNotAlwaysTurnUp() {
   const Rng world = Rng::FromSeed("who-turns-up");
   const int cast = static_cast<int>(LotRegulars(world, 1).size());
@@ -14905,6 +14958,7 @@ int main() {
   TestALifeCoolsWhileYouAreAtTheCrag();
   TestABookMakesAnAfternoonWorthMore();
   TestAnEveningCostsTheEvening();
+  TestInsuranceIsWhatGetsADirtbagRepaired();
   TestTheLotDoesNotAlwaysTurnUp();
   TestNobodyIsNeverThereAndNobodyIsAlways();
   TestWhoIsHereDoesNotDependOnWhoElseIs();
