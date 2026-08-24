@@ -83,6 +83,7 @@ void UDirtbagGameInstance::Sleep()
 	CrewNews.Reset();
 	DreamNews.Reset();
 	QuirkNews.Reset();
+	LifeNews.Reset();
 	const bool bHadACrewName = !Player.Crew.Name.IsEmpty();
 
 	// SleepToNextDay ticks the streak, so a year completing is visible as
@@ -125,6 +126,17 @@ void UDirtbagGameInstance::Sleep()
 		QuirkNews = FString(
 		    dirtbag::QuirkLanded(
 		        static_cast<dirtbag::Quirk>(Player.BecameToday))
+		        .c_str());
+	}
+
+	// **And what you lost overnight**, which is nearly never and is never a
+	// surprise: the status line has been saying so for a fortnight. Same
+	// reading-off-the-career rule as the quirk above -- `LifeNight` decides,
+	// the career carries it, the probe sees the same ending.
+	if (Player.LostToday != EDirtbagThread::None)
+	{
+		LifeNews = FString(
+		    dirtbag::ItEnded(static_cast<dirtbag::Thread>(Player.LostToday))
 		        .c_str());
 	}
 
@@ -651,7 +663,11 @@ FDirtbagPrimeWindow UDirtbagGameInstance::TodaysWindow() const
 void UDirtbagGameInstance::Rest(double Hours)
 {
 	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
-	dirtbag::Rest(SimDay, Hours);
+	// **What an hour of sitting still buys back depends on what you are
+	// doing with it.** Somebody halfway through a paperback is resting;
+	// somebody staring at the line is not. The sim refuses to default this
+	// parameter for exactly this reason -- see Sim/DirtbagDay.h.
+	dirtbag::Rest(SimDay, Hours, DirtbagConvert::ToSim(Player.Life));
 	Day = DirtbagConvert::FromSim(SimDay);
 }
 
@@ -3168,6 +3184,49 @@ bool UDirtbagGameInstance::BuyTradRack()
 	Player.Rack = DirtbagConvert::FromSim(SimRack);
 	Player.Cash = Money;
 	return true;
+}
+
+double UDirtbagGameInstance::ThreadHours(EDirtbagThread What) const
+{
+	return dirtbag::AsksFor(static_cast<dirtbag::Thread>(What));
+}
+
+bool UDirtbagGameInstance::SpendTheEvening(EDirtbagThread What)
+{
+	// Through the sim's own day verb rather than by hand, so the hours, the
+	// hunger and the hat all come from one place -- the probe calls the
+	// same one. See tools/check-parity.py for why that matters.
+	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState SimDay = DirtbagConvert::ToSim(Day);
+	if (!dirtbag::SpendTheEvening(Sim, SimDay,
+	                              static_cast<dirtbag::Thread>(What)))
+	{
+		return false;
+	}
+	Player = DirtbagConvert::FromSim(Sim);
+	Day = DirtbagConvert::FromSim(SimDay);
+	return true;
+}
+
+FString UDirtbagGameInstance::ThreadStatusLine(EDirtbagThread What) const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::HowItIsGoing(DirtbagConvert::ToSim(Player.Life),
+	                          static_cast<dirtbag::Thread>(What), Player.Day)
+	        .c_str());
+}
+
+FString UDirtbagGameInstance::ThreadDescription(EDirtbagThread What) const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::ThreadLine(static_cast<dirtbag::Thread>(What)));
+}
+
+FString UDirtbagGameInstance::LifeLine() const
+{
+	return UTF8_TO_TCHAR(
+	    dirtbag::LifeLabel(DirtbagConvert::ToSim(Player.Life), Player.Day)
+	        .c_str());
 }
 
 FString UDirtbagGameInstance::HabitDoingLine() const

@@ -13,6 +13,7 @@
 #include "../DirtbagTeam.h"
 #include "../DirtbagWorldStage.h"
 #include "../DirtbagLeague.h"
+#include "../DirtbagLife.h"
 #include "../DirtbagMedical.h"
 #include "../DirtbagAilments.h"
 #include "../DirtbagBodyContext.h"
@@ -6252,7 +6253,7 @@ static void TestRestingBuysTimeNotStrength() {
   const double hour0 = day.hour;
   const double hunger0 = day.hunger;
 
-  Rest(day, 3.0, d);
+  Rest(day, 3.0, player.life, d);
   CHECK(day.hour == hour0 + 3.0);                      // the hours go
   CHECK(day.hunger > hunger0);                         // and cost the same
   CHECK(day.energy > 40.0);                            // you get a little back
@@ -6262,17 +6263,17 @@ static void TestRestingBuysTimeNotStrength() {
   // spend hours you cannot climb in, not a way to farm energy.
   DayState rested = WakeUp(player);
   rested.energy = 40.0;
-  Rest(rested, 6.0, d);
+  Rest(rested, 6.0, player.life, d);
   CHECK(rested.energy < d.sleepEnergyFloor + 6.0 * d.restEnergyPerHour);
   CHECK(rested.energy <= 100.0);
 
   // It never overfills, and zero hours does nothing at all.
   DayState full = WakeUp(player);
   full.energy = 99.0;
-  Rest(full, 10.0, d);
+  Rest(full, 10.0, player.life, d);
   CHECK(full.energy == 100.0);
   const double before = full.hour;
-  Rest(full, 0.0, d);
+  Rest(full, 0.0, player.life, d);
   CHECK(full.hour == before);
 }
 
@@ -13647,6 +13648,383 @@ static void TestMigrationMachinery() {
   CHECK(!ApplyMigrations(f2, 1, 3, registry));
 }
 
+
+// ---------------------------------------------------------------------
+// A life outside it
+// ---------------------------------------------------------------------
+
+// Run the nights with nobody giving anything to anything, and report what
+// ended. `from` is the first night; the thread is never fed.
+static Thread NeglectFor(Life& life, int from, int nights,
+                         const LifeDials& d = LifeDials{}) {
+  Thread lost = Thread::None;
+  for (int i = 0; i < nights; i++) {
+    const Thread tonight = LifeNight(life, from + i, d);
+    if (tonight != Thread::None) lost = tonight;
+  }
+  return lost;
+}
+
+static void TestAThreadGoesColdAndComesBack() {
+  LifeDials d;
+  Life life;
+  CHECK(TakeUp(life, Thread::Books, 1, d));
+  CHECK(Going(life, Thread::Books));
+  CHECK(WarmthOf(life, Thread::Books) == 1.0);   // nobody starts neglecting
+
+  // Inside its patience nothing happens at all. A paperback waits.
+  NeglectFor(life, 2, static_cast<int>(d.patienceDays[
+      static_cast<int>(Thread::Books)]), d);
+  CHECK(WarmthOf(life, Thread::Books) == 1.0);
+  CHECK(HowItIsGoing(life, Thread::Books, 30, d) ==
+        std::string("You are halfway through something and you know which."));
+
+  // Past it, it cools -- and keeps cooling, all the way to nothing.
+  NeglectFor(life, 32, 200, d);
+  CHECK(WarmthOf(life, Thread::Books) == 0.0);
+  CHECK(Going(life, Thread::Books));          // still yours, just cold
+  CHECK(!HowItIsGoing(life, Thread::Books, 232, d).empty());
+
+  // And an evening picks it straight back up, because it is a book.
+  CHECK(GiveItTime(life, Thread::Books, 3.0, 233, d));
+  CHECK(WarmthOf(life, Thread::Books) > 0.0);
+  CHECK(LifeRestRate(life, d) > 1.0);
+}
+
+static void TestOnlyAPersonLeaves() {
+  LifeDials d;
+  Life life;
+  for (int i = 1; i < kThreadCount; i++) {
+    CHECK(TakeUp(life, static_cast<Thread>(i), 1, d));
+  }
+  // A year of climbing and nothing else.
+  const Thread lost = NeglectFor(life, 2, 365, d);
+  CHECK(lost == Thread::Someone);
+  CHECK(!Going(life, Thread::Someone));
+  // Everything else is at nothing and still there. A guitar does not
+  // resign; it sits behind the driver's seat paying you nothing.
+  for (int i = 1; i < kThreadCount; i++) {
+    const Thread t = static_cast<Thread>(i);
+    if (t == Thread::Someone) continue;
+    CHECK(Going(life, t));
+    CHECK(WarmthOf(life, t) == 0.0);
+  }
+  // And with every thread at zero, every effect is back to the plain rate.
+  CHECK(LifeNerve(life, d) == 0.0);
+  CHECK(LifeMealCost(life, d) == 1.0);
+  CHECK(LifeRestRate(life, d) == 1.0);
+  CHECK(BuskingPay(life, 4.0, d) == 0.0);
+}
+
+static void TestAFortnightIsNotALoss() {
+  LifeDials d;
+  Life life;
+  CHECK(TakeUp(life, Thread::Someone, 1, d));
+  // Two weeks of turning up, then nothing. It ends -- but it was two
+  // weeks, and a game that grieves everything grieves nothing.
+  for (int day = 1; day <= 14; day++) GiveItTime(life, Thread::Someone, 3.0, day, d);
+  CHECK(DepthOf(life, Thread::Someone) < d.enoughToLose);
+
+  // **Stopped on the night it ends**, not ninety nights later. The first
+  // version of this ran the neglect straight through and asked afterwards
+  // -- which counts a grief of five days all the way back down to zero and
+  // then reports zero, so the check passed with the floor removed. A test
+  // that cannot fail is worse than no test, and the reintroduction pass is
+  // the only thing that has ever caught one of these.
+  Thread lost = Thread::None;
+  for (int day = 15; day < 15 + 90 && lost == Thread::None; day++) {
+    lost = LifeNight(life, day, d);
+  }
+  CHECK(lost == Thread::Someone);
+  CHECK(life.grieving == 0.0);
+  CHECK(LifePsyche(life, d) == 0.0);
+}
+
+static void TestALossCostsYouASeasonAndThenStops() {
+  LifeDials d;
+  Life life;
+  CHECK(TakeUp(life, Thread::Someone, 1, d));
+  // Half a year of actually being there.
+  int day = 1;
+  for (; day <= 180; day++) GiveItTime(life, Thread::Someone, 3.0, day, d);
+  CHECK(DepthOf(life, Thread::Someone) > d.enoughToLose);
+  const double kept = LifePsyche(life, d);
+  CHECK(kept > 0.0);                       // somebody is worth something
+
+  // Then a season at the crag.
+  CHECK(NeglectFor(life, day, 40, d) == Thread::Someone);
+  CHECK(life.grieving > 0.0);
+  const double justAfter = LifePsyche(life, d);
+  CHECK(justAfter < 0.0);                  // and it costs, for a while
+
+  // It fades rather than switching off, and then it is over. A career is
+  // not ended by this; a season is.
+  Life fading = life;
+  NeglectFor(fading, day + 40, 10, d);
+  const double later = LifePsyche(fading, d);
+  CHECK(later > justAfter);
+  CHECK(later < 0.0);
+  NeglectFor(fading, day + 50, 200, d);
+  CHECK(fading.grieving == 0.0);
+  CHECK(LifePsyche(fading, d) == 0.0);
+}
+
+static void TestThereIsNobodyElseOnThursday() {
+  LifeDials d;
+  Life life;
+  CHECK(TakeUp(life, Thread::Someone, 1, d));
+  const int ended = 1 + 30;
+  NeglectFor(life, 2, 60, d);
+  CHECK(!Going(life, Thread::Someone));
+  const int endedOn = life.strands[static_cast<int>(Thread::Someone)].endedDay;
+  CHECK(endedOn >= ended - 30);
+  CHECK(!CanTakeUp(life, Thread::Someone, endedOn + 1, d));
+  CHECK(!TakeUp(life, Thread::Someone, endedOn + 1, d));
+  CHECK(CanTakeUp(life, Thread::Someone,
+                  endedOn + static_cast<int>(d.sparkCooldownDays) + 1, d));
+  // Everything else you can pick back up on a wet Tuesday.
+  Life other;
+  CHECK(CanTakeUp(other, Thread::Music, 1, d));
+}
+
+static void TestEachThreadPaysInItsOwnCurrency() {
+  LifeDials d;
+  Life life;
+  // Nothing pays anything until it is in your life.
+  CHECK(LifeMealCost(life, d) == 1.0);
+  CHECK(BuskingPay(life, 4.0, d) == 0.0);
+  CHECK(LifeNerve(life, d) == 0.0);
+
+  CHECK(TakeUp(life, Thread::Cooking, 1, d));
+  CHECK(LifeMealCost(life, d) < 1.0);
+  CHECK(LifeMealHunger(life, d) > 1.0);
+
+  CHECK(TakeUp(life, Thread::Home, 1, d));
+  CHECK(LifeNerve(life, d) > 0.0);
+
+  // The guitar pays coins at first, and the reputation is worth more than
+  // the hour ever is.
+  CHECK(TakeUp(life, Thread::Music, 1, d));
+  const double firstAfternoon = BuskingPay(life, 4.0, d);
+  CHECK(firstAfternoon > 0.0);
+  for (int day = 1; day <= 300; day++) GiveItTime(life, Thread::Music, 3.0, day, d);
+  CHECK(BuskingPay(life, 4.0, d) > 2.0 * firstAfternoon);
+
+  // And a meal is cheaper through the day loop, not just in the formula --
+  // the same money, taken twice, differs by what the stove is worth.
+  PlayerState plain;
+  PlayerState cooks;
+  cooks.life = life;
+  DayState dp = WakeUp(plain);
+  DayState dc = WakeUp(cooks);
+  dp.hunger = dc.hunger = 60.0;
+  CHECK(EatMeal(plain, dp));
+  CHECK(EatMeal(cooks, dc));
+  CHECK(cooks.cash > plain.cash);
+  CHECK(dc.hunger < dp.hunger);
+}
+
+static void TestAPhoneCallHomeReachesTheWall() {
+  LifeDials d;
+  Life called;
+  CHECK(TakeUp(called, Thread::Home, 1, d));
+
+  const auto boldnessWith = [](const Life& life) {
+    AttemptInput in;
+    in.route = Route{};
+    BodyContext body;
+    body.life = life;
+    ApplyBody(in, body);
+    return in.boldness;
+  };
+  CHECK(boldnessWith(called) > boldnessWith(Life{}));
+  // ...and it is gone when the thread is, which is what makes it a thread
+  // and not an upgrade.
+  Life lapsed = called;
+  NeglectFor(lapsed, 2, 400, d);
+  CHECK(boldnessWith(lapsed) == boldnessWith(Life{}));
+}
+
+static void TestTheLifeLabelStaysQuiet() {
+  LifeDials d;
+  Life life;
+  CHECK(LifeLabel(life, 1, d).empty());          // no threads, no nagging
+  CHECK(TakeUp(life, Thread::Home, 1, d));
+  CHECK(LifeLabel(life, 2, d).empty());          // kept, so nothing to say
+  NeglectFor(life, 2, 60, d);
+  CHECK(!LifeLabel(life, 62, d).empty());        // and now there is
+
+  // ...and it stops once there is nothing left to lose. A guitar that has
+  // been in its case for two years is at zero and is not going anywhere;
+  // saying so every night for the rest of a career is the same failure
+  // from the other end.
+  NeglectFor(life, 62, 400, d);
+  CHECK(WarmthOf(life, Thread::Home) == 0.0);
+  CHECK(LifeLabel(life, 462, d).empty());
+  CHECK(!HowItIsGoing(life, Thread::Home, 462, d).empty());  // still asks
+  CHECK(!HowItIsGoing(life, Thread::Home, 62, d).empty());
+  // A thread you never took up is not a status.
+  CHECK(HowItIsGoing(life, Thread::Books, 62, d).empty());
+  // Grieving speaks over everything else, because it should.
+  Life lost;
+  TakeUp(lost, Thread::Someone, 1, d);
+  for (int day = 1; day <= 180; day++) GiveItTime(lost, Thread::Someone, 3.0, day, d);
+  NeglectFor(lost, 181, 40, d);
+  CHECK(LifeLabel(lost, 221, d) == std::string("Still not over it"));
+}
+
+static void TestALifeSurvivesASave() {
+  SaveGame save;
+  save.seed = "a-life-outside-it";
+  Life& life = save.player.life;
+  TakeUp(life, Thread::Someone, 1);
+  for (int day = 1; day <= 120; day++) GiveItTime(life, Thread::Someone, 3.0, day);
+  TakeUp(life, Thread::Music, 40);
+  for (int day = 40; day <= 120; day++) GiveItTime(life, Thread::Music, 2.0, day);
+  TakeUp(life, Thread::Books, 90);
+  NeglectFor(life, 121, 40);          // long enough to lose one
+  save.player.lostToday = Thread::Someone;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  const Life& got = back.player.life;
+  CHECK(!Going(got, Thread::Someone));
+  CHECK(got.strands[static_cast<int>(Thread::Someone)].ended);
+  CHECK(got.strands[static_cast<int>(Thread::Someone)].endedDay ==
+        life.strands[static_cast<int>(Thread::Someone)].endedDay);
+  CHECK(std::fabs(got.grieving - life.grieving) < 1e-9);
+  CHECK(std::fabs(got.griefWeight - life.griefWeight) < 1e-9);
+  CHECK(back.player.lostToday == Thread::Someone);
+  CHECK(Going(got, Thread::Music));
+  CHECK(std::fabs(DepthOf(got, Thread::Music) - DepthOf(life, Thread::Music)) <
+        1e-9);
+  // You load in exactly as grieving and exactly as broke as you saved.
+  CHECK(std::fabs(LifePsyche(got) - LifePsyche(life)) < 1e-9);
+  CHECK(std::fabs(BuskingPay(got, 4.0) - BuskingPay(life, 4.0)) < 1e-9);
+}
+
+static void TestLoadsVersion35Save() {
+  // A v35 career had nothing in it but climbing, because there was nothing
+  // else in the game to have. It has to load anyway.
+  SaveGame save;
+  save.seed = "a-life-outside-it";
+  save.player.cash = 137.5;
+  TakeUp(save.player.life, Thread::Someone, 1);
+
+  // Derived from this build's own writer rather than typed out: drop every
+  // line v35 could not have had and put the version back. A hand-typed
+  // fixture tests what I believed v35 looked like, which is the thing most
+  // likely to be wrong.
+  std::string v35 = SerializeSave(save);
+  for (int i = 1; i < kThreadCount; i++) {
+    const std::string k = "life." + std::to_string(i) + ".";
+    DropSaveLine(v35, (k + "going=").c_str());
+    DropSaveLine(v35, (k + "warm=").c_str());
+    DropSaveLine(v35, (k + "deep=").c_str());
+    DropSaveLine(v35, (k + "last=").c_str());
+    DropSaveLine(v35, (k + "days=").c_str());
+    DropSaveLine(v35, (k + "ended=").c_str());
+    DropSaveLine(v35, (k + "endday=").c_str());
+  }
+  DropSaveLine(v35, "life.grieving=");
+  DropSaveLine(v35, "life.griefw=");
+  DropSaveLine(v35, "life.lost=");
+  SetSaveVersion(v35, 35);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v35, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);            // arrives upgraded
+  CHECK(std::fabs(old.player.cash - 137.5) < 1e-9);   // and intact
+  // Nothing taken up, which is the truth about that career rather than a
+  // loss: there was nobody to neglect.
+  for (int i = 1; i < kThreadCount; i++) {
+    CHECK(!Going(old.player.life, static_cast<Thread>(i)));
+    CHECK(!old.player.life.strands[i].ended);
+  }
+  CHECK(old.player.life.grieving == 0.0);
+  CHECK(old.player.lostToday == Thread::None);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+}
+
+static void TestALifeCoolsWhileYouAreAtTheCrag() {
+  PlayerState player;
+  DayState day;
+  const Rng world = Rng::FromSeed("a-life-outside-it");
+  player.climber = NewClimber(world);
+
+  // Half a year of somebody, taken through the day loop rather than the
+  // dials, because the night tick is where three per-day rules in this
+  // project have been written and left uncalled.
+  CHECK(TakeUp(player.life, Thread::Someone, player.day));
+  CHECK(TakeUp(player.life, Thread::Home, player.day));
+  for (int i = 0; i < 180; i++) {
+    GiveItTime(player.life, Thread::Someone, 3.0, player.day);
+    GiveItTime(player.life, Thread::Home, 1.0, player.day);
+    SleepToNextDay(player, day, world);
+  }
+  CHECK(WarmthOf(player.life, Thread::Someone) == 1.0);
+  const double keptWarm = player.climber.psyche;
+
+  // Then a season of climbing and nothing else. Nobody calls LifeNight
+  // here; the night does.
+  bool announced = false;
+  for (int i = 0; i < 120; i++) {
+    SleepToNextDay(player, day, world);
+    if (player.lostToday == Thread::Someone) announced = true;
+  }
+  CHECK(announced);                            // and it said so, once
+  CHECK(!Going(player.life, Thread::Someone));
+  CHECK(WarmthOf(player.life, Thread::Home) < 1.0);
+  // The psyche baseline followed it down. Same climber, same weather, same
+  // seed -- the only thing that changed is who is not around any more.
+  CHECK(player.climber.psyche < keptWarm);
+}
+
+static void TestABookMakesAnAfternoonWorthMore() {
+  PlayerState reader;
+  CHECK(TakeUp(reader.life, Thread::Books, reader.day));
+  PlayerState plain;
+  DayState a = WakeUp(plain);
+  DayState b = WakeUp(reader);
+  a.energy = b.energy = 40.0;
+  Rest(a, 4.0, plain.life);
+  Rest(b, 4.0, reader.life);
+  CHECK(b.energy > a.energy);
+  CHECK(a.hour == b.hour);        // the hours cost the same either way
+}
+
+static void TestAnEveningCostsTheEvening() {
+  PlayerState player;
+  DayState day = WakeUp(player);
+  // One press takes it up and pays for it, which is the whole point: a
+  // first go costs a first go.
+  CHECK(!Going(player.life, Thread::Music));
+  CHECK(SpendTheEvening(player, day, Thread::Music));
+  CHECK(Going(player.life, Thread::Music));
+
+  // And what it will not do is start something the game has said no to.
+  CHECK(TakeUp(player.life, Thread::Someone, player.day));
+  for (int night = 0; night < 120; night++) {
+    LifeNight(player.life, player.day + night);
+  }
+  CHECK(!Going(player.life, Thread::Someone));
+  CHECK(!SpendTheEvening(player, day, Thread::Someone));   // not this soon
+
+  const double hour0 = day.hour;
+  const double cash0 = player.cash;
+  CHECK(SpendTheEvening(player, day, Thread::Music));
+  // The hours go, like any other hours -- and how many is the sim's
+  // answer, not the caller's. Seeing somebody costs a working day and a
+  // phone call costs half an hour, which is the whole of why only one of
+  // the five can leave you.
+  CHECK(day.hour == hour0 + AsksFor(Thread::Music));
+  CHECK(AsksFor(Thread::Someone) > 4.0);      // a day, not an evening
+  CHECK(AsksFor(Thread::Home) < 1.0);
+  CHECK(AsksFor(Thread::None) == 0.0);
+  CHECK(day.hunger > 0.0);
+  CHECK(player.cash > cash0);           // and the hat had something in it
+}
+
 int main() {
   TestRngDeterminism();
   TestRngUnicodeSeeds();
@@ -13896,6 +14274,19 @@ int main() {
   TestSomebodyCanTakeYourProject();
   TestTheLotDoesNotDisturbThePlayersRng();
   TestTheFireHasSomethingToSay();
+  TestAThreadGoesColdAndComesBack();
+  TestOnlyAPersonLeaves();
+  TestAFortnightIsNotALoss();
+  TestALossCostsYouASeasonAndThenStops();
+  TestThereIsNobodyElseOnThursday();
+  TestEachThreadPaysInItsOwnCurrency();
+  TestAPhoneCallHomeReachesTheWall();
+  TestTheLifeLabelStaysQuiet();
+  TestALifeSurvivesASave();
+  TestLoadsVersion35Save();
+  TestALifeCoolsWhileYouAreAtTheCrag();
+  TestABookMakesAnAfternoonWorthMore();
+  TestAnEveningCostsTheEvening();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);

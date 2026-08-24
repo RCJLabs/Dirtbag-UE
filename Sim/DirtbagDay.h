@@ -29,6 +29,7 @@
 #include "DirtbagCraft.h"
 #include "DirtbagJobs.h"
 #include "DirtbagKit.h"
+#include "DirtbagLife.h"
 #include "DirtbagEthics.h"
 #include "DirtbagSponsor.h"
 #include "DirtbagVan.h"
@@ -324,6 +325,18 @@ struct PlayerState {
   // not the number.
   Dreams dreams;
 
+  // **Everything that is not climbing.** Somebody, home, the guitar, the
+  // books, the stove -- and the fact that all five go cold if you never
+  // give them a day. See Sim/DirtbagLife.h; the one that leaves is the one
+  // that makes the rest a system rather than a menu.
+  Life life;
+
+  // **What you lost last night**, or None, which is nearly every night.
+  // Carried on the career for the same reason `becameToday` is: the night
+  // tick is void, it has four callers, and a line the player is meant to
+  // read once must not depend on which of them thought to ask.
+  Thread lostToday = Thread::None;
+
   // Where you stand with the scene, and whether the crag is still open.
   Standing standing;
 };
@@ -377,12 +390,43 @@ void PassHours(DayState& day, double hours, const DayDials& dials = DayDials{});
 // anyway; what you get back is a little energy, nothing like a night's
 // worth. Waiting is a real move at a crag and needs to cost time without
 // being punished for it.
-void Rest(DayState& day, double hours, const DayDials& dials = DayDials{});
+// **`life` is not defaulted**, and that is deliberate: an hour with a
+// paperback rests you better than an hour going over the beta, and a
+// default would let a second caller quietly rest at the plain rate forever
+// -- the exact shape of every "two paths, one assembling it by hand" bug
+// this project has found.
+void Rest(DayState& day, double hours, const Life& life,
+          const DayDials& dials = DayDials{});
 
 // Returns false when the wallet says no.
 bool EatMeal(PlayerState& player, DayState& day, const DayDials& dials = DayDials{});
 
 void WorkShift(PlayerState& player, DayState& day, const DayDials& dials = DayDials{});
+
+// **An evening on something that is not climbing.** The hours pass, hunger
+// rides along exactly as it would anyway, and the thread gets warmer. The
+// guitar pays while it does -- badly at first, then less badly -- which
+// makes it the only work in the game that is also a hobby and the only
+// hobby that is also work.
+//
+// **How long it takes is not the caller's to decide** -- `AsksFor` owns it,
+// because one go at a thing being two hours here and six hours there is
+// how the evening quietly stopped costing anything. Seeing somebody takes
+// the day; a phone call takes half an hour; and that difference is the
+// whole reason only one of the five can leave you.
+//
+// **Takes it up if it is not yours yet, and pays the same hours for it.**
+// Measured: with taking-up free, a career that never gave anybody a minute
+// still had somebody 60% of the time -- meet, coast on full warmth for
+// twenty-six days, lose them at zero depth, sit out the cooldown, repeat,
+// about a hundred and ninety times in thirty years. A first date costs a
+// day like every other day does.
+//
+// Returns false when the thread is not in your life and cannot be taken up
+// today -- which is the same answer as "you do not own a guitar" and as
+// "not this soon after the last one".
+bool SpendTheEvening(PlayerState& player, DayState& day, Thread what,
+                     const DayDials& dials = DayDials{});
 
 // Take a gig off the board: its hours, its energy, its money. Returns false
 // if it needs the van and the van is not going anywhere — which is how a

@@ -56,7 +56,8 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
                                       const Sickness& sick,
                                       const Teeth& teeth,
                                       const Quirks& quirks,
-                                      const Logbook& logbook) {
+                                      const Logbook& logbook,
+                                      const Life& life) {
   AttemptInput in;
   in.climber = climber;
   in.climber.skin = session.skinLeft;    // the body as it is now,
@@ -81,6 +82,7 @@ AttemptInput BuildSessionAttemptInput(const SessionState& session,
   body.shoeWear = session.shoeWear;   // the pair you pulled on with today
   body.quirks = quirks;
   body.logbook = logbook;
+  body.life = life;
   body.day = day;
   ApplyBody(in, body);
 
@@ -155,11 +157,11 @@ AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
                                const Character& who, const Medical& med,
                                int day, const Sickness& sick,
                                const Teeth& teeth, const Quirks& quirks,
-                               const Logbook& logbook) {
+                               const Logbook& logbook, const Life& life) {
   Rng rng = DeriveAttemptRng(sessionRng, memory, route);
   const AttemptInput in = BuildSessionAttemptInput(
       session, memory, climber, route, conditions, execution, botExecution,
-      who, med, day, sick, teeth, quirks, logbook);
+      who, med, day, sick, teeth, quirks, logbook, life);
   const AttemptResult result = ResolveAttempt(rng, in, dials);
   CommitAttempt(session, memory, route, result, loop);
   return result;

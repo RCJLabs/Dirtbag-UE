@@ -47,6 +47,7 @@
 #include "DirtbagTrad.h"
 #include "DirtbagHabits.h"
 #include "DirtbagNarrator.h"
+#include "DirtbagLife.h"
 
 #include "DirtbagSimTypes.generated.h"
 
@@ -385,6 +386,74 @@ struct FDirtbagQuirks
 	/** What you chose at the start, if anything. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
 	EDirtbagQuirk Picked = EDirtbagQuirk::None;
+};
+
+/** The things in your life that are not climbing. Mirrors dirtbag::Thread —
+ *  None sits at zero so that "nothing ended tonight" has a name. */
+UENUM(BlueprintType)
+enum class EDirtbagThread : uint8
+{
+	None,
+	Someone,
+	Home,
+	Music,
+	Books,
+	Cooking
+};
+
+/** One thread's state. Mirrors dirtbag::Strand; what it is, is its slot in
+ *  FDirtbagLife::Strands. */
+USTRUCT(BlueprintType)
+struct FDirtbagStrand
+{
+	GENERATED_BODY()
+
+	/** Is it in your life at all. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	bool bGoing = false;
+
+	/** How alive it is, 0..1. No floor — a thread you stop giving days to
+	 *  goes all the way cold, which is the whole point of it. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	double Warmth = 0.0;
+
+	/** How far in you got, 0..1. Never falls, and its only job is to price
+	 *  the ending. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	double Depth = 0.0;
+
+	/** The last day you gave it anything, and how many days you have. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	int32 LastGivenDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	int32 DaysGiven = 0;
+
+	/** It ended, as opposed to never having started. The two are the same
+	 *  bGoing == false and they are not the same thing. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	bool bEnded = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	int32 EndedDay = 0;
+};
+
+/** A life outside it. Mirrors dirtbag::Life — see Sim/DirtbagLife.h. */
+USTRUCT(BlueprintType)
+struct FDirtbagLife
+{
+	GENERATED_BODY()
+
+	/** Parallel to EDirtbagThread, slot 0 included and unused. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	TArray<FDirtbagStrand> Strands;
+
+	/** Days of an ending still to get through, and how heavily. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	double Grieving = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	double GriefWeight = 0.0;
 };
 
 /** What is on the shelf, in the order a dirtbag buys it. Mirrors
@@ -2021,6 +2090,15 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
 	EDirtbagQuirk BecameToday = EDirtbagQuirk::None;
 
+	/** Everything that is not climbing, and the fact that it goes cold if
+	 *  you never give it a day. See Sim/DirtbagLife.h. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	FDirtbagLife Life;
+
+	/** What you lost last night, or None, which is nearly every night. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	EDirtbagThread LostToday = EDirtbagThread::None;
+
 	/** Somebody to beat. Not the nemesis, which is a route. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Rival")
 	FDirtbagRival Rival;
@@ -2416,6 +2494,10 @@ namespace DirtbagConvert
 	dirtbag::Logbook ToSim(const FDirtbagLogbook& In);
 	FDirtbagQuirks FromSim(const dirtbag::Quirks& In);
 	dirtbag::Quirks ToSim(const FDirtbagQuirks& In);
+	FDirtbagStrand FromSim(const dirtbag::Strand& In);
+	dirtbag::Strand ToSim(const FDirtbagStrand& In);
+	FDirtbagLife FromSim(const dirtbag::Life& In);
+	dirtbag::Life ToSim(const FDirtbagLife& In);
 	dirtbag::Rack ToSim(const FDirtbagRack& In);
 	dirtbag::Kit ToSim(const FDirtbagKit& In);
 	FDirtbagStanding FromSim(const dirtbag::Standing& In);

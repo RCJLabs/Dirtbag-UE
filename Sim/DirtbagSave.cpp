@@ -341,6 +341,26 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // people this career ever climbed with. The honest reconstruction is that
 // you knew them at least as well as you know them now, which is exactly
 // what the runtime would derive on the next `BondsFrom` anyway.
+// v35 -> v36: the life outside it. A v35 career had nothing but climbing
+// in it, and loads with nothing but climbing in it -- every thread not
+// taken up, which is a truthful reconstruction rather than a loss: there
+// was nobody to neglect.
+void MigrateV35ToV36(SaveFields& fields) {
+  for (int i = 1; i < kThreadCount; i++) {
+    const std::string k = "life." + IntToStr(i) + ".";
+    fields[k + "going"] = "0";
+    fields[k + "warm"] = "0";
+    fields[k + "deep"] = "0";
+    fields[k + "last"] = "0";
+    fields[k + "days"] = "0";
+    fields[k + "ended"] = "0";
+    fields[k + "endday"] = "0";
+  }
+  fields["life.grieving"] = "0";
+  fields["life.griefw"] = "0";
+  fields["life.lost"] = "0";
+}
+
 void MigrateV34ToV35(SaveFields& fields) {
   const auto found = fields.find("bonds");
   if (found == fields.end()) return;
@@ -580,7 +600,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27,
       &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30,
       &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33,
-      &MigrateV33ToV34, &MigrateV34ToV35};
+      &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36};
   return kMigrations;
 }
 
@@ -992,6 +1012,23 @@ std::string SerializeSave(const SaveGame& save) {
         << NumToStr(save.player.quirks.heldFor[i]) << "\n";
   }
   out << "quirk.became=" << IntToStr(static_cast<int>(save.player.becameToday))
+      << "\n";
+
+  // The life outside it: five threads, and what an ending is still costing.
+  for (int i = 1; i < kThreadCount; i++) {
+    const Strand& s = save.player.life.strands[i];
+    const std::string k = "life." + IntToStr(i) + ".";
+    out << k << "going=" << IntToStr(s.going ? 1 : 0) << "\n";
+    out << k << "warm=" << NumToStr(s.warmth) << "\n";
+    out << k << "deep=" << NumToStr(s.depth) << "\n";
+    out << k << "last=" << IntToStr(s.lastGivenDay) << "\n";
+    out << k << "days=" << IntToStr(s.daysGiven) << "\n";
+    out << k << "ended=" << IntToStr(s.ended ? 1 : 0) << "\n";
+    out << k << "endday=" << IntToStr(s.endedDay) << "\n";
+  }
+  out << "life.grieving=" << NumToStr(save.player.life.grieving) << "\n";
+  out << "life.griefw=" << NumToStr(save.player.life.griefWeight) << "\n";
+  out << "life.lost=" << IntToStr(static_cast<int>(save.player.lostToday))
       << "\n";
 
   out << "rack.pieces=" << IntToStr(save.player.rack.pieces) << "\n";
@@ -1570,6 +1607,36 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         return LoadResult::BadFormat;
       }
     }
+  }
+
+  {
+    Life& life = save.player.life;
+    for (int i = 1; i < kThreadCount; i++) {
+      Strand& s = life.strands[i];
+      const std::string k = "life." + IntToStr(i) + ".";
+      int going = 0, ended = 0;
+      if (!ParseInt(fields, k + "going", going) ||
+          !ParseDouble(fields, k + "warm", s.warmth) ||
+          !ParseDouble(fields, k + "deep", s.depth) ||
+          !ParseInt(fields, k + "last", s.lastGivenDay) ||
+          !ParseInt(fields, k + "days", s.daysGiven) ||
+          !ParseInt(fields, k + "ended", ended) ||
+          !ParseInt(fields, k + "endday", s.endedDay)) {
+        return LoadResult::BadFormat;
+      }
+      s.going = going != 0;
+      s.ended = ended != 0;
+    }
+    int lost = 0;
+    if (!ParseDouble(fields, "life.grieving", life.grieving) ||
+        !ParseDouble(fields, "life.griefw", life.griefWeight) ||
+        !ParseInt(fields, "life.lost", lost)) {
+      return LoadResult::BadFormat;
+    }
+    // Clamped rather than trusted, the same rule the quirk and the injury
+    // kind are read under.
+    save.player.lostToday =
+        static_cast<Thread>(lost > 0 && lost < kThreadCount ? lost : 0);
   }
 
   if (!ParseInt(fields, "rack.pieces", save.player.rack.pieces) ||

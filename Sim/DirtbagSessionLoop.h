@@ -185,7 +185,12 @@ AttemptInput BuildSessionAttemptInput(
     const Sickness& sick = Sickness{}, const Teeth& teeth = Teeth{},
     // ...and how you have been climbing, which reaches an attempt the same
     // way a temperament does. Neutral by default like the rest of the tail.
-    const Quirks& quirks = Quirks{}, const Logbook& logbook = Logbook{});
+    const Quirks& quirks = Quirks{}, const Logbook& logbook = Logbook{},
+    // ...and the life outside climbing, of which exactly one thing reaches
+    // an attempt: how steady a phone call home leaves you. Neutral by
+    // default like the rest of the tail -- an empty life is a life with
+    // nothing in it, which is where every career starts.
+    const Life& life = Life{});
 void CommitAttempt(SessionState& session, ProjectMemory& memory,
                    const Route& route, const AttemptResult& result,
                    const SessionLoopDials& loop = SessionLoopDials{});
@@ -210,6 +215,7 @@ AttemptResult AttemptInSession(const Rng& sessionRng, SessionState& session,
                                const Sickness& sick = Sickness{},
                                const Teeth& teeth = Teeth{},
                                const Quirks& quirks = Quirks{},
-                               const Logbook& logbook = Logbook{});
+                               const Logbook& logbook = Logbook{},
+                               const Life& life = Life{});
 
 }  // namespace dirtbag

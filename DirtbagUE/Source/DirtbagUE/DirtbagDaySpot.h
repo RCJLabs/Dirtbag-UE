@@ -40,7 +40,13 @@ enum class EDirtbagSpotKind : uint8
 	 *  the worst thing wrong with it the best way you can afford. */
 	Van,
 	/** The gear shop: resole while the uppers hold, replace when not. */
-	GearShop
+	GearShop,
+	/** **An evening on something that is not climbing.** The phone box, the
+	 *  tailgate with the guitar out, the milk crate of paperbacks, the
+	 *  stove. One spot per thread, set by `Thread` below -- see
+	 *  Sim/DirtbagLife.h. The hours it takes are the hours it takes; that
+	 *  is the whole trade. */
+	Evening
 };
 
 UCLASS()
@@ -88,6 +94,16 @@ protected:
 	 *  wait for. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Rest")
 	double RestHours = 1.0;
+
+	/** Evening only. Which thread this spot is. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Life")
+	EDirtbagThread Thread = EDirtbagThread::Home;
+
+	// How long one press gives it is deliberately **not** a property here.
+	// `dirtbag::AsksFor` owns it -- see Sim/DirtbagLife.h. A spot that could
+	// set its own would be a second copy of the rule, and one go at a thing
+	// being two hours here and six there is exactly how the evening stopped
+	// costing anything the first time this was measured.
 
 	/** Rest only. With a window later today, one press waits exactly until
 	 *  it opens rather than an hour at a time. Turn it off to sit in fixed

@@ -238,6 +238,24 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		Y -= 16.f;
 	}
 
+	// **And what is going cold while you climb.** Same rule again, and this
+	// is the one it was written for: the whole of Phase 11's neglect
+	// mechanic is that you can see it coming, and a line that only appears
+	// when a thread has started to slip is the seeing. Warmer than the
+	// habit lines because this is a nudge rather than a fact about you.
+	const FString Outside = Game->LifeLine();
+	if (!Outside.IsEmpty())
+	{
+		Y += 20.f;
+		for (const FString& L : WrapToWidth(Outside, 34))
+		{
+			DrawText(L, FLinearColor(0.80f, 0.70f, 0.55f, 1.f), X, Y,
+			         GEngine->GetSmallFont(), 1.f);
+			Y += 16.f;
+		}
+		Y -= 16.f;
+	}
+
 	// What the Lot did while you were not looking. Gold, like the naming
 	// prompt, because losing a line and getting one are the same size of
 	// event from opposite ends.
@@ -388,6 +406,18 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		for (const FString& Line : WrapToWidth(Game->QuirkNews, 62))
 		{
 			DrawText(Line, FLinearColor(0.65f, 0.80f, 0.62f, 1.f), X, Y,
+			         GEngine->GetSmallFont(), 1.f);
+			Y += 18.f;
+		}
+	}
+	// And the one that ended. Same slow slot as the quirk, and the same
+	// size: both are things a career finds out about itself.
+	if (!Game->LifeNews.IsEmpty())
+	{
+		Y += 22.f;
+		for (const FString& Line : WrapToWidth(Game->LifeNews, 62))
+		{
+			DrawText(Line, FLinearColor(0.72f, 0.66f, 0.72f, 1.f), X, Y,
 			         GEngine->GetSmallFont(), 1.f);
 			Y += 18.f;
 		}

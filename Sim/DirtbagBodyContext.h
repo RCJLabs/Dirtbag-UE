@@ -38,6 +38,7 @@
 #include "DirtbagAilments.h"
 #include "DirtbagCharacter.h"
 #include "DirtbagHabits.h"
+#include "DirtbagLife.h"
 #include "DirtbagMedical.h"
 #include "DirtbagSession.h"
 
@@ -62,6 +63,12 @@ struct BodyContext {
   // path cannot be built that forgets half of one. See Sim/DirtbagHabits.h.
   Quirks quirks;
   Logbook logbook;
+  // **And the life outside it.** Here rather than on the caller's side
+  // because a phone call home follows you to a comp exactly as a bad tooth
+  // does -- it is not about where you are standing, which is this struct's
+  // whole test. Only the steadiness reaches an attempt; psyche is the day
+  // loop's business and money is nobody's. See Sim/DirtbagLife.h.
+  Life life;
   // Scars and joints are priced off the date. The logbook is too.
   int day = 0;
 };

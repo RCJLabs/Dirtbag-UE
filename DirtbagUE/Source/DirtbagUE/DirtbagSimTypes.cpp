@@ -190,6 +190,8 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.logbook = ToSim(In.Logbook);
 	Out.quirks = ToSim(In.Quirks);
 	Out.becameToday = static_cast<dirtbag::Quirk>(In.BecameToday);
+	Out.life = ToSim(In.Life);
+	Out.lostToday = static_cast<dirtbag::Thread>(In.LostToday);
 	Out.rival = ToSim(In.Rival);
 	Out.rankingPoints = In.RankingPoints;
 	Out.rankingRecord.reserve(In.RankingRecord.Num());
@@ -267,6 +269,8 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Logbook = FromSim(In.logbook);
 	Out.Quirks = FromSim(In.quirks);
 	Out.BecameToday = static_cast<EDirtbagQuirk>(In.becameToday);
+	Out.Life = FromSim(In.life);
+	Out.LostToday = static_cast<EDirtbagThread>(In.lostToday);
 	Out.Rival = FromSim(In.rival);
 	Out.RankingPoints = In.rankingPoints;
 	Out.RankingRecord.Reset(In.rankingRecord.size());
@@ -523,6 +527,58 @@ dirtbag::Logbook ToSim(const FDirtbagLogbook& In)
 	Out.asOfDay = In.AsOfDay;
 	Out.lifetimeBurns = In.LifetimeBurns;
 	Out.lifetimeDays = In.LifetimeDays;
+	return Out;
+}
+
+FDirtbagStrand FromSim(const dirtbag::Strand& In)
+{
+	FDirtbagStrand Out;
+	Out.bGoing = In.going;
+	Out.Warmth = In.warmth;
+	Out.Depth = In.depth;
+	Out.LastGivenDay = In.lastGivenDay;
+	Out.DaysGiven = In.daysGiven;
+	Out.bEnded = In.ended;
+	Out.EndedDay = In.endedDay;
+	return Out;
+}
+
+dirtbag::Strand ToSim(const FDirtbagStrand& In)
+{
+	dirtbag::Strand Out;
+	Out.going = In.bGoing;
+	Out.warmth = In.Warmth;
+	Out.depth = In.Depth;
+	Out.lastGivenDay = In.LastGivenDay;
+	Out.daysGiven = In.DaysGiven;
+	Out.ended = In.bEnded;
+	Out.endedDay = In.EndedDay;
+	return Out;
+}
+
+FDirtbagLife FromSim(const dirtbag::Life& In)
+{
+	FDirtbagLife Out;
+	Out.Strands.Reserve(dirtbag::kThreadCount);
+	for (int i = 0; i < dirtbag::kThreadCount; i++)
+	{
+		Out.Strands.Add(FromSim(In.strands[i]));
+	}
+	Out.Grieving = In.grieving;
+	Out.GriefWeight = In.griefWeight;
+	return Out;
+}
+
+dirtbag::Life ToSim(const FDirtbagLife& In)
+{
+	dirtbag::Life Out;
+	const int Count = FMath::Min(In.Strands.Num(), dirtbag::kThreadCount);
+	for (int i = 0; i < Count; i++)
+	{
+		Out.strands[i] = ToSim(In.Strands[i]);
+	}
+	Out.grieving = In.Grieving;
+	Out.griefWeight = In.GriefWeight;
 	return Out;
 }
 

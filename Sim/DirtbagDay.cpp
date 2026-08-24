@@ -165,17 +165,47 @@ void PassHours(DayState& day, double hours, const DayDials& dials) {
   day.hunger = std::min(100.0, day.hunger + dials.hungerPerHour * hours);
 }
 
-void Rest(DayState& day, double hours, const DayDials& dials) {
+void Rest(DayState& day, double hours, const Life& life,
+          const DayDials& dials) {
   if (hours <= 0.0) return;
   PassHours(day, hours, dials);
-  day.energy = std::min(100.0, day.energy + dials.restEnergyPerHour * hours);
+  // What an hour of sitting still is worth depends on what you are doing
+  // with it. Somebody halfway through a paperback is resting; somebody
+  // staring at the line is not.
+  day.energy = std::min(100.0, day.energy + dials.restEnergyPerHour *
+                                                LifeRestRate(life) * hours);
 }
 
 bool EatMeal(PlayerState& player, DayState& day, const DayDials& dials) {
-  if (player.cash < dials.mealCost) return false;
-  player.cash -= dials.mealCost;
-  day.hunger = std::max(0.0, day.hunger - dials.mealHunger);
+  // A stove and the will to use it: cheaper, and it goes further. Both
+  // scaled by how much you have actually been cooking, so the discount is
+  // a habit rather than a purchase.
+  const double cost = dials.mealCost * LifeMealCost(player.life);
+  if (player.cash < cost) return false;
+  player.cash -= cost;
+  day.hunger = std::max(
+      0.0, day.hunger - dials.mealHunger * LifeMealHunger(player.life));
   PassHours(day, 0.5, dials);
+  return true;
+}
+
+bool SpendTheEvening(PlayerState& player, DayState& day, Thread what,
+                     const DayDials& dials) {
+  const double hours = AsksFor(what);
+  if (hours <= 0.0) return false;
+  // One path in, so that starting a thing and keeping it going cost the
+  // same hours. Two entry points is how the first one came to be free.
+  if (!Going(player.life, what) &&
+      !TakeUp(player.life, what, player.day)) {
+    return false;
+  }
+  if (!GiveItTime(player.life, what, hours, player.day)) return false;
+  PassHours(day, hours, dials);
+  // Busking pays after the fact, off the warmth the hours just bought --
+  // an afternoon that went well is an afternoon that paid. Debt first,
+  // like every other dollar in this game.
+  const double busked = BuskingPay(player.life, hours);
+  if (busked > 0.0) Pay(player, busked);
   return true;
 }
 
@@ -538,6 +568,12 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // being something you do.
   player.becameToday = HabitsDay(player.quirks, player.logbook, player.day);
 
+  // **And the life outside it, which cools whether or not you climbed.**
+  // Here with everything else that counts down at night, for the reason
+  // this file has now written four times: three per-day rules in this
+  // project were written and left uncalled, and every one was found late.
+  player.lostToday = LifeNight(player.life, player.day);
+
   // The wall's tab comes home: today's remaining skin is tomorrow's start.
   if (day.atGym) {
     player.climber.skin = day.session.skinLeft;
@@ -550,8 +586,13 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   // is not a constant** -- an hour of talking about it moves the baseline
   // for a month, which is the one thing a rest day cannot do and the whole
   // reason the shrink exists as a purchase rather than a rest.
+  //
+  // Nor is it only about climbing. Somebody who does not care what you
+  // climbed today moves where psyche lives; so, downward, does the month
+  // after they stop being somebody. See Sim/DirtbagLife.h.
   const double homeTo =
-      PsycheFloor(player.upkeep, dials.psycheBaseline, player.day);
+      Clamp01(PsycheFloor(player.upkeep, dials.psycheBaseline, player.day) +
+              LifePsyche(player.life));
   player.climber.psyche +=
       (homeTo - player.climber.psyche) * dials.psycheHomeRate;
 

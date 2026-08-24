@@ -376,6 +376,21 @@ FString ADirtbagDaySpot::PromptText() const
 		                      *Game->ShoeLine(), Game->Player.Cash)) +
 		       Kit + Care + Deal;
 	}
+	case EDirtbagSpotKind::Evening:
+	{
+		// Two different prompts, because taking a thing up and keeping it
+		// going are two different decisions. The status line does the work
+		// once it is yours -- it is the whole of the warning you get.
+		const FString Status = Game->ThreadStatusLine(Thread);
+		if (Status.IsEmpty())
+		{
+			return FString::Printf(TEXT("%s  (E)  -  %s"),
+			                       *Game->ThreadDescription(Thread),
+			                       *Game->WaitAdvice());
+		}
+		return FString::Printf(TEXT("%.1f hours?  (E)  -  %s"),
+		                       Game->ThreadHours(Thread), *Status);
+	}
 	case EDirtbagSpotKind::Fire:
 	{
 		// The fire's prompt names who is here, because that is what makes
@@ -1204,6 +1219,25 @@ void ADirtbagDaySpot::OnInteract()
 			Say(FString::Printf(TEXT("Fed it.  %s"), *Game->DogLine()),
 			    FColor::Green);
 		}
+		break;
+	}
+	case EDirtbagSpotKind::Evening:
+	{
+		// **One press, whether or not it is yours yet.** The sim takes it
+		// up on the first go and charges the same hours for it -- see
+		// Sim/DirtbagDay.h, where a free first date turned out to be worth
+		// a hundred and ninety free relationships in a thirty-year career.
+		const bool bWasNew = Game->ThreadStatusLine(Thread).IsEmpty();
+		const double Took = Game->ThreadHours(Thread);
+		if (!Game->SpendTheEvening(Thread))
+		{
+			Say(TEXT("Not yet."), FColor::Silver, 4.f);
+			break;
+		}
+		Say(bWasNew ? Game->ThreadDescription(Thread)
+		            : FString::Printf(TEXT("%.1f hours.  %s"), Took,
+		                              *Game->ThreadStatusLine(Thread)),
+		    FColor::Yellow, 6.f);
 		break;
 	}
 	case EDirtbagSpotKind::Fire:

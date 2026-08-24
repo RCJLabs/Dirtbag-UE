@@ -68,6 +68,21 @@ struct Tally {
   int daysWithAHabit = 0;        // nights the player was doing something
   double habitDaysSum = 0.0;     // habits held per night, for the average
 
+  // --- A life outside it ---------------------------------------------------
+  // The first measurement of a career that is not entirely about climbing.
+  // Every number here is a "how often" question the harness cannot ask:
+  // does a career that is not being steered ever actually lose somebody,
+  // and if so, on what day.
+  int eveningsSpent = 0;
+  int buskSessions = 0;
+  double busked = 0.0;
+  int lostSomebodyOnDay = -1;   // -1: never had anybody, or never lost them
+  int hadSomebodyOnDay = -1;
+  int grievingDays = 0;
+  int nagDays = 0;              // nights the life label had something to say
+  double warmthEnd[kThreadCount] = {0.0};
+  double deepest = 0.0;         // the furthest into anything you ever got
+
   // --- Trad ---------------------------------------------------------------
   // What a career of leading looks like, which is a different question from
   // what an attempt looks like.
@@ -318,6 +333,17 @@ int main(int argc, char** argv) {
   // end, and both of those were "how often" questions no assertion can ask.
   const bool clips = argc > 5 && std::string(argv[5]) == "sporty";
 
+  // **Somebody with a life.** Makes the time whether or not the day left
+  // any -- an evening on the thread that most needs it, even when that
+  // means going in from the crag early.
+  //
+  // Every career gets a life either way; this one just refuses to let the
+  // weather decide. The contrast is the measurement: Phase 11's whole
+  // claim is that a thread can be lost through neglect *alone*, and the
+  // only way to know whether that ever actually happens to a career nobody
+  // is steering is to run one that tries and one that does not.
+  const bool makesTime = argc > 5 && std::string(argv[5]) == "lifer";
+
   // Arg 6 overrides skin regen per night (shipped: 1.5, so nine points of
   // skin is six nights). This is not a balance proposal — it is the knob
   // that answers the one question five measurements have left standing:
@@ -489,6 +515,14 @@ int main(int argc, char** argv) {
   }
 
   if (takeTheSalary) TakeSalariedJob(player);
+
+  // **The two you leave home with.** A number to dial and a stove in the
+  // van are not purchases and not decisions; everybody has them on day one
+  // and the question is only whether they ever use them. Books and the
+  // guitar arrive later, and Someone arrives through the scene -- see the
+  // day loop.
+  TakeUp(player.life, Thread::Home, player.day);
+  TakeUp(player.life, Thread::Cooking, player.day);
 
   Tally t;
   int consecutiveInjuries = 0;
@@ -1027,7 +1061,7 @@ int main(int argc, char** argv) {
 
     const bool tooThin = player.climber.skin < restUntilSkin;
     if (tooThin && win.exists) {
-      Rest(today, 4.0, dd);
+      Rest(today, 4.0, player.life, dd);
       t.daysRested++;
       note = note.empty() ? "resting skin" : note + " + resting skin";
     }
@@ -1121,7 +1155,7 @@ int main(int argc, char** argv) {
       }
       if (!win.exists) {
         if (!needMoney && !tooThin && !salvaged) {
-          Rest(today, 4.0, dd);
+          Rest(today, 4.0, player.life, dd);
           t.daysRested++;
           note = "washed out";
         }
@@ -1133,7 +1167,7 @@ int main(int argc, char** argv) {
       // which is what a working day does to a winter window — you climb in
       // whatever is left, and that is the whole cost of having a job.
       if (today.hour < win.startHour) {
-        Rest(today, win.startHour - today.hour, dd);
+        Rest(today, win.startHour - today.hour, player.life, dd);
       }
       const bool missedIt = today.hour > win.endHour;
       if (missedIt) t.missedWindows++;
@@ -1534,7 +1568,98 @@ int main(int argc, char** argv) {
     const bool worsened = wasHurt && IsHurt(player.climber) &&
                           (player.climber.injury.severity > sev + 1e-9 ||
                            player.climber.injury.daysLeft > left);
+    // **The evening**, and the day it sometimes takes instead.
+    //
+    // Books turn up after the first month and the guitar after the second
+    // -- neither is a purchase yet, and inventing a shop to buy them in
+    // would be a mechanic built to fill a column. **Somebody arrives
+    // through the scene**, which is the one that is not arbitrary: you
+    // meet people at the fire, so a career that never gets to know
+    // anybody at the Lot never has anybody to neglect.
+    {
+      const LifeDials ld;
+      double known = 0.0;
+      for (const PartnerBond& b : player.bonds) {
+        known = std::max(known, b.rapport);
+      }
+
+      // Keeping something going beats starting something new, always --
+      // otherwise a career collects five threads in a fortnight and then
+      // watches them all go cold at once.
+      Thread needy = Thread::None;
+      double worst = 0.0;
+      for (int i = 1; i < kThreadCount; i++) {
+        const Thread th = static_cast<Thread>(i);
+        double want = 0.0;
+        if (Going(player.life, th)) {
+          want = static_cast<double>(DaysSince(player.life, th, player.day)) -
+                 ld.patienceDays[i];
+        } else {
+          const bool offered =
+              (th == Thread::Books && player.day > 30) ||
+              (th == Thread::Music && player.day > 60) ||
+              (th == Thread::Someone && known >= 0.5);
+          // Barely above nothing: starting is what you do on a day with
+          // nothing to keep up.
+          want = offered && CanTakeUp(player.life, th, player.day, ld) ? 0.01
+                                                                      : 0.0;
+        }
+        if (want > worst) {
+          worst = want;
+          needy = th;
+        }
+      }
+      if (needy == Thread::None) goto noEvening;
+
+      // **The gate is the whole measurement.** How long one go takes is the
+      // sim's answer and it differs by an order of magnitude across the
+      // five: half an hour on the phone fits after any day, and going to
+      // see somebody takes six.
+      //
+      // The first version priced everything at a two-hour evening and gated
+      // on 21:00, so every thread fitted every night: 1,138 evenings across
+      // thirty years and **nothing ever lost**.
+      const double asks = AsksFor(needy);
+      const bool roomForIt = today.hour + asks <= 22.0;
+
+      // And what a policy is actually for. Everybody keeps up what fits in
+      // the leftovers. **Giving somebody a whole day competes with the
+      // rock**, so it happens when the rock is not in condition -- which is
+      // the dirtbag's real priority order, and it means a good season costs
+      // you. The `lifer` refuses to let the weather decide.
+      const bool wouldBother =
+          makesTime || asks <= 3.0 || !win.exists;
+      if (wouldBother && roomForIt) {
+        const bool wasGoing = Going(player.life, needy);
+        if (SpendTheEvening(player, today, needy, dd)) {
+          t.eveningsSpent++;
+          if (!wasGoing && needy == Thread::Someone &&
+              t.hadSomebodyOnDay < 0) {
+            t.hadSomebodyOnDay = player.day;
+          }
+          if (needy == Thread::Music) {
+            t.buskSessions++;
+            // Off the sim's own answer rather than off the cash, which pays
+            // debt first and would under-report every broke year -- and
+            // which, read as a delta, was reporting eight times the money
+            // that was ever earned.
+            t.busked += BuskingPay(player.life, AsksFor(needy));
+          }
+        }
+      }
+    }
+  noEvening:;
+
     SleepToNextDay(player, today, world, dd);
+
+    // What the night did to it. Counted rather than asserted, because the
+    // question is *how often* and no harness check can ask that.
+    if (player.lostToday == Thread::Someone) t.lostSomebodyOnDay = player.day;
+    if (player.life.grieving > 0.0) t.grievingDays++;
+    if (!LifeLabel(player.life, player.day).empty()) t.nagDays++;
+    for (int i = 1; i < kThreadCount; i++) {
+      t.deepest = std::max(t.deepest, player.life.strands[i].depth);
+    }
 
     // What the night made of you. Read after the tick, because that is when
     // it is true -- and counted rather than asserted, because the question
@@ -1653,6 +1778,12 @@ int main(int argc, char** argv) {
     t.bestRapport = std::max(t.bestRapport, b.rapport);
   }
 
+  // And where the life outside it ended up. Same rule as rapport: the
+  // state, not the high-water mark.
+  for (int i = 1; i < kThreadCount; i++) {
+    t.warmthEnd[i] = player.life.strands[i].warmth;
+  }
+
   // One machine-readable line, always. Comparing two policies across
   // several seeds means parsing this output, and parsing the prose form
   // cost an afternoon to a sends count that wrapped onto the next line.
@@ -1677,7 +1808,9 @@ int main(int argc, char** argv) {
          "\tmoments\tbotched\tducked\tsackings\tbestcraft\ttrade"
          "\track\trackday\track$\tleads\tpieces\tranout\tleadfear"
          "\tquirks\tfirstquirk\thabitdays\thabits\tbecame"
-         "\tapproach\tnobelayer\tbelaycap\theldburns\trapport\n");
+         "\tapproach\tnobelayer\tbelaycap\theldburns\trapport"
+         "\tevenings\tbusks\tbusked\tmet\tlost\tgrieving\tnag\tdeepest"
+         "\twsomeone\twhome\twmusic\twbooks\twstove\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -1691,7 +1824,9 @@ int main(int argc, char** argv) {
          "\t%d\t%d\t%d\t%d\t%.0f\t%s"
          "\t%s\t%d\t%.0f\t%d\t%d\t%d\t%.2f"
          "\t%d\t%d\t%d\t%.2f\t%s"
-         "\t%.0f\t%d\t%d\t%d\t%.2f\n",
+         "\t%.0f\t%d\t%d\t%d\t%.2f"
+         "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%.2f"
+         "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -1767,7 +1902,17 @@ int main(int argc, char** argv) {
          // matters: days that ended because somebody had had enough rather
          // than because your skin had.
          t.approachHours, t.noBelayerDays, t.belayerCappedDays,
-         t.burnsTheyHeld, t.bestRapport);
+         t.burnsTheyHeld, t.bestRapport,
+         // And the life outside it. `lost` is the column this pass exists
+         // for: the day a career lost somebody through nothing but not
+         // being there, or -1 if it never did.
+         t.eveningsSpent, t.buskSessions, t.busked, t.hadSomebodyOnDay, t.lostSomebodyOnDay,
+         t.grievingDays, t.nagDays, t.deepest,
+         t.warmthEnd[static_cast<int>(Thread::Someone)],
+         t.warmthEnd[static_cast<int>(Thread::Home)],
+         t.warmthEnd[static_cast<int>(Thread::Music)],
+         t.warmthEnd[static_cast<int>(Thread::Books)],
+         t.warmthEnd[static_cast<int>(Thread::Cooking)]);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

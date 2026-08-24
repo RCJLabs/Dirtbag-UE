@@ -15,6 +15,10 @@ void ApplyBody(AttemptInput& in, const BodyContext& body) {
   // what you have been doing. They add, for the same reason a comp's nerves
   // add to a flaw -- two reasons, not one replacing the other.
   in.boldness += HabitNerve(body.quirks, body.logbook, body.day);
+  // And the third reason, from outside climbing entirely: what a phone
+  // call home does is remind you there is a version of you that is not
+  // this. Adds, like the other two.
+  in.boldness += LifeNerve(body.life);
 
   // What is left of the rubber. Assigned rather than added, because it is
   // a state and not a modifier.

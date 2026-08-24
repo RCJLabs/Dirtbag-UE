@@ -1972,6 +1972,46 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Habits")
 	FString QuirkNews;
 
+	/** **The night one of them ended.** Only Someone can, and only by
+	 *  neglect -- see Sim/DirtbagLife.h. Read off the career rather than
+	 *  detected across the call, for the same reason as the quirk above:
+	 *  `LifeNight` already decides and hands it back, so the probe sees the
+	 *  same ending the player does. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Life")
+	FString LifeNews;
+
+	// There is deliberately **no** TakeUpThread verb. `SpendTheEvening`
+	// takes it up on the first go and charges the same hours for it, and a
+	// second way in that skipped the charge is precisely the bug the
+	// measurement found: taking somebody up for free was worth about a
+	// hundred and ninety free relationships in a thirty-year career.
+
+	/** An evening on something that is not climbing. The hours go, and the
+	 *  guitar pays while they do. **How long it takes is the sim's**, not
+	 *  the caller's — see ThreadHours. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Life")
+	bool SpendTheEvening(EDirtbagThread What);
+
+	/** What one go at it takes, in hours. Seeing somebody takes the day; a
+	 *  phone call takes half an hour. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Life")
+	double ThreadHours(EDirtbagThread What) const;
+
+	/** How that one is going, always answered while it is in your life or
+	 *  after it ended -- the readout you open on purpose. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Life")
+	FString ThreadStatusLine(EDirtbagThread What) const;
+
+	/** What it is, at the point you take it up. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Life")
+	FString ThreadDescription(EDirtbagThread What) const;
+
+	/** **Quiet unless something is wrong.** Speaks when a thread is cooling
+	 *  and while you are grieving, and says nothing the rest of the time --
+	 *  the same rule the injury line and the habit label follow. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Life")
+	FString LifeLine() const;
+
 	/** How you have been climbing, in two or three words, or empty. Live:
 	 *  stop doing it and this goes. */
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
