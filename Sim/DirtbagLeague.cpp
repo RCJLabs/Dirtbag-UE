@@ -150,8 +150,22 @@ CompState SetTheLeagueBoard(const Rng& worldRng, double yourGrade, int day,
   // comp board is a narrow spread priced by where each problem sits
   // relative to the rest. Sharing the comp's builder is what made the
   // personal best saturate in a month.
-  static const char* kColours[7] = {"yellow", "green",  "blue", "red",
-                                    "purple", "orange", "black"};
+  // **Named apart from the comp's tape colours on purpose**, and the
+  // reason is a real trap rather than tidiness. `DirtbagComp.cpp` has its
+  // own `kColours[7]` at file scope in an anonymous namespace, and in the
+  // unity build UBT compiles both into one translation unit -- where this
+  // one shadowed it. No bug today, because a local wins and this is the one
+  // this function means. But two seven-colour arrays with the same name in
+  // one translation unit, differing only in capitalisation and order
+  // ("Red" against "yellow"), is a bug waiting for somebody to delete a
+  // `static`: a league night would quietly start naming its problems in the
+  // comp's register and nothing would fail.
+  //
+  // Found by clang, in the unity build, on the first run after the harness
+  // started compiling with a second front end -- neither the separate-file
+  // build nor g++ says a word about it.
+  static const char* kNightColours[7] = {"yellow", "green",  "blue", "red",
+                                         "purple", "orange", "black"};
   CompState c;
   c.tier = CompTier::Local;
   c.attemptsLeft = d.nightAttempts;
@@ -168,7 +182,7 @@ CompState SetTheLeagueBoard(const Rng& worldRng, double yourGrade, int day,
                     static_cast<int>(std::lround(yourGrade + bump))));
     CompProblem p;
     p.type = static_cast<RouteType>(i % 6);
-    p.route = BuildRoute(rng, kColours[i % 7], grade, grade, p.type,
+    p.route = BuildRoute(rng, kNightColours[i % 7], grade, grade, p.type,
                          Discipline::Boulder);
     // The whole point: what it is worth is what it is, so the number grows
     // as the room does.

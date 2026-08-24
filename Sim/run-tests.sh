@@ -27,3 +27,34 @@ UNITY=../build/unity_check.cpp
 } > "$UNITY"
 g++ -std=c++17 -Wall -Wextra -Werror -fsyntax-only -I. "$UNITY"
 echo "OK  unity build clean ($(ls *.cpp | wc -l | tr -d ' ') sim units as one TU)"
+
+# **And again at the standard Unreal actually builds at, with a second
+# compiler.** This harness has always been one compiler at one language
+# version, and the engine module is neither: UE 5.8 compiles at **C++20**,
+# on MSVC, and nothing in this container is either of those things.
+#
+# Two cheap approximations of the gap. C++20 catches the rules that changed
+# under our feet -- aggregate initialisation, comparison operators, implicit
+# lambda captures of `this`. A second front end catches what one front end
+# happens to tolerate, which is most of what "it built here and not there"
+# ever means.
+#
+# Syntax-only, so both together cost about as much as one -O2 build. Neither
+# is MSVC and neither is UHT; the point is to shrink the set of things only
+# Evan's PC can find, not to pretend it is empty.
+for STD in c++17 c++20; do
+  g++ -std=$STD -Wall -Wextra -Wshadow -Werror -fsyntax-only -I. "$UNITY"
+done
+echo "OK  and at C++20, the standard Unreal builds at"
+
+if command -v clang++ >/dev/null 2>&1; then
+  for STD in c++17 c++20; do
+    clang++ -std=$STD -Wall -Wextra -Wshadow -Werror -fsyntax-only -I. "$UNITY"
+  done
+  echo "OK  and under clang, which is a different front end with different opinions"
+else
+  # Said out loud rather than skipped in silence. A check that quietly stops
+  # running is worse than one that was never written, because the green tick
+  # goes on meaning something it no longer means.
+  echo "--  clang++ not installed; that half of the front-end check did not run"
+fi

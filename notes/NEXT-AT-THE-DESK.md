@@ -1,110 +1,177 @@
 # When you get home — the whole list, in order
 
-**Rewritten 2026-08-23 (second time today).** The previous version said
-**save version v21**. It is **v31**. Ten save versions, six commits, and
-four phases of work landed since it was written, and it does not mention
-comps, the circuit, the national team, the World Cup, the Games, leagues,
-or anything at all about being ill or having teeth.
+**Rewritten 2026-08-24 (third rewrite).** The previous version said **save
+version v31**. It is **v34**. Four more commits landed since it was written
+and it does not mention trad, the buttress, the rack, habits, quirks, or the
+narrator.
 
-That is a rewrite, not an edit — same reason as last time, and the same
-lesson: **this file goes stale faster than anything else in the repo,
-because it is the only file whose job is to be current.**
+Same lesson as the last two rewrites: **this file goes stale faster than
+anything else in the repo, because it is the only file whose job is to be
+current.**
 
-Two things changed shape:
+**Read this bit before anything else.** Since your last build, **1,063 lines
+of engine C++ have been written and never compiled by anything.** The sim
+half — 4,779 lines — is compiled here every commit by two compilers at two
+language standards, and the thirteen preflight checkers pass. **None of that
+is a UHT run and none of it is MSVC.** §1 is therefore the whole session's
+risk, and it goes first.
 
-- **§7's Lot blockout is unchanged and is still the point.** Nothing in
-  four phases of sim work touched it, because none of it could.
-- **Everything else on this list is now a much longer read**, because the
-  indoor half of a climbing career got built: gym comp → circuit → national
-  ranking → the national team → the World Cup → the Games, plus leagues,
-  plus the whole medical file.
+What was checked here, so you know what is already ruled out:
 
-Roughly **3 hours**, of which §8 is two of them and is the point. §1 must go
-first.
+| checked | result |
+|---|---|
+| Sim under g++ and clang, C++17 **and C++20** (UE 5.8's standard) | clean, `-Wall -Wextra` |
+| Sim as one translation unit, 40 files, the way UBT will | clean |
+| `-Wshadow` across all of `Sim/` | zero |
+| Non-ASCII in any user-facing string | none (comments only, as always) |
+| New `UENUM`s are `uint8`, new `USTRUCT`s declared before first use | yes |
+| Duplicate `UFUNCTION` names in a class | none |
+| Any new Blueprint verb left private by accident | none; all public |
+| Thirteen preflight checkers | pass |
+
+What could **not** be checked, and is what §1 is looking for: UHT itself,
+MSVC, and anything about how a `UPROPERTY` behaves at runtime.
+
+Roughly **3½ hours**, of which §11 is two of them and is still the point.
 
 ---
 
-## 1. Get the build green · ~10 min
+## 1. Get the build green · ~15 min
 
 1. `git pull` on `claude/dirtbag-unreal-port-ggvybe`.
 2. Right-click `DirtbagUE.uproject` → Generate Visual Studio project files.
-3. Build. **Six commits of container-green C++ land at once**, including
-   three new sim modules (`DirtbagWorldStage`, `DirtbagLeague`,
-   `DirtbagMedical`, `DirtbagAilments` — four, actually). All twelve
-   preflight checkers pass, including a unity build of the whole sim as one
-   translation unit at **35 files**. Signatures are still only provable on
-   your compiler. **If it fails, paste me the full log before touching
-   anything.**
+   **Do this rather than skipping it** — three new bridge files
+   (`SimTrad.cpp`, `SimHabits.cpp`, `SimNarrator.cpp`) have appeared and the
+   project files will not know about them otherwise.
+3. Build. **Four commits of container-green C++ land at once**, including
+   three new sim modules and four new Blueprint types (`FDirtbagRack`,
+   `FDirtbagLogbook`, `FDirtbagQuirks`, `FDirtbagBeat`) plus four new
+   enums. **If it fails, paste me the full log before touching anything** —
+   do not start fixing signatures by hand, that is what the round trip is
+   for.
 
-4. **Load your save. This is the one to read carefully.**
-
-   **Save version is now v31**, up from v21. Ten migrations run in
-   sequence, and **nine of them are uneventful**. One is not:
-
-   > **v27 → v28 deliberately throws your ranking away.**
-
-   You will not have noticed a ranking, because comps did not have a door
-   until this week — so in practice this costs you nothing. But the reason
-   matters and I want it on the record rather than discovered: the old
-   ranking was a **lifetime total** on a curve where coming mid-field paid
-   half a win. A measured ten-year career reached **14,633 points against a
-   top tier of 2,200.** The new ranking is a **rolling twelve-month
-   record**. The two are not the same measurement at different scales, they
-   are different measurements — carrying the old number across would have
-   handed you a World-Class rung you could never lose, because there is no
-   record behind it to age out.
-
-   A migrated career loads **Unranked** and re-earns its rung over its next
-   season of comps, which is about eleven weeks of play.
-
-   Everything else migrates to exact rather than generous: you were never on
-   the national team, never at a World Cup, never at the Games, have never
-   been to a league night, have a clean medical file with no cortisone in
-   any joint, and have good teeth.
-
-   **One case worth knowing**: if your climber was mid-injury when you last
-   saved, the injury survives and the new staged comeback picks it up the
-   next morning. That is a case I built a guard for specifically, and a test
-   pins it.
-
-   Same rule as always: it migrates in memory, the file keeps saying v21
-   until you sleep, and **if anything is missing, stop and tell me; do not
-   overwrite the save.**
+4. **Load your save.** It is **v34** and migrates from anything back to v1.
+   Two migrations run: v32→v33 gives you an empty harness (there was no trad
+   to place gear on), and v33→v34 gives you an empty logbook and no quirks.
+   **Both are meant to load as nothing** — a career that climbed before
+   anybody was counting has nothing counted.
 
 ---
 
-## 2. Eight new keys · read this before you play
+## 2. Two new keys, and one new question
 
-All C++ on existing trigger volumes. **No Blueprint work, nothing to place,
-nothing to wire.** They only respond where they mean something.
+- **G at the gear shop** — buys the next rung of the rack: nuts $190, then
+  cams $640, then doubles $1,150. The shop prompt says which and what it
+  costs. **The first one opens a crag**; the rest are upgrades.
+- **The creation flow now asks five questions, not four.** After "what are
+  you like?" comes *"One more thing about you."* — six pickable quirks, keys
+  1–6. This only shows on a **new career**, so to see it you need a
+  handover or a fresh save.
 
-**At the gear shop counter** — this is now the care counter as well:
-
-| key | what |
-|---|---|
-| **V** | have it looked at — first press a physio ($60), second the scan ($340) |
-| **C** | a cortisone shot ($180) |
-| **O** | the operation (needs the scan, needs it to be bad enough) |
-| **N** | push on to the next stage of the comeback |
-| **B** | buy or cancel health insurance |
-| **K** | take something for it, when you are ill ($11) |
-| **Y** | deal with the tooth |
-| **Z** | see somebody about your head ($110) |
-
-**At the van:**
-
-| key | what |
-|---|---|
-| **X** | twenty minutes of prehab |
-
-**At the gym wall**, `E` now means four different things depending on what
-is on: the Games, a World Cup round, the Tuesday comp, or the Wednesday
-league night — in that order, because that is the order the day matters. You
-will not have to think about it; only one of them is ever on.
+Nothing else moved. Every other key is where it was.
 
 ---
 
-## 3. The indoor career now exists · ~30 min to see the bottom of it
+## 3. Trad, and the crag you cannot go to without buying something · ~25 min
+
+`Discipline` is `{Boulder, Sport, Trad}` now. The design is that **it is not
+a second climbing model** — it is the same runout model reading gear you
+placed instead of bolts somebody drilled.
+
+**The Old Buttress** is the third crag: an hour up the hill, east-facing,
+sixteen lines and three unclimbed. Its classics are *moderate* where the
+cave's are hard, which is deliberate — trad is the one discipline whose
+entry-level lines are the famous ones.
+
+What to look at, in order:
+
+1. **Try to go there without a rack.** You should not be able to lead
+   anything. That gate is the reason the rack is a purchase and not a
+   pickup.
+2. **Buy the nuts, lead something moderate.** Watch the leader stop and
+   place. Watch where they *don't* — a sensible leader climbs past rubbish
+   rock rather than spending a piece on it.
+3. **Then lead the same grade on the cave's bolts.** Measured, trad comes
+   out about a grade harder. **The question I need answered is whether it
+   *feels* like a grade harder or like the game being mean**, because those
+   are the same numbers and different games.
+4. **Get on *Ropeless in a Sense*.** It is a face route on a trad crag on
+   purpose: it goes at a grade you can pull and there is almost nothing to
+   put in. Compare it with **Bombproof**, same idea from the other end.
+5. **Upgrade to cams if you can afford them.** Measured over thirty years, a
+   career can only reach the top of that shelf if it decides to *work* for
+   it — a dirtbag's balance sits between $125 and $290 for its whole life.
+   **If you find yourself able to buy doubles casually, tell me** — the
+   prices are wrong and I will re-measure.
+
+---
+
+## 4. What you have turned into · ~10 min, mostly passive
+
+Two seasons of climbing the same way and it stops being a thing you do and
+becomes a thing you are. **A habit can be stopped; a quirk cannot.**
+
+- **Bottom-left, under the standing line**: what you have been doing lately
+  (in a live colour) and what you have become (dim). **Both are blank most
+  of the time and that is correct** — if either says something on a fresh
+  career, that is a bug and I want to know.
+- **Overnight, in the slow news slot**: *"Somewhere in the last couple of
+  seasons you became obsessive."* Same colour and size as a talent
+  surfacing, deliberately — both are things you found out about yourself.
+- **At the handover**, under the epitaph: the long form. A list of ascents
+  says what a career did; that line says who was doing it.
+
+Measured, a thirty-year career earns **one to four** of these, and *which*
+ones depends on how you played: a gym member ends up a plastic merchant and
+a morning person, a sporadic outdoor climber gets one or two, and **only a
+trad leader ever becomes bold.**
+
+**The thing to watch for**: a habit you have stopped doing should disappear
+from the corner within a season or so. If it sticks, the decay is broken.
+
+---
+
+## 5. The wall talks now · ~10 min, and this is the one I most want your eye on
+
+Every attempt in the game produces beats — *"Clipped. The ground stops being
+the question now."*, *"The forearms are going."*, *"A long way above a piece
+you do not believe in."*, *"Off pulling up the rope. That is the classic and
+it never stops being infuriating."*
+
+**The design is that it knows when to shut up.** A line a move is a log, not
+commentary. It speaks only when something beats everything before it — so a
+route you fought for the whole way gets *one* "that should not have stayed
+on", at the worst move, not sixteen.
+
+Three surfaces, and they should never say the same thing twice:
+
+- **During a go**: a toast, coloured by kind, held longer the louder the
+  beat is.
+- **After a go**: one sentence on the session panel, above the route name,
+  and it stays until you pull on again — *"Off at the crux. You had been a
+  long way above the gear for a while."*
+- **The count** (`move 9 of 12, skin 4.2`) is still there and is now the
+  *only* thing that toast says. The sentence used to lead it and now the
+  narrator says it twice already.
+
+Two things I changed on the wall while I was in there, both of which you
+should sanity-check:
+
+- **`"shake  -14 pump"` is gone.** It had been there since Phase 0 and it is
+  a stat line where a sentence belongs. A shake now says whether it was a
+  chalk-up or the rest that gave you the route back. **The "nothing to milk
+  here" line stays** — a shake that *cost* you is genuinely invisible to the
+  timeline, so the wall still has to say that one itself.
+- **The end-of-attempt toast lost its sentence** for the reason above.
+
+**What I need from you**: does the wall talk too much? I tuned the
+thresholds against measured attempts, never against watching one. If it is
+chatty, the numbers to move are in `NarratorDials` and I would rather raise
+them than have you stop reading it.
+
+---
+
+## 6. The indoor career now exists · ~30 min to see the bottom of it
 
 This is the biggest single addition since you last sat down, and the fastest
 way to meet it is to **go to the gym on a Wednesday**.
@@ -160,7 +227,7 @@ find.)
 
 ---
 
-## 4. Being hurt is no longer a wait · ~20 min, and this is the best thing to report on
+## 7. Being hurt is no longer a wait · ~20 min, and this is the best thing to report on
 
 The old injury was eleven days, physio buys six back, nothing to decide.
 Now:
@@ -200,7 +267,7 @@ check against your own instinct for the game.**
 
 ---
 
-## 5. And three things that are wrong with you that are not the injury · ~10 min
+## 8. And three things that are wrong with you that are not the injury · ~10 min
 
 Every injury in this game is something you did. These are deliberately not.
 
@@ -236,7 +303,7 @@ it moves where psyche drifts back to overnight, for a month.
 
 ---
 
-## 6. Still outstanding · the camera · ~15 min, needs your eye
+## 9. Still outstanding · the camera · ~15 min, needs your eye
 
 **Unchanged, and it has been the item most in need of a human for three
 sessions running.** Every number is a first guess by something that has
@@ -257,7 +324,7 @@ you to watch an attempt with the HUD ignored.
 
 ---
 
-## 7. Still outstanding · sound · optional
+## 10. Still outstanding · sound · optional
 
 No audio in the project and **nothing needs assigning.** Slots on the wall
 actor under **Dirtbag|Sound**, plus one `InteractSound` per day spot.
@@ -273,7 +340,7 @@ level**, not these slots.
 
 ---
 
-## 8. The Lot blockout · ~2 hours · **still the whole point**
+## 11. The Lot blockout · ~2 hours · **still the whole point**
 
 Unchanged from the last list, because nothing I have built since could touch
 it. Repeated in full because it is the item that matters.
@@ -289,14 +356,14 @@ you end up dressing a shape that turns out to be wrong.
 
 Why the Lot first: **you sleep there every night of a thirty-year career.**
 
-### 8a. Make ground · ~20 min
+### 11a. Make ground · ~20 min
 1. New Landscape actor. Sculpt roughly — **you are making occlusion, not
    terrain.** A hill between the Lot and the road is the entire job, because
    what you cannot see is what makes two places two places.
 2. Flat pad for the Lot, big enough that crossing it takes a few seconds.
 3. **Do not texture it.** Grey is correct.
 
-### 8b. Move what you have onto it · ~30 min
+### 11b. Move what you have onto it · ~30 min
 The trigger volumes get **relocated**, at real distance from each other:
 the van (sleep, and the hangboard on its side door, and now prehab), the
 fire, the dog bowl, the travel spot at the edge, a rest spot by the pads.
@@ -304,14 +371,14 @@ fire, the dog bowl, the travel spot at the edge, a rest spot by the pads.
 **The distances are the design.** If the fire is two steps from the van,
 sitting down at it costs nothing and the evening stops being a choice.
 
-### 8c. Play it grey · ~20 min
+### 11c. Play it grey · ~20 min
 Walk it. Sleep. Drive to Roadside. Climb. Come back.
 
 **It will be grey and it will be a game.** That is the checkpoint. If it
 feels wrong grey, no amount of Megascans fixes it and the layout needs
 another pass.
 
-### 8d. Only then, dress one pocket
+### 11d. Only then, dress one pocket
 One at a time, playing after each. The climb walls are last: a wall is a
 spline plus a mesh and **the rock behind it is scenery**, so the rock
 purchase blocks nothing. You could build the whole valley and play a season
@@ -323,37 +390,54 @@ fuss it is before committing to twenty-five.**
 
 ---
 
-## 9. Then play — and these are the questions
+
+## 12. Then play — and these are the questions
 
 Ranked by how much I need the answer:
 
-1. **Does the grey Lot feel like a place?** §8c. If yes, the rest of Phase 6
-   is work rather than risk. Everything else on this list is a dial.
-2. **Can you ever afford a scan?** §4. The whole medical system leans on
-   cash-on-hand being the binding constraint. If it turns out you are richer
-   than the probe thinks, half those prices are wrong.
-3. **Does the tooth make you spend?** §5. It is meant to be the one thing
-   you resent paying for and pay for anyway. If you ignore it and shrug,
-   it is too weak; if you dread it, it is too strong.
-4. **Play one comp at Regional.** §3. Three rounds, and the score does not
-   carry. Does the semi feel like a second chance or like a chore?
-5. **Skip a World Cup round you cannot afford.** §3. Does the table moving
-   away from you land, or is it just a number going down?
-6. **One league night.** §3. Is a personal best something you would come
-   back for on a Wednesday?
-7. **Camera**, §6, with somebody who is not you.
+1. **Does the grey Lot feel like a place?** §11c. If yes, the rest of
+   Phase 6 is work rather than risk. Everything else on this list is a dial.
+2. **Does the wall talk too much?** §5. Measured against attempts, never
+   against watching one.
+3. **Does a trad lead feel a grade harder, or feel mean?** §3. Same numbers,
+   different games.
+4. **Can you ever afford a scan, or a rack of cams?** §7 and §3. Both systems
+   lean on cash-on-hand being the binding constraint, and the probe says a
+   career sits between $125 and $290 for thirty years. If you are richer
+   than that, several prices are wrong.
+5. **Does the tooth make you spend?** §8. Meant to be the one thing you
+   resent paying for and pay for anyway.
+6. **Play one comp at Regional.** §6. Does the semi feel like a second
+   chance or like a chore?
+7. **Skip a World Cup round you cannot afford.** §6. Does the table moving
+   away from you land?
+8. **Camera**, §9, with somebody who is not you.
 
 ---
 
-## 10. What is deliberately not done
+## 13. What is deliberately not done
 
 - **Phase 6 is untouched by all of this.** Nine of eleven walkable zones are
   empty, the Lot is trigger volumes, and no amount of sim work changes it.
-- **No audio assets.** §7.
+  **Three phases of sim depth landed in one day and the presentation is
+  still one widget and a canvas HUD** — which is the roadmap's own warning
+  about this project arriving on schedule.
+- **No audio assets.** §10, and now there is a reason to care: `BeatKind`
+  exists so a sound can key off a beat rather than off its words. Nothing
+  does yet.
+- **No camera keys off a beat either.** Same enum, same gap.
+- **`Beats()` is a replay door nobody walks through.** The highlight reel is
+  a Blueprint job whenever you want it.
+- **A watched bot attempt says less than a driven one** — beats fire from
+  the live path only. Correct for now; revisit if watching somebody else
+  climb becomes a feature rather than a fallback.
 - **Phase 7's `social` axis** is still unwired — it needs turnout, which
   needs somewhere for people to turn up to.
+- **Personality drift** — Phase 7's third named thing — is not built. The
+  axes hold whatever creation set them to.
 - **Phase 8's balance call is still open**: 502 races in thirty years is a
   lot. My reading is "fewer races, longer clock", but it is taste and it is
   yours.
-- **Phase 11 (a life outside it), 12 (work as a craft) and 13 (trad)** are
-  not started. All three are container work whenever you want them.
+- **Phase 11 (a life outside it)** is the last unbuilt phase, and the
+  roadmap's own note is that it is the one most improved by Phase 6 landing
+  first — a hobby needs somewhere to happen.
