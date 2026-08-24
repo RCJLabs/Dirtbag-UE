@@ -1504,6 +1504,15 @@ struct FDirtbagPartnerBond
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
 	double Rapport = 0.0;
 
+	/** **How well you ever knew them.** Rapport drifts down to a fraction
+	 *  of this rather than to nothing, so carrying it is not optional: the
+	 *  engine round-trips the player state constantly, and a dropped mirror
+	 *  field is not merely absent from Blueprint, it is *erased from the
+	 *  sim* on the next call. This career's friendships would ratchet down
+	 *  a little every time the game was saved. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	double EverKnew = 0.0;
+
 	/** Route keys they got to first. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
 	TArray<FString> FirstAscents;
@@ -1532,6 +1541,12 @@ struct FDirtbagPartner
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
 	double Rapport = 0.0;
+
+	/** How well you ever knew them — what the drift floors against. Carried
+	 *  for the same reason the bond's copy is: an erased memory ratchets a
+	 *  friendship down every round trip. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
+	double EverKnew = 0.0;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Lot")
 	TArray<FString> FirstAscents;

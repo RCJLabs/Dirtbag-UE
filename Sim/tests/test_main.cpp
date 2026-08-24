@@ -619,14 +619,14 @@ static void TestTheTownNamesYourCrew() {
 
   // One partner is a partnership, not a crew. The game already models that
   // as a bond and does not need a name for it.
-  std::vector<PartnerBond> one = {{"Margo", 0.9, {}}};
+  std::vector<PartnerBond> one = {{"Margo", 0.9, 0.9, {}}};
   CHECK(!ReadsAsACrew(one, cd));
 
   // Two people you actually climb with is a crew. Knowing their name is not
   // climbing with them.
-  std::vector<PartnerBond> nodding = {{"Margo", 0.2, {}}, {"Dev", 0.3, {}}};
+  std::vector<PartnerBond> nodding = {{"Margo", 0.2, 0.2, {}}, {"Dev", 0.3, 0.3, {}}};
   CHECK(!ReadsAsACrew(nodding, cd));
-  std::vector<PartnerBond> real = {{"Margo", 0.9, {}}, {"Dev", 0.7, {}}};
+  std::vector<PartnerBond> real = {{"Margo", 0.9, 0.9, {}}, {"Dev", 0.7, 0.7, {}}};
   CHECK(ReadsAsACrew(real, cd));
 
   // And it has to hold for a month. A crew that exists for one good week in
@@ -681,7 +681,7 @@ static void TestTheTownNamesYourCrew() {
   // Stable across replays, and independent of the order bonds happen to sit
   // in -- they are rebuilt from the world seed daily and only the bond is
   // career state, so a reload must not rename you.
-  std::vector<PartnerBond> reversed = {{"Dev", 0.7, {}}, {"Margo", 0.9, {}}};
+  std::vector<PartnerBond> reversed = {{"Dev", 0.7, 0.7, {}}, {"Margo", 0.9, 0.9, {}}};
   Crew again;
   for (int d = 0; d <= cd.daysBeforeTheyNameYou; d++)
     CrewDay(again, "Wren", reversed, scene, world, d, cd);
@@ -737,7 +737,7 @@ static void TestTheTownNamesYourCrew() {
 // v16 -> v17. Old saves must load, and must not arrive pre-named.
 static void TestTheCrewNameMigrates() {
   PlayerState player;
-  player.bonds = {{"Margo", 0.9, {}}, {"Dev", 0.7, {}}};
+  player.bonds = {{"Margo", 0.9, 0.9, {}}, {"Dev", 0.7, 0.7, {}}};
   player.standing.with[static_cast<int>(Faction::Scene)] = 0.8;
   const Rng world = Rng::FromSeed("crew-save");
   for (int d = 0; d <= CrewDials{}.daysBeforeTheyNameYou; d++)
@@ -7612,12 +7612,36 @@ static void TestSaveCarriesWhoYouKnow() {
   dev.rapport = 0.9;
   dev.firstAscents = {"the arete left of Diesel",
                       "the low traverse into Chalk Ghost"};
+  margo.everKnew = 0.88;   // knew them better once than you do now
   save.player.bonds = {margo, dev};
 
   SaveGame loaded;
   CHECK(DeserializeSave(SerializeSave(save), loaded) == LoadResult::Ok);
   CHECK(loaded.player.bonds.size() == 2);
   CHECK(loaded.player.bonds[0].name == "Margo");
+  // **The memory has to survive the save**, and this is the one field where
+  // losing it is not merely forgetting: rapport floors against it, so a
+  // career reloaded without it would ratchet its friendships down a little
+  // every time the game was closed.
+  CHECK(std::fabs(loaded.player.bonds[0].everKnew - 0.88) < 1e-12);
+
+  // A v34 career knew people at least as well as it knows them now, which
+  // is what the runtime would have derived on its next day at the Lot. The
+  // only migration in the file that has to read the save to write it --
+  // bonds are a counted list, so there is no fixed set of keys to add.
+  {
+    std::string v34 = SerializeSave(save);
+    DropSaveLine(v34, "bond.0.knew=");
+    DropSaveLine(v34, "bond.1.knew=");
+    SetSaveVersion(v34, 34);
+    SaveGame old;
+    CHECK(DeserializeSave(v34, old) == LoadResult::Ok);
+    CHECK(old.version == kSaveVersion);
+    CHECK(old.player.bonds.size() == 2);
+    CHECK(old.player.bonds[0].everKnew == old.player.bonds[0].rapport);
+    CHECK(old.player.bonds[1].everKnew == old.player.bonds[1].rapport);
+    CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+  }
   CHECK(std::fabs(loaded.player.bonds[0].rapport - 0.42) < 1e-12);
   CHECK(loaded.player.bonds[0].firstAscents.empty());
   CHECK(loaded.player.bonds[1].name == "Dev");
@@ -7764,8 +7788,36 @@ static void TestRapportGrowsAndFades() {
   // It saturates rather than running away.
   for (int i = 0; i < 500; i++) SpendDayWith(p, true, d);
   CHECK(p.rapport == 1.0);
+  CHECK(p.everKnew == 1.0);
+
+  // **And it does not fade to nothing, however long you are gone.** This
+  // used to assert exactly 0 after fourteen years away, and that assertion
+  // was what let three thirty-year careers end as strangers to everybody at
+  // the Lot -- including one that climbed 2,085 days. You do not forget
+  // somebody you spent five years with; you stop being current with them.
   for (int i = 0; i < 5000; i++) SpendDayWith(p, false, d);
-  CHECK(p.rapport == 0.0);
+  CHECK(p.rapport > 0.0);
+  CHECK(std::fabs(p.rapport - d.rapportKeeps) < 1e-9);
+  // The memory itself never falls -- it is what the drift floors against.
+  CHECK(p.everKnew == 1.0);
+
+  // Somebody you barely knew keeps barely anything, which is the other half
+  // of the rule: the floor is a fraction of how well you ever knew them,
+  // not a constant everybody gets.
+  Partner nodding;
+  nodding.name = "Dev";
+  SpendDayWith(nodding, true, d);
+  const double slight = nodding.everKnew;
+  for (int i = 0; i < 5000; i++) SpendDayWith(nodding, false, d);
+  CHECK(nodding.rapport < p.rapport);
+  CHECK(std::fabs(nodding.rapport - slight * d.rapportKeeps) < 1e-9);
+
+  // And what a belayer will do for you follows it, which is the point --
+  // this is the only place in the game rapport buys something you cannot
+  // get any other way.
+  SportDials sd;
+  CHECK(BurnsTheyWillHold(p, sd) > BurnsTheyWillHold(nodding, sd));
+  CHECK(BurnsTheyWillHold(p, sd) > sd.burnsFromAStranger);
 }
 
 static void TestBetaIsWorthAskingForAndOnlyOnce() {

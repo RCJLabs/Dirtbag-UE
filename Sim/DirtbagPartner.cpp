@@ -140,9 +140,17 @@ double PsycheFrom(const Partner& partner, const PartnerDials& dials) {
 void SpendDayWith(Partner& partner, bool together, const PartnerDials& dials) {
   if (together) {
     partner.rapport = std::min(1.0, partner.rapport + dials.rapportPerDay);
-  } else {
-    partner.rapport = std::max(0.0, partner.rapport - dials.rapportDecayPerDay);
+    // The high-water mark only ever goes up, which is what makes it a
+    // memory rather than a second copy of the current value.
+    partner.everKnew = std::max(partner.everKnew, partner.rapport);
+    return;
   }
+  // Drift, down to what you keep of somebody rather than to nothing --
+  // see `rapportKeeps`, and the three thirty-year careers that ended as
+  // strangers to everybody before it existed.
+  const double floor_ = partner.everKnew * Clamp01(dials.rapportKeeps);
+  partner.rapport =
+      std::max(floor_, partner.rapport - dials.rapportDecayPerDay);
 }
 
 std::vector<std::string> SpokenFor(const std::vector<ProjectMemory>& projects,
@@ -239,6 +247,7 @@ void ApplyBonds(std::vector<Partner>& lot,
     for (const PartnerBond& b : bonds) {
       if (b.name == p.name) {
         p.rapport = b.rapport;
+        p.everKnew = std::max(b.everKnew, b.rapport);
         p.firstAscents = b.firstAscents;
         break;
       }
@@ -258,6 +267,7 @@ std::vector<PartnerBond> BondsFrom(const std::vector<Partner>& lot) {
     PartnerBond b;
     b.name = p.name;
     b.rapport = p.rapport;
+    b.everKnew = std::max(p.everKnew, p.rapport);
     b.firstAscents = p.firstAscents;
     out.push_back(b);
   }

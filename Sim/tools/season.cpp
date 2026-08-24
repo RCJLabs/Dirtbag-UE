@@ -12,6 +12,7 @@
 //
 // Build: Sim/tools/build-season.sh
 
+#include <climits>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -48,6 +49,15 @@ namespace {
 struct LineTally { std::string name; int burns = 0, sends = 0, best = 0; int moves = 0; };
 
 struct Tally {
+  // --- Sport, and the walk in ----------------------------------------------
+  // Both measured for the first time. The approach has never been paid by
+  // any career in any note; the belayer has never been asked for.
+  double approachHours = 0.0;
+  int noBelayerDays = 0;    // you walked up there and nobody would tie in
+  int belayerCappedDays = 0;// their patience ended the session, not your skin
+  int burnsTheyHeld = 0;    // total burns a belayer stood under
+  double bestRapport = 0.0; // with anybody, at the end
+
   // --- Habits ---------------------------------------------------------------
   // What a career turned into, which is a question nothing in this probe
   // could ask before: every measurement here has been about what a climber
@@ -297,6 +307,17 @@ int main(int argc, char** argv) {
   // rather than whether, and a harness assertion cannot ask how often.
   const bool leads = argc > 5 && std::string(argv[5]) == "trad";
 
+  // **A clipper.** Goes to the Shaded Cave, which needs somebody to hold
+  // the rope, and climbs on bolts.
+  //
+  // Sport has existed since Phase 8 and **no career has ever climbed one.**
+  // The probe has only ever been to Roadside, so the belayer gate, what
+  // rapport buys, the clipping economy and the cave's whole north-facing
+  // reason to exist have been measured by the harness and never played --
+  // the same gap that hid the World Cup's calendar and the tooth's dead
+  // end, and both of those were "how often" questions no assertion can ask.
+  const bool clips = argc > 5 && std::string(argv[5]) == "sporty";
+
   // Arg 6 overrides skin regen per night (shipped: 1.5, so nine points of
   // skin is six nights). This is not a balance proposal — it is the knob
   // that answers the one question five measurements have left standing:
@@ -500,6 +521,20 @@ int main(int argc, char** argv) {
     const PrimeWindow win = FindPrimeWindow(w, crag.aspect, cd);
 
     std::string note;
+    // **Did you climb *today*.** The rapport call below read
+    // `t.daysClimbed > 0` -- the career total, not the day -- so from the
+    // first climbing day onward every single day counted as a day spent
+    // together, including the nine in ten a career spends washed out,
+    // working or resting. Rapport therefore hit 1.00 with everybody at the
+    // Lot inside a fortnight and stayed there for thirty years, which is
+    // why the belayer's patience ended a session **twice in four hundred
+    // days**: `BurnsTheyWillHold` was returning the full-rapport number
+    // from almost the first week of a career.
+    //
+    // The engine has always had this right (`SpendDayWith(P, bClimbedToday)`).
+    // The probe has not, and everything it has ever reported about the Lot
+    // was measured on a player who never missed a day.
+    const int climbedBefore = t.daysClimbed;
 
     // Eat when hungry — checked through the day rather than at dawn, when
     // nobody is. (The first run of this probe never ate once, because it
@@ -855,6 +890,10 @@ int main(int argc, char** argv) {
       // gate the purchase opens.
       crag = CanLeadTrad(player.rack) ? TheOldButtress(world) : RoadsideCrag(world);
     }
+    // The rope crag. No purchase gates it -- what gates it is somebody being
+    // willing to stand under you, which is the whole of what the Lot is for
+    // and has never once been asked for over a career.
+    if (clips) crag = ShadedCave(world);
 
     // The salary owns its days whether or not you wanted them.
     JobDials jd;
@@ -1099,6 +1138,19 @@ int main(int argc, char** argv) {
       const bool missedIt = today.hour > win.endHour;
       if (missedIt) t.missedWindows++;
 
+      // **The walk in.** `Crag::approachHours` is set by all four crags and
+      // the engine charges it -- `ApproachHoursFor` feeds the travel spot --
+      // and **this probe has never paid a minute of it.** Every career
+      // number in every note in this repo was measured by a climber who
+      // teleported to the rock, which on the buttress is 2.2 hours of a
+      // fourteen-hour day, unpaid, every day for thirty years.
+      //
+      // Paid here rather than folded into the window, because it is the
+      // reason a further crag is a *decision*: it comes out of the same
+      // daylight the session does.
+      PassHours(today, crag.approachHours, dd);
+      t.approachHours += crag.approachHours;
+
       // The light is the hard stop. Nothing else in the day was one: before
       // this, a salaried player who got out at five still climbed a full
       // window's worth of burns, in the dark, in December.
@@ -1118,7 +1170,44 @@ int main(int argc, char** argv) {
         }
       }
 
-      const CragLine* line = PickLine(crag, body, player, racesBack);
+      // **Somebody has to hold the rope.** The one thing in this game that
+      // genuinely requires the Lot to exist, and the reason a pitch is a
+      // different *decision* from a boulder rather than a longer one: a
+      // boulder is something you can always do alone at dawn, and a pitch
+      // is something you have to have arranged.
+      //
+      // How many burns you get is how well they know you -- a stranger
+      // holds your rope for a couple of laps because that is what people do
+      // at a crag, and standing under somebody all afternoon while they
+      // work the same three moves is a favour.
+      int burnsAllowed = INT_MAX;
+      if (NeedsABelayer(crag.lines.empty() ? Route{} : crag.lines[0].route)) {
+        std::vector<Partner> atTheLot = LotRegulars(world, player.day);
+        ApplyBonds(atTheLot, player.bonds);
+        const Partner* belayer = BestBelayer(atTheLot);
+        if (!belayer) {
+          // Walked up there and there is nobody. Not a rest day and not a
+          // washout -- a different way for a day to go wrong, and one only
+          // a rope crag has.
+          //
+          // **Zero burns rather than `continue`.** The first version of this
+          // skipped to the next day, which also skipped the Lot's own
+          // climbing, the rival, the crew and the night's bookkeeping -- a
+          // day that went wrong for the player is still a day the valley
+          // had. It has never fired (see below), which is exactly why it
+          // was worth getting right: an untaken branch that is also broken
+          // is a bug with a fuse on it.
+          t.noBelayerDays++;
+          note = "nobody to tie in with";
+          burnsAllowed = 0;
+        } else {
+          burnsAllowed = BurnsTheyWillHold(*belayer);
+        }
+      }
+
+      const CragLine* line = burnsAllowed == 0
+                                 ? nullptr
+                                 : PickLine(crag, body, player, racesBack);
       if (line) {
         ProjectMemory& mem = LedgerFor(player, *line);
 
@@ -1139,6 +1228,7 @@ int main(int argc, char** argv) {
         Rng session = Rng::FromSeed(seed + "#day" + std::to_string(player.day));
         int burnsToday = 0;
         while (today.session.skinLeft > 0.5 && today.hour < dusk &&
+               burnsToday < burnsAllowed &&
                burnsToday < static_cast<int>(win.hours() / 0.25) + 4) {
           // The two halves the engine's DayAttempt node wraps: resolve the
           // burn against the session, then let the day pay for it.
@@ -1191,6 +1281,8 @@ int main(int argc, char** argv) {
             if (pieces >= today.session.rack.pieces) t.ranItOut++;
           }
 
+          if (burnsAllowed != INT_MAX) t.burnsTheyHeld++;
+
           lt->burns++;
           lt->best = std::max(lt->best, r.highpoint);
           if (r.sent) lt->sends++;
@@ -1227,6 +1319,15 @@ int main(int argc, char** argv) {
             break;
           }
         }
+        // **Whose patience ended the day.** The interesting case is the
+        // one where you had skin left and light left and the belayer had
+        // simply had enough -- that is the number the whole "a stranger
+        // gives you a couple, somebody who knows you gives you the day"
+        // design turns on, and nothing has ever counted it.
+        if (burnsAllowed != INT_MAX && burnsToday >= burnsAllowed &&
+            today.session.skinLeft > 0.5 && today.hour < dusk) {
+          t.belayerCappedDays++;
+        }
         if (burnsToday > 0) { t.daysClimbed++; if (note.empty()) note = "climbed"; }
       }
     }
@@ -1252,7 +1353,7 @@ int main(int argc, char** argv) {
     std::vector<Partner> lot = LotRegulars(world, player.day);
     ApplyBonds(lot, player.bonds);
     for (Partner& p : lot) {
-      SpendDayWith(p, t.daysClimbed > 0);
+      SpendDayWith(p, t.daysClimbed > climbedBefore);
       std::vector<std::string> taken = lotTaken;
       for (const ProjectMemory& m : player.projects)
         if (m.firstAscent) taken.push_back(m.routeName);
@@ -1544,6 +1645,14 @@ int main(int argc, char** argv) {
            lineCount, static_cast<int>(t.lotNames.size()));
   }
 
+  // **Where rapport ended up**, which is the question -- the first version
+  // of this took a maximum across the whole career and therefore reported
+  // 1.00 for anybody who ever had a good fortnight, thirty years after it
+  // stopped being true. A high-water mark is not a state.
+  for (const PartnerBond& b : player.bonds) {
+    t.bestRapport = std::max(t.bestRapport, b.rapport);
+  }
+
   // One machine-readable line, always. Comparing two policies across
   // several seeds means parsing this output, and parsing the prose form
   // cost an afternoon to a sends count that wrapped onto the next line.
@@ -1567,7 +1676,8 @@ int main(int argc, char** argv) {
          "\tworsttooth"
          "\tmoments\tbotched\tducked\tsackings\tbestcraft\ttrade"
          "\track\trackday\track$\tleads\tpieces\tranout\tleadfear"
-         "\tquirks\tfirstquirk\thabitdays\thabits\tbecame\n");
+         "\tquirks\tfirstquirk\thabitdays\thabits\tbecame"
+         "\tapproach\tnobelayer\tbelaycap\theldburns\trapport\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -1580,7 +1690,8 @@ int main(int argc, char** argv) {
          "\t%d\t%d\t%d\t%d\t%d\t%d\t%d"
          "\t%d\t%d\t%d\t%d\t%.0f\t%s"
          "\t%s\t%d\t%.0f\t%d\t%d\t%d\t%.2f"
-         "\t%d\t%d\t%d\t%.2f\t%s\n",
+         "\t%d\t%d\t%d\t%.2f\t%s"
+         "\t%.0f\t%d\t%d\t%d\t%.2f\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -1593,6 +1704,7 @@ int main(int argc, char** argv) {
          : projects       ? "projector"
          : comps          ? "comper"
          : leads          ? "trad"
+         : clips          ? "sporty"
          : takesDeals     ? "sponsored"
                           : "greedy",
          restUntilSkin, player.cash, t.cashLow, t.sends, t.firstAscents,
@@ -1650,7 +1762,12 @@ int main(int argc, char** argv) {
          // no other column in this table is one.
          t.quirksEarned, t.firstQuirkDay, t.daysWithAHabit,
          DAYS > 0 ? t.habitDaysSum / DAYS : 0.0,
-         t.became.empty() ? "nobody in particular" : t.became.c_str());
+         t.became.empty() ? "nobody in particular" : t.became.c_str(),
+         // The walk in, and what the rope cost. `belaycap` is the one that
+         // matters: days that ended because somebody had had enough rather
+         // than because your skin had.
+         t.approachHours, t.noBelayerDays, t.belayerCappedDays,
+         t.burnsTheyHeld, t.bestRapport);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

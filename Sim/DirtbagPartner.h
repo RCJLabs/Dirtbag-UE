@@ -32,6 +32,8 @@ namespace dirtbag {
 struct PartnerBond {
   std::string name;
   double rapport = 0.0;
+  // **How well you ever knew them.** See `rapportKeeps` below.
+  double everKnew = 0.0;
   std::vector<std::string> firstAscents;   // route keys they got there first
 };
 
@@ -60,6 +62,29 @@ struct PartnerDials {
   // stop turning up. People remember you, but not forever.
   double rapportPerDay = 0.08;
   double rapportDecayPerDay = 0.01;
+
+  // **What you keep of somebody after you stop turning up**, as a fraction
+  // of how well you ever knew them.
+  //
+  // Without this, rapport is a hundred-day memory with hard clamps at both
+  // ends, and the clamps destroy the arithmetic: a burst of climbing pins
+  // you at 1.0, a long gap floors you at 0, and **where a career ends up is
+  // decided entirely by its last few months.** Measured over three
+  // thirty-year careers, every one of them ended at **0.00 with everybody
+  // at the Lot** -- including one that climbed 2,085 days, which is nearly
+  // six years of turning up. Nobody in ninety years of this game has ever
+  // got past being a stranger, so `BurnsTheyWillHold` has only ever
+  // returned the stranger's number and *"somebody who knows you gives you
+  // the day"* has never once happened.
+  //
+  // You do not forget somebody you spent five years with. You stop being
+  // current with them, which is a different thing and is what this is: the
+  // decay still runs, and it runs down to a floor rather than to nothing.
+  //
+  // Same shape as the two the project has already found -- the ranking's
+  // window and the scars' fade -- and the same lesson from a third angle:
+  // **a value that ages needs a memory, not just a slope.**
+  double rapportKeeps = 0.45;
 
   // What company is worth. Psyche is ability in the resolver (psycheWeight
   // 1.5 grades across its range), so this is deliberately small: a good
@@ -107,6 +132,9 @@ struct Partner {
   // Career state — the only part that is saved, because it is the only part
   // that depends on what the player did.
   double rapport = 0.0;     // 0..1
+  // How well you ever knew them. Never falls; it is what the drift floors
+  // against. See `PartnerDials::rapportKeeps`.
+  double everKnew = 0.0;
   std::vector<std::string> firstAscents;  // route keys they got to first
 };
 

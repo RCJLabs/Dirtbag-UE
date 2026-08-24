@@ -332,6 +332,34 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // which is not a loss, because the book only remembers a season anyway and
 // a career that keeps climbing the way it has been will earn the same ones
 // back inside two.
+// v34 → v35: how well you ever knew somebody, which rapport now drifts
+// down to a fraction of rather than to nothing.
+//
+// **The only migration in this file that has to read the save to write it.**
+// Bonds are a counted list -- `bonds=N` and then `bond.0.*` -- so there is
+// no fixed set of keys to add; how many there are depends on how many
+// people this career ever climbed with. The honest reconstruction is that
+// you knew them at least as well as you know them now, which is exactly
+// what the runtime would derive on the next `BondsFrom` anyway.
+void MigrateV34ToV35(SaveFields& fields) {
+  const auto found = fields.find("bonds");
+  if (found == fields.end()) return;
+  int count = 0;
+  try {
+    count = std::stoi(found->second);
+  } catch (...) {
+    // A save whose bond count is not a number is a save the loader is about
+    // to reject anyway. Adding nothing here lets it reach the error it
+    // deserves rather than turning it into a different one.
+    return;
+  }
+  for (int i = 0; i < count; i++) {
+    const std::string rapport = BondKey(i, "rapport");
+    const auto had = fields.find(rapport);
+    fields[BondKey(i, "knew")] = had == fields.end() ? "0" : had->second;
+  }
+}
+
 void MigrateV33ToV34(SaveFields& fields) {
   fields["log.asof"] = "0";
   for (int i = 0; i < kDidCount; i++) {
@@ -552,7 +580,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV24ToV25, &MigrateV25ToV26, &MigrateV26ToV27,
       &MigrateV27ToV28, &MigrateV28ToV29, &MigrateV29ToV30,
       &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33,
-      &MigrateV33ToV34};
+      &MigrateV33ToV34, &MigrateV34ToV35};
   return kMigrations;
 }
 
@@ -1023,6 +1051,7 @@ std::string SerializeSave(const SaveGame& save) {
     const int n = static_cast<int>(i);
     out << BondKey(n, "name") << "=" << b.name << "\n";
     out << BondKey(n, "rapport") << "=" << NumToStr(b.rapport) << "\n";
+    out << BondKey(n, "knew") << "=" << NumToStr(b.everKnew) << "\n";
     out << BondKey(n, "fas") << "="
         << static_cast<int>(b.firstAscents.size()) << "\n";
     for (size_t f = 0; f < b.firstAscents.size(); f++) {
@@ -1715,6 +1744,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     int faCount = 0;
     if (!ParseString(fields, BondKey(i, "name"), b.name) ||
         !ParseDouble(fields, BondKey(i, "rapport"), b.rapport) ||
+        !ParseDouble(fields, BondKey(i, "knew"), b.everKnew) ||
         !ParseInt(fields, BondKey(i, "fas"), faCount) || faCount < 0) {
       return LoadResult::BadFormat;
     }

@@ -1420,6 +1420,7 @@ FDirtbagPartnerBond FromSim(const dirtbag::PartnerBond& In)
 	FDirtbagPartnerBond Out;
 	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
 	Out.Rapport = In.rapport;
+	Out.EverKnew = In.everKnew;
 	Out.FirstAscents.Reserve(static_cast<int32>(In.firstAscents.size()));
 	for (const std::string& Key : In.firstAscents)
 	{
@@ -1433,6 +1434,7 @@ dirtbag::PartnerBond ToSim(const FDirtbagPartnerBond& In)
 	dirtbag::PartnerBond Out;
 	Out.name = TCHAR_TO_UTF8(*In.Name);
 	Out.rapport = In.Rapport;
+	Out.everKnew = In.EverKnew;
 	Out.firstAscents.reserve(static_cast<size_t>(In.FirstAscents.Num()));
 	for (const FString& Key : In.FirstAscents)
 	{
@@ -1448,6 +1450,7 @@ FDirtbagPartner FromSim(const dirtbag::Partner& In)
 	// It decides what the Lot does behind your back and is deliberately not
 	// something you can read off a person's face.
 	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.EverKnew = In.everKnew;
 	Out.Tag = UTF8_TO_TCHAR(In.tag.c_str());
 	Out.Climber = FromSim(In.climber);
 	Out.bClimbs = In.climbs;
