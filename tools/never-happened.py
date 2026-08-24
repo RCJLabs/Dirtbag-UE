@@ -29,6 +29,14 @@ its twenties. A shorter run is faster and its output is a list of things
 that have not happened *yet*, which is a different question and a worse
 one.
 
+**A "never happened" is a claim about the battery until you have checked
+it against the probe's own flags.** This tool has now had its own coverage
+be the bug three separate times -- policies without knobs, careers too
+short, and a `med=` battery missing the `-up` and `-hard` suffixes whose
+comments in season.cpp say in as many words that they exist so those very
+counters can fire. Before believing an entry, grep season.cpp for the
+counter and read what turns it on.
+
 Not part of preflight: it takes minutes rather than seconds, and its
 output is a reading list rather than a pass/fail. Run it after a phase
 lands, which is when a system most likely arrived with nothing reaching
@@ -69,11 +77,24 @@ RUNS = [
     # Somebody to beat, which nothing above has.
     ("greedy", ["rival=1"]),
     ("comper", ["rival=1"]),
-    # And the two ways of handling being hurt, which is the only route to
-    # every column in the medical file.
+    # And the ways of handling being hurt. **All of the suffixes**, which
+    # is the half this tool got wrong a third time: `med=` composes, and
+    # `-up` (prehab, meds, the tooth) and `-hard` (answer every shift the
+    # hard way) are separate flags whose own comments in season.cpp say
+    # they exist precisely so those things are reachable. A battery with
+    # `careful-ins` and without `careful-up` reports the upkeep half of
+    # the medical system dead, and it is not dead -- it is unasked-for.
     ("greedy", ["med=sensible"]),
     ("greedy", ["med=impatient"]),
     ("greedy", ["med=careful-ins"]),
+    ("greedy", ["med=careful-up"]),
+    ("greedy", ["med=careful-up-ins"]),
+    ("greedy", ["med=sensible-up"]),
+    ("greedy", ["med=impatient-up"]),
+    # Somebody who answers every shift the hard way, which is the only
+    # route to botching, to losing standing for it, and to being sacked.
+    ("greedy", ["med=-hard"]),
+    ("salary", ["med=-hard"]),
     # A dynasty, which is the only way anybody retires.
     ("greedy", ["careers=1", "retire=late"]),
     # And the bold season, where head is trained and nothing is padded.
