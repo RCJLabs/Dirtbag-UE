@@ -73,6 +73,18 @@ struct FDirtbagSessionReadout
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
 	int32 Attempt = 0;
 
+	/** **What the last go was**, in one sentence — "Blew the clip.", "Off
+	 *  at the crux. You had been a long way above the gear for a while."
+	 *  Sits with the attempt number for the same reason: it is true from
+	 *  the end of one burn until the start of the next, which is most of a
+	 *  session, and a toast would have flashed it away while you were
+	 *  still looking at the move that did it. See Sim/DirtbagNarrator.h.
+	 *
+	 *  The beats *during* a go are a different tier and are toasted by the
+	 *  wall, because a moment is a moment. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	FString LastBurn;
+
 	/** Whether to show the control reminder under the grip bar. Mirrors
 	 *  `bLearnedTheVerb` on the game instance — the readout is wiped at
 	 *  the end of every session, and a reminder that came back for every

@@ -140,13 +140,60 @@ Written now.
   re-sorted in engine code, because the tie-break that puts an ending last
   among beats on the same move is a rule.
 
+## On screen
+
+*Added 2026-08-24.* Same rule as the habits readout: **which surface a fact
+goes on is decided by how long it is true for.**
+
+- **A beat is a moment**, so the wall toasts it — `LastWord` after every
+  `StepMove`, on one slot so the newest replaces the last rather than
+  stacking. Coloured off the `BeatKind` rather than off the words, which is
+  what that enum is for: restaging a beat must never mean re-reading it. And
+  **held for a length that scales with `weight`** — the moment of an attempt
+  stays up twice as long as a shake-out, which is the one place that number
+  does a job in the engine.
+- **The last go is true until the next one**, which is most of a session, so
+  `HowItWent` sits on the session readout beside the attempt number — the
+  same reasoning that put "attempt 14" there instead of in a four-second
+  flash. A toast would have taken it away while you were still looking at
+  the move that did it.
+
+Two things it replaced rather than added to:
+
+- **`"shake  -14 pump"`** was a stat line where a sentence belongs, and it
+  had been on the wall since Phase 0. The shake shows up in the timeline as
+  pump going *down* across a move — the only way it can — so the narrator
+  sees it without being told and says whether that was a chalk-up or the
+  rest that gave you the route back. The wall keeps its own line for a shake
+  that *cost* you, because that one is genuinely invisible to the timeline:
+  pump going up across a move is indistinguishable from the move having been
+  expensive.
+- **The end-of-attempt toast** led with `HowCloseText` and followed with the
+  count. Both halves of that reasoning are still right, and the narrator now
+  says the sentence twice already — once loud at the moment it happened and
+  once persistently on the readout — so a third telling a beat later in
+  different words is **one screen disagreeing with itself about what just
+  happened**. It keeps the job nothing else does: the count, for the player
+  who wants it.
+
+The send toast is untouched and does not duplicate anything: it says the
+route, the grade and the style, and the readout says *"Onsighted it."* The
+top-out beat deliberately does not fire live — the style is a judgement
+`FinishAttempt` makes — so the loud moment on a send is the animation, and
+the sentence arrives with the commit.
+
 ## Still open
 
-- **Nothing reads `lastBurn` on screen yet.** The line exists at every burn
-  and the HUD does not show it — an Editor job, and the first one Phase 5
-  should take.
 - **No sound and no camera.** The `BeatKind` enum exists so both can key off
-  a beat rather than off its words; neither does yet.
+  a beat rather than off its words; the toast colour does, and neither of
+  the other two does yet.
+- **`Beats()` has no reader.** The replay door is open and nothing walks
+  through it — the highlight reel is a Blueprint job.
+- **A replay says less than a driven attempt.** Beats fire from `CommitMove`,
+  which only the live path calls, so a watched bot attempt gets the readout
+  sentence and none of the moments. Correct for now (a replay is a replay),
+  and the first thing to revisit if watching somebody else climb ever
+  becomes a feature rather than a fallback.
 - The narrator says nothing about the *belayer*, the partner, or the crowd
   at a comp. All three have text of their own elsewhere; none of it is on
   this timeline.

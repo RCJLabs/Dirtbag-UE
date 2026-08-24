@@ -54,6 +54,10 @@ enum : int32
 	// four-second red flash during a playtest is the one surface that
 	// guarantees he misses it.
 	kToastSetup = 4105,
+	// The narrator. One slot on purpose: beats replace each other, because
+	// the newest is the one that matters and a stack of them is the exact
+	// bug the comment at the top of this enum is about.
+	kToastBeat = 4106,
 };
 
 void Toast(const FString& Msg, FColor Color = FColor::White,
@@ -63,6 +67,36 @@ void Toast(const FString& Msg, FColor Color = FColor::White,
 	{
 		GEngine->AddOnScreenDebugMessage(Key, Seconds, Color, Msg);
 	}
+}
+
+/** **The narrator, out loud.** Silence is the usual answer and an empty
+ *  line is how it says so -- see Sim/DirtbagNarrator.h, where the whole
+ *  design is that a line a move is a log rather than commentary.
+ *
+ *  Coloured off the *kind* rather than off the words, which is what that
+ *  enum is for: restaging a beat must never mean re-reading it. And held
+ *  for a length that scales with the beat's weight, which is the one place
+ *  in the engine where that number does a job -- the moment of an attempt
+ *  stays up twice as long as a shake-out. */
+void SayTheBeat(const dirtbag::Beat& Beat)
+{
+	if (Beat.line.empty())
+	{
+		return;
+	}
+	FColor Ink = FColor::Silver;
+	switch (Beat.kind)
+	{
+	case dirtbag::BeatKind::Fell:       Ink = FColor::Orange; break;
+	case dirtbag::BeatKind::Topped:     Ink = FColor::Green; break;
+	case dirtbag::BeatKind::Pumped:
+	case dirtbag::BeatKind::Runout:     Ink = FColor::Yellow; break;
+	case dirtbag::BeatKind::Crux:
+	case dirtbag::BeatKind::NearlyBlew: Ink = FColor::White; break;
+	default: break;
+	}
+	Toast(UTF8_TO_TCHAR(Beat.line.c_str()), Ink,
+	      1.8f + 3.2f * static_cast<float>(Beat.weight), kToastBeat);
 }
 }  // namespace
 
@@ -1218,11 +1252,21 @@ void ADirtbagClimbWall::OnHoldReleased()
 		const double Recovered = dirtbag::ShakeOut(Live);
 		if (Recovered > 0.5)
 		{
-			Toast(FString::Printf(TEXT("shake  -%.0f pump"), Recovered),
-			      FColor::Cyan, 1.5f);
+			// **The narrator's, not a number.** This said "shake  -14 pump"
+			// for two phases, which is the one thing every piece of text in
+			// this project is told not to be: a stat line where a sentence
+			// belongs. The shake shows up in the timeline as pump going
+			// *down* across a move -- the only way it can -- so the
+			// narrator sees it without being told, and says whether it was
+			// a chalk-up or the rest that gave you the route back.
+			SayTheBeat(dirtbag::LastWord(Live.input, Live.partial));
 		}
 		else if (Recovered < -0.5)
 		{
+			// The wall's own, and it stays. A shake that *cost* you is
+			// invisible in the timeline -- pump going up across a move is
+			// indistinguishable from the move having been expensive -- so
+			// this is the one thing here the narrator genuinely cannot know.
 			Toast(TEXT("nothing to milk here — that cost you"),
 			      FColor::Orange, 1.5f);
 		}
@@ -1248,6 +1292,9 @@ void ADirtbagClimbWall::OnHoldReleased()
 void ADirtbagClimbWall::CommitMove(double Execution)
 {
 	const dirtbag::MoveResult MR = dirtbag::StepMove(Live, Execution);
+	// And whether that was worth saying. Asked after every move and answers
+	// "no" on most of them, which is the point.
+	SayTheBeat(dirtbag::LastWord(Live.input, Live.partial));
 	StageMoveResult(MR.success);
 }
 
@@ -1431,21 +1478,27 @@ void ADirtbagClimbWall::FinishAttempt()
 	{
 		const double SkinLeft =
 		    Game ? Game->Day.Session.SkinLeft : Session.SkinLeft;
-		// The sentence leads and the numbers follow it. Phase 0's gate is
-		// that a watcher can tell how close that was *without reading a
-		// number*, and "off at move 9 of 12" is a number doing the work
-		// the staging is supposed to do. It stays -- a player who wants
-		// the count should have it -- but it stops being the first thing
-		// said, and what it says is now the sim's judgement rather than
-		// arithmetic the reader has to do.
+		// **The numbers, and only the numbers.**
+		//
+		// This used to lead with `HowCloseText` -- "one move, that was the
+		// go" -- and follow it with the count, on the reasoning that the
+		// sentence should lead and the count should stay for whoever wants
+		// it. Both halves of that are still right and the narrator now
+		// says the sentence twice over: once loud at the moment it
+		// happened, coloured by kind, from `CommitMove`, and once
+		// persistently on the session readout for as long as it is true.
+		// Saying it a third time here, a beat later and in different
+		// words, is one screen disagreeing with itself about what just
+		// happened.
+		//
+		// So this keeps the job nothing else does: the count, for the
+		// player who wants it. The colour still carries how close it was
+		// for anybody not reading at all.
 		const double Close = UDirtbagSimLibrary::HowClose(
 		    Current, Route.Moves.Num());
-		Toast(FString::Printf(TEXT("%s   (move %d of %d, skin %.1f)"),
-		                      *UDirtbagSimLibrary::HowCloseText(Close),
+		Toast(FString::Printf(TEXT("move %d of %d, skin %.1f"),
 		                      Current.Highpoint + 1, Route.Moves.Num(),
 		                      SkinLeft),
-		      // A near miss reads warm and a nothing go reads grey, so the
-		      // colour carries it too for anybody not reading at all.
 		      Close >= 0.6 ? FColor::Yellow : FColor::Orange, 6.f);
 	}
 	GetWorldTimerManager().SetTimer(PhaseTimer, this,
@@ -1680,6 +1733,11 @@ void ADirtbagClimbWall::UpdateHud()
 	S.WindowEnd = SweetWindowEnd;
 	S.Grip = bCharging ? Charge : -1.0;
 	S.bShowTheVerb = !Game->bLearnedTheVerb;
+	// What the last go was. Set by the sim at every burn in the game, on
+	// the one function all three attempt paths pass through -- so this
+	// reads it rather than composing anything, and a replay and a driven
+	// attempt say the same sentence about the same climb.
+	S.LastBurn = Game->Day.LastBurn;
 
 	if (bLiveSession)
 	{

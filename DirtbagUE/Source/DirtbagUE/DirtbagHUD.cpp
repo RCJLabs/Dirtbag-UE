@@ -504,9 +504,25 @@ void ADirtbagHUD::DrawSession(UDirtbagGameInstance* Game, float W, float H)
 	float Y = H - 150.f;
 
 	// The panel grows by a line when the control reminder is up, which is
-	// only ever until the first latch of a session.
-	const float PanelH = S.bShowTheVerb ? 154.f : 132.f;
-	DrawRect(kPanel, X - 18.f, Y - 46.f, BarW + 36.f, PanelH);
+	// only ever until the first latch of a session, and by another when
+	// there is a last go to report.
+	const bool bSaidSomething = !S.LastBurn.IsEmpty();
+	const float Top = bSaidSomething ? Y - 68.f : Y - 46.f;
+	const float PanelH =
+	    (S.bShowTheVerb ? 154.f : 132.f) + (bSaidSomething ? 22.f : 0.f);
+	DrawRect(kPanel, X - 18.f, Top, BarW + 36.f, PanelH);
+
+	// **What the last go was**, above the route it was on. Dim and small:
+	// it is already over, and the thing you are looking at is the wall.
+	// Persistent rather than toasted because it is true from the end of one
+	// burn until the start of the next -- which is most of a session, and a
+	// four-second flash would have taken it away while you were still
+	// looking at the move that did it. The beats *during* a go are the
+	// wall's job and are a different tier.
+	if (bSaidSomething)
+	{
+		DrawText(S.LastBurn, kDim, X, Y - 62.f, GEngine->GetSmallFont(), 1.f);
+	}
 	DrawText(S.RouteLine, kInk, X, Y - 40.f, GEngine->GetMediumFont(), 1.f);
 	// "Attempt 14" is true for the whole go and is most of what a session
 	// feels like, so it sits beside the route for all of it rather than
