@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #include "../DirtbagLife.h"
 #include "../DirtbagLocals.h"
 #include "../DirtbagGym.h"
+#include "../DirtbagGymFloor.h"
 #include "../DirtbagGymTown.h"
 #include "../DirtbagBivy.h"
 #include "../DirtbagLiving.h"
@@ -15214,6 +15216,329 @@ static void TestLoadsVersion41Save() {
   CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
 }
 
+// --- GYM-2 and GYM-5: the people in the building --------------------------
+
+static void TestTheFloorHasPeopleOnItAndTheyGoInOrder() {
+  FloorDials d;
+  GymFloor floor;
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+
+  // Four to start with, and **not the other nine** -- a gym has not
+  // collected a cohort until it has earned one.
+  CHECK(TheCast(floor).size() == 4);
+  CHECK(!WaveOneIsLivedOut(floor));
+
+  // Lowest stage first, cast order breaks ties, so a player who walks every
+  // day meets the room in a fixed and sensible order rather than at random.
+  CHECK(NextMomentDue(floor) == GymRegular::Dale);
+  const FloorWalk first = WalkTheFloor(floor, g, 1, d);
+  CHECK(first.walked);
+  CHECK(first.who == GymRegular::Dale);
+  CHECK(!first.said.empty());
+  CHECK(first.members == d.memberBump);
+  CHECK(NextMomentDue(floor) == GymRegular::Piper);
+
+  // Once a day. Let the members breathe.
+  const FloorWalk again = WalkTheFloor(floor, g, 1, d);
+  CHECK(!again.walked);
+  CHECK(again.said.empty());
+  CHECK(NextMomentDue(floor) == GymRegular::Piper);
+
+  // Everybody gets all three stages before anybody gets a second, which is
+  // what "lowest stage first" buys: you meet the whole room before you know
+  // any of it well.
+  int seen[kGymRegularCount] = {0};
+  seen[static_cast<int>(GymRegular::Dale)]++;
+  for (int day = 2; day <= 12; day++) {
+    const FloorWalk w = WalkTheFloor(floor, g, day, d);
+    if (w.who == GymRegular::None) continue;
+    seen[static_cast<int>(w.who)]++;
+  }
+  CHECK(WaveOneIsLivedOut(floor));
+  CHECK(seen[static_cast<int>(GymRegular::Dale)] == 3);
+  CHECK(seen[static_cast<int>(GymRegular::Bruno)] == 3);
+}
+
+static void TestWhichRoomYouGotIsTheSetMixYouChose() {
+  FloorDials d;
+  // **The most permanent consequence a free lever has in this game.**
+  // Pricing and the mix are reversible identity choices; this is the one
+  // place either of them writes something that does not wash out.
+  const GymSetMix mixes[] = {GymSetMix::Beginner, GymSetMix::AllComers,
+                             GymSetMix::Hardcore};
+  GymRegular firstOf[3] = {GymRegular::None, GymRegular::None, GymRegular::None};
+  for (int m = 0; m < 3; m++) {
+    GymFloor floor;
+    double cash = 0.0;
+    Gym g = ABoughtGym(cash);
+    SetMix(g, mixes[m]);
+    int day = 1;
+    while (!WaveOneIsLivedOut(floor) && day < 50) WalkTheFloor(floor, g, day++, d);
+
+    // The cohort walks in on the next visit, not the one that closed the
+    // last arc -- so the mix that matters is the mix on the walls that day.
+    CHECK(!floor.waveTwoArrived);
+    const FloorWalk arrival = WalkTheFloor(floor, g, day++, d);
+    CHECK(arrival.cohortArrived);
+    CHECK(arrival.who == GymRegular::None);
+    CHECK(!arrival.said.empty());
+    CHECK(floor.waveTwoArrived);
+    CHECK(floor.waveTwo == mixes[m]);
+    CHECK(TheCast(floor).size() == 7);
+
+    // **Sticky.** Re-taping the place six months later does not swap the
+    // people out; these are people.
+    SetMix(g, GymSetMix::Hardcore);
+    WalkTheFloor(floor, g, day++, d);
+    CHECK(floor.waveTwo == mixes[m]);
+
+    firstOf[m] = NextMomentDue(floor);
+    CHECK(firstOf[m] != GymRegular::None);
+    CHECK(GymRegularOf(firstOf[m])->wave == 2);
+    CHECK(GymRegularOf(firstOf[m])->cohort == mixes[m]);
+  }
+  // Three different rooms, or the lever did not mean anything.
+  CHECK(firstOf[0] != firstOf[1]);
+  CHECK(firstOf[1] != firstOf[2]);
+  CHECK(firstOf[0] != firstOf[2]);
+}
+
+static void TestAFinishedArcIsNotAFinishedPerson() {
+  FloorDials d;
+  GymFloor floor;
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+  int day = 1;
+  while (NextMomentDue(floor) != GymRegular::None || !floor.waveTwoArrived) {
+    WalkTheFloor(floor, g, day++, d);
+    CHECK(day < 200);
+  }
+
+  // **Every story told, and the floor keeps talking.** This is the whole of
+  // GYM-5's second half: without it the four people you spent a career on
+  // become a row of stars and every walk from here says the same thing
+  // forever.
+  const FloorWalk quiet = WalkTheFloor(floor, g, day, d);
+  CHECK(quiet.walked);
+  CHECK(quiet.who != GymRegular::None);
+  CHECK(!quiet.said.empty());
+  CHECK(quiet.members == 0.0);          // no more word of mouth to have
+  CHECK(quiet.psyche == d.ambientPsyche);
+
+  // A week of walks reads differently, with no state kept -- it is off the
+  // day, so it cannot be re-rolled and does not have to be remembered.
+  std::set<std::string> lines;
+  for (int i = 1; i <= 30; i++) {
+    lines.insert(WalkTheFloor(floor, g, day + i, d).said);
+  }
+  CHECK(lines.size() > 6);
+  // ...and the same day always says the same thing.
+  CHECK(AmbientLine(GymRegular::Dale, 400) == AmbientLine(GymRegular::Dale, 400));
+
+  // Everybody in the cast has both ambient lines and a comp-night line.
+  // The source's comp chain **ended on Bruno**, so any wave-two star
+  // printed Bruno's line as a fallback; a table cannot mis-cast anybody.
+  std::set<std::string> starLines;
+  for (int i = 1; i < kGymRegularCount; i++) {
+    const GymRegularDef* def = GymRegularOf(static_cast<GymRegular>(i));
+    CHECK(def != nullptr);
+    CHECK(!std::string(def->name).empty());
+    CHECK(!std::string(def->tag).empty());
+    for (int s = 0; s < kArcStages; s++) CHECK(!std::string(def->stages[s]).empty());
+    CHECK(!std::string(def->after[0]).empty());
+    CHECK(!std::string(def->after[1]).empty());
+    CHECK(!std::string(def->compStar).empty());
+    starLines.insert(def->compStar);
+  }
+  CHECK(static_cast<int>(starLines.size()) == kGymRegularCount - 1);
+}
+
+static void TestCompNightHasToBeEarnedAndSaysWhyNot() {
+  FloorDials d;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  GymFloor floor;
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+
+  // **Every refusal carries its reason.** A button that will not say why is
+  // the thing this port keeps deciding it does not want.
+  double broke = d.compCost - 1.0;
+  CHECK(WhyNotACompNight(floor, g, broke, 40, d).find("$150") !=
+        std::string::npos);
+  CHECK(!HostACompNight(floor, g, broke, world, 40, d).held);
+  CHECK(broke == d.compCost - 1.0);
+
+  double flush = 500.0;
+  CHECK(g.members < d.compMinMembers);
+  CHECK(WhyNotACompNight(floor, g, flush, 40, d).find("members") !=
+        std::string::npos);
+  CHECK(!HostACompNight(floor, g, flush, world, 40, d).held);
+
+  // A room worth filling, and it goes.
+  g.members = 40.0;
+  CHECK(WhyNotACompNight(floor, g, flush, 40, d).empty());
+  const CompNight night = HostACompNight(floor, g, flush, world, 40, d);
+  CHECK(night.held);
+  CHECK(!night.said.empty());
+  CHECK(night.cost == d.compCost);
+  CHECK(flush == 500.0 - d.compCost);
+  CHECK(night.members >= d.compSignupsMin && night.members <= d.compSignupsMax);
+  CHECK(g.members > 40.0);
+  CHECK(night.standing == d.compStanding);
+
+  // **The takings come out of the room you built**: forty members at 60%
+  // turnout and $8 a head, which is why a bigger gym is a better night and
+  // why the minimum exists at all.
+  CHECK(night.takings == std::round(40.0 * d.compTurnout) * d.compEntry);
+  CHECK(night.takings > d.compCost);
+
+  // Scarcity is the draw.
+  const std::string soon = WhyNotACompNight(floor, g, flush, 41, d);
+  CHECK(soon.find("Too soon") != std::string::npos);
+  CHECK(!HostACompNight(floor, g, flush, world, 41, d).held);
+  CHECK(WhyNotACompNight(floor, g, flush, 40 + d.compCooldown, d).empty());
+}
+
+static void TestTheNightsStoryIsSomebodyYouActuallyKnow() {
+  FloorDials d;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  GymFloor floor;
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+  g.members = 40.0;
+  double money = 5000.0;
+
+  // Nobody's arc lived yet, so the room gets the generic good night rather
+  // than a story about somebody you have not met.
+  const CompNight early = HostACompNight(floor, g, money, world, 40, d);
+  CHECK(early.held);
+  CHECK(early.said.find("feel like a scene") != std::string::npos);
+
+  // Live one out, and it is theirs.
+  for (int s = 0; s < kArcStages; s++) {
+    floor.stage[static_cast<int>(GymRegular::Piper)] = s + 1;
+  }
+  const CompNight told =
+      HostACompNight(floor, g, money, world, 40 + d.compCooldown, d);
+  CHECK(told.held);
+  CHECK(told.said == std::string(GymRegularOf(GymRegular::Piper)->compStar));
+}
+
+static void TestTheSetterPutsSomethingUpEveryWeek() {
+  double cash = 20000.0;
+  Gym g = ABoughtGym(cash);
+  // Nobody setting, nothing on the walls to talk about.
+  CHECK(SetterLineOfTheWeek(g, 30).empty());
+  CHECK(Hire(g, cash, false, 30, 0));
+  const std::string week = SetterLineOfTheWeek(g, 30);
+  CHECK(!week.empty());
+  CHECK(week.find(WhoIsOn(g, false)->name) != std::string::npos);
+
+  // **A pure function of the week** -- no state, no roll -- so the same
+  // save sees the same name the same week, and it changes on the seventh
+  // day and not before.
+  CHECK(SetterLineOfTheWeek(g, 34) == week);
+  CHECK(SetterLineOfTheWeek(g, 35) != week);
+
+  // And a career's worth of weeks does not repeat a name -- ten by ten with
+  // a stride of three, which is a hundred before it comes round.
+  std::set<std::string> names;
+  for (int w = 0; w < 100; w++) names.insert(SetterLineOfTheWeek(g, w * 7));
+  CHECK(names.size() == 100);
+}
+
+static void TestWalkingTheFloorCostsAnHourOfYourDay() {
+  PlayerState player;
+  DayState day;
+  player.day = 40;
+  player.cash = GymDials{}.price;
+  CHECK(BuyTheGym(player.gym, player.cash, "The Woodshed", 1));
+
+  const double was = day.hour;
+  CHECK(WalkTheGymFloor(player, day));
+  CHECK(day.hour == was + FloorDials{}.walkHours);
+  CHECK(!player.gymNews.empty());
+  CHECK(player.floor.stage[static_cast<int>(GymRegular::Dale)] == 1);
+  CHECK(!WalkTheGymFloor(player, day));      // once a day
+
+  // Comp night pays into the debt before it pays into the pocket, like
+  // every other dollar in this game.
+  player.gym.members = 40.0;
+  player.cash = 200.0;
+  player.owed = 1000.0;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  const double sceneBefore = StandingWith(player.standing, Faction::Scene);
+  CHECK(HostCompNight(player, day, world));
+  CHECK(player.cash == 200.0 - FloorDials{}.compCost);   // cost, then
+  CHECK(player.owed < 1000.0);                           // the debt
+  CHECK(StandingWith(player.standing, Faction::Scene) > sceneBefore);
+
+  // And there is no floor to walk in a gym you do not own.
+  PlayerState renter;
+  DayState theirs;
+  CHECK(!WalkTheGymFloor(renter, theirs));
+  CHECK(!HostCompNight(renter, theirs, world));
+  CHECK(FloorLine(renter.floor, renter.gym, 1).empty());
+  CHECK(!FloorLine(player.floor, player.gym, 40).empty());
+}
+
+static void TestTheFloorSurvivesASave() {
+  SaveGame save;
+  save.seed = "the-woodshed";
+  double cash = GymDials{}.price;
+  CHECK(BuyTheGym(save.player.gym, cash, "The Woodshed", 40));
+  SetMix(save.player.gym, GymSetMix::Hardcore);
+  save.player.floor.stage[static_cast<int>(GymRegular::Dale)] = 3;
+  save.player.floor.stage[static_cast<int>(GymRegular::Kestrel)] = 2;
+  save.player.floor.lastWalkDay = 311;
+  save.player.floor.lastCompDay = 305;
+  save.player.floor.waveTwoArrived = true;
+  save.player.floor.waveTwo = GymSetMix::Hardcore;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  const GymFloor& f = back.player.floor;
+  CHECK(f.stage[static_cast<int>(GymRegular::Dale)] == 3);
+  CHECK(f.stage[static_cast<int>(GymRegular::Kestrel)] == 2);
+  CHECK(f.lastWalkDay == 311);
+  CHECK(f.lastCompDay == 305);
+  CHECK(f.waveTwoArrived);
+  CHECK(f.waveTwo == GymSetMix::Hardcore);
+  // **The cohort has to survive too**, or the most permanent consequence a
+  // set mix has is undone by saving.
+  CHECK(TheCast(f).size() == 7);
+  CHECK(NextMomentDue(f) == NextMomentDue(save.player.floor));
+}
+
+static void TestLoadsVersion42Save() {
+  SaveGame save;
+  save.seed = "the-woodshed";
+  double cash = GymDials{}.price;
+  CHECK(BuyTheGym(save.player.gym, cash, "The Woodshed", 40));
+
+  std::string v42 = SerializeSave(save);
+  DropSaveLines(v42, "floor.stage");
+  for (const char* k : {"floor.walk=", "floor.comp=", "floor.wave2mix=",
+                        "floor.wave2="}) {
+    DropSaveLine(v42, k);
+  }
+  SetSaveVersion(v42, 42);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v42, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  const GymFloor& f = old.player.floor;
+  // Nobody's story started, which is exactly whose story had been started.
+  CHECK(NextMomentDue(f) == GymRegular::Dale);
+  CHECK(TheCast(f).size() == 4);
+  // **And no cohort.** Which room fills is decided by the mix on the walls
+  // the day the fourth arc closes, and a save loader must not make that
+  // call on the player's behalf.
+  CHECK(!f.waveTwoArrived);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+}
+
 static void TestLoadsVersion38Save() {
   SaveGame save;
   save.seed = "the-woodshed";
@@ -16181,6 +16506,15 @@ int main() {
   TestWingsAreIndependentAndOnlyOneOfThemEarns();
   TestItCanRunWithoutYouOnceThereIsSomebodyToRunIt();
   TestLoadsVersion41Save();
+  TestTheFloorHasPeopleOnItAndTheyGoInOrder();
+  TestWhichRoomYouGotIsTheSetMixYouChose();
+  TestAFinishedArcIsNotAFinishedPerson();
+  TestCompNightHasToBeEarnedAndSaysWhyNot();
+  TestTheNightsStoryIsSomebodyYouActuallyKnow();
+  TestTheSetterPutsSomethingUpEveryWeek();
+  TestWalkingTheFloorCostsAnHourOfYourDay();
+  TestTheFloorSurvivesASave();
+  TestLoadsVersion42Save();
   TestInsuranceIsWhatGetsADirtbagRepaired();
   TestTheLotDoesNotAlwaysTurnUp();
   TestNobodyIsNeverThereAndNobodyIsAlways();

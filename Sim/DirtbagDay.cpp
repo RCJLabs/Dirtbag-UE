@@ -235,6 +235,40 @@ bool SpendTheEvening(PlayerState& player, DayState& day, Thread what,
   return true;
 }
 
+bool WalkTheGymFloor(PlayerState& player, DayState& day,
+                     const DayDials& dials) {
+  const FloorDials floorDials;
+  const FloorWalk walk =
+      WalkTheFloor(player.floor, player.gym, player.day, floorDials);
+  if (!walk.walked) return false;
+  PassHours(day, floorDials.walkHours, dials);
+  // Psyche is the climber's and the floor does not know about the climber,
+  // the same split the foreclosure and the incidents both use.
+  player.climber.psyche = std::min(1.0, player.climber.psyche + walk.psyche);
+  // It is the news about the place, so it goes where the night's gym news
+  // goes -- one line, read once.
+  player.gymNews = walk.said;
+  return true;
+}
+
+bool HostCompNight(PlayerState& player, DayState& day, const Rng& worldRng,
+                   const DayDials& dials) {
+  const FloorDials floorDials;
+  const CompNight night = HostACompNight(player.floor, player.gym,
+                                         player.cash, worldRng, player.day,
+                                         floorDials);
+  if (!night.held) return false;
+  // The takings are income, so they clear the debt before they reach the
+  // pocket -- like every other dollar in this game. The cost has already
+  // come off the cash, because a comp night is not thrown on credit.
+  Pay(player, night.takings);
+  PassHours(day, floorDials.compHours, dials);
+  player.climber.psyche = std::min(1.0, player.climber.psyche + night.psyche);
+  Shift(player.standing, Faction::Scene, night.standing / 100.0);
+  player.gymNews = night.said;
+  return true;
+}
+
 void WorkShift(PlayerState& player, DayState& day, const DayDials& dials) {
   // Debt first: a wage does not reach your pocket until you are level.
   Pay(player, dials.shiftWage);

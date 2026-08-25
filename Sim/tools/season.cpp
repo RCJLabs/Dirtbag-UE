@@ -98,6 +98,13 @@ struct Tally {
   int gymQuit = 0;
   int gymFixed = 0;
   int gymLeft = 0;
+  // GYM-2/GYM-5: the floor.
+  int gymWalks = 0;
+  int gymMoments = 0;
+  int gymComps = 0;
+  double gymCompTakings = 0.0;
+  int gymCohortDay = 0;
+  int gymArcsLived = 0;
   int gymHandsOffDay = 0;
 
   int declinedTheOffer = 0;
@@ -526,7 +533,13 @@ int main(int argc, char** argv) {
   // staffs it, builds onto it, answers what lands on the clipboard and
   // eventually hands over the keys. The two together are how you find out
   // whether pass two absorbs the ceiling pass one only half-absorbed.
-  const bool runsAGym = opt("gym", "") == "run";
+  const bool runsAGym = opt("gym", "") == "run" || opt("gym", "") == "life";
+  // **`gym=life` is `run` plus the people in it.** Walk the floor every day
+  // it will let you and throw a comp night whenever one is allowed. It is
+  // separate from `run` because it costs **an hour a day**, and an hour a
+  // day for thirty years is the sort of thing that has to be measured
+  // rather than assumed harmless.
+  const bool livesInIt = opt("gym", "") == "life";
   const std::string retirePolicy = opt("retire", "always");
   const std::string medPolicy = opt("med", "");
   const auto has = [&medPolicy](const char* what) {
@@ -1900,6 +1913,22 @@ int main(int argc, char** argv) {
       if (!player.gym.passive && SetHandsOff(player.gym, true)) {
         t.gymHandsOffDay = player.day;
       }
+
+      // GYM-2/GYM-5. The floor first, then the comp -- one is an hour and
+      // the other is an evening, and doing the cheap one first is what
+      // anybody would do.
+      if (livesInIt) {
+        const bool hadCohort = player.floor.waveTwoArrived;
+        if (WalkTheGymFloor(player, today, dd)) {
+          t.gymWalks++;
+          if (!hadCohort && player.floor.waveTwoArrived) {
+            t.gymCohortDay = player.day;
+          }
+        }
+        if (HostCompNight(player, today, world, dd)) {
+          t.gymComps++;
+        }
+      }
     }
 
     SleepToNextDay(player, today, world, dd);
@@ -2079,6 +2108,9 @@ int main(int argc, char** argv) {
 
   t.gymBalanceEnd = player.gym.balance;
   t.gymMembersEnd = player.gym.members;
+  for (int i = 1; i < kGymRegularCount; i++) {
+    if (player.floor.stage[i] >= kArcStages) t.gymArcsLived++;
+  }
 
   // Who ended up knowing you. Same rule as rapport: the state, not the
   // high-water mark.
@@ -2123,7 +2155,8 @@ int main(int argc, char** argv) {
          "\tgbroke\tgwon\tgspons\tsaid"
          "\tgymday\tgymdays\tgymbal\tgymmem\tgymlost"
          "\tgymspent\tgymwings\tgymhired\tgymraises\tgymquit"
-         "\tgymfixed\tgymleft\tgymhands\tgymgone\tgymtopwage\n");
+         "\tgymfixed\tgymleft\tgymhands\tgymgone\tgymtopwage"
+         "\tgymwalks\tgymcomps\tgymcohort\tgymarcs\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -2142,7 +2175,8 @@ int main(int argc, char** argv) {
          "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
          "\t%d\t%d\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s"
          "\t%d\t%d\t%.0f\t%.0f\t%d"
-         "\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\n",
+         "\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f"
+         "\t%d\t%d\t%d\t%d\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -2243,7 +2277,8 @@ int main(int argc, char** argv) {
          t.boughtGymOnDay, t.gymDaysOwned, t.gymBalanceEnd, t.gymMembersEnd,
          t.gymLost, t.gymSpent, t.gymWings, t.gymHired, t.gymRaises,
          t.gymQuit, t.gymFixed, t.gymLeft, t.gymHandsOffDay, t.gymForeclosed,
-         t.gymWorstWage);
+         t.gymWorstWage, t.gymWalks, t.gymComps, t.gymCohortDay,
+         t.gymArcsLived);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

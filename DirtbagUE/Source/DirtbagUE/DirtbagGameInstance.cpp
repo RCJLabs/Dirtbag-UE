@@ -3578,6 +3578,49 @@ bool UDirtbagGameInstance::AnswerTheGymIncident(int32 Which)
 	return true;
 }
 
+bool UDirtbagGameInstance::WalkTheFloor()
+{
+	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState Today = DirtbagConvert::ToSim(Day);
+	if (!dirtbag::WalkTheGymFloor(Sim, Today))
+	{
+		return false;
+	}
+	Player = DirtbagConvert::FromSim(Sim);
+	Day = DirtbagConvert::FromSim(Today);
+	return true;
+}
+
+bool UDirtbagGameInstance::HostACompNight()
+{
+	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState Today = DirtbagConvert::ToSim(Day);
+	if (!dirtbag::HostCompNight(Sim, Today,
+	                            dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed))))
+	{
+		return false;
+	}
+	Player = DirtbagConvert::FromSim(Sim);
+	Day = DirtbagConvert::FromSim(Today);
+	return true;
+}
+
+FString UDirtbagGameInstance::GymCompWhyNot() const
+{
+	const dirtbag::GymFloor Floor = DirtbagConvert::ToSim(Player.Floor);
+	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	return FString(UTF8_TO_TCHAR(
+	    dirtbag::WhyNotACompNight(Floor, Sim, Player.Cash, Player.Day).c_str()));
+}
+
+FString UDirtbagGameInstance::GymFloorLine() const
+{
+	const dirtbag::GymFloor Floor = DirtbagConvert::ToSim(Player.Floor);
+	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	return FString(UTF8_TO_TCHAR(
+	    dirtbag::FloorLine(Floor, Sim, Player.Day).c_str()));
+}
+
 FString UDirtbagGameInstance::TheTownLine() const
 {
 	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);

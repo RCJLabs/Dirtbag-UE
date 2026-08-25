@@ -194,6 +194,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.lostToday = static_cast<dirtbag::Thread>(In.LostToday);
 	Out.locals = ToSim(In.Locals);
 	Out.gym = ToSim(In.Gym);
+	Out.floor = ToSim(In.Floor);
 	Out.living = ToSim(In.Living);
 	Out.bivy = ToSim(In.Bivy);
 	Out.gymNews = TCHAR_TO_UTF8(*In.GymNews);
@@ -280,6 +281,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.LostToday = static_cast<EDirtbagThread>(In.lostToday);
 	Out.Locals = FromSim(In.locals);
 	Out.Gym = FromSim(In.gym);
+	Out.Floor = FromSim(In.floor);
 	Out.Living = FromSim(In.living);
 	Out.Bivy = FromSim(In.bivy);
 	Out.GymNews = UTF8_TO_TCHAR(In.gymNews.c_str());
@@ -615,6 +617,35 @@ dirtbag::GymStaffer ToSim(const FDirtbagGymStaffer& In)
 	Out.hiredDay = In.HiredDay;
 	Out.nextAskDay = In.NextAskDay;
 	Out.refusals = In.Refusals;
+	return Out;
+}
+
+FDirtbagGymFloor FromSim(const dirtbag::GymFloor& In)
+{
+	FDirtbagGymFloor Out;
+	Out.Stage.Reset();
+	for (int32 i = 0; i < dirtbag::kGymRegularCount; i++)
+	{
+		Out.Stage.Add(In.stage[i]);
+	}
+	Out.LastWalkDay = In.lastWalkDay;
+	Out.LastCompDay = In.lastCompDay;
+	Out.bWaveTwoArrived = In.waveTwoArrived;
+	Out.WaveTwo = static_cast<EDirtbagGymSetMix>(In.waveTwo);
+	return Out;
+}
+
+dirtbag::GymFloor ToSim(const FDirtbagGymFloor& In)
+{
+	dirtbag::GymFloor Out;
+	for (int32 i = 0; i < dirtbag::kGymRegularCount; i++)
+	{
+		Out.stage[i] = In.Stage.IsValidIndex(i) ? In.Stage[i] : 0;
+	}
+	Out.lastWalkDay = In.LastWalkDay;
+	Out.lastCompDay = In.LastCompDay;
+	Out.waveTwoArrived = In.bWaveTwoArrived;
+	Out.waveTwo = static_cast<dirtbag::GymSetMix>(In.WaveTwo);
 	return Out;
 }
 

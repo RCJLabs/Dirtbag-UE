@@ -108,6 +108,10 @@ RUNS = [
     # can reach $25,000, which is what the hoard is for.
     ("hoarder", ["savings=60000", "gym=1"]),
     ("hoarder", ["savings=60000", "gym=run"]),
+    # ...and `gym=life`, which is `run` plus the people in it: walking the
+    # floor and hosting comp nights. Without it the whole GYM-2/GYM-5 layer
+    # reports dead, which is the same coverage failure again.
+    ("hoarder", ["savings=60000", "gym=life"]),
 ]
 
 SEEDS = ["crag-1", "valley-7", "north-3", "east-11", "west-5", "granite-2"]

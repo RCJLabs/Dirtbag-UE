@@ -31,7 +31,7 @@
 #include "DirtbagKit.h"
 #include "DirtbagLife.h"
 #include "DirtbagGym.h"
-#include "DirtbagBivy.h"
+#include "DirtbagGymFloor.h"
 #include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
 #include "DirtbagLocals.h"
@@ -393,6 +393,12 @@ struct PlayerState {
   // recorded cut came back.
   Gym gym;
 
+  // **And the people in it.** Kept beside the gym rather than inside it,
+  // the same way the source keeps it on the state rather than on `ownGym`:
+  // these are people in a town, not fixtures in a building, and if the bank
+  // takes the lease Dale does not stop existing.
+  GymFloor floor;
+
   // **What the bank did last night**, or empty. Carried on the career for
   // the same reason `becameToday` and `lostToday` are: the night tick is
   // void, and losing a building is a thing you must be told exactly once.
@@ -505,6 +511,31 @@ void WorkShift(PlayerState& player, DayState& day, const DayDials& dials = DayDi
 // "not this soon after the last one".
 bool SpendTheEvening(PlayerState& player, DayState& day, Thread what,
                      const DayDials& dials = DayDials{});
+
+// **Walk the floor of the gym you bought.** An hour among your members --
+// it advances whoever is next due a moment, or greets the cohort your set
+// mix collected, or tells you what one of them is doing today.
+//
+// The reason it exists at all is that the P&L engine gives you no reason
+// ever to be in the building: it ticks whether you are there or not, and
+// once you hand over the keys it runs *better* without you. This is the
+// half of ownership that is not a spreadsheet.
+//
+// Once a day. Returns false if you already have, if there is no gym, or if
+// there is not an hour left in the day.
+bool WalkTheGymFloor(PlayerState& player, DayState& day,
+                     const DayDials& dials = DayDials{});
+
+// **Comp night.** Costs $150 and an evening, needs a room worth filling,
+// and pays back in entry fees, walk-in signups and standing -- on a
+// cooldown, because scarcity is the draw and an occasion you can hold every
+// night is not an occasion.
+//
+// The night's story is one of the regulars whose arc you actually lived,
+// which is why this is `GYM-2` and not a shop item: it is only worth
+// hosting once there is somebody in the room to be the story.
+bool HostCompNight(PlayerState& player, DayState& day, const Rng& worldRng,
+                   const DayDials& dials = DayDials{});
 
 // Take a gig off the board: its hours, its energy, its money. Returns false
 // if it needs the van and the van is not going anywhere — which is how a

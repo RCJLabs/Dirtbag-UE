@@ -2128,6 +2128,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
 	bool AnswerTheGymIncident(int32 Which);
 
+	/** GYM-2: walk the floor of the gym you bought — an hour among your
+	 *  members. Advances whoever is next due a moment, or greets the room
+	 *  your set mix collected, or tells you what one of them is doing
+	 *  today. Once a day. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool WalkTheFloor();
+
+	/** GYM-2: throw a comp night. $150 and an evening, and it needs a room
+	 *  worth filling. False if you cannot — GymCompWhyNot says why. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool HostACompNight();
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString GymCompWhyNot() const;
+
+	/** Who is due a moment, and what went up on the walls this week. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString GymFloorLine() const;
+
 	/** GYM-4 and GYM-6: what the other two gyms are up to this month, and
 	 *  what time of year it is for the floor. The readout that tells you
 	 *  why the membership moved when you did not touch anything. */

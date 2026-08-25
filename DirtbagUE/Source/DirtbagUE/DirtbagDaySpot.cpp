@@ -482,7 +482,17 @@ FString ADirtbagDaySpot::PromptText() const
 		FString Line = FString::Printf(TEXT("%s\n   %s\n   %s"),
 		                               *Game->GymLine(), *Game->GymLeverLine(),
 		                               *GymLeverPageName());
-		if (GymPage == 1)
+		if (GymPage == 0)
+		{
+			// Who is due a moment, and what went up on the walls this week.
+			Line += FString::Printf(TEXT("\n   %s"), *Game->GymFloorLine());
+			const FString NotTonight = Game->GymCompWhyNot();
+			if (!NotTonight.IsEmpty())
+			{
+				Line += FString::Printf(TEXT("\n   %s"), *NotTonight);
+			}
+		}
+		else if (GymPage == 2)
 		{
 			// The shortlist is the page, so it belongs on the page rather
 			// than behind a keypress that spends money to read it.
@@ -509,7 +519,7 @@ FString ADirtbagDaySpot::PromptText() const
 				    FMath::RoundToInt(Game->GymRaiseAsked(bAsking)));
 			}
 		}
-		else if (GymPage == 2)
+		else if (GymPage == 3)
 		{
 			for (int32 i = 0; i < 5; i++)
 			{
@@ -1950,9 +1960,13 @@ FString ADirtbagDaySpot::GymLeverPageName() const
 {
 	switch (GymPage)
 	{
-	case 0: return TEXT("the floor:  price (1/2/3)   sets (4)   kit (5)   more (6)");
-	case 1: return TEXT("the people:  hire (1/2/3)   raise: yes (4) no (5)   more (6)");
-	case 2: return TEXT("the building:  wings (1-5)   more (6)");
+	// **The floor is page one**, because it is the thing you do when you
+	// walk in and the only part of owning a gym that is about people. The
+	// books run whether you are here or not.
+	case 0: return TEXT("the floor:  walk it (1)   comp night (2)   more (6)");
+	case 1: return TEXT("the levers:  price (1/2/3)   sets (4)   kit (5)   more (6)");
+	case 2: return TEXT("the people:  hire (1/2/3)   raise: yes (4) no (5)   more (6)");
+	case 3: return TEXT("the building:  wings (1-5)   more (6)");
 	default: return TEXT("the keys:  hand it over (1)   the town (2)   more (6)");
 	}
 }
@@ -1980,7 +1994,7 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 	// Six keys, and pass two put more than six verbs behind this counter.
 	if (Index == 5)
 	{
-		GymPage = (GymPage + 1) % 4;
+		GymPage = (GymPage + 1) % 5;
 		Say(GymLeverPageName(), FColor::Silver, 4.f);
 		return true;
 	}
@@ -1989,6 +2003,33 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 	switch (GymPage)
 	{
 	case 0:
+		if (Index == 0)
+		{
+			// An hour among your members, once a day. The line it comes
+			// back with is the whole reason to be standing here.
+			Say(Game->WalkTheFloor()
+			        ? Game->Player.GymNews
+			        : FString(TEXT("You already walked the floor today - let "
+			                       "the members breathe.")),
+			    FColor::Yellow, 10.f);
+			return true;
+		}
+		if (Index == 1)
+		{
+			if (Game->HostACompNight())
+			{
+				Say(FString::Printf(TEXT("Comp night at %s. %s"),
+				                    *Game->Player.Gym.Name,
+				                    *Game->Player.GymNews),
+				    FColor::Yellow, 10.f);
+				return true;
+			}
+			Say(Game->GymCompWhyNot(), FColor::Silver, 7.f);
+			return true;
+		}
+		return true;
+
+	case 1:
 		switch (Index)
 		{
 		case 0: Game->SetGymPrice(EDirtbagGymPrice::Budget); break;
@@ -2011,7 +2052,7 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 		}
 		break;
 
-	case 1:
+	case 2:
 		if (Index <= 2)
 		{
 			if (!WhichSeatIsOpen(Game->Player.Gym, bSeat))
@@ -2042,7 +2083,7 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 		}
 		return true;
 
-	case 2:
+	case 3:
 	{
 		const EDirtbagGymWing Wing = static_cast<EDirtbagGymWing>(Index);
 		Say(Game->BuildGymWing(Wing)

@@ -341,6 +341,26 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // people this career ever climbed with. The honest reconstruction is that
 // you knew them at least as well as you know them now, which is exactly
 // what the runtime would derive on the next `BondsFrom` anyway.
+// v42 -> v43: the people in the building. A v42 career could own a gym and
+// run its books, and there was nobody in it -- so it loads with nobody's
+// story started, which is exactly whose story had been started.
+//
+// **The cohort is the field worth thinking about.** Wave two is keyed to
+// the set mix in force the day wave one is lived out, and a v42 save has
+// not lived any of it out, so the honest answer is that it has not
+// arrived: whatever mix is on the walls when the fourth arc closes is the
+// room that fills, and that is a decision this migration must not make on
+// the player's behalf.
+void MigrateV42ToV43(SaveFields& fields) {
+  for (int i = 0; i < kGymRegularCount; i++) {
+    fields["floor.stage" + IntToStr(i)] = "0";
+  }
+  fields["floor.walk"] = "-1";
+  fields["floor.comp"] = "-99";
+  fields["floor.wave2"] = "0";
+  fields["floor.wave2mix"] = "1";   // All-Comers, and unread until it lands
+}
+
 // v41 -> v42: the gym, pass two. A v41 career could own the building but
 // its two staff were a pair of booleans, it had no wings and nothing ever
 // went wrong in it.
@@ -708,7 +728,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33,
       &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36,
       &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39,
-      &MigrateV39ToV40, &MigrateV40ToV41, &MigrateV41ToV42};
+      &MigrateV39ToV40, &MigrateV40ToV41, &MigrateV41ToV42,
+      &MigrateV42ToV43};
   return kMigrations;
 }
 
@@ -1209,6 +1230,18 @@ std::string SerializeSave(const SaveGame& save) {
   out << "gym.incident="
       << IntToStr(static_cast<int>(save.player.gym.incident)) << "\n";
   out << "gym.incidentday=" << IntToStr(save.player.gym.incidentDay) << "\n";
+
+  // GYM-2/GYM-5: the floor's memory. Beside the gym, not inside it.
+  for (int i = 0; i < kGymRegularCount; i++) {
+    out << "floor.stage" << IntToStr(i) << "="
+        << IntToStr(save.player.floor.stage[i]) << "\n";
+  }
+  out << "floor.walk=" << IntToStr(save.player.floor.lastWalkDay) << "\n";
+  out << "floor.comp=" << IntToStr(save.player.floor.lastCompDay) << "\n";
+  out << "floor.wave2=" << IntToStr(save.player.floor.waveTwoArrived ? 1 : 0)
+      << "\n";
+  out << "floor.wave2mix="
+      << IntToStr(static_cast<int>(save.player.floor.waveTwo)) << "\n";
 
   out << "hunger.carried=" << NumToStr(save.player.hungerCarried) << "\n";
   out << "loc.titles=" << IntToStr(save.player.locals.knownTitles) << "\n";
@@ -1888,6 +1921,24 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       gym.passive = passive != 0;
       gym.incident =
           static_cast<GymIncident>(within(incident, kGymIncidentCount));
+
+      GymFloor& floor = save.player.floor;
+      for (int i = 0; i < kGymRegularCount; i++) {
+        if (!ParseInt(fields, "floor.stage" + IntToStr(i), floor.stage[i])) {
+          return LoadResult::BadFormat;
+        }
+        // An arc cannot be part-way past its end, however a file got here.
+        floor.stage[i] = std::max(0, std::min(kArcStages, floor.stage[i]));
+      }
+      int wave2 = 0, wave2mix = 0;
+      if (!ParseInt(fields, "floor.walk", floor.lastWalkDay) ||
+          !ParseInt(fields, "floor.comp", floor.lastCompDay) ||
+          !ParseInt(fields, "floor.wave2", wave2) ||
+          !ParseInt(fields, "floor.wave2mix", wave2mix)) {
+        return LoadResult::BadFormat;
+      }
+      floor.waveTwoArrived = wave2 != 0;
+      floor.waveTwo = static_cast<GymSetMix>(within(wave2mix, kGymSetMixCount));
     }
     if (!ParseDouble(fields, "hunger.carried", save.player.hungerCarried)) {
       return LoadResult::BadFormat;

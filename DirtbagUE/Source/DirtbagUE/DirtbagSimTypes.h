@@ -49,6 +49,7 @@
 #include "DirtbagNarrator.h"
 #include "DirtbagLife.h"
 #include "DirtbagGym.h"
+#include "DirtbagGymFloor.h"
 #include "DirtbagGymTown.h"
 #include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
@@ -1847,6 +1848,58 @@ struct FDirtbagGym
 	int32 LastTickDay = 0;
 };
 
+/** Everybody who could ever be a regular at the gym you own. Wave one is
+ *  the four everybody gets; the other nine are three cohorts of three, and
+ *  a gym grows exactly one of them — whichever its set mix collected.
+ *  Mirrors dirtbag::GymRegular. */
+UENUM(BlueprintType)
+enum class EDirtbagGymRegular : uint8
+{
+	None,
+	Dale,
+	Piper,
+	June,
+	Bruno,
+	Marisol,
+	Ade,
+	Horace,
+	Nell,
+	Tobias,
+	Esperanza,
+	Kestrel,
+	Dom,
+	Rafferty
+};
+
+/** The floor's memory — whose story you have lived, and which room your set
+ *  mix collected. Mirrors dirtbag::GymFloor. Kept beside the gym rather
+ *  than inside it: these are people in a town, not fixtures in a building,
+ *  so the bank taking the lease does not un-know them. */
+USTRUCT(BlueprintType)
+struct FDirtbagGymFloor
+{
+	GENERATED_BODY()
+
+	/** 0..3 per regular, indexed by EDirtbagGymRegular. Three is a life
+	 *  lived out. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	TArray<int32> Stage;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 LastWalkDay = -1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 LastCompDay = -99;
+
+	/** Sticky once set — re-taping the place later does not swap the
+	 *  people out. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	bool bWaveTwoArrived = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	EDirtbagGymSetMix WaveTwo = EDirtbagGymSetMix::AllComers;
+};
+
 /** What somebody heard about you. **The order is the loudness**, quietest
  *  first — a new memory replaces the held one only if it compares greater,
  *  so this ordering *is* the rule about what gets talked about. Mirrors
@@ -2404,6 +2457,10 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	FDirtbagGym Gym;
 
+	/** And the people in it. See FDirtbagGymFloor. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FDirtbagGymFloor Floor;
+
 	/** What the bank did last night, or empty. A line you read once. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	FString GymNews;
@@ -2821,6 +2878,8 @@ namespace DirtbagConvert
 	dirtbag::Gym ToSim(const FDirtbagGym& In);
 	FDirtbagGymStaffer FromSim(const dirtbag::GymStaffer& In);
 	dirtbag::GymStaffer ToSim(const FDirtbagGymStaffer& In);
+	FDirtbagGymFloor FromSim(const dirtbag::GymFloor& In);
+	dirtbag::GymFloor ToSim(const FDirtbagGymFloor& In);
 	FDirtbagLiving FromSim(const dirtbag::Living& In);
 	dirtbag::Living ToSim(const FDirtbagLiving& In);
 	FDirtbagBivy FromSim(const dirtbag::Bivy& In);
