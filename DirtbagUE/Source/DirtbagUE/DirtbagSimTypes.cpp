@@ -196,6 +196,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.gym = ToSim(In.Gym);
 	Out.floor = ToSim(In.Floor);
 	Out.youth = ToSim(In.Youth);
+	Out.gymLeague = ToSim(In.GymLeague);
 	Out.living = ToSim(In.Living);
 	Out.bivy = ToSim(In.Bivy);
 	Out.gymNews = TCHAR_TO_UTF8(*In.GymNews);
@@ -284,6 +285,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Gym = FromSim(In.gym);
 	Out.Floor = FromSim(In.floor);
 	Out.Youth = FromSim(In.youth);
+	Out.GymLeague = FromSim(In.gymLeague);
 	Out.Living = FromSim(In.living);
 	Out.Bivy = FromSim(In.bivy);
 	Out.GymNews = UTF8_TO_TCHAR(In.gymNews.c_str());
@@ -619,6 +621,78 @@ dirtbag::GymStaffer ToSim(const FDirtbagGymStaffer& In)
 	Out.hiredDay = In.HiredDay;
 	Out.nextAskDay = In.NextAskDay;
 	Out.refusals = In.Refusals;
+	return Out;
+}
+
+FDirtbagLeagueChampion FromSim(const dirtbag::LeagueChampion& In)
+{
+	FDirtbagLeagueChampion Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Day = In.day;
+	Out.Run = In.run;
+	return Out;
+}
+
+dirtbag::LeagueChampion ToSim(const FDirtbagLeagueChampion& In)
+{
+	dirtbag::LeagueChampion Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.day = In.Day;
+	Out.run = In.Run;
+	return Out;
+}
+
+FDirtbagLeagueStanding FromSim(const dirtbag::LeagueStanding& In)
+{
+	FDirtbagLeagueStanding Out;
+	Out.Who = static_cast<EDirtbagGymRegular>(In.who);
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Points = In.points;
+	Out.bSuited = In.suited;
+	return Out;
+}
+
+FDirtbagGymLeague FromSim(const dirtbag::GymLeague& In)
+{
+	FDirtbagGymLeague Out;
+	Out.bRunning = In.running;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Night = In.night;
+	Out.Format = static_cast<EDirtbagLeagueFormat>(In.format);
+	Out.Week = In.week;
+	Out.Runs = In.runs;
+	Out.Points.Reset();
+	for (int32 i = 0; i < dirtbag::kGymRegularCount; i++)
+	{
+		Out.Points.Add(In.points[i]);
+	}
+	Out.LastNightDay = In.lastNightDay;
+	Out.Champions.Reset();
+	for (const dirtbag::LeagueChampion& Won : In.champions)
+	{
+		Out.Champions.Add(FromSim(Won));
+	}
+	return Out;
+}
+
+dirtbag::GymLeague ToSim(const FDirtbagGymLeague& In)
+{
+	dirtbag::GymLeague Out;
+	Out.running = In.bRunning;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.night = In.Night;
+	Out.format = static_cast<dirtbag::LeagueFormat>(In.Format);
+	Out.week = In.Week;
+	Out.runs = In.Runs;
+	for (int32 i = 0; i < dirtbag::kGymRegularCount; i++)
+	{
+		Out.points[i] = In.Points.IsValidIndex(i) ? In.Points[i] : 0.0;
+	}
+	Out.lastNightDay = In.LastNightDay;
+	for (const FDirtbagLeagueChampion& Won : In.Champions)
+	{
+		Out.champions.push_back(ToSim(Won));
+	}
 	return Out;
 }
 

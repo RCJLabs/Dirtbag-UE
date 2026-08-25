@@ -19,6 +19,7 @@
 #include "../DirtbagGym.h"
 #include "../DirtbagGymFloor.h"
 #include "../DirtbagGymTown.h"
+#include "../DirtbagGymLeague.h"
 #include "../DirtbagYouth.h"
 #include "../DirtbagBivy.h"
 #include "../DirtbagLiving.h"
@@ -16161,6 +16162,388 @@ static void TestLoadsVersion44Save() {
   CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
 }
 
+// --- GYM-10: the league you run -------------------------------------------
+
+// A floor where everybody has a story with you -- **including the cohort**,
+// which takes walking past the day it arrives. `WhoTurnsUp` wants one stage
+// lived, and a cohort that has only just walked in has none.
+static GymFloor ALivedInFloor(GymSetMix cohort) {
+  GymFloor floor;
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+  SetMix(g, cohort);
+  int day = 1;
+  while (NextMomentDue(floor) != GymRegular::None || !floor.waveTwoArrived) {
+    WalkTheFloor(floor, g, day++);
+    CHECK(day < 200);
+  }
+  return floor;
+}
+
+static void TestTheFormatIsNotCosmetic() {
+  const GymLeagueDials d;
+  // Four formats, four leanings, **one each** -- if two shared a leaning
+  // the choice would be a preference rather than a decision.
+  std::set<int> favoured;
+  for (int i = 0; i < kLeagueFormatCount; i++) {
+    const LeagueFormat f = static_cast<LeagueFormat>(i);
+    favoured.insert(static_cast<int>(FormatFavours(f)));
+    CHECK(!std::string(LeagueFormatName(f)).empty());
+    CHECK(!std::string(LeagueFormatBlurb(f)).empty());
+    CHECK(d.fee[i] > 0.0);
+    CHECK(d.standing[i] > 0.0);
+  }
+  CHECK(static_cast<int>(favoured.size()) == kLeagueFormatCount);
+
+  // And every regular leans one way, so the table is legible: you look at
+  // who is winning and know what kind of night you built.
+  int leaning[kLeaningCount] = {0};
+  for (int i = 1; i < kGymRegularCount; i++) {
+    const GymRegularDef* def = GymRegularOf(static_cast<GymRegular>(i));
+    CHECK(def != nullptr);
+    leaning[static_cast<int>(def->lean)]++;
+    CHECK(!std::string(LeaningName(def->lean)).empty());
+  }
+  for (int i = 0; i < kLeaningCount; i++) CHECK(leaning[i] >= 3);
+}
+
+static void TestTheRoomYouBuiltAndTheNightYouPickedHaveToAgree() {
+  // **The first thing in the port that reads the cast for something other
+  // than a line of prose.** A hardcore room has no `Social` in it at all,
+  // so a team league there has nobody who suits it -- which is not a bug,
+  // it is the two decisions disagreeing in public, on a table on the wall,
+  // for six weeks.
+  const auto suitedIn = [](GymSetMix cohort, LeagueFormat format) {
+    const GymFloor floor = ALivedInFloor(cohort);
+    GymLeague league;
+    double cash = 100000.0;
+    Gym g = ABoughtGym(cash);
+    g.members = 60.0;
+    CHECK(StartALeague(league, g, cash, format, 2));
+    int suited = 0;
+    for (const LeagueStanding& row : TheTable(league, floor)) {
+      if (row.suited) suited++;
+    }
+    return suited;
+  };
+  CHECK(suitedIn(GymSetMix::Hardcore, LeagueFormat::Teams) == 0);
+  CHECK(suitedIn(GymSetMix::Beginner, LeagueFormat::Teams) > 0);
+  CHECK(suitedIn(GymSetMix::Hardcore, LeagueFormat::Ladder) > 0);
+  // ...and every room suits the handicap league, because improving is the
+  // one thing everybody in a gym is doing.
+  for (GymSetMix mix : {GymSetMix::Beginner, GymSetMix::AllComers,
+                        GymSetMix::Hardcore}) {
+    CHECK(suitedIn(mix, LeagueFormat::Handicap) >= 2);
+  }
+}
+
+static void TestEveryRunIsANewSixWeeks() {
+  // **The bug the probe found.** The source keys a night's score on the
+  // league's name, the week and the climber -- and the week resets to one
+  // when a run ends, so every run of a league scores identically: the same
+  // six nights, the same table, the same winner, forever. Measured over
+  // 251 runs of one league before the fix: **two names ever on the wall.**
+  const GymLeagueDials d;
+  const GymFloor floor = ALivedInFloor(GymSetMix::AllComers);
+  GymLeague league;
+  double cash = 100000.0;
+  Gym g = ABoughtGym(cash);
+  g.members = 60.0;
+  CHECK(StartALeague(league, g, cash, LeagueFormat::Handicap, 2, d));
+
+  std::set<std::string> onTheWall;
+  int day = 3;
+  for (int run = 0; run < 40; run++) {
+    for (int week = 0; week < d.weeksInARun; week++) {
+      CHECK(RunLeagueNight(league, g, floor, day, d).ran);
+      day += 7;
+    }
+  }
+  CHECK(league.runs == 40);
+  for (const LeagueChampion& won : league.champions) onTheWall.insert(won.name);
+  // Everybody who turns up wins one eventually. A league where three people
+  // hold every trophy is not a league.
+  CHECK(onTheWall.size() == WhoTurnsUp(floor).size());
+}
+
+static void TestAFormatTiltsALeagueAndDoesNotDecideIt() {
+  // **The number the source records paying for.** Its first cut gave a
+  // suited climber +3.5 a week against a 3-10 base, which over six weeks is
+  // +21 against a spread of about five -- so the climbers a format suited
+  // won every run and three people in the building could ever hold the
+  // trophy.
+  const GymLeagueDials d;
+  const GymFloor floor = ALivedInFloor(GymSetMix::AllComers);
+  int suitedWon = 0, runs = 0;
+  for (int seed = 0; seed < 300; seed++) {
+    GymLeague league;
+    double cash = 100000.0;
+    Gym g = ABoughtGym(cash);
+    g.name = "The Woodshed " + std::to_string(seed);
+    g.members = 60.0;
+    CHECK(StartALeague(league, g, cash, LeagueFormat::Ladder, 2, d));
+    GymRegular champion = GymRegular::None;
+    // **Wednesdays, not every seventh day from day zero.** Night 2 is a
+    // Wednesday and day 3 is the first one; `week * 7` lands on Sundays,
+    // the nights refuse to run, and the champion comes back `None` -- which
+    // the first version of this test then dereferenced. A CHECK that fails
+    // does not stop the line after it.
+    for (int week = 1; week <= d.weeksInARun; week++) {
+      const LeagueNightRan ran =
+          RunLeagueNight(league, g, floor, 3 + (week - 1) * 7, d);
+      CHECK(ran.ran);
+      champion = ran.champion;
+    }
+    const GymRegularDef* won = GymRegularOf(champion);
+    CHECK(won != nullptr);
+    if (won == nullptr) continue;
+    runs++;
+    if (won->lean == FormatFavours(LeagueFormat::Ladder)) suitedWon++;
+  }
+  // Favourites and upsets, which is a league. Two of the seven entrants
+  // suit a board ladder, so chance alone would be about 29%.
+  const double share = static_cast<double>(suitedWon) / runs;
+  CHECK(share > 0.40 && share < 0.80);
+}
+
+static void TestALeagueIsAnInstitutionAndNotAButton() {
+  const GymLeagueDials d;
+  const GymFloor floor = ALivedInFloor(GymSetMix::AllComers);
+  GymLeague league;
+  double cash = 100000.0;
+  Gym g = ABoughtGym(cash);
+
+  // Twenty-five members before it is a league rather than four people and a
+  // clipboard.
+  CHECK(g.members < d.minMembers);
+  CHECK(WhyNotStartALeague(g, league, cash, d).find("clipboard") !=
+        std::string::npos);
+  CHECK(!StartALeague(league, g, cash, LeagueFormat::Onesie, 2, d));
+  g.members = 60.0;
+
+  double thin = d.setupCost - 1.0;
+  CHECK(WhyNotStartALeague(g, league, thin, d).find("printed table") !=
+        std::string::npos);
+  CHECK(!StartALeague(league, g, thin, LeagueFormat::Onesie, 2, d));
+
+  const double was = cash;
+  CHECK(StartALeague(league, g, cash, LeagueFormat::Onesie, 2, d));
+  CHECK(cash == was - d.setupCost);
+  CHECK(league.running);
+  CHECK(league.name == std::string("The Woodshed One Go, One Route"));
+  CHECK(league.night == 2);
+  CHECK(!StartALeague(league, g, cash, LeagueFormat::Ladder, 4, d));  // one
+
+  // **The same night every week.** Day 1 is a Monday, so night 2 is a
+  // Wednesday, and a Tuesday is not it.
+  CHECK(std::string(NightName(2)) == "Wednesday");
+  CHECK(NightOf(1) == 0);
+  CHECK(!ItIsLeagueNight(league, 2));
+  CHECK(ItIsLeagueNight(league, 3));
+  CHECK(WhyNotTonight(league, 2, 100.0, d).find("Wednesdays") !=
+        std::string::npos);
+  CHECK(!RunLeagueNight(league, g, floor, 2, d).ran);
+  CHECK(WhyNotTonight(league, 3, 1.0, d).find("Too wrecked") !=
+        std::string::npos);
+  CHECK(WhyNotTonight(league, 3, 100.0, d).empty());
+
+  const LeagueNightRan first = RunLeagueNight(league, g, floor, 3, d);
+  CHECK(first.ran);
+  CHECK(first.week == 1);
+  CHECK(first.leader != GymRegular::None);
+  CHECK(first.champion == GymRegular::None);
+  CHECK(first.takings == std::round(60.0 * d.turnout) *
+                             d.fee[static_cast<int>(LeagueFormat::Onesie)]);
+  CHECK(first.standing == d.standing[static_cast<int>(LeagueFormat::Onesie)]);
+  CHECK(!first.said.empty());
+
+  // Tonight is done. The table is on the wall.
+  CHECK(WhyNotTonight(league, 3, 100.0, d).find("Tonight is done") !=
+        std::string::npos);
+  CHECK(!RunLeagueNight(league, g, floor, 3, d).ran);
+}
+
+static void TestTheRunEndsAndSomebodysNameGoesOnIt() {
+  const GymLeagueDials d;
+  const GymFloor floor = ALivedInFloor(GymSetMix::AllComers);
+  GymLeague league;
+  double cash = 100000.0;
+  Gym g = ABoughtGym(cash);
+  g.members = 60.0;
+  CHECK(StartALeague(league, g, cash, LeagueFormat::Handicap, 2, d));
+
+  double running = 0.0;
+  GymRegular champion = GymRegular::None;
+  for (int week = 1; week <= d.weeksInARun; week++) {
+    const LeagueNightRan ran = RunLeagueNight(league, g, floor, 3 + (week - 1) * 7, d);
+    CHECK(ran.ran);
+    CHECK(ran.week == week);
+    // **The table carries.** That is what separates a league from six
+    // unrelated Wednesdays.
+    const std::vector<LeagueStanding> table = TheTable(league, floor);
+    CHECK(!table.empty());
+    if (week < d.weeksInARun) {
+      // **The table carries** -- that is what separates a league from six
+      // unrelated Wednesdays. Only checked before the last week, because
+      // the last week is the one that clears it.
+      CHECK(table.front().points > running);
+      running = table.front().points;
+    } else {
+      CHECK(table.front().points == 0.0);
+    }
+    if (week < d.weeksInARun) {
+      CHECK(ran.champion == GymRegular::None);
+      CHECK(league.week == week);
+      CHECK(ran.psyche == d.psycheNight);
+    } else {
+      champion = ran.champion;
+    }
+  }
+
+  // The run ends, somebody takes it, and the table starts again at nothing.
+  CHECK(champion != GymRegular::None);
+  CHECK(league.runs == 1);
+  CHECK(league.week == 0);
+  CHECK(league.champions.size() == 1);
+  const GymRegularDef* took = GymRegularOf(champion);
+  CHECK(took != nullptr);
+  CHECK(took != nullptr && league.champions[0].name == took->name);
+  CHECK(league.champions[0].run == 1);
+  for (const LeagueStanding& row : TheTable(league, floor)) {
+    CHECK(row.points == 0.0);
+  }
+  CHECK(GymLeagueLine(league, floor, 100, d).find("name on the wall") !=
+        std::string::npos);
+
+  // ...and it keeps going. A league is a habit.
+  CHECK(RunLeagueNight(league, g, floor, 3 + d.weeksInARun * 7, d).ran);
+  CHECK(league.week == 1);
+}
+
+static void TestNobodyYouKnowIsInItYet() {
+  const GymLeagueDials d;
+  // **A story with you, however short.** Somebody you have never spoken to
+  // is a membership, not an entrant -- which is what makes the league
+  // something the floor earns rather than something the building comes
+  // with.
+  GymFloor empty;
+  CHECK(WhoTurnsUp(empty).empty());
+
+  GymLeague league;
+  double cash = 100000.0;
+  Gym g = ABoughtGym(cash);
+  g.members = 60.0;
+  CHECK(StartALeague(league, g, cash, LeagueFormat::Teams, 2, d));
+  CHECK(TheTable(league, empty).empty());
+  CHECK(GymLeagueLine(league, empty, 3, d).find("nobody you know") !=
+        std::string::npos);
+
+  // The night still happens and the door still takes money; there is
+  // simply no table.
+  const LeagueNightRan ran = RunLeagueNight(league, g, empty, 3, d);
+  CHECK(ran.ran);
+  CHECK(ran.takings > 0.0);
+  CHECK(ran.leader == GymRegular::None);
+  CHECK(ran.said.find("Nobody you know") != std::string::npos);
+
+  // One arc lived is enough.
+  GymFloor started;
+  started.stage[static_cast<int>(GymRegular::Dale)] = 1;
+  CHECK(WhoTurnsUp(started).size() == 1);
+  CHECK(!GymLeagueLine(league, started, 3, d).empty());
+  CHECK(GymLeagueLine(GymLeague{}, started, 3, d).empty());
+}
+
+static void TestRunningALeagueCostsAnEveningAndPaysTheDebt() {
+  PlayerState player;
+  DayState day;
+  player.day = 3;                        // a Wednesday
+  player.cash = GymDials{}.price + 5000.0;
+  CHECK(BuyTheGym(player.gym, player.cash, "The Woodshed", 1));
+  player.gym.members = 60.0;
+  player.floor.stage[static_cast<int>(GymRegular::Dale)] = 2;
+
+  CHECK(WhyNotStartTheLeague(player).empty());
+  CHECK(StartTheLeague(player, LeagueFormat::Ladder, 2));
+  CHECK(player.gymLeague.running);
+  CHECK(!WhyNotStartTheLeague(player).empty() ||
+        player.gymLeague.running);      // one league, and it is running
+
+  player.cash = 40.0;
+  player.owed = 400.0;
+  const double hour = day.hour;
+  CHECK(RunTheLeagueNight(player, day));
+  CHECK(day.hour == hour + GymLeagueDials{}.runningItHours);
+  CHECK(day.energy == 100.0 - GymLeagueDials{}.runningItEnergy);
+  // The door money is income, so it clears the debt before the pocket.
+  CHECK(player.owed < 400.0);
+  CHECK(!player.gymNews.empty());
+  CHECK(!RunTheLeagueNight(player, day));
+
+  PlayerState nobody;
+  DayState theirs;
+  CHECK(!RunTheLeagueNight(nobody, theirs));
+  CHECK(WhyNotStartTheLeague(nobody).empty());   // no gym, nothing to say
+  CHECK(WhyNotTheLeagueTonight(nobody, theirs).empty());
+}
+
+static void TestTheLeagueSurvivesASave() {
+  SaveGame save;
+  save.seed = "the-woodshed";
+  double cash = GymDials{}.price + 5000.0;
+  CHECK(BuyTheGym(save.player.gym, cash, "The Woodshed", 1));
+  save.player.gym.members = 60.0;
+  CHECK(StartALeague(save.player.gymLeague, save.player.gym, cash,
+                     LeagueFormat::Teams, 5));
+  save.player.gymLeague.week = 4;
+  save.player.gymLeague.runs = 3;
+  save.player.gymLeague.lastNightDay = 311;
+  save.player.gymLeague.points[static_cast<int>(GymRegular::Nell)] = 27.4;
+  save.player.gymLeague.champions.push_back(LeagueChampion{"Bruno", 200, 1});
+  save.player.gymLeague.champions.push_back(LeagueChampion{"Nell", 250, 2});
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  const GymLeague& gl = back.player.gymLeague;
+  CHECK(gl.running);
+  CHECK(gl.name == save.player.gymLeague.name);
+  CHECK(gl.night == 5);
+  CHECK(gl.format == LeagueFormat::Teams);
+  CHECK(gl.week == 4);
+  CHECK(gl.runs == 3);
+  CHECK(gl.lastNightDay == 311);
+  CHECK(std::fabs(gl.points[static_cast<int>(GymRegular::Nell)] - 27.4) < 1e-9);
+  // **The names on the wall especially** -- a printed table nobody will
+  // ever take down is a poor thing for a save to forget.
+  CHECK(gl.champions.size() == 2);
+  CHECK(gl.champions[1].name == std::string("Nell"));
+  CHECK(gl.champions[1].run == 2);
+}
+
+static void TestLoadsVersion45Save() {
+  SaveGame save;
+  save.seed = "the-woodshed";
+  save.player.cash = 55.5;
+
+  std::string v45 = SerializeSave(save);
+  DropSaveLines(v45, "gl.pts");
+  for (const char* k : {"gl.running=", "gl.name=", "gl.night=", "gl.format=",
+                        "gl.week=", "gl.runs=", "gl.last=", "gl.champs="}) {
+    DropSaveLine(v45, k);
+  }
+  SetSaveVersion(v45, 45);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v45, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(std::fabs(old.player.cash - 55.5) < 1e-9);
+  CHECK(!old.player.gymLeague.running);
+  CHECK(old.player.gymLeague.champions.empty());
+  // ...and the league it could already enter somewhere else is untouched.
+  CHECK(old.player.league.nights == save.player.league.nights);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+}
+
 static void TestLoadsVersion38Save() {
   SaveGame save;
   save.seed = "the-woodshed";
@@ -17154,6 +17537,16 @@ int main() {
   TestTheHostDoesNotGetAScorecard();
   TestHostingSurvivesASaveAndDiesWithTheBuilding();
   TestLoadsVersion44Save();
+  TestTheFormatIsNotCosmetic();
+  TestTheRoomYouBuiltAndTheNightYouPickedHaveToAgree();
+  TestEveryRunIsANewSixWeeks();
+  TestAFormatTiltsALeagueAndDoesNotDecideIt();
+  TestALeagueIsAnInstitutionAndNotAButton();
+  TestTheRunEndsAndSomebodysNameGoesOnIt();
+  TestNobodyYouKnowIsInItYet();
+  TestRunningALeagueCostsAnEveningAndPaysTheDebt();
+  TestTheLeagueSurvivesASave();
+  TestLoadsVersion45Save();
   TestInsuranceIsWhatGetsADirtbagRepaired();
   TestTheLotDoesNotAlwaysTurnUp();
   TestNobodyIsNeverThereAndNobodyIsAlways();

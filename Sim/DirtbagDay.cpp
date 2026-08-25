@@ -269,6 +269,47 @@ bool HostCompNight(PlayerState& player, DayState& day, const Rng& worldRng,
   return true;
 }
 
+std::string WhyNotStartTheLeague(const PlayerState& player,
+                                 const DayDials& dials) {
+  (void)dials;
+  return WhyNotStartALeague(player.gym, player.gymLeague, player.cash);
+}
+
+bool StartTheLeague(PlayerState& player, LeagueFormat format, int night,
+                    const DayDials& dials) {
+  (void)dials;
+  return StartALeague(player.gymLeague, player.gym, player.cash, format,
+                      night);
+}
+
+std::string WhyNotTheLeagueTonight(const PlayerState& player, DayState& day,
+                                   const DayDials& dials) {
+  (void)dials;
+  return WhyNotTonight(player.gymLeague, player.day, day.energy);
+}
+
+bool RunTheLeagueNight(PlayerState& player, DayState& day,
+                       const DayDials& dials) {
+  const GymLeagueDials leagueDials;
+  if (!WhyNotTonight(player.gymLeague, player.day, day.energy, leagueDials)
+           .empty()) {
+    return false;
+  }
+  const LeagueNightRan ran = RunLeagueNight(player.gymLeague, player.gym,
+                                            player.floor, player.day,
+                                            leagueDials);
+  if (!ran.ran) return false;
+  // The door money is income, so it clears the debt before it reaches the
+  // pocket -- like every other dollar in this game.
+  Pay(player, ran.takings);
+  PassHours(day, leagueDials.runningItHours, dials);
+  day.energy = std::max(0.0, day.energy - leagueDials.runningItEnergy);
+  player.climber.psyche = std::min(1.0, player.climber.psyche + ran.psyche);
+  Shift(player.standing, Faction::Scene, ran.standing / 100.0);
+  player.gymNews = ran.said;
+  return true;
+}
+
 std::string WhyNotBidToHost(const PlayerState& player, const DayDials& dials) {
   (void)dials;
   return WhyNotBid(player.gym, player.cash, player.circuit.season);

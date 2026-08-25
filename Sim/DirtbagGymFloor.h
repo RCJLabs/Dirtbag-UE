@@ -71,6 +71,16 @@ constexpr int kGymRegularCount = static_cast<int>(GymRegular::kGymRegularCount);
 // does not.
 constexpr int kArcStages = 3;
 
+// **Which way a person leans.** Four of them, and every regular is one --
+// which only matters once you run a league, because a format rewards one
+// leaning and therefore the format you pick is a statement about who your
+// gym is for. See `Sim/DirtbagGymLeague.h`; the leaning lives here because
+// it is a fact about the person, not about the night.
+enum class Leaning { Power, Improve, Social, Nerve, kLeaningCount };
+constexpr int kLeaningCount = static_cast<int>(Leaning::kLeaningCount);
+
+const char* LeaningName(Leaning lean);
+
 struct GymRegularDef {
   GymRegular who = GymRegular::None;
   const char* name = "";
@@ -80,6 +90,8 @@ struct GymRegularDef {
   // Which cohort they belong to. Meaningless for wave one, and read only
   // when `wave` is 2.
   GymSetMix cohort = GymSetMix::AllComers;
+  // Which way they lean, which only matters once you run a league.
+  Leaning lean = Leaning::Social;
   const char* stages[kArcStages] = {"", "", ""};
   // Ambient, once the arc is lived. Two each, picked off the day.
   const char* after[2] = {"", ""};

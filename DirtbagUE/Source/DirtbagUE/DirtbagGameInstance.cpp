@@ -3625,6 +3625,85 @@ FString UDirtbagGameInstance::GymFloorLine() const
 	    dirtbag::FloorLine(Floor, Sim, Player.Day).c_str()));
 }
 
+bool UDirtbagGameInstance::StartTheLeague(EDirtbagLeagueFormat Format,
+                                         int32 Night)
+{
+	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	if (!dirtbag::StartTheLeague(
+	        Sim, static_cast<dirtbag::LeagueFormat>(Format), Night))
+	{
+		return false;
+	}
+	Player = DirtbagConvert::FromSim(Sim);
+	return true;
+}
+
+FString UDirtbagGameInstance::LeagueWhyNotStart() const
+{
+	const dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	return FString(UTF8_TO_TCHAR(dirtbag::WhyNotStartTheLeague(Sim).c_str()));
+}
+
+int32 UDirtbagGameInstance::LeagueNightFromToday() const
+{
+	return dirtbag::NightOf(Player.Day);
+}
+
+FString UDirtbagGameInstance::LeagueFormatLine(
+    EDirtbagLeagueFormat Format) const
+{
+	const dirtbag::LeagueFormat Which =
+	    static_cast<dirtbag::LeagueFormat>(Format);
+	// **Who it belongs to, said out loud**, because that is the decision
+	// and a blurb alone leaves the player to infer it.
+	return FString::Printf(
+	    TEXT("%s - belongs to whoever has the %s. %s"),
+	    UTF8_TO_TCHAR(dirtbag::LeagueFormatName(Which)),
+	    UTF8_TO_TCHAR(dirtbag::LeaningName(dirtbag::FormatFavours(Which))),
+	    UTF8_TO_TCHAR(dirtbag::LeagueFormatBlurb(Which)));
+}
+
+bool UDirtbagGameInstance::RunTheLeagueNight()
+{
+	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState Today = DirtbagConvert::ToSim(Day);
+	if (!dirtbag::RunTheLeagueNight(Sim, Today))
+	{
+		return false;
+	}
+	Player = DirtbagConvert::FromSim(Sim);
+	Day = DirtbagConvert::FromSim(Today);
+	return true;
+}
+
+FString UDirtbagGameInstance::LeagueWhyNotTonight() const
+{
+	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState Today = DirtbagConvert::ToSim(Day);
+	return FString(
+	    UTF8_TO_TCHAR(dirtbag::WhyNotTheLeagueTonight(Sim, Today).c_str()));
+}
+
+TArray<FDirtbagLeagueStanding> UDirtbagGameInstance::TheLeagueTable() const
+{
+	TArray<FDirtbagLeagueStanding> Out;
+	const dirtbag::GymLeague League = DirtbagConvert::ToSim(Player.GymLeague);
+	const dirtbag::GymFloor Floor = DirtbagConvert::ToSim(Player.Floor);
+	for (const dirtbag::LeagueStanding& Row : dirtbag::TheTable(League, Floor))
+	{
+		Out.Add(DirtbagConvert::FromSim(Row));
+	}
+	return Out;
+}
+
+FString UDirtbagGameInstance::GymLeagueLine() const
+{
+	const dirtbag::GymLeague League = DirtbagConvert::ToSim(Player.GymLeague);
+	const dirtbag::GymFloor Floor = DirtbagConvert::ToSim(Player.Floor);
+	return FString(UTF8_TO_TCHAR(
+	    dirtbag::GymLeagueLine(League, Floor, Player.Day).c_str()));
+}
+
 bool UDirtbagGameInstance::BidToHostTheSeason()
 {
 	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);

@@ -519,6 +519,42 @@ FString ADirtbagDaySpot::PromptText() const
 				    FMath::RoundToInt(Game->GymRaiseAsked(bAsking)));
 			}
 		}
+		else if (GymPage == 6)
+		{
+			if (Game->Player.GymLeague.bRunning)
+			{
+				Line += FString::Printf(TEXT("\n   %s"), *Game->GymLeagueLine());
+				const TArray<FDirtbagLeagueStanding> Table =
+				    Game->TheLeagueTable();
+				// **The top three, not all thirteen.** A table on a wall is
+				// a table; a table on a HUD is a wall of text.
+				for (int32 i = 0; i < Table.Num() && i < 3; i++)
+				{
+					Line += FString::Printf(
+					    TEXT("\n   %d. %s %.1f%s"), i + 1, *Table[i].Name,
+					    Table[i].Points,
+					    Table[i].bSuited ? TEXT("  (it suits them)") : TEXT(""));
+				}
+			}
+			else
+			{
+				const FString Cannot = Game->LeagueWhyNotStart();
+				if (!Cannot.IsEmpty())
+				{
+					Line += FString::Printf(TEXT("\n   %s"), *Cannot);
+				}
+				else
+				{
+					for (int32 i = 0; i < 4; i++)
+					{
+						Line += FString::Printf(
+						    TEXT("\n   (%d) %s"), i + 1,
+						    *Game->LeagueFormatLine(
+						        static_cast<EDirtbagLeagueFormat>(i)));
+					}
+				}
+			}
+		}
 		else if (GymPage == 5)
 		{
 			Line += FString::Printf(TEXT("\n   %s"), *Game->HostingLine());
@@ -1994,6 +2030,7 @@ FString ADirtbagDaySpot::GymLeverPageName() const
 	case 3: return TEXT("the building:  wings (1-5)   more (6)");
 	case 4: return TEXT("the squad:  found it / session (1)   coach: you (2) hired (3)   more (6)");
 	case 5: return TEXT("the federation:  bid for the season (1)   run the round (2)   more (6)");
+	case 6: return TEXT("league night:  start one (1-4)   run tonight (5)   more (6)");
 	default: return TEXT("the keys:  hand it over (1)   the town (2)   more (6)");
 	}
 }
@@ -2021,7 +2058,7 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 	// Six keys, and pass two put more than six verbs behind this counter.
 	if (Index == 5)
 	{
-		GymPage = (GymPage + 1) % 7;
+		GymPage = (GymPage + 1) % 8;
 		Say(GymLeverPageName(), FColor::Silver, 4.f);
 		return true;
 	}
@@ -2194,6 +2231,31 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 		{
 			Say(Game->RunTheCircuitRound() ? Game->Player.GymNews
 			                               : Game->RoundWhyNot(),
+			    FColor::Yellow, 10.f);
+			return true;
+		}
+		return true;
+
+	case 6:
+		if (Index <= 3 && !Game->Player.GymLeague.bRunning)
+		{
+			const EDirtbagLeagueFormat Format =
+			    static_cast<EDirtbagLeagueFormat>(Index);
+			// **The night comes off the day you start it**, which is the
+			// smallest honest answer: you announce it on a Wednesday and it
+			// runs on Wednesdays.
+			if (Game->StartTheLeague(Format, Game->LeagueNightFromToday()))
+			{
+				Say(Game->GymLeagueLine(), FColor::Yellow, 10.f);
+				return true;
+			}
+			Say(Game->LeagueWhyNotStart(), FColor::Silver, 7.f);
+			return true;
+		}
+		if (Index == 4 || (Index <= 3 && Game->Player.GymLeague.bRunning))
+		{
+			Say(Game->RunTheLeagueNight() ? Game->Player.GymNews
+			                              : Game->LeagueWhyNotTonight(),
 			    FColor::Yellow, 10.f);
 			return true;
 		}

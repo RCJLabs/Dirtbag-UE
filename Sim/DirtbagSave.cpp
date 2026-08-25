@@ -341,6 +341,27 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // people this career ever climbed with. The honest reconstruction is that
 // you knew them at least as well as you know them now, which is exactly
 // what the runtime would derive on the next `BondsFrom` anyway.
+// v45 -> v46: the league you run. A v45 career had no league of its own --
+// the one it could enter at somebody else's gym is `league.*` and is
+// untouched by this -- so it loads without one, and the night and the
+// format are still its to choose.
+//
+// **A counted list for the champions**, because how many names are on the
+// wall depends on how long the thing has been running.
+void MigrateV45ToV46(SaveFields& fields) {
+  fields["gl.running"] = "0";
+  fields["gl.name"] = "";
+  fields["gl.night"] = "2";
+  fields["gl.format"] = "0";
+  fields["gl.week"] = "0";
+  fields["gl.runs"] = "0";
+  fields["gl.last"] = "-99";
+  for (int i = 0; i < kGymRegularCount; i++) {
+    fields["gl.pts" + IntToStr(i)] = "0";
+  }
+  fields["gl.champs"] = "0";
+}
+
 // v44 -> v45: hosting the circuit. A v44 career could own the room and the
 // circuit still met in somebody else's, so it loads holding no season and
 // having asked for none -- and **-1 rather than 0 matters here**, because
@@ -761,7 +782,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36,
       &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39,
       &MigrateV39ToV40, &MigrateV40ToV41, &MigrateV41ToV42,
-      &MigrateV42ToV43, &MigrateV43ToV44, &MigrateV44ToV45};
+      &MigrateV42ToV43, &MigrateV43ToV44, &MigrateV44ToV45,
+      &MigrateV45ToV46};
   return kMigrations;
 }
 
@@ -1265,6 +1287,28 @@ std::string SerializeSave(const SaveGame& save) {
   out << "gym.hosts=" << IntToStr(save.player.gym.hostsSeason) << "\n";
   out << "gym.asked=" << IntToStr(save.player.gym.askedSeason) << "\n";
   out << "gym.rounds=" << IntToStr(save.player.gym.roundsRun) << "\n";
+
+  // GYM-10: the league you run. `gl.` and not `league.`, which is the one
+  // you enter somewhere else.
+  const GymLeague& gl = save.player.gymLeague;
+  out << "gl.running=" << IntToStr(gl.running ? 1 : 0) << "\n";
+  out << "gl.name=" << gl.name << "\n";
+  out << "gl.night=" << IntToStr(gl.night) << "\n";
+  out << "gl.format=" << IntToStr(static_cast<int>(gl.format)) << "\n";
+  out << "gl.week=" << IntToStr(gl.week) << "\n";
+  out << "gl.runs=" << IntToStr(gl.runs) << "\n";
+  out << "gl.last=" << IntToStr(gl.lastNightDay) << "\n";
+  for (int i = 0; i < kGymRegularCount; i++) {
+    out << "gl.pts" << IntToStr(i) << "=" << NumToStr(gl.points[i]) << "\n";
+  }
+  out << "gl.champs=" << IntToStr(static_cast<int>(gl.champions.size()))
+      << "\n";
+  for (std::size_t i = 0; i < gl.champions.size(); i++) {
+    const std::string k = "champ." + IntToStr(static_cast<int>(i)) + ".";
+    out << k << "name=" << gl.champions[i].name << "\n";
+    out << k << "day=" << IntToStr(gl.champions[i].day) << "\n";
+    out << k << "run=" << IntToStr(gl.champions[i].run) << "\n";
+  }
 
   // GYM-2/GYM-5: the floor's memory. Beside the gym, not inside it.
   for (int i = 0; i < kGymRegularCount; i++) {
@@ -1994,6 +2038,42 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
           !ParseInt(fields, "gym.asked", gym.askedSeason) ||
           !ParseInt(fields, "gym.rounds", gym.roundsRun)) {
         return LoadResult::BadFormat;
+      }
+
+      GymLeague& gl = save.player.gymLeague;
+      gl = GymLeague{};
+      int running = 0, format = 0, champs = 0;
+      if (!ParseInt(fields, "gl.running", running) ||
+          !ParseInt(fields, "gl.night", gl.night) ||
+          !ParseInt(fields, "gl.format", format) ||
+          !ParseInt(fields, "gl.week", gl.week) ||
+          !ParseInt(fields, "gl.runs", gl.runs) ||
+          !ParseInt(fields, "gl.last", gl.lastNightDay) ||
+          !ParseInt(fields, "gl.champs", champs)) {
+        return LoadResult::BadFormat;
+      }
+      const auto glName = fields.find("gl.name");
+      if (glName == fields.end()) return LoadResult::BadFormat;
+      gl.name = glName->second;
+      gl.running = running != 0;
+      gl.format = static_cast<LeagueFormat>(within(format, kLeagueFormatCount));
+      gl.night = gl.night >= 0 && gl.night < 7 ? gl.night : 2;
+      for (int i = 0; i < kGymRegularCount; i++) {
+        if (!ParseDouble(fields, "gl.pts" + IntToStr(i), gl.points[i])) {
+          return LoadResult::BadFormat;
+        }
+      }
+      for (int i = 0; i < champs; i++) {
+        const std::string k = "champ." + IntToStr(i) + ".";
+        LeagueChampion won;
+        if (!ParseInt(fields, k + "day", won.day) ||
+            !ParseInt(fields, k + "run", won.run)) {
+          return LoadResult::BadFormat;
+        }
+        const auto champName = fields.find(k + "name");
+        if (champName == fields.end()) return LoadResult::BadFormat;
+        won.name = champName->second;
+        gl.champions.push_back(won);
       }
 
       GymFloor& floor = save.player.floor;

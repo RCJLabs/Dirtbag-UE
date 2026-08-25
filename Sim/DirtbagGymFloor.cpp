@@ -17,7 +17,7 @@ double FloorDraw(const std::string& label) {
 // `NextMomentDue` breaks ties by this table, so this list is a design
 // decision and not a list.
 const GymRegularDef kCast[] = {
-{GymRegular::Dale, "Dale", "the birthday-gift membership", 1, GymSetMix::AllComers,
+{GymRegular::Dale, "Dale", "the birthday-gift membership", 1, GymSetMix::AllComers, Leaning::Improve,
  {"Dale, 52, membership was a birthday gift from his daughter. He has been "
   "standing under the easiest slab for twenty minutes, chalking up like it "
   "is a ritual. You talk him onto the wall. He gets two moves up and comes "
@@ -35,7 +35,7 @@ const GymRegularDef kCast[] = {
  "Dale enters the beginner bracket, tops two, and gets the loudest cheer of "
  "the night by a mile."},
 
-{GymRegular::Piper, "Piper", "the eleven-year-old", 1, GymSetMix::AllComers,
+{GymRegular::Piper, "Piper", "the eleven-year-old", 1, GymSetMix::AllComers, Leaning::Nerve,
  {"Piper is eleven and warming up on things your strongest members project. "
   "Her parents hover in the lobby asking if you do coaching. She hangs the "
   "finish hold of the comp wall one-armed, bored, waiting for an answer.",
@@ -54,7 +54,7 @@ const GymRegularDef kCast[] = {
  "Piper wins the whole thing -- not the youth category, the whole thing -- "
  "and gives her prize chalk to Dale."},
 
-{GymRegular::June, "June", "the six a.m. regular", 1, GymSetMix::AllComers,
+{GymRegular::June, "June", "the six a.m. regular", 1, GymSetMix::AllComers, Leaning::Improve,
  {"June climbs at six a.m. before her nursing shift, alone, headphones in, "
   "methodical. Today she nods at you for the first time -- you have been "
   "officially noticed. She re-brushes every hold she uses. The morning crew "
@@ -74,7 +74,7 @@ const GymRegularDef kCast[] = {
  "June shows up on her night off, climbs one problem beautifully, and "
  "quietly judges the finals."},
 
-{GymRegular::Bruno, "Bruno", "all power, no feet", 1, GymSetMix::AllComers,
+{GymRegular::Bruno, "Bruno", "all power, no feet", 1, GymSetMix::AllComers, Leaning::Power,
  {"Bruno campuses everything. Everything. He is built like a vending "
   "machine and climbs like one falling downstairs. Today he asked, "
   "mid-flail, why his feet keep cutting. You point at his feet. This is "
@@ -94,7 +94,7 @@ const GymRegularDef kCast[] = {
  "chants his name."},
 
 // --- wave two: beginner-friendly walls ------------------------------------
-{GymRegular::Marisol, "Marisol", "the after-work three", 2, GymSetMix::Beginner,
+{GymRegular::Marisol, "Marisol", "the after-work three", 2, GymSetMix::Beginner, Leaning::Social,
  {"Three women from the same office arrive together at six on the dot, in "
   "matching new shoes, and Marisol is clearly the one who made it happen. "
   "They do two easy routes and spend forty minutes talking. This is not a "
@@ -113,7 +113,7 @@ const GymRegularDef kCast[] = {
  "Marisol enters her entire group as a team, under a name none of them will "
  "admit to choosing, and they come last and do not care."},
 
-{GymRegular::Ade, "Ade", "terrified, and here anyway", 2, GymSetMix::Beginner,
+{GymRegular::Ade, "Ade", "terrified, and here anyway", 2, GymSetMix::Beginner, Leaning::Improve,
  {"Ade signed up on a dare and has been climbing four feet off the ground "
   "for three weeks. Today they got to the halfway mark and had to be talked "
   "down, shaking. Then they got straight back on. That is the whole thing, "
@@ -132,7 +132,7 @@ const GymRegularDef kCast[] = {
  "Ade competes. Ade, who could not get past the fourth bolt in March. They "
  "do not place, and they are the story of the night anyway."},
 
-{GymRegular::Horace, "Horace", "the man who fixes things", 2, GymSetMix::Beginner,
+{GymRegular::Horace, "Horace", "the man who fixes things", 2, GymSetMix::Beginner, Leaning::Social,
  {"Horace has been a member for a month and has already, unasked, repaired "
   "the loose bench, the sticky door and the wobbly hold on the yellow "
   "route. He climbs V1. He is having the time of his life.",
@@ -151,7 +151,7 @@ const GymRegularDef kCast[] = {
  "barbecue, and refuses a free membership for the fourth time."},
 
 // --- wave two: all-comers -------------------------------------------------
-{GymRegular::Nell, "Nell", "came back after twenty years", 2, GymSetMix::AllComers,
+{GymRegular::Nell, "Nell", "came back after twenty years", 2, GymSetMix::AllComers, Leaning::Nerve,
  {"Nell climbed hard in the nineties, stopped for a career and two kids, "
   "and walked back in today asking whether the grades had changed. They "
   "have. She got up a 5.9 and looked furious about it in a way you "
@@ -169,7 +169,7 @@ const GymRegularDef kCast[] = {
  "Nell quietly wins the masters bracket that you invented an hour before "
  "the comp specifically so she would enter it."},
 
-{GymRegular::Tobias, "Tobias", "the boy with the headphones", 2, GymSetMix::AllComers,
+{GymRegular::Tobias, "Tobias", "the boy with the headphones", 2, GymSetMix::AllComers, Leaning::Power,
  {"There is a teenager here every day after school, headphones in, climbing "
   "alone until closing. He has never spoken to anybody. He is also, "
   "quietly, one of the three strongest people in the building.",
@@ -187,7 +187,7 @@ const GymRegularDef kCast[] = {
  "Tobias makes the final, and his crew makes more noise than the rest of "
  "the room combined, and he pretends to hate it."},
 
-{GymRegular::Esperanza, "Esperanza", "runs a business, hates it", 2, GymSetMix::AllComers,
+{GymRegular::Esperanza, "Esperanza", "runs a business, hates it", 2, GymSetMix::AllComers, Leaning::Social,
  {"Esperanza takes calls in the lobby in a suit and then climbs for exactly "
   "fifty minutes with total focus. She books the same slot every week and "
   "has never once been late or stayed long.",
@@ -207,7 +207,7 @@ const GymRegularDef kCast[] = {
  "the last minute in borrowed shoes and makes the semis."},
 
 // --- wave two: hardcore ---------------------------------------------------
-{GymRegular::Kestrel, "Kestrel", "trains like it is a job", 2, GymSetMix::Hardcore,
+{GymRegular::Kestrel, "Kestrel", "trains like it is a job", 2, GymSetMix::Hardcore, Leaning::Power,
  {"Kestrel does the same warm-up every single session, to the minute, and "
   "then gets on the board. She has a notebook. She asked what the board's "
   "angle actually is, to the degree, and did not accept 'about forty'.",
@@ -225,7 +225,7 @@ const GymRegularDef kCast[] = {
  "Kestrel wins by a margin that is almost rude, thanks nobody, and is back "
  "on the board at seven the next morning."},
 
-{GymRegular::Dom, "Dom", "strong, fragile, learning", 2, GymSetMix::Hardcore,
+{GymRegular::Dom, "Dom", "strong, fragile, learning", 2, GymSetMix::Hardcore, Leaning::Improve,
  {"Dom can do more pull-ups than anyone here and has been injured twice "
   "this year. Today he asked you -- without being prompted -- whether it "
   "was normal for a finger to feel like that. It is not. You told him.",
@@ -244,7 +244,7 @@ const GymRegularDef kCast[] = {
  "and instead spends the night talking three kids out of doing something "
  "stupid."},
 
-{GymRegular::Rafferty, "Rafferty", "the old guard, unconvinced", 2, GymSetMix::Hardcore,
+{GymRegular::Rafferty, "Rafferty", "the old guard, unconvinced", 2, GymSetMix::Hardcore, Leaning::Nerve,
  {"Rafferty has been climbing since before this building was a gym and has "
   "opinions about the boards, the grades, the music, and the concept of a "
   "coffee bar. He is here five days a week. He has not paid a membership on "
@@ -300,6 +300,16 @@ constexpr int kLineACount = static_cast<int>(sizeof(kLineA) / sizeof(kLineA[0]))
 constexpr int kLineBCount = static_cast<int>(sizeof(kLineB) / sizeof(kLineB[0]));
 
 }  // namespace
+
+const char* LeaningName(Leaning lean) {
+  switch (lean) {
+    case Leaning::Power: return "power";
+    case Leaning::Improve: return "improving";
+    case Leaning::Social: return "turning up with people";
+    case Leaning::Nerve: return "nerve";
+    default: return "";
+  }
+}
 
 const GymRegularDef* GymRegularOf(GymRegular who) {
   if (who == GymRegular::None) return nullptr;

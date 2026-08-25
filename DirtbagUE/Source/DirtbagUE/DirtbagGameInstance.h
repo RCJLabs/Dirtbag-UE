@@ -2147,6 +2147,39 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
 	FString GymFloorLine() const;
 
+	/** GYM-10: start a league at your own gym. The night (0 = Monday) and
+	 *  the format are the whole decision — the format decides who wins. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool StartTheLeague(EDirtbagLeagueFormat Format, int32 Night);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString LeagueWhyNotStart() const;
+
+	/** Which night today is, 0 = Monday — what a league started today runs
+	 *  on from here. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	int32 LeagueNightFromToday() const;
+
+	/** What a format is and who it belongs to, for the screen that offers
+	 *  the choice. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString LeagueFormatLine(EDirtbagLeagueFormat Format) const;
+
+	/** Run a week of it. Three hours, ten energy, and you do not climb it. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool RunTheLeagueNight();
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString LeagueWhyNotTonight() const;
+
+	/** The table as it stands, best first. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	TArray<FDirtbagLeagueStanding> TheLeagueTable() const;
+
+	/** One line for the wall: the night, the week, and who is leading. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString GymLeagueLine() const;
+
 	/** GYM-9: put your gym forward for the season's circuit rounds. $2,200,
 	 *  answered on the spot, and a rejection stands until the next season.
 	 *  Returns whether the season is yours. */

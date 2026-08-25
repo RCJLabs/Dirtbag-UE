@@ -32,6 +32,7 @@
 #include "DirtbagLife.h"
 #include "DirtbagGym.h"
 #include "DirtbagGymFloor.h"
+#include "DirtbagGymLeague.h"
 #include "DirtbagYouth.h"
 #include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
@@ -405,6 +406,11 @@ struct PlayerState {
   // it. See Sim/DirtbagYouth.h.
   Youth youth;
 
+  // **The league you run**, if you started one. Not the one in
+  // `DirtbagLeague.h`, which is the one you enter at somebody else's gym --
+  // see Sim/DirtbagGymLeague.h for why they are two systems.
+  GymLeague gymLeague;
+
   // **What the bank did last night**, or empty. Carried on the career for
   // the same reason `becameToday` and `lostToday` are: the night tick is
   // void, and losing a building is a thing you must be told exactly once.
@@ -531,6 +537,24 @@ bool SpendTheEvening(PlayerState& player, DayState& day, Thread what,
 // there is not an hour left in the day.
 bool WalkTheGymFloor(PlayerState& player, DayState& day,
                      const DayDials& dials = DayDials{});
+
+// **GYM-10: start a league at your own gym.** The night and the format are
+// the whole decision -- the format is not cosmetic, it decides who wins,
+// and every one of your regulars leans one way. $220 of tape, prizes and a
+// printed table, and twenty-five members before it is a league rather than
+// four people and a clipboard.
+bool StartTheLeague(PlayerState& player, LeagueFormat format, int night,
+                    const DayDials& dials = DayDials{});
+std::string WhyNotStartTheLeague(const PlayerState& player,
+                                 const DayDials& dials = DayDials{});
+
+// **Run a week of it.** Three hours and ten energy on the night you chose,
+// and you do not climb it -- you run it, the same way you run a circuit
+// round. Six weeks make a run, and then somebody's name goes on the wall.
+bool RunTheLeagueNight(PlayerState& player, DayState& day,
+                       const DayDials& dials = DayDials{});
+std::string WhyNotTheLeagueTonight(const PlayerState& player, DayState& day,
+                                   const DayDials& dials = DayDials{});
 
 // **GYM-9: put your gym forward to host the season's circuit rounds.**
 // Answered on the spot, deterministically, and a rejection stands until the

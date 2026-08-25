@@ -51,6 +51,7 @@
 #include "DirtbagGym.h"
 #include "DirtbagGymFloor.h"
 #include "DirtbagGymTown.h"
+#include "DirtbagGymLeague.h"
 #include "DirtbagYouth.h"
 #include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
@@ -1913,6 +1914,93 @@ struct FDirtbagGymFloor
 	EDirtbagGymSetMix WaveTwo = EDirtbagGymSetMix::AllComers;
 };
 
+/** Which way a person leans. Only matters once you run a league, because a
+ *  format rewards one leaning. Mirrors dirtbag::Leaning. */
+UENUM(BlueprintType)
+enum class EDirtbagLeaning : uint8 { Power, Improve, Social, Nerve };
+
+/** The night you run. **Not cosmetic** — it decides who wins. Mirrors
+ *  dirtbag::LeagueFormat. */
+UENUM(BlueprintType)
+enum class EDirtbagLeagueFormat : uint8 { Ladder, Handicap, Teams, Onesie };
+
+/** A name on the wall. Mirrors dirtbag::LeagueChampion. */
+USTRUCT(BlueprintType)
+struct FDirtbagLeagueChampion
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 Day = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 Run = 0;
+};
+
+/** One row of the table. Mirrors dirtbag::LeagueStanding. */
+USTRUCT(BlueprintType)
+struct FDirtbagLeagueStanding
+{
+	GENERATED_BODY()
+
+	/** Which regular this row is. Carried as well as the name because a
+	 *  screen that wants their tag, or one line about them, should not have
+	 *  to match on a string to find them. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	EDirtbagGymRegular Who = EDirtbagGymRegular::None;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	double Points = 0.0;
+
+	/** Does the format suit them. This is what makes the table legible. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	bool bSuited = false;
+};
+
+/** The league you run at your own gym — not the one in FDirtbagLeague,
+ *  which is the one you enter at somebody else's. Mirrors
+ *  dirtbag::GymLeague; see Sim/DirtbagGymLeague.h. */
+USTRUCT(BlueprintType)
+struct FDirtbagGymLeague
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	bool bRunning = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FString Name;
+
+	/** 0 is Monday. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 Night = 2;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	EDirtbagLeagueFormat Format = EDirtbagLeagueFormat::Ladder;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 Week = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 Runs = 0;
+
+	/** The table, indexed by EDirtbagGymRegular. Cleared when a run ends. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	TArray<double> Points;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 LastNightDay = -99;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	TArray<FDirtbagLeagueChampion> Champions;
+};
+
 /** One of the four on the squad. Mirrors dirtbag::YouthKid — `Level` is how
  *  far along they are, not a grade; YouthBandName is what it reads as. */
 USTRUCT(BlueprintType)
@@ -2559,6 +2647,10 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
 	FDirtbagYouth Youth;
 
+	/** The league you run, if you started one. See FDirtbagGymLeague. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FDirtbagGymLeague GymLeague;
+
 	/** What the bank did last night, or empty. A line you read once. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	FString GymNews;
@@ -2984,6 +3076,11 @@ namespace DirtbagConvert
 	dirtbag::Graduate ToSim(const FDirtbagGraduate& In);
 	FDirtbagYouth FromSim(const dirtbag::Youth& In);
 	dirtbag::Youth ToSim(const FDirtbagYouth& In);
+	FDirtbagLeagueChampion FromSim(const dirtbag::LeagueChampion& In);
+	dirtbag::LeagueChampion ToSim(const FDirtbagLeagueChampion& In);
+	FDirtbagLeagueStanding FromSim(const dirtbag::LeagueStanding& In);
+	FDirtbagGymLeague FromSim(const dirtbag::GymLeague& In);
+	dirtbag::GymLeague ToSim(const FDirtbagGymLeague& In);
 	FDirtbagLiving FromSim(const dirtbag::Living& In);
 	dirtbag::Living ToSim(const FDirtbagLiving& In);
 	FDirtbagBivy FromSim(const dirtbag::Bivy& In);

@@ -118,6 +118,12 @@ struct Tally {
   int gymRoundsRun = 0;
   double gymBidSpend = 0.0;
   double gymRoundPay = 0.0;
+  // GYM-10: the league you run.
+  int glNights = 0;
+  int glRuns = 0;
+  double glTakings = 0.0;
+  int glSuitedChamps = 0;
+  int glDistinctChamps = 0;
   int gymHandsOffDay = 0;
 
   int declinedTheOffer = 0;
@@ -1968,6 +1974,25 @@ int main(int argc, char** argv) {
         // money is there, and then a session every night it will take one.
         // Coached by you under `gym=life` and by somebody you pay under
         // `gym=hired` -- the two cannot be measured at once.
+        // **GYM-10.** Start one the day the room is big enough, on
+        // whatever night that is, and then run it every week. The format
+        // is `lot=`-style content rather than a policy knob: the probe
+        // takes the handicap league, which is the one every room has
+        // somebody for, so the measurement is about the institution and
+        // not about a format that happened to suit nobody.
+        if (!player.gymLeague.running && WhyNotStartTheLeague(player).empty()) {
+          StartTheLeague(player, LeagueFormat::Handicap, NightOf(player.day));
+        }
+        if (WhyNotTheLeagueTonight(player, today).empty()) {
+          const int runsWere = player.gymLeague.runs;
+          const double was = player.cash;
+          if (RunTheLeagueNight(player, today, dd)) {
+            t.glNights++;
+            t.glTakings += player.cash - was;
+            if (player.gymLeague.runs > runsWere) t.glRuns++;
+          }
+        }
+
         // **GYM-9.** Bid every season the room is big enough, and on the
         // day, run it. Running rather than climbing is the whole decision
         // and a policy that sometimes did one and sometimes the other
@@ -2196,6 +2221,26 @@ int main(int argc, char** argv) {
   for (const Graduate& gone : player.youth.graduated) {
     t.youthOldest = std::max(t.youthOldest, gone.age);
   }
+  // **Who kept winning it.** Two numbers, because they answer different
+  // questions: how often the format's own people took it, and how many
+  // different names ever went on the wall. A league where three people
+  // hold every trophy is not a league.
+  {
+    const Leaning favours = FormatFavours(player.gymLeague.format);
+    std::vector<std::string> seen;
+    for (const LeagueChampion& won : player.gymLeague.champions) {
+      bool known = false;
+      for (const std::string& already : seen) known = known || already == won.name;
+      if (!known) seen.push_back(won.name);
+      for (int i = 1; i < kGymRegularCount; i++) {
+        const GymRegularDef* def = GymRegularOf(static_cast<GymRegular>(i));
+        if (def == nullptr || def->name != won.name) continue;
+        if (def->lean == favours) t.glSuitedChamps++;
+        break;
+      }
+    }
+    t.glDistinctChamps = static_cast<int>(seen.size());
+  }
   t.youthCraftEnd = player.youth.craft;
 
 
@@ -2245,7 +2290,8 @@ int main(int argc, char** argv) {
          "\tgymfixed\tgymleft\tgymhands\tgymgone\tgymtopwage"
          "\tgymwalks\tgymcomps\tgymcohort\tgymarcs"
          "\tyouthday\tyouthsess\tyouthgrads\tyouthage\tyouthcraft"
-         "\tyouthstep\tgymbids\tgymheld\tgymrounds\tgymbid$\tgymround$\n");
+         "\tyouthstep\tgymbids\tgymheld\tgymrounds\tgymbid$\tgymround$"
+         "\tglnights\tglruns\tgl$\tglsuited\tglnames\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -2267,7 +2313,8 @@ int main(int argc, char** argv) {
          "\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f"
          "\t%d\t%d\t%d\t%d"
          "\t%d\t%d\t%d\t%d\t%.1f\t%d"
-         "\t%d\t%d\t%d\t%.0f\t%.0f\n",
+         "\t%d\t%d\t%d\t%.0f\t%.0f"
+         "\t%d\t%d\t%.0f\t%d\t%d\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -2371,7 +2418,9 @@ int main(int argc, char** argv) {
          t.gymWorstWage, t.gymWalks, t.gymComps, t.gymCohortDay,
          t.gymArcsLived, t.youthDay, t.youthSessions, t.youthGrads,
          t.youthOldest, t.youthCraftEnd, t.youthSteppedUp, t.gymBids,
-         t.gymSeasonsHeld, t.gymRoundsRun, t.gymBidSpend, t.gymRoundPay);
+         t.gymSeasonsHeld, t.gymRoundsRun, t.gymBidSpend, t.gymRoundPay,
+         t.glNights, t.glRuns, t.glTakings, t.glSuitedChamps,
+         t.glDistinctChamps);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,
