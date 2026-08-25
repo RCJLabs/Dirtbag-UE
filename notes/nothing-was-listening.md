@@ -74,3 +74,46 @@ reason to guess.
 Verified by reintroducing the exact defect. That is now three checkers this
 month that were proved by putting the bug back, and two of the earlier ones
 turned out not to work until I did.
+
+## The second round: one key at a time is the wrong way to fix this
+
+The keys worked. Then the last page of creation came up — *"E to get on with
+it"* — and E did nothing, for **exactly the same reason**, because the E that
+dismisses creation lives in `ADirtbagDaySpot::OnInteract` and is bound in the
+same `OnTriggerBegin`.
+
+Fixing the reported key and stopping was the mistake. The rule was already
+written down a paragraph earlier and I had applied it to the six keys that
+were reported rather than to the screens that have the problem. So the whole
+family, in one pass:
+
+**What counts as a screen and what a key does on one now live on
+`UDirtbagGameInstance`** — `PressOnAScreen`, `ChooseOnAScreen`,
+`StepHandover`, `ChooseArrival`. `StepHandover` and `ChooseArrival` were on
+the Day Spot and nothing in either was ever about the spot; the spot was
+merely the thing that had keys bound. Both listeners call the same two verbs
+now, so they cannot drift apart — which is the actual fix, not the extra
+binding.
+
+**Two things fell out of doing it properly rather than one key at a time.**
+
+*The frame guard has to be asked before "is a screen up", not after.* If the
+controller is served first and closes creation, then the counter asks "is a
+screen up", hears no, and **interacts with itself on the same press that
+dismissed the screen** — you press E to leave the creation screen and buy a
+bus ticket. The right question is not *is a screen up* but *has this press
+already been spent*, and the order of those two tests is the whole
+difference.
+
+*A screen outranks the thing you are standing in front of, and it did not.*
+`OnChoose1` asked `PickABivy` and `PullGymLever` **before** creation. Both
+are gated on `bPlayerNear` and a matching `Kind`, so nothing was reachable
+today — the handover opens at the van and the van is neither a bivy nor a gym
+counter. But it is one edit away from being reachable, and it is the wrong
+order for the reason the file's own comment already gave about the road: a
+full-screen screen owns the keyboard. The screens go first now.
+
+And one more comment that disagreed with its code, which is the fourth this
+week: `ChooseInCreation`'s doc said it returned false when *"creation is not
+up or the index names nothing"*. It has never returned false for the second
+one — deliberately, and the reason is two lines below the comment.

@@ -1140,7 +1140,8 @@ void ADirtbagDaySpot::OnRetire()
 	// whose only exit is a key nobody mentioned.
 	if (Game->Handover.bActive)
 	{
-		StepHandover();
+		Game->StepHandover();
+		PushPrompt();
 		return;
 	}
 	if (!bPlayerNear || Kind != EDirtbagSpotKind::Van)
@@ -1200,96 +1201,21 @@ void ADirtbagDaySpot::OnRetire()
 	PushPrompt();
 }
 
-void ADirtbagDaySpot::StepHandover()
-{
-	if (!Game || !Game->Handover.bActive)
-	{
-		return;
-	}
-	FDirtbagHandoverReadout& H = Game->Handover;
-
-	switch (H.Step)
-	{
-	case EDirtbagHandoverStep::Epitaph:
-	{
-		// The career ends here: tallied, filed, and the valley handed on.
-		// RetireAndPassItOn saves immediately, so from this press the
-		// decision survives a crash.
-		const FString RetiringAs =
-		    Game->ClimberName.IsEmpty() ? FString(TEXT("you"))
-		                                : Game->ClimberName;
-		Game->RetireAndPassItOn(RetiringAs);
-		// Asked *after* retiring, so the offer belongs to the generation
-		// that just arrived rather than the one that just left.
-		H.Candidates = Game->WhoCouldTurnUp();
-		H.Generation = Game->GenerationsBefore();
-		// Now it includes the career that just ended, which is the whole
-		// point: what survives you is a page somebody else reads.
-		H.Guidebook = Game->InheritedGuidebook();
-		H.Step = EDirtbagHandoverStep::Choosing;
-		break;
-	}
-	case EDirtbagHandoverStep::Choosing:
-		// No skipping past the choice. Every other screen in this game
-		// lets a key hurry it along; this one has a decision on it, and
-		// hurrying past a decision is how you end up unnamed for thirty
-		// years -- which is exactly the state this whole feature exists
-		// to fix.
-		break;
-	default:
-		H.bActive = false;
-		PushPrompt();
-		break;
-	}
-}
-
-bool ADirtbagDaySpot::ChooseArrival(int32 Which)
-{
-	if (!Game || !Game->Handover.bActive ||
-	    Game->Handover.Step != EDirtbagHandoverStep::Choosing)
-	{
-		return false;
-	}
-	FDirtbagHandoverReadout& H = Game->Handover;
-	if (!H.Candidates.IsValidIndex(Which))
-	{
-		// The key was still the handover's, even though it named nobody --
-		// otherwise pressing 3 at a two-name offer would quietly buy a
-		// dream instead.
-		return true;
-	}
-	H.Arrival = H.Candidates[Which];
-	Game->NameTheClimber(H.Arrival);
-	H.Step = EDirtbagHandoverStep::Arrived;
-	// Named after the inherit, so the name is stored against the career it
-	// belongs to rather than the one that just ended.
-	Game->SaveNow();
-	return true;
-}
-
 void ADirtbagDaySpot::OnInteract()
 {
 	if (SkipTravel())
 	{
 		return;
 	}
-	// Creation owns E while it is up: on the last screen it is the only way
-	// out, and on the four questions it does nothing, because "press any
-	// key" on a question with a right answer is how people skip past the
-	// choice they were meant to make.
-	if (Game && Game->Creation.bActive)
+	// Creation and the handover own E while either is up, the same way the
+	// road owns every key: there is nothing else to interact with from
+	// inside them. The decision lives on the game instance because this
+	// spot is not the only thing listening -- see
+	// ADirtbagUEPlayerController, which is what serves these screens when
+	// the player is not standing at anything at all.
+	if (Game && Game->PressOnAScreen())
 	{
-		if (Game->Creation.Step == EDirtbagCreationStep::Done)
-		{
-			Game->Creation.bActive = false;
-		}
-		return;
-	}
-	// The handover owns E while it is up, the same way the road owns every
-	// key: there is nothing else to interact with from inside it.
-	if (Game && Game->Handover.bActive)
-	{
-		StepHandover();
+		PushPrompt();
 		return;
 	}
 	if (!bPlayerNear || !Game)
@@ -1997,10 +1923,11 @@ bool ADirtbagDaySpot::SetStakeNotch(int32 Notch)
 // The same three keys, and the same question in both places: how much of
 // the float is this worth. At the shop it buys a life; at the fire it buys
 // a hand.
-// **Creation is asked before anything else and without `bPlayerNear`**,
-// because it is up from the first frame of a career and the player is not
-// standing anywhere yet. Same reason the road owns every key while it is on
-// screen: there is nothing else to be doing.
+// The screens are asked first and from the game instance -- see
+// UDirtbagGameInstance::ChooseOnAScreen. A full-screen screen outranks
+// whatever the player happens to be standing in front of, which used to be
+// the other way round: creation was asked third, after a bivy and a gym
+// counter had each had a look at the key.
 bool ADirtbagDaySpot::PickABivy(int32 Index)
 {
 	if (!Game || !bPlayerNear || Kind != EDirtbagSpotKind::Bivy) { return false; }
@@ -2291,61 +2218,60 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 
 void ADirtbagDaySpot::OnChoose1()
 {
+	if (Game && Game->ChooseOnAScreen(0)) { return; }
+	if (SkipTravel()) { return; }
 	if (PickABivy(0)) { return; }
 	if (PullGymLever(0)) { return; }
-	if (Game && Game->ChooseInCreation(0)) { return; }
-	if (SkipTravel()) { return; }
-	if (ChooseArrival(0)) { return; }
 	if (TurnGuidebookPage(0)) { return; }
 	if (TakeGig(0)) { return; }
 	if (!SetStakeNotch(0)) { ChooseDreamAt(EDirtbagDream::Rig); }
 }
 void ADirtbagDaySpot::OnChoose2()
 {
+	if (Game && Game->ChooseOnAScreen(1)) { return; }
+	if (SkipTravel()) { return; }
 	if (PickABivy(1)) { return; }
 	if (PullGymLever(1)) { return; }
-	if (Game && Game->ChooseInCreation(1)) { return; }
-	if (SkipTravel()) { return; }
-	if (ChooseArrival(1)) { return; }
 	if (TurnGuidebookPage(1)) { return; }
 	if (TakeGig(1)) { return; }
 	if (!SetStakeNotch(1)) { ChooseDreamAt(EDirtbagDream::WarChest); }
 }
 void ADirtbagDaySpot::OnChoose3()
 {
+	if (Game && Game->ChooseOnAScreen(2)) { return; }
+	if (SkipTravel()) { return; }
 	if (PickABivy(2)) { return; }
 	if (PullGymLever(2)) { return; }
-	if (Game && Game->ChooseInCreation(2)) { return; }
-	if (SkipTravel()) { return; }
-	if (ChooseArrival(2)) { return; }
 	if (TurnGuidebookPage(2)) { return; }
 	if (TakeGig(2)) { return; }
 	if (!SetStakeNotch(2)) { ChooseDreamAt(EDirtbagDream::HomeBase); }
 }
 
-// **Three more keys, and they exist for exactly one question.** Six origins
-// need six keys, and a question that offers a sixth option with no way to
-// press it is the bug the wall's ethics prompt had a day ago. They do
-// nothing outside creation on purpose -- a number key that quietly means
-// something at the shop and something else at the fire is how a player
-// buys a dream trying to fold a hand.
+// **Three more keys, and they exist for the questions that need six.** Six
+// origins need six keys, and a question that offers a sixth option with no
+// way to press it is the bug the wall's ethics prompt had a day ago. Past
+// the screens they reach only the bivy list and the gym counter, both of
+// which have six of something; they deliberately do not reach the shop or
+// the fire, because a number key that quietly means something at the shop
+// and something else at the fire is how a player buys a dream trying to
+// fold a hand.
 void ADirtbagDaySpot::OnChoose4()
 {
+	if (Game && Game->ChooseOnAScreen(3)) { return; }
 	if (PickABivy(3)) { return; }
-	if (PullGymLever(3)) { return; }
-	if (Game) { Game->ChooseInCreation(3); }
+	PullGymLever(3);
 }
 void ADirtbagDaySpot::OnChoose5()
 {
+	if (Game && Game->ChooseOnAScreen(4)) { return; }
 	if (PickABivy(4)) { return; }
-	if (PullGymLever(4)) { return; }
-	if (Game) { Game->ChooseInCreation(4); }
+	PullGymLever(4);
 }
 void ADirtbagDaySpot::OnChoose6()
 {
+	if (Game && Game->ChooseOnAScreen(5)) { return; }
 	if (PickABivy(5)) { return; }
-	if (PullGymLever(5)) { return; }
-	if (Game) { Game->ChooseInCreation(5); }
+	PullGymLever(5);
 }
 
 void ADirtbagDaySpot::ChooseDreamAt(EDirtbagDream Which)

@@ -189,6 +189,39 @@ Also cleared, both cosmetic, both from that same log:
   lines** up `DirtbagSimTypes.h` onto `EDirtbagVanPart`, where it reads as a
   description of the van parts. Put back on `FDirtbagPlayerState`.
 
+**Then the same bug one key over, and that is the finding.** The keys
+worked, the four questions were answered, and the last page came up — *"E to
+get on with it"* — and **E did nothing**, because the E that dismisses
+creation lives in `ADirtbagDaySpot::OnInteract` and is bound in the same
+`OnTriggerBegin`. Fixing the reported key and stopping was the mistake: the
+rule was written down and applied to the six keys that were reported rather
+than to the screens that have the problem.
+
+So the whole family, in one pass. **What counts as a screen, and what a key
+does on one, now live on `UDirtbagGameInstance`** — `PressOnAScreen`,
+`ChooseOnAScreen`, `StepHandover`, `ChooseArrival`. The last two were on the
+Day Spot and nothing in either was ever about the spot; the spot was merely
+the thing that had keys bound. Both listeners call the same verbs now, which
+is the actual fix. Two things fell out of doing it properly:
+
+- **The frame guard is asked before "is a screen up", not after.** If the
+  controller is served first and closes creation, the counter then asks "is
+  a screen up", hears no, and **interacts with itself on the same press that
+  dismissed the screen**. The right question is *has this press already been
+  spent*, and the order of those two tests is the whole difference.
+- **A screen outranks the thing you are standing in front of, and it did
+  not.** `OnChoose1` asked `PickABivy` and `PullGymLever` before creation.
+  Nothing is reachable today — the handover opens at the van, which is
+  neither a bivy nor a gym counter — but it is one edit from being
+  reachable, and it is the wrong order for the reason the file already gave
+  about the road. The screens go first now.
+
+The four full-screen screens are creation, the handover, the guidebook and
+the road. The first two are controller-owned now; **the other two can only
+be up because you are standing at the spot that opened them**, so their
+listener is guaranteed. That is the whole set — there is no third round of
+this waiting.
+
 **One thing in that log was good news and is worth reading twice:**
 
 ```

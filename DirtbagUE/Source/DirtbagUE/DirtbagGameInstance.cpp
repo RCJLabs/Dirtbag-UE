@@ -2409,6 +2409,119 @@ double UDirtbagGameInstance::ShopPrice() const
 	    DirtbagConvert::ToSim(Player.Character));
 }
 
+void UDirtbagGameInstance::StepHandover()
+{
+	if (!Handover.bActive)
+	{
+		return;
+	}
+	FDirtbagHandoverReadout& H = Handover;
+
+	switch (H.Step)
+	{
+	case EDirtbagHandoverStep::Epitaph:
+	{
+		// The career ends here: tallied, filed, and the valley handed on.
+		// RetireAndPassItOn saves immediately, so from this press the
+		// decision survives a crash.
+		const FString RetiringAs =
+		    ClimberName.IsEmpty() ? FString(TEXT("you")) : ClimberName;
+		RetireAndPassItOn(RetiringAs);
+		// Asked *after* retiring, so the offer belongs to the generation
+		// that just arrived rather than the one that just left.
+		H.Candidates = WhoCouldTurnUp();
+		H.Generation = GenerationsBefore();
+		// Now it includes the career that just ended, which is the whole
+		// point: what survives you is a page somebody else reads.
+		H.Guidebook = InheritedGuidebook();
+		H.Step = EDirtbagHandoverStep::Choosing;
+		break;
+	}
+	case EDirtbagHandoverStep::Choosing:
+		// No skipping past the choice. Every other screen in this game
+		// lets a key hurry it along; this one has a decision on it, and
+		// hurrying past a decision is how you end up unnamed for thirty
+		// years -- which is exactly the state this whole feature exists
+		// to fix.
+		break;
+	default:
+		H.bActive = false;
+		break;
+	}
+}
+
+bool UDirtbagGameInstance::ChooseArrival(int32 Which)
+{
+	if (!Handover.bActive || Handover.Step != EDirtbagHandoverStep::Choosing)
+	{
+		return false;
+	}
+	FDirtbagHandoverReadout& H = Handover;
+	if (!H.Candidates.IsValidIndex(Which))
+	{
+		// The key was still the handover's, even though it named nobody --
+		// otherwise pressing 3 at a two-name offer would quietly buy a
+		// dream instead.
+		return true;
+	}
+	H.Arrival = H.Candidates[Which];
+	NameTheClimber(H.Arrival);
+	H.Step = EDirtbagHandoverStep::Arrived;
+	// Named after the inherit, so the name is stored against the career it
+	// belongs to rather than the one that just ended.
+	SaveNow();
+	return true;
+}
+
+bool UDirtbagGameInstance::PressOnAScreen()
+{
+	// See LastScreenFrame: asked before "is a screen up", because the other
+	// listener may already have closed it on this same press.
+	if (LastScreenFrame == GFrameCounter)
+	{
+		return true;
+	}
+	if (!Creation.bActive && !Handover.bActive)
+	{
+		return false;
+	}
+	LastScreenFrame = GFrameCounter;
+	if (Creation.bActive)
+	{
+		// On the last page E is the only way out; on the four questions it
+		// does nothing, because "press any key" on a question with a right
+		// answer is how people skip past the choice they were meant to
+		// make. Either way the press is creation's and goes no further.
+		if (Creation.Step == EDirtbagCreationStep::Done)
+		{
+			Creation.bActive = false;
+		}
+		return true;
+	}
+	StepHandover();
+	return true;
+}
+
+bool UDirtbagGameInstance::ChooseOnAScreen(int32 Which)
+{
+	if (LastScreenFrame == GFrameCounter)
+	{
+		return true;
+	}
+	if (!Creation.bActive && !Handover.bActive)
+	{
+		return false;
+	}
+	LastScreenFrame = GFrameCounter;
+	if (Creation.bActive)
+	{
+		ChooseInCreation(Which);
+		return true;
+	}
+	ChooseArrival(Which);
+	return true;
+}
+
 void UDirtbagGameInstance::BeginCreation()
 {
 	// Already answered. A loaded career walks straight past this, and so
@@ -2431,15 +2544,6 @@ bool UDirtbagGameInstance::ChooseInCreation(int32 Which)
 	{
 		return false;
 	}
-	// See LastCreationFrame. The key still belonged to creation -- it was
-	// simply already spent by the other listener this frame -- so this
-	// returns true rather than letting the press fall through to a counter
-	// that is standing behind the creation screen.
-	if (LastCreationFrame == GFrameCounter)
-	{
-		return true;
-	}
-	LastCreationFrame = GFrameCounter;
 	if (!C.Options.IsValidIndex(Which))
 	{
 		// The key belonged to creation even though it named nobody --

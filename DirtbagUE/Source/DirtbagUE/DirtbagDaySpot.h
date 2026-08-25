@@ -340,13 +340,6 @@ private:
 	 *  dream or sizing a stake. Returns true if the book took the key. */
 	bool TurnGuidebookPage(int32 Which);
 
-	/** Advance the handover: the epitaph, then the choice, then arrival. */
-	void StepHandover();
-
-	/** Take one of the three. Returns true if the handover consumed the
-	 *  key, so 1/2/3 mean the successor rather than a dream or a stake. */
-	bool ChooseArrival(int32 Which);
-
 	/** One exit for every settled hand: record the sentence, add it to the
 	 *  evening's running total, clear the table. Three call sites used to
 	 *  each build their own toast, which is how the night's total came to

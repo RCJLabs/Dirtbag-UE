@@ -1456,24 +1456,65 @@ public:
 	void BeginCreation();
 
 	/** Answer the question on screen. `Which` is zero-based; the key the
-	 *  player pressed is one more than that. Returns false when creation is
-	 *  not up or the index names nothing, so the caller knows the key was
-	 *  not spent here. */
+	 *  player pressed is one more than that. Returns false only when
+	 *  creation is not up -- an index that names nothing still returns
+	 *  true, because pressing 5 at a four-way question must not fall
+	 *  through to whatever else is listening. (The doc here used to say it
+	 *  returned false for both, which it never did.)
+	 *
+	 *  Prefer `ChooseOnAScreen`, which is what the counters and the player
+	 *  controller both call: it is the one that knows a press can arrive
+	 *  twice. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Creation")
 	bool ChooseInCreation(int32 Which);
 
 	/** Rebuild the on-screen options for the current question. */
 	void RefreshCreation();
 
-	/** The frame a creation key was last spent on. Creation is answered
-	 *  from two places -- the counter you happen to be standing at, and the
-	 *  player controller, which is the only listener that exists on the
-	 *  first frame of a career -- and both are bound to the same six keys.
-	 *  Which one the engine's input stack serves first is not ours to
-	 *  decide, so the rule is stated here instead: one press is one answer,
-	 *  and a second call in the same frame is the other listener rather
-	 *  than a second decision. Not saved; it means nothing across a load. */
-	uint64 LastCreationFrame = 0;
+	/** Advance the handover: file the career, take the name, close the
+	 *  screen. Lives here rather than on a Day Spot because the screen is
+	 *  full-screen state and the spot was only ever the thing that happened
+	 *  to have keys bound. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Legacy")
+	void StepHandover();
+
+	/** Name the climber who turns up, from the offer on screen. Zero-based.
+	 *  Returns true when the key belonged to the handover -- including when
+	 *  it named nobody, since pressing 3 at a two-name offer must not
+	 *  quietly buy a dream instead. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Legacy")
+	bool ChooseArrival(int32 Which);
+
+	/** E on a screen that owns the whole keyboard -- creation's last page,
+	 *  or the handover. Returns true when the press was the screen's, so
+	 *  the caller knows not to also interact with whatever it is standing
+	 *  in front of. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Screens")
+	bool PressOnAScreen();
+
+	/** A number key on a screen that owns the whole keyboard. Zero-based.
+	 *  Returns true when the press was the screen's. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Screens")
+	bool ChooseOnAScreen(int32 Which);
+
+	/** The frame a full-screen screen last spent a key on.
+	 *
+	 *  These screens are answered from two places -- the counter you happen
+	 *  to be standing at, and the player controller, which is the only
+	 *  listener that exists on the first frame of a career -- and both are
+	 *  bound to the same keys. Which one the engine's input stack serves
+	 *  first is not ours to decide, so the rule is stated here instead: one
+	 *  press is one answer, and a second call in the same frame is the
+	 *  other listener rather than a second decision.
+	 *
+	 *  **It is tested before "is a screen up", not after**, because by the
+	 *  time the second listener asks, the first may already have closed the
+	 *  screen -- and a spot that reads that as "no screen, then" would
+	 *  interact with itself on the same press that dismissed the screen.
+	 *
+	 *  Starts at MAX_uint64 so frame zero is not mistaken for a press
+	 *  already spent. Not saved; it means nothing across a load. */
+	uint64 LastScreenFrame = MAX_uint64;
 
 	/** Armed by `TakeTheGigTheHardWay`, consumed by the next gig. Not
 	 *  saved: it is a decision about a shift you are standing in front of,
