@@ -32,6 +32,7 @@
 #include "DirtbagLife.h"
 #include "DirtbagGym.h"
 #include "DirtbagGymFloor.h"
+#include "DirtbagYouth.h"
 #include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
 #include "DirtbagLocals.h"
@@ -399,6 +400,11 @@ struct PlayerState {
   // takes the lease Dale does not stop existing.
   GymFloor floor;
 
+  // **The youth team, if you founded one.** `GYM-2` wrote the hook -- "There
+  // is no youth team. There might have to be" -- and this is what is behind
+  // it. See Sim/DirtbagYouth.h.
+  Youth youth;
+
   // **What the bank did last night**, or empty. Carried on the career for
   // the same reason `becameToday` and `lostToday` are: the night tick is
   // void, and losing a building is a thing you must be told exactly once.
@@ -525,6 +531,29 @@ bool SpendTheEvening(PlayerState& player, DayState& day, Thread what,
 // there is not an hour left in the day.
 bool WalkTheGymFloor(PlayerState& player, DayState& day,
                      const DayDials& dials = DayDials{});
+
+// **Found the youth team.** `GYM-2` asked the question -- Piper's mother
+// wanting to know whether there is a waitlist -- and this is the answer, so
+// it is gated on having actually lived that arc out. Four kids, a set of
+// borrowed harnesses, and $1,200 of mats, kit and paperwork.
+//
+// Returns false with no gym, without Piper's story, if one already exists,
+// or if you cannot pay. `WhyNoYouthTeam` says which.
+bool FoundYouthTeam(PlayerState& player, const Rng& worldRng,
+                    const DayDials& dials = DayDials{});
+std::string WhyNoYouthTeam(const PlayerState& player,
+                           const DayDials& dials = DayDials{});
+
+// **An evening with the squad**, every third day, two hours and twelve
+// energy. Every fifth one is a trip rather than a training night.
+bool RunYouthSession(PlayerState& player, DayState& day, const Rng& worldRng,
+                     const DayDials& dials = DayDials{});
+
+// Hand the squad to somebody you pay, or take it back. The same trade the
+// building makes one floor down, and worse for the kids either way you look
+// at it: a paid coach brings them on more slowly and costs the gym $30 a
+// day, and it is your evening back.
+bool SetTheYouthCoach(PlayerState& player, bool hired, const Rng& worldRng);
 
 // **Comp night.** Costs $150 and an evening, needs a room worth filling,
 // and pays back in entry fees, walk-in signups and standing -- on a

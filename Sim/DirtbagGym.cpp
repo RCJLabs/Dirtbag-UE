@@ -434,6 +434,15 @@ double RatePerMember(const Gym& gym, const GymDials& dials) {
   return dials.rate[Slot(gym.price)] + dials.mixRate[Slot(gym.mix)];
 }
 
+double WhatTheWingsTeach(const Gym& gym, const GymDials& dials) {
+  if (!gym.owned) return 0.0;
+  double out = 0.0;
+  for (int i = 0; i < kGymWingCount; i++) {
+    if (gym.wings[i]) out += dials.wingYouth[i];
+  }
+  return out;
+}
+
 double DailyOverhead(const Gym& gym, const GymDials& dials) {
   if (!gym.owned) return 0.0;
   double out = dials.overhead + dials.equipOverhead[Slot(gym.equip)];
@@ -448,7 +457,8 @@ double DailyOverhead(const Gym& gym, const GymDials& dials) {
   return out;
 }
 
-GymNight GymDay(Gym& gym, const Rng& worldRng, int day, const GymDials& dials) {
+GymNight GymDay(Gym& gym, const Rng& worldRng, int day, double otherWages,
+                const GymDials& dials) {
   GymNight out;
   if (!gym.owned) return out;
 
@@ -463,7 +473,8 @@ GymNight GymDay(Gym& gym, const Rng& worldRng, int day, const GymDials& dials) {
   gym.members = std::max(0.0, std::round(gym.members + drift + noise));
 
   out.net = gym.members * RatePerMember(gym, dials) +
-            WhatTheWingsEarn(gym, dials) - DailyOverhead(gym, dials);
+            WhatTheWingsEarn(gym, dials) - DailyOverhead(gym, dials) -
+            std::max(0.0, otherWages);
 
   // **GYM-6, before the balance is struck**, because a lapsed incident is a
   // bill and belongs in tonight's books rather than tomorrow's.

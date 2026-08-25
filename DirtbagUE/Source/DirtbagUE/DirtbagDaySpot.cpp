@@ -519,6 +519,22 @@ FString ADirtbagDaySpot::PromptText() const
 				    FMath::RoundToInt(Game->GymRaiseAsked(bAsking)));
 			}
 		}
+		else if (GymPage == 4)
+		{
+			// The squad, or the reason there is not one yet.
+			const FString Squad = Game->YouthTeamLine();
+			Line += FString::Printf(
+			    TEXT("\n   %s"),
+			    Squad.IsEmpty() ? *Game->YouthWhyNot() : *Squad);
+			if (Game->Player.Youth.bGoing)
+			{
+				const FString NotTonight = Game->YouthSessionWhyNot();
+				if (!NotTonight.IsEmpty())
+				{
+					Line += FString::Printf(TEXT("\n   %s"), *NotTonight);
+				}
+			}
+		}
 		else if (GymPage == 3)
 		{
 			for (int32 i = 0; i < 5; i++)
@@ -1967,6 +1983,7 @@ FString ADirtbagDaySpot::GymLeverPageName() const
 	case 1: return TEXT("the levers:  price (1/2/3)   sets (4)   kit (5)   more (6)");
 	case 2: return TEXT("the people:  hire (1/2/3)   raise: yes (4) no (5)   more (6)");
 	case 3: return TEXT("the building:  wings (1-5)   more (6)");
+	case 4: return TEXT("the squad:  found it / session (1)   coach: you (2) hired (3)   more (6)");
 	default: return TEXT("the keys:  hand it over (1)   the town (2)   more (6)");
 	}
 }
@@ -1994,7 +2011,7 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 	// Six keys, and pass two put more than six verbs behind this counter.
 	if (Index == 5)
 	{
-		GymPage = (GymPage + 1) % 5;
+		GymPage = (GymPage + 1) % 6;
 		Say(GymLeverPageName(), FColor::Silver, 4.f);
 		return true;
 	}
@@ -2093,6 +2110,54 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 		    FColor::Yellow, 7.f);
 		return true;
 	}
+
+	case 4:
+		// **One key, because founding it and running it are the same
+		// intention** -- you press the squad key and the squad happens,
+		// whichever of the two it is tonight.
+		if (Index == 0)
+		{
+			if (!Game->Player.Youth.bGoing)
+			{
+				if (Game->FoundTheYouthTeam())
+				{
+					Say(FString::Printf(
+					        TEXT("%s has a youth team. %s - and a lot of "
+					             "paperwork."),
+					        *Game->Player.Gym.Name, *Game->YouthTeamLine()),
+					    FColor::Yellow, 10.f);
+					return true;
+				}
+				Say(Game->YouthWhyNot(), FColor::Silver, 7.f);
+				return true;
+			}
+			Say(Game->RunAYouthSession() ? Game->Player.GymNews
+			                             : Game->YouthSessionWhyNot(),
+			    FColor::Yellow, 10.f);
+			return true;
+		}
+		if (Index == 1 || Index == 2)
+		{
+			const bool bHired = Index == 2;
+			if (!Game->SetTheYouthCoach(bHired))
+			{
+				Say(Game->Player.Youth.bGoing
+				        ? TEXT("Already that way round.")
+				        : TEXT("There is no squad yet."),
+				    FColor::Silver, 4.f);
+				return true;
+			}
+			Say(bHired
+			        ? FString::Printf(
+			              TEXT("%s takes the squad - $30 a day on the gym's "
+			                   "books. Steady hands. Not you."),
+			              *Game->Player.Youth.CoachName)
+			        : FString(TEXT("You take the sessions back. It is your "
+			                       "evening again, and theirs.")),
+			    FColor::Yellow, 8.f);
+			return true;
+		}
+		return true;
 
 	default:
 		if (Index == 0)

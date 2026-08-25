@@ -112,6 +112,17 @@ RUNS = [
     # floor and hosting comp nights. Without it the whole GYM-2/GYM-5 layer
     # reports dead, which is the same coverage failure again.
     ("hoarder", ["savings=60000", "gym=life"]),
+    # ...and the same with somebody to beat, because GYM-8's payoff lands
+    # one system over: a graduate takes the seat when the rival generation
+    # turns over, and a career with no rival never turns one over. Without
+    # this row `youthstep` reports dead and the whole point of the youth
+    # team looks unreachable.
+    ("hoarder", ["savings=60000", "gym=life", "rival=1"]),
+    # ...and the squad handed over, which is the only way `gainHired` is
+    # ever read. In the source it never is: its session verb is gated on
+    # coaching them yourself and nothing runs one anywhere else, so the paid
+    # coach costs $30 a day for kids who stop entirely.
+    ("hoarder", ["savings=60000", "gym=hired", "rival=1"]),
 ]
 
 SEEDS = ["crag-1", "valley-7", "north-3", "east-11", "west-5", "granite-2"]

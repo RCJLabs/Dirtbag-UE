@@ -3621,6 +3621,64 @@ FString UDirtbagGameInstance::GymFloorLine() const
 	    dirtbag::FloorLine(Floor, Sim, Player.Day).c_str()));
 }
 
+bool UDirtbagGameInstance::FoundTheYouthTeam()
+{
+	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	if (!dirtbag::FoundYouthTeam(
+	        Sim, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed))))
+	{
+		return false;
+	}
+	Player = DirtbagConvert::FromSim(Sim);
+	return true;
+}
+
+FString UDirtbagGameInstance::YouthWhyNot() const
+{
+	const dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	return FString(UTF8_TO_TCHAR(dirtbag::WhyNoYouthTeam(Sim).c_str()));
+}
+
+bool UDirtbagGameInstance::RunAYouthSession()
+{
+	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState Today = DirtbagConvert::ToSim(Day);
+	if (!dirtbag::RunYouthSession(
+	        Sim, Today, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed))))
+	{
+		return false;
+	}
+	Player = DirtbagConvert::FromSim(Sim);
+	Day = DirtbagConvert::FromSim(Today);
+	return true;
+}
+
+FString UDirtbagGameInstance::YouthSessionWhyNot() const
+{
+	const dirtbag::Youth Squad = DirtbagConvert::ToSim(Player.Youth);
+	return FString(UTF8_TO_TCHAR(
+	    dirtbag::WhyNotASession(Squad, Player.Day, Day.Energy).c_str()));
+}
+
+bool UDirtbagGameInstance::SetTheYouthCoach(bool bHired)
+{
+	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	if (!dirtbag::SetTheYouthCoach(
+	        Sim, bHired, dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed))))
+	{
+		return false;
+	}
+	Player = DirtbagConvert::FromSim(Sim);
+	return true;
+}
+
+FString UDirtbagGameInstance::YouthTeamLine() const
+{
+	const dirtbag::Youth Squad = DirtbagConvert::ToSim(Player.Youth);
+	return FString(UTF8_TO_TCHAR(
+	    dirtbag::YouthLine(Squad, Player.Day).c_str()));
+}
+
 FString UDirtbagGameInstance::TheTownLine() const
 {
 	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);

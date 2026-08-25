@@ -105,6 +105,13 @@ struct Tally {
   double gymCompTakings = 0.0;
   int gymCohortDay = 0;
   int gymArcsLived = 0;
+  // GYM-8: the squad.
+  int youthDay = 0;
+  int youthSessions = 0;
+  int youthGrads = 0;
+  int youthOldest = 0;
+  double youthCraftEnd = 0.0;
+  int youthSteppedUp = 0;
   int gymHandsOffDay = 0;
 
   int declinedTheOffer = 0;
@@ -533,13 +540,19 @@ int main(int argc, char** argv) {
   // staffs it, builds onto it, answers what lands on the clipboard and
   // eventually hands over the keys. The two together are how you find out
   // whether pass two absorbs the ceiling pass one only half-absorbed.
-  const bool runsAGym = opt("gym", "") == "run" || opt("gym", "") == "life";
+  const bool runsAGym = opt("gym", "") == "run" || opt("gym", "") == "life" ||
+                        opt("gym", "") == "hired";
   // **`gym=life` is `run` plus the people in it.** Walk the floor every day
   // it will let you and throw a comp night whenever one is allowed. It is
   // separate from `run` because it costs **an hour a day**, and an hour a
   // day for thirty years is the sort of thing that has to be measured
   // rather than assumed harmless.
   const bool livesInIt = opt("gym", "") == "life";
+  // **`gym=hired` is `life` with the squad handed over.** Its own word
+  // because the two coaching policies cannot be measured at once, and
+  // because a battery without it reports `gainHired` dead -- which is how
+  // the source's own hired coach came to do nothing at all.
+  const bool paysACoach = opt("gym", "") == "hired";
   const std::string retirePolicy = opt("retire", "always");
   const std::string medPolicy = opt("med", "");
   const auto has = [&medPolicy](const char* what) {
@@ -1917,7 +1930,7 @@ int main(int argc, char** argv) {
       // GYM-2/GYM-5. The floor first, then the comp -- one is an hour and
       // the other is an evening, and doing the cheap one first is what
       // anybody would do.
-      if (livesInIt) {
+      if (livesInIt || paysACoach) {
         const bool hadCohort = player.floor.waveTwoArrived;
         if (WalkTheGymFloor(player, today, dd)) {
           t.gymWalks++;
@@ -1928,10 +1941,32 @@ int main(int argc, char** argv) {
         if (HostCompNight(player, today, world, dd)) {
           t.gymComps++;
         }
+
+        // **GYM-8.** Founded the moment the question has been asked and the
+        // money is there, and then a session every night it will take one.
+        // Coached by you under `gym=life` and by somebody you pay under
+        // `gym=hired` -- the two cannot be measured at once.
+        if (!player.youth.going && FoundYouthTeam(player, world, dd)) {
+          t.youthDay = player.day;
+          if (paysACoach) SetTheYouthCoach(player, true, world);
+        }
+        RunYouthSession(player, today, world, dd);
       }
     }
 
+    const int generationWas = player.rival.generation;
     SleepToNextDay(player, today, world, dd);
+
+    // **The payoff, counted where it lands.** A generation turning over
+    // with a name off the graduate list is a kid you coached stepping up --
+    // and counting it here rather than off the queue's length is the honest
+    // way, because the queue also forgets anybody who aged out of it.
+    if (player.rival.generation != generationWas) {
+
+      for (const Graduate& gone : player.youth.graduated) {
+        if (gone.name == player.rival.name) { t.youthSteppedUp++; break; }
+      }
+    }
 
     if (player.gym.owned) t.gymDaysOwned++;
     if (!player.gymNews.empty()) t.gymLost++;
@@ -2111,6 +2146,17 @@ int main(int argc, char** argv) {
   for (int i = 1; i < kGymRegularCount; i++) {
     if (player.floor.stage[i] >= kArcStages) t.gymArcsLived++;
   }
+  // **Read off the squad, not off the verb.** A hired coach's sessions run
+  // in the night tick and never touch `RunYouthSession`, so counting the
+  // verb's return reported a handed-over squad as doing nothing at all --
+  // which is exactly the bug in the original this policy exists to catch.
+  t.youthSessions = player.youth.sessions;
+  t.youthGrads = static_cast<int>(player.youth.graduated.size());
+  for (const Graduate& gone : player.youth.graduated) {
+    t.youthOldest = std::max(t.youthOldest, gone.age);
+  }
+  t.youthCraftEnd = player.youth.craft;
+
 
   // Who ended up knowing you. Same rule as rapport: the state, not the
   // high-water mark.
@@ -2156,7 +2202,9 @@ int main(int argc, char** argv) {
          "\tgymday\tgymdays\tgymbal\tgymmem\tgymlost"
          "\tgymspent\tgymwings\tgymhired\tgymraises\tgymquit"
          "\tgymfixed\tgymleft\tgymhands\tgymgone\tgymtopwage"
-         "\tgymwalks\tgymcomps\tgymcohort\tgymarcs\n");
+         "\tgymwalks\tgymcomps\tgymcohort\tgymarcs"
+         "\tyouthday\tyouthsess\tyouthgrads\tyouthage\tyouthcraft"
+         "\tyouthstep\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -2176,7 +2224,8 @@ int main(int argc, char** argv) {
          "\t%d\t%d\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s"
          "\t%d\t%d\t%.0f\t%.0f\t%d"
          "\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f"
-         "\t%d\t%d\t%d\t%d\n",
+         "\t%d\t%d\t%d\t%d"
+         "\t%d\t%d\t%d\t%d\t%.1f\t%d\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -2278,7 +2327,8 @@ int main(int argc, char** argv) {
          t.gymLost, t.gymSpent, t.gymWings, t.gymHired, t.gymRaises,
          t.gymQuit, t.gymFixed, t.gymLeft, t.gymHandsOffDay, t.gymForeclosed,
          t.gymWorstWage, t.gymWalks, t.gymComps, t.gymCohortDay,
-         t.gymArcsLived);
+         t.gymArcsLived, t.youthDay, t.youthSessions, t.youthGrads,
+         t.youthOldest, t.youthCraftEnd, t.youthSteppedUp);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

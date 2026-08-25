@@ -51,6 +51,7 @@
 #include "DirtbagGym.h"
 #include "DirtbagGymFloor.h"
 #include "DirtbagGymTown.h"
+#include "DirtbagYouth.h"
 #include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
 #include "DirtbagLocals.h"
@@ -1900,6 +1901,87 @@ struct FDirtbagGymFloor
 	EDirtbagGymSetMix WaveTwo = EDirtbagGymSetMix::AllComers;
 };
 
+/** One of the four on the squad. Mirrors dirtbag::YouthKid — `Level` is how
+ *  far along they are, not a grade; YouthBandName is what it reads as. */
+USTRUCT(BlueprintType)
+struct FDirtbagYouthKid
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	FString Tag;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	double Level = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	int32 AgeAtJoin = 11;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	int32 JoinedDay = 0;
+};
+
+/** Somebody who outgrew you. Mirrors dirtbag::Graduate. */
+USTRUCT(BlueprintType)
+struct FDirtbagGraduate
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	int32 Day = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	int32 Age = 0;
+};
+
+/** The youth team at the gym you own. Mirrors dirtbag::Youth — GYM-2 asked
+ *  the question ("There is no youth team. There might have to be") and this
+ *  is the answer. See Sim/DirtbagYouth.h. */
+USTRUCT(BlueprintType)
+struct FDirtbagYouth
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	bool bGoing = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	int32 FoundedDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	TArray<FDirtbagYouthKid> Kids;
+
+	/** Your evenings, or somebody's wage on the gym's books. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	bool bYouCoach = true;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	FString CoachName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	int32 Sessions = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	int32 LastSessionDay = -99;
+
+	/** Coaching craft. Turns a seven-year project into a four-year one. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	double Craft = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	TArray<FDirtbagGraduate> Graduated;
+
+	/** Graduates waiting to step up as the next rival generation. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	TArray<FString> SteppingUp;
+};
+
 /** What somebody heard about you. **The order is the loudness**, quietest
  *  first — a new memory replaces the held one only if it compares greater,
  *  so this ordering *is* the rule about what gets talked about. Mirrors
@@ -2461,6 +2543,10 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	FDirtbagGymFloor Floor;
 
+	/** The youth team, if you founded one. See FDirtbagYouth. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
+	FDirtbagYouth Youth;
+
 	/** What the bank did last night, or empty. A line you read once. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	FString GymNews;
@@ -2880,6 +2966,12 @@ namespace DirtbagConvert
 	dirtbag::GymStaffer ToSim(const FDirtbagGymStaffer& In);
 	FDirtbagGymFloor FromSim(const dirtbag::GymFloor& In);
 	dirtbag::GymFloor ToSim(const FDirtbagGymFloor& In);
+	FDirtbagYouthKid FromSim(const dirtbag::YouthKid& In);
+	dirtbag::YouthKid ToSim(const FDirtbagYouthKid& In);
+	FDirtbagGraduate FromSim(const dirtbag::Graduate& In);
+	dirtbag::Graduate ToSim(const FDirtbagGraduate& In);
+	FDirtbagYouth FromSim(const dirtbag::Youth& In);
+	dirtbag::Youth ToSim(const FDirtbagYouth& In);
 	FDirtbagLiving FromSim(const dirtbag::Living& In);
 	dirtbag::Living ToSim(const FDirtbagLiving& In);
 	FDirtbagBivy FromSim(const dirtbag::Bivy& In);

@@ -177,6 +177,14 @@ struct GymDials {
   double wingTarget[kGymWingCount] = {9.0, 3.0, 8.0, 6.0, 5.0};
   double wingEarns[kGymWingCount] = {0.0, 0.0, 0.0, 0.0, 0.9};
 
+  // **And what a real training space is worth to the squad.** Cut in pass
+  // two because nothing read it -- a dial nothing reads is a dial that
+  // lies -- and back now that `GYM-8` does. Scaled with the rest of
+  // `YouthDials` for a 365-day year: the source's 0.035 and 0.05 are 22%
+  // and 31% of its per-session base, and these are the same fractions of
+  // this port's.
+  double wingYouth[kGymWingCount] = {0.0, 0.0, 0.0017, 0.0024, 0.0};
+
   // --- GYM-4: the one lever of yours that touches the town --------------
   // A live campaign blunts a rival's good month. That is what marketing is
   // for, it already costs real money, and it gives their hot streak a
@@ -333,6 +341,10 @@ double DailyOverhead(const Gym& gym, const GymDials& dials = GymDials{});
 // cafe, and only the cafe.
 double WhatTheWingsEarn(const Gym& gym, const GymDials& dials = GymDials{});
 
+// What the kids' area and the training annex are worth to the youth squad,
+// per session. Zero for a gym with neither, which is most of them.
+double WhatTheWingsTeach(const Gym& gym, const GymDials& dials = GymDials{});
+
 // One night of the books. Drifts the membership, banks the day's net, and
 // counts the days in the red.
 struct GymNight {
@@ -348,7 +360,12 @@ struct GymNight {
   double standing = 0.0;
   std::string news;
 };
+// `otherWages` is anybody on the gym's books who is not one of its two
+// seats -- today that is `GYM-8`'s hired youth coach, which the source pays
+// out of the gym exactly like a front desk. Passed in rather than reached
+// for, because the gym does not know it has a youth team.
 GymNight GymDay(Gym& gym, const Rng& worldRng, int day,
+                double otherWages = 0.0,
                 const GymDials& dials = GymDials{});
 
 // **GYM-6: answer the open incident**, 0 or 1 into its choice table.

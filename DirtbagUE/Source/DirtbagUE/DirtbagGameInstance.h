@@ -2147,6 +2147,33 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
 	FString GymFloorLine() const;
 
+	/** GYM-8: found the youth team. Needs Piper's arc lived out — the whole
+	 *  system is the answer to a question her mother asks at the end of it.
+	 *  YouthWhyNot says why not. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Youth")
+	bool FoundTheYouthTeam();
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Youth")
+	FString YouthWhyNot() const;
+
+	/** An evening with the squad, every third day. Every fifth one is a
+	 *  trip rather than a training night. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Youth")
+	bool RunAYouthSession();
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Youth")
+	FString YouthSessionWhyNot() const;
+
+	/** Hand the squad to somebody you pay, or take it back. Worse for the
+	 *  kids, better for your week, and $30 a day on the gym's books. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Youth")
+	bool SetTheYouthCoach(bool bHired);
+
+	/** The squad, who is closest, and which of the two gates is holding
+	 *  them — because those are different sentences. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Youth")
+	FString YouthTeamLine() const;
+
 	/** GYM-4 and GYM-6: what the other two gyms are up to this month, and
 	 *  what time of year it is for the floor. The readout that tells you
 	 *  why the membership moved when you did not touch anything. */

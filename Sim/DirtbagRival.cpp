@@ -165,8 +165,15 @@ PastRival Retire(const Rival& r, const Rng& worldRng, int day,
 }
 
 Rival Succeed(const Rng& worldRng, const Skills& yours, double yourGrade,
-              int day, int generation, const RivalDials& dials) {
+              int day, int generation,
+              const std::string& theyAlreadyHaveAName,
+              const RivalDials& dials) {
   Rival r = RollRival(worldRng, yours, day, generation, yourGrade, dials);
+  // **A name you already know.** Everything else about them is rolled the
+  // same way a stranger's is -- you coached them to sixteen, not into a
+  // style -- but the name on the board is one you chose off a list of
+  // fourteen when they were eleven.
+  if (!theyAlreadyHaveAName.empty()) r.name = theyAlreadyHaveAName;
   // The new one starts below you rather than ahead. **This is the moment a
   // career turns over**: for the first time somebody is chasing you, and
   // they are gaining twice as fast as the last one did.

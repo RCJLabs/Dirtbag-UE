@@ -195,6 +195,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.locals = ToSim(In.Locals);
 	Out.gym = ToSim(In.Gym);
 	Out.floor = ToSim(In.Floor);
+	Out.youth = ToSim(In.Youth);
 	Out.living = ToSim(In.Living);
 	Out.bivy = ToSim(In.Bivy);
 	Out.gymNews = TCHAR_TO_UTF8(*In.GymNews);
@@ -282,6 +283,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Locals = FromSim(In.locals);
 	Out.Gym = FromSim(In.gym);
 	Out.Floor = FromSim(In.floor);
+	Out.Youth = FromSim(In.youth);
 	Out.Living = FromSim(In.living);
 	Out.Bivy = FromSim(In.bivy);
 	Out.GymNews = UTF8_TO_TCHAR(In.gymNews.c_str());
@@ -617,6 +619,99 @@ dirtbag::GymStaffer ToSim(const FDirtbagGymStaffer& In)
 	Out.hiredDay = In.HiredDay;
 	Out.nextAskDay = In.NextAskDay;
 	Out.refusals = In.Refusals;
+	return Out;
+}
+
+FDirtbagYouthKid FromSim(const dirtbag::YouthKid& In)
+{
+	FDirtbagYouthKid Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Tag = UTF8_TO_TCHAR(In.tag.c_str());
+	Out.Level = In.level;
+	Out.AgeAtJoin = In.ageAtJoin;
+	Out.JoinedDay = In.joinedDay;
+	return Out;
+}
+
+dirtbag::YouthKid ToSim(const FDirtbagYouthKid& In)
+{
+	dirtbag::YouthKid Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.tag = TCHAR_TO_UTF8(*In.Tag);
+	Out.level = In.Level;
+	Out.ageAtJoin = In.AgeAtJoin;
+	Out.joinedDay = In.JoinedDay;
+	return Out;
+}
+
+FDirtbagGraduate FromSim(const dirtbag::Graduate& In)
+{
+	FDirtbagGraduate Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Day = In.day;
+	Out.Age = In.age;
+	return Out;
+}
+
+dirtbag::Graduate ToSim(const FDirtbagGraduate& In)
+{
+	dirtbag::Graduate Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.day = In.Day;
+	Out.age = In.Age;
+	return Out;
+}
+
+FDirtbagYouth FromSim(const dirtbag::Youth& In)
+{
+	FDirtbagYouth Out;
+	Out.bGoing = In.going;
+	Out.FoundedDay = In.foundedDay;
+	Out.Kids.Reset();
+	for (const dirtbag::YouthKid& Kid : In.kids)
+	{
+		Out.Kids.Add(FromSim(Kid));
+	}
+	Out.bYouCoach = In.youCoach;
+	Out.CoachName = UTF8_TO_TCHAR(In.coachName.c_str());
+	Out.Sessions = In.sessions;
+	Out.LastSessionDay = In.lastSessionDay;
+	Out.Craft = In.craft;
+	Out.Graduated.Reset();
+	for (const dirtbag::Graduate& Gone : In.graduated)
+	{
+		Out.Graduated.Add(FromSim(Gone));
+	}
+	Out.SteppingUp.Reset();
+	for (const std::string& Who : In.steppingUp)
+	{
+		Out.SteppingUp.Add(UTF8_TO_TCHAR(Who.c_str()));
+	}
+	return Out;
+}
+
+dirtbag::Youth ToSim(const FDirtbagYouth& In)
+{
+	dirtbag::Youth Out;
+	Out.going = In.bGoing;
+	Out.foundedDay = In.FoundedDay;
+	for (const FDirtbagYouthKid& Kid : In.Kids)
+	{
+		Out.kids.push_back(ToSim(Kid));
+	}
+	Out.youCoach = In.bYouCoach;
+	Out.coachName = TCHAR_TO_UTF8(*In.CoachName);
+	Out.sessions = In.Sessions;
+	Out.lastSessionDay = In.LastSessionDay;
+	Out.craft = In.Craft;
+	for (const FDirtbagGraduate& Gone : In.Graduated)
+	{
+		Out.graduated.push_back(ToSim(Gone));
+	}
+	for (const FString& Who : In.SteppingUp)
+	{
+		Out.steppingUp.push_back(TCHAR_TO_UTF8(*Who));
+	}
 	return Out;
 }
 

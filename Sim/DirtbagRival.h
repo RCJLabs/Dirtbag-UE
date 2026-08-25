@@ -234,9 +234,14 @@ bool ThinkingAboutIt(const Rival& r, const Rng& worldRng, int day,
 PastRival Retire(const Rival& r, const Rng& worldRng, int day,
                  const RivalDials& dials = RivalDials{});
 
-// Somebody steps up. Sometimes it is a kid from the gym.
+// Somebody steps up. **Sometimes it is a kid from the gym** -- that
+// sentence has been here since long before there was a gym, and `GYM-8`
+// finally makes it true: pass a graduate's name and the successor is
+// somebody you coached from eleven. Empty means a stranger, which is what
+// it always was.
 Rival Succeed(const Rng& worldRng, const Skills& yours, double yourGrade,
               int day, int generation,
+              const std::string& theyAlreadyHaveAName = std::string(),
               const RivalDials& dials = RivalDials{});
 
 // Is one on right now?

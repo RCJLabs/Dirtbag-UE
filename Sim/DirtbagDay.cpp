@@ -269,6 +269,66 @@ bool HostCompNight(PlayerState& player, DayState& day, const Rng& worldRng,
   return true;
 }
 
+std::string WhyNoYouthTeam(const PlayerState& player, const DayDials& dials) {
+  (void)dials;
+  if (!player.gym.owned) return "";
+  if (player.youth.going) return "";
+  // **The kid who makes this necessary.** Her arc has to be lived out,
+  // because the whole system is the answer to a question her mother asks at
+  // the end of it -- founding it first would be answering nobody.
+  if (player.floor.stage[static_cast<int>(GymRegular::Piper)] < kArcStages) {
+    return "Not yet. The kid who makes this necessary is still finding her "
+           "feet here.";
+  }
+  const YouthDials youthDials;
+  if (player.cash < youthDials.foundCost) {
+    return "Mats, kit and insurance run $" +
+           std::to_string(static_cast<int>(youthDials.foundCost)) + ".";
+  }
+  return "";
+}
+
+bool FoundYouthTeam(PlayerState& player, const Rng& worldRng,
+                    const DayDials& dials) {
+  if (!player.gym.owned || player.youth.going) return false;
+  if (!WhyNoYouthTeam(player, dials).empty()) return false;
+  return FoundTheYouthTeam(player.youth, player.cash, player.day, worldRng);
+}
+
+bool RunYouthSession(PlayerState& player, DayState& day, const Rng& worldRng,
+                     const DayDials& dials) {
+  const YouthDials youthDials;
+  if (!WhyNotASession(player.youth, player.day, day.energy, youthDials)
+           .empty()) {
+    return false;
+  }
+  if (!player.youth.youCoach) return false;
+  // GYM-12: the kids' area and the training annex are worth something to
+  // them, which is the only wing effect that is not a number on the books.
+  const YouthSession ran =
+      RunASession(player.youth, worldRng, player.day,
+                  WhatTheWingsTeach(player.gym), youthDials);
+  if (!ran.ran) return false;
+  PassHours(day, youthDials.sessionHours, dials);
+  day.energy = std::max(0.0, day.energy - youthDials.sessionEnergy);
+  player.climber.psyche = std::min(1.0, player.climber.psyche + ran.psyche);
+  if (ran.standing != 0.0) {
+    Shift(player.standing, Faction::Scene, ran.standing / 100.0);
+  }
+  player.gymNews = ran.said;
+  if (!ran.graduated.empty()) {
+    player.gymNews += " " + ran.graduated + " has outgrown you.";
+    if (!ran.joined.empty()) {
+      player.gymNews += " " + ran.joined + " takes the place.";
+    }
+  }
+  return true;
+}
+
+bool SetTheYouthCoach(PlayerState& player, bool hired, const Rng& worldRng) {
+  return SetYouthCoach(player.youth, hired, worldRng, player.day);
+}
+
 void WorkShift(PlayerState& player, DayState& day, const DayDials& dials) {
   // Debt first: a wage does not reach your pocket until you are level.
   Pay(player, dials.shiftWage);
@@ -684,7 +744,28 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   player.gymNews.clear();
   if (player.gym.owned) {
     const std::string was = player.gym.name;
-    const GymNight night = GymDay(player.gym, worldRng, player.day);
+    // **GYM-8: and somebody you pay actually coaches.** The source gates
+    // its session verb on `coach === 'you'` and never runs one anywhere
+    // else, so a hired coach in the original is $30 a day for a squad that
+    // stops progressing entirely -- its own UI shows a projected gain that
+    // can never happen. The stated design is "let it run without you", so
+    // here it runs.
+    if (!player.youth.youCoach &&
+        SquadIsDue(player.youth, player.day, YouthDials{})) {
+      const YouthSession ran =
+          RunASession(player.youth, worldRng, player.day,
+                      WhatTheWingsTeach(player.gym));
+      if (ran.ran && !ran.graduated.empty()) {
+        player.gymNews = player.youth.coachName + " took the squad out. " +
+                         ran.graduated + " has outgrown you both.";
+      }
+    }
+
+    // GYM-8: a paid youth coach is a wage on the gym's books like any
+    // other, which is what makes handing the squad over a business
+    // decision rather than a free one.
+    const GymNight night = GymDay(player.gym, worldRng, player.day,
+                                  YouthWageToday(player.youth));
     // GYM-6: something landed, or something you left ran out of days and
     // answered itself. Either way it is the night's news about the place.
     if (!night.news.empty()) player.gymNews = night.news;
@@ -839,8 +920,13 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
         ThinkingAboutIt(player.rival, worldRng, player.day)) {
       player.pastRivals.push_back(
           Retire(player.rival, worldRng, player.day));
+      // **And sometimes it is a kid from the gym.** A graduate waiting to
+      // step up takes the seat; otherwise it is a stranger, which is what
+      // every successor before `GYM-8` was.
       player.rival = Succeed(worldRng, player.climber.skills, yourGrade,
-                             player.day, player.rival.generation + 1);
+                             player.day, player.rival.generation + 1,
+                             SomebodyStepsUp(player.youth, player.day,
+                                             RivalDials{}.rivalStartAge - 2.0));
     }
   }
 

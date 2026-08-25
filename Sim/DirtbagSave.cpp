@@ -341,6 +341,27 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // people this career ever climbed with. The honest reconstruction is that
 // you knew them at least as well as you know them now, which is exactly
 // what the runtime would derive on the next `BondsFrom` anyway.
+// v43 -> v44: the youth team. A v43 career had Piper's mother asking the
+// question and nothing behind it, so it loads with no team -- which is
+// exactly what it had, and the question is still open the moment it loads.
+//
+// **A counted list, like the bonds.** How many kids, how many graduates and
+// how many are waiting to step up all depend on how long this career has
+// been coaching, so there is no fixed set of keys to add -- only the three
+// counts, at zero.
+void MigrateV43ToV44(SaveFields& fields) {
+  fields["youth.going"] = "0";
+  fields["youth.day"] = "0";
+  fields["youth.you"] = "1";
+  fields["youth.coach"] = "";
+  fields["youth.sessions"] = "0";
+  fields["youth.last"] = "-99";
+  fields["youth.craft"] = "0";
+  fields["youth.n"] = "0";
+  fields["youth.grads"] = "0";
+  fields["youth.queue"] = "0";
+}
+
 // v42 -> v43: the people in the building. A v42 career could own a gym and
 // run its books, and there was nobody in it -- so it loads with nobody's
 // story started, which is exactly whose story had been started.
@@ -729,7 +750,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36,
       &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39,
       &MigrateV39ToV40, &MigrateV40ToV41, &MigrateV41ToV42,
-      &MigrateV42ToV43};
+      &MigrateV42ToV43, &MigrateV43ToV44};
   return kMigrations;
 }
 
@@ -1242,6 +1263,40 @@ std::string SerializeSave(const SaveGame& save) {
       << "\n";
   out << "floor.wave2mix="
       << IntToStr(static_cast<int>(save.player.floor.waveTwo)) << "\n";
+
+  // GYM-8: the squad, the alumni, and whoever is waiting to step up. Three
+  // counted lists, because all three grow with the career.
+  const Youth& youth = save.player.youth;
+  out << "youth.going=" << IntToStr(youth.going ? 1 : 0) << "\n";
+  out << "youth.day=" << IntToStr(youth.foundedDay) << "\n";
+  out << "youth.you=" << IntToStr(youth.youCoach ? 1 : 0) << "\n";
+  out << "youth.coach=" << youth.coachName << "\n";
+  out << "youth.sessions=" << IntToStr(youth.sessions) << "\n";
+  out << "youth.last=" << IntToStr(youth.lastSessionDay) << "\n";
+  out << "youth.craft=" << NumToStr(youth.craft) << "\n";
+  out << "youth.n=" << IntToStr(static_cast<int>(youth.kids.size())) << "\n";
+  for (std::size_t i = 0; i < youth.kids.size(); i++) {
+    const std::string k = "kid." + IntToStr(static_cast<int>(i)) + ".";
+    out << k << "name=" << youth.kids[i].name << "\n";
+    out << k << "tag=" << youth.kids[i].tag << "\n";
+    out << k << "level=" << NumToStr(youth.kids[i].level) << "\n";
+    out << k << "age=" << IntToStr(youth.kids[i].ageAtJoin) << "\n";
+    out << k << "joined=" << IntToStr(youth.kids[i].joinedDay) << "\n";
+  }
+  out << "youth.grads=" << IntToStr(static_cast<int>(youth.graduated.size()))
+      << "\n";
+  for (std::size_t i = 0; i < youth.graduated.size(); i++) {
+    const std::string k = "grad." + IntToStr(static_cast<int>(i)) + ".";
+    out << k << "name=" << youth.graduated[i].name << "\n";
+    out << k << "day=" << IntToStr(youth.graduated[i].day) << "\n";
+    out << k << "age=" << IntToStr(youth.graduated[i].age) << "\n";
+  }
+  out << "youth.queue=" << IntToStr(static_cast<int>(youth.steppingUp.size()))
+      << "\n";
+  for (std::size_t i = 0; i < youth.steppingUp.size(); i++) {
+    out << "step." << IntToStr(static_cast<int>(i)) << "="
+        << youth.steppingUp[i] << "\n";
+  }
 
   out << "hunger.carried=" << NumToStr(save.player.hungerCarried) << "\n";
   out << "loc.titles=" << IntToStr(save.player.locals.knownTitles) << "\n";
@@ -1939,6 +1994,61 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       }
       floor.waveTwoArrived = wave2 != 0;
       floor.waveTwo = static_cast<GymSetMix>(within(wave2mix, kGymSetMixCount));
+
+      Youth& youth = save.player.youth;
+      youth = Youth{};
+      int going = 0, youCoach = 1, kids = 0, grads = 0, queue = 0;
+      if (!ParseInt(fields, "youth.going", going) ||
+          !ParseInt(fields, "youth.day", youth.foundedDay) ||
+          !ParseInt(fields, "youth.you", youCoach) ||
+          !ParseInt(fields, "youth.sessions", youth.sessions) ||
+          !ParseInt(fields, "youth.last", youth.lastSessionDay) ||
+          !ParseDouble(fields, "youth.craft", youth.craft) ||
+          !ParseInt(fields, "youth.n", kids) ||
+          !ParseInt(fields, "youth.grads", grads) ||
+          !ParseInt(fields, "youth.queue", queue)) {
+        return LoadResult::BadFormat;
+      }
+      const auto coached = fields.find("youth.coach");
+      if (coached == fields.end()) return LoadResult::BadFormat;
+      youth.coachName = coached->second;
+      youth.going = going != 0;
+      youth.youCoach = youCoach != 0;
+
+      for (int i = 0; i < kids; i++) {
+        const std::string k = "kid." + IntToStr(i) + ".";
+        YouthKid kid;
+        if (!ParseDouble(fields, k + "level", kid.level) ||
+            !ParseInt(fields, k + "age", kid.ageAtJoin) ||
+            !ParseInt(fields, k + "joined", kid.joinedDay)) {
+          return LoadResult::BadFormat;
+        }
+        const auto kidName = fields.find(k + "name");
+        const auto kidTag = fields.find(k + "tag");
+        if (kidName == fields.end() || kidTag == fields.end()) {
+          return LoadResult::BadFormat;
+        }
+        kid.name = kidName->second;
+        kid.tag = kidTag->second;
+        youth.kids.push_back(kid);
+      }
+      for (int i = 0; i < grads; i++) {
+        const std::string k = "grad." + IntToStr(i) + ".";
+        Graduate gone;
+        if (!ParseInt(fields, k + "day", gone.day) ||
+            !ParseInt(fields, k + "age", gone.age)) {
+          return LoadResult::BadFormat;
+        }
+        const auto gradName = fields.find(k + "name");
+        if (gradName == fields.end()) return LoadResult::BadFormat;
+        gone.name = gradName->second;
+        youth.graduated.push_back(gone);
+      }
+      for (int i = 0; i < queue; i++) {
+        const auto stepName = fields.find("step." + IntToStr(i));
+        if (stepName == fields.end()) return LoadResult::BadFormat;
+        youth.steppingUp.push_back(stepName->second);
+      }
     }
     if (!ParseDouble(fields, "hunger.carried", save.player.hungerCarried)) {
       return LoadResult::BadFormat;

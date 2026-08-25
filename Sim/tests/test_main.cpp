@@ -19,6 +19,7 @@
 #include "../DirtbagGym.h"
 #include "../DirtbagGymFloor.h"
 #include "../DirtbagGymTown.h"
+#include "../DirtbagYouth.h"
 #include "../DirtbagBivy.h"
 #include "../DirtbagLiving.h"
 #include "../DirtbagMedical.h"
@@ -4432,7 +4433,7 @@ static void TestRival() {
   // The moment a career turns over: for the first time somebody is chasing
   // *you*, and they are gaining twice as fast as the last one did.
   {
-    const Rival next = Succeed(world, you, 9.0, 500, 1, rd);
+    const Rival next = Succeed(world, you, 9.0, 500, 1, std::string(), rd);
     CHECK(next.generation == 1);
     CHECK(next.grade < 9.0);                       // below you, not ahead
     CHECK(std::abs(next.grade - 6.0) < 1e-9);      // exactly the lag
@@ -14484,11 +14485,11 @@ static void TestTheFloorIsAMeterAndNotASwitch() {
   const double target = MembersItPullsToward(g, d);
   CHECK(target > g.members + 10.0);
   const double started = g.members;
-  GymDay(g, world, 2, d);
+  GymDay(g, world, 2, 0.0, d);
   CHECK(g.members > started);
   CHECK(g.members < target);              // nowhere near it yet
 
-  for (int day = 3; day <= 60; day++) GymDay(g, world, day, d);
+  for (int day = 3; day <= 60; day++) GymDay(g, world, day, 0.0, d);
   // ...and a couple of months later it is there, within the daily wobble.
   CHECK(std::fabs(g.members - target) <= d.memberNoise * 2.0);
 }
@@ -14568,7 +14569,7 @@ static void TestACampaignRunsOutAndOnlyOneRunsAtATime() {
 
   bool ended = false;
   for (int day = 2; day <= 1 + d.campaignDays[2] + 2; day++) {
-    ended = ended || GymDay(g, world, day, d).campaignEnded;
+    ended = ended || GymDay(g, world, day, 0.0, d).campaignEnded;
   }
   CHECK(ended);
   CHECK(g.campaign == GymCampaign::None);
@@ -14607,7 +14608,7 @@ static void TestTheBankTakesItBack() {
   bool foreclosed = false;
   int day = 2;
   for (; day < 400 && !foreclosed; day++) {
-    foreclosed = GymDay(g, world, day, d).foreclosed;
+    foreclosed = GymDay(g, world, day, 0.0, d).foreclosed;
     // **It resets the moment you are not in the red**, which is what makes
     // a fortnight a grace period rather than a countdown.
     if (g.owned && g.balance >= 0.0) CHECK(g.debtDays == 0);
@@ -14618,7 +14619,7 @@ static void TestTheBankTakesItBack() {
   CHECK(g.name.empty());
 
   // A gym nobody owns has no books and says nothing.
-  CHECK(GymDay(g, world, day, d).net == 0.0);
+  CHECK(GymDay(g, world, day, 0.0, d).net == 0.0);
   CHECK(GymLine(g, d).empty());
   CHECK(GymWarning(g, d).empty());
 }
@@ -14630,7 +14631,7 @@ static void TestTheNoticeboardIsQuietWhileTheBooksAreFine() {
   Gym g = ABoughtGym(cash);
   SetPrice(g, GymPrice::Budget);
 
-  for (int day = 2; day <= 40; day++) GymDay(g, world, day, d);
+  for (int day = 2; day <= 40; day++) GymDay(g, world, day, 0.0, d);
   CHECK(g.balance > 0.0);
   // **An open incident is legitimately not quiet**, and after the grace
   // window one can land on any night -- so the quiet being asserted here is
@@ -14835,7 +14836,7 @@ static void TestTheFloorIsAlwaysChasing() {
   double moved = 0.0, worst = 0.0;
   double was = MembersItPullsToward(g, d);
   for (int day = 2; day <= 800; day++) {
-    GymDay(g, world, day, d);
+    GymDay(g, world, day, 0.0, d);
     if (day < 60) continue;                 // let the initial drift settle
     const double now = MembersItPullsToward(g, d);
     moved = std::max(moved, std::fabs(now - was));
@@ -14862,7 +14863,7 @@ static void TestSomethingGoesWrongAndItHasAClock() {
 
   int landed = -1;
   for (int day = 2; day <= 400 && landed < 0; day++) {
-    if (GymDay(g, world, day, d).landed != GymIncident::None) landed = day;
+    if (GymDay(g, world, day, 0.0, d).landed != GymIncident::None) landed = day;
   }
   CHECK(landed > 0);
   CHECK(g.incident != GymIncident::None);
@@ -14878,7 +14879,7 @@ static void TestSomethingGoesWrongAndItHasAClock() {
   CHECK(def != nullptr);
   GymNight lapsed;
   for (int day = landed + 1; day <= landed + d.town.incidentDays + 1; day++) {
-    const GymNight n = GymDay(g, world, day, d);
+    const GymNight n = GymDay(g, world, day, 0.0, d);
     if (n.lapsed != GymIncident::None) lapsed = n;
   }
   CHECK(lapsed.lapsed != GymIncident::None);
@@ -15536,6 +15537,407 @@ static void TestLoadsVersion42Save() {
   // the day the fourth arc closes, and a save loader must not make that
   // call on the player's behalf.
   CHECK(!f.waveTwoArrived);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+}
+
+// --- GYM-8: the youth team ------------------------------------------------
+
+static void TestTheYouthTeamAnswersAQuestionSomebodyAsked() {
+  PlayerState player;
+  player.day = 400;
+  player.cash = GymDials{}.price + 5000.0;
+  CHECK(BuyTheGym(player.gym, player.cash, "The Woodshed", 400));
+  const Rng world = Rng::FromSeed("the-woodshed");
+
+  // **Gated on the arc that asks for it.** Piper's second stage ends with
+  // her mother asking whether the youth team has a waitlist, and the answer
+  // is this -- founding it before living that out would be answering
+  // nobody.
+  CHECK(WhyNoYouthTeam(player).find("still finding her feet") !=
+        std::string::npos);
+  CHECK(!FoundYouthTeam(player, world));
+  CHECK(!player.youth.going);
+
+  player.floor.stage[static_cast<int>(GymRegular::Piper)] = kArcStages;
+  CHECK(WhyNoYouthTeam(player).empty());
+
+  double broke = player.cash;
+  player.cash = YouthDials{}.foundCost - 1.0;
+  CHECK(WhyNoYouthTeam(player).find("Mats, kit") != std::string::npos);
+  CHECK(!FoundYouthTeam(player, world));
+  player.cash = broke;
+
+  const double was = player.cash;
+  CHECK(FoundYouthTeam(player, world));
+  CHECK(player.youth.going);
+  CHECK(player.cash == was - YouthDials{}.foundCost);
+  CHECK(static_cast<int>(player.youth.kids.size()) == YouthDials{}.squadSize);
+  // Pool order, so a squad fills predictably -- and **the kid who started
+  // all this is the first name in it.**
+  CHECK(player.youth.kids[0].name == std::string("Piper"));
+  for (const YouthKid& kid : player.youth.kids) {
+    CHECK(!kid.name.empty());
+    CHECK(!kid.tag.empty());
+    CHECK(kid.level == 0.0);
+    CHECK(kid.joinedDay == 400);
+  }
+  CHECK(!FoundYouthTeam(player, world));      // and only the one
+}
+
+static void TestNeitherGateSubstitutesForTheOther() {
+  const YouthDials d;
+  const AgeDials age;
+  YouthKid kid;
+  kid.name = "Wren";
+  kid.ageAtJoin = 11;
+  kid.joinedDay = 0;
+
+  // **Ready in the only two senses that matter.** The climbing does not buy
+  // the birthday and the birthday does not buy the climbing.
+  kid.level = d.levelMax;
+  CHECK(!ReadyToGraduate(kid, 0, d, age));               // ...eleven.
+  CHECK(!ReadyToGraduate(kid, age.daysPerYear * 4, d, age));
+  CHECK(ReadyToGraduate(kid, age.daysPerYear * 5, d, age));
+
+  kid.level = d.levelMax - 0.01;
+  CHECK(!ReadyToGraduate(kid, age.daysPerYear * 20, d, age));
+
+  // Five bands over ten rungs, and they are in order.
+  CHECK(std::string(YouthBand(0.0, d)) == "learning to fall");
+  CHECK(std::string(YouthBand(d.levelMax * 0.3, d)) == "getting somewhere");
+  CHECK(std::string(YouthBand(d.levelMax * 0.6, d)) == "competing");
+  CHECK(std::string(YouthBand(d.levelMax * 0.8, d)) == "winning things");
+  CHECK(std::string(YouthBand(d.levelMax, d)) == "ready");
+}
+
+static void TestTheClimbingIsTheGateUntilYouKnowWhatYouAreDoing() {
+  // **The whole reason these numbers were re-derived rather than copied.**
+  // The source tunes against an eighteen-day year; ported as written a
+  // squad would max out in six months against a five-year age gate, so the
+  // birthday would bind in every case -- which is the bug the source's own
+  // comment records tuning away from.
+  //
+  // The intent, in its words: "the CLIMBING is the gate when you don't know
+  // what you're doing and the BIRTHDAY is the gate when you do."
+  const YouthDials d;
+  const AgeDials age;
+  const auto yearsToReady = [&](double craft) {
+    Youth youth;
+    double cash = d.foundCost;
+    const Rng world = Rng::FromSeed("the-woodshed");
+    CHECK(FoundTheYouthTeam(youth, cash, 0, world, d));
+    youth.craft = craft;
+    int day = 0;
+    while (youth.kids[0].level < d.levelMax && day < age.daysPerYear * 40) {
+      day += d.sessionGapDays;
+      const double held = youth.craft;
+      RunASession(youth, world, day, 0.0, d, age);
+      youth.craft = held;          // pinned, so this measures one craft
+    }
+    return static_cast<double>(day) / age.daysPerYear;
+  };
+
+  const double green = yearsToReady(0.0);
+  const double practised = yearsToReady(d.craftMax);
+  CHECK(green > 6.0 && green < 8.0);        // a seven-year project
+  CHECK(practised > 3.5 && practised < 4.5);  // ...and a four-year one
+  // **Four years is the floor**, so a kid who joins at eleven is still held
+  // by the birthday and a kid who joins at thirteen is not.
+  CHECK(practised < static_cast<double>(d.gradAge - 11));
+  CHECK(practised > static_cast<double>(d.gradAge - 16));
+}
+
+static void TestAPaidCoachIsWorseForTheKidsAndBetterForYourWeek() {
+  const YouthDials d;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  Youth mine, theirs;
+  double a = d.foundCost, b = d.foundCost;
+  CHECK(FoundTheYouthTeam(mine, a, 1, world, d));
+  CHECK(FoundTheYouthTeam(theirs, b, 1, world, d));
+
+  CHECK(YouthWageToday(mine, d) == 0.0);
+  CHECK(SetYouthCoach(theirs, true, world, 1));
+  CHECK(!theirs.youCoach);
+  CHECK(!theirs.coachName.empty());
+  // It comes out of the gym's books like any other wage, which is what
+  // makes handing the squad over a business decision.
+  CHECK(YouthWageToday(theirs, d) == d.coachWage);
+
+  // ...and the sessions are not yours to run any more.
+  CHECK(WhyNotASession(theirs, 40, 100.0, d).find("runs the sessions now") !=
+        std::string::npos);
+
+  // **But the squad still trains**, which the source does not do: it gates
+  // its session verb on coaching them yourself and runs one nowhere else,
+  // so a hired coach there is $30 a day for kids who stop progressing
+  // entirely, behind a readout showing a gain that never happens.
+  const double was = theirs.kids[0].level;
+  const YouthSession paid = RunASession(theirs, world, 40, 0.0, d);
+  CHECK(paid.ran);
+  CHECK(theirs.kids[0].level > was);
+  // Slower, though, and it teaches you nothing and earns you nothing.
+  const double mineWas = mine.kids[0].level;
+  CHECK(RunASession(mine, world, 40, 0.0, d).ran);
+  CHECK(mine.kids[0].level - mineWas > theirs.kids[0].level - was);
+  for (int i = 2; i <= d.compEvery; i++) {
+    const YouthSession trip = RunASession(theirs, world, 40 + i * d.sessionGapDays, 0.0, d);
+    CHECK(trip.ran);
+    if (!trip.wasATrip) continue;
+    CHECK(trip.standing == 0.0);      // their weekend, not yours
+    CHECK(theirs.craft == 0.0);       // and their lesson, not yours
+  }
+
+  // Reversible, and it is your evening again.
+  CHECK(SetYouthCoach(theirs, false, world, 400));
+  CHECK(theirs.youCoach);
+  CHECK(theirs.coachName.empty());
+  CHECK(!SetYouthCoach(theirs, false, world, 400));    // already yours
+  CHECK(YouthWageToday(theirs, d) == 0.0);
+  CHECK(WhyNotASession(theirs, 400, 100.0, d).empty());
+
+  // A hired coach brings them on more slowly. Steady. Not you.
+  CHECK(d.gainHired < d.gainBase);
+}
+
+static void TestASquadTrainsAndDoesNotGrind() {
+  const YouthDials d;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  Youth youth;
+  double cash = d.foundCost;
+  CHECK(FoundTheYouthTeam(youth, cash, 1, world, d));
+
+  CHECK(RunASession(youth, world, 1, 0.0, d).ran);
+  CHECK(WhyNotASession(youth, 2, 100.0, d).find("next one in") !=
+        std::string::npos);
+  CHECK(!RunASession(youth, world, 2, 0.0, d).ran);
+  CHECK(WhyNotASession(youth, 1 + d.sessionGapDays, 100.0, d).empty());
+  CHECK(WhyNotASession(youth, 1 + d.sessionGapDays, 1.0, d).find("Too wrecked") !=
+        std::string::npos);
+
+  // Every fifth one is a trip rather than a training night, and it is worth
+  // more than a night of drills -- and it is the only one that teaches you
+  // anything.
+  int trips = 0;
+  std::set<std::string> lines;
+  double craftWas = youth.craft;
+  for (int i = 2; i <= 20; i++) {
+    const YouthSession ran = RunASession(youth, world, i * d.sessionGapDays, 0.0, d);
+    CHECK(ran.ran);
+    lines.insert(ran.said);
+    if (!ran.wasATrip) {
+      CHECK(ran.standing == 0.0);
+      CHECK(youth.craft == craftWas);
+      continue;
+    }
+    trips++;
+    CHECK(ran.standing == d.tripStanding);
+    CHECK(youth.craft > craftWas);
+    craftWas = youth.craft;
+  }
+  CHECK(trips == 4);
+  CHECK(lines.size() > 4);
+  CHECK(youth.craft <= d.craftMax);
+
+  // A real training space is worth something to them -- the one wing effect
+  // that is not a number on the books.
+  GymDials gd;
+  double money = 100000.0;
+  Gym g = ABoughtGym(money);
+  CHECK(WhatTheWingsTeach(g, gd) == 0.0);
+  CHECK(BuildWing(g, money, GymWing::Annex, gd));
+  CHECK(WhatTheWingsTeach(g, gd) > 0.0);
+  CHECK(BuildWing(g, money, GymWing::Cafe, gd));
+  CHECK(WhatTheWingsTeach(g, gd) == gd.wingYouth[static_cast<int>(GymWing::Annex)]);
+}
+
+static void TestAKidYouCoachedTurnsUpChasingYou() {
+  const YouthDials d;
+  const AgeDials age;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  Youth youth;
+  double cash = d.foundCost;
+  CHECK(FoundTheYouthTeam(youth, cash, 1, world, d));
+  youth.craft = d.craftMax;
+  const std::string first = youth.kids[0].name;
+
+  int day = 1;
+  std::string gone;
+  while (gone.empty() && day < age.daysPerYear * 20) {
+    day += d.sessionGapDays;
+    gone = RunASession(youth, world, day, 0.0, d, age).graduated;
+  }
+  CHECK(!gone.empty());
+  CHECK(gone == first);
+  CHECK(static_cast<int>(youth.graduated.size()) == 1);
+  CHECK(youth.graduated[0].age >= d.gradAge);
+  // A place opens, so somebody fills it, and **nobody is ever recruited
+  // twice** -- not from the squad and not from the alumni.
+  CHECK(static_cast<int>(youth.kids.size()) == d.squadSize);
+  for (const YouthKid& kid : youth.kids) CHECK(kid.name != gone);
+
+  // **And this is where it lands.** `DirtbagRival.h` has carried the line
+  // "sometimes it is a kid from the gym" since long before there was a gym.
+  Skills skills;
+  const Rival stranger = Succeed(world, skills, 9.0, day, 1);
+  const double wants = RivalDials{}.rivalStartAge - 2.0;
+
+  // **Not yet.** They left at sixteen this morning; the seat wants somebody
+  // in their mid-twenties, and a seventeen-year-old is not a rival.
+  CHECK(SomebodyStepsUp(youth, day, wants, d, age).empty());
+  CHECK(youth.steppingUp.size() == 1);
+
+  // Eight years on, they are exactly the age the seat wants.
+  const int grown = day + age.daysPerYear * 8;
+  const std::string waiting = SomebodyStepsUp(youth, grown, wants, d, age);
+  CHECK(waiting == gone);
+  const Rival theirs = Succeed(world, skills, 9.0, day, 1, waiting);
+  CHECK(theirs.name == gone);
+  CHECK(stranger.name != gone);
+  // Everything else about them is rolled the way a stranger's is -- you
+  // coached them to sixteen, not into a style.
+  CHECK(theirs.grade == stranger.grade);
+  CHECK(theirs.style == stranger.style);
+
+  // The queue empties, and **it forgets anybody who aged out of it** --
+  // twenty-five years later they are forty-one and they went and had a
+  // life instead.
+  CHECK(SomebodyStepsUp(youth, grown, wants, d, age).empty());
+  youth.steppingUp.push_back(gone);
+  CHECK(SomebodyStepsUp(youth, day + age.daysPerYear * 30, wants, d, age)
+            .empty());
+  CHECK(youth.steppingUp.empty());
+}
+
+static void TestTheSquadNeverRunsOutOfKids() {
+  // **Measured, not assumed.** Fourteen written names against a squad of
+  // four graduating in clumps every four or five years means a thirty-year
+  // career runs the pool dry at about the halfway point -- and before this,
+  // the squad then dwindled to nothing and the system quietly ended.
+  const YouthDials d;
+  const AgeDials age;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  Youth youth;
+  double cash = d.foundCost;
+  CHECK(FoundTheYouthTeam(youth, cash, 1, world, d));
+  youth.craft = d.craftMax;
+
+  std::set<std::string> everybody;
+  for (const YouthKid& kid : youth.kids) everybody.insert(kid.name);
+  for (int day = 1; day < age.daysPerYear * 60; day += d.sessionGapDays) {
+    RunASession(youth, world, day, 0.0, d, age);
+    CHECK(static_cast<int>(youth.kids.size()) == d.squadSize);
+    for (const YouthKid& kid : youth.kids) {
+      CHECK(!kid.name.empty());
+      CHECK(!kid.tag.empty());
+      everybody.insert(kid.name);
+    }
+  }
+  // Sixty years is well past the fourteen, and nobody is ever recruited
+  // twice -- so the count of distinct names is the count of people.
+  CHECK(static_cast<int>(youth.graduated.size()) > 20);
+  CHECK(everybody.size() ==
+        youth.graduated.size() + youth.kids.size());
+  // The written fourteen all get their turn before anybody is invented.
+  CHECK(everybody.count("Perpetua") == 1);
+}
+
+static void TestASessionCostsAnEveningAndTwelveEnergy() {
+  PlayerState player;
+  DayState day;
+  player.day = 400;
+  player.cash = GymDials{}.price + 5000.0;
+  CHECK(BuyTheGym(player.gym, player.cash, "The Woodshed", 400));
+  player.floor.stage[static_cast<int>(GymRegular::Piper)] = kArcStages;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  CHECK(FoundYouthTeam(player, world));
+
+  const double hour = day.hour;
+  const double energy = day.energy;
+  CHECK(RunYouthSession(player, day, world));
+  CHECK(day.hour == hour + YouthDials{}.sessionHours);
+  CHECK(day.energy == energy - YouthDials{}.sessionEnergy);
+  CHECK(!player.gymNews.empty());
+  CHECK(player.youth.kids[0].level > 0.0);
+  CHECK(!RunYouthSession(player, day, world));    // every third day
+
+  // A paid coach is on the gym's books, so the night's net moves by exactly
+  // their wage and nothing else.
+  player.gym.members = 40.0;
+  Gym twin = player.gym;
+  const Rng rng = Rng::FromSeed("books");
+  const double unpaid = GymDay(twin, rng, 500, 0.0).net;
+  Gym other = player.gym;
+  const double paid = GymDay(other, rng, 500, YouthDials{}.coachWage).net;
+  CHECK(std::fabs((unpaid - paid) - YouthDials{}.coachWage) < 1e-9);
+
+  CHECK(SetTheYouthCoach(player, true, world));
+  CHECK(!RunYouthSession(player, day, world));
+  CHECK(!YouthLine(player.youth, player.day).empty());
+  PlayerState nobody;
+  CHECK(YouthLine(nobody.youth, 1).empty());
+  CHECK(WhyNoYouthTeam(nobody).empty());        // no gym, no question
+}
+
+static void TestTheYouthTeamSurvivesASave() {
+  SaveGame save;
+  save.seed = "the-woodshed";
+  double cash = YouthDials{}.foundCost;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  CHECK(FoundTheYouthTeam(save.player.youth, cash, 200, world));
+  save.player.youth.kids[1].level = 4.25;
+  save.player.youth.sessions = 31;
+  save.player.youth.lastSessionDay = 400;
+  save.player.youth.craft = 7.0;
+  save.player.youth.graduated.push_back(Graduate{"Kit", 390, 16});
+  save.player.youth.steppingUp.push_back("Kit");
+  CHECK(SetYouthCoach(save.player.youth, true, world, 400));
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  const Youth& y = back.player.youth;
+  CHECK(y.going);
+  CHECK(y.foundedDay == 200);
+  CHECK(!y.youCoach);
+  CHECK(y.coachName == save.player.youth.coachName);
+  CHECK(y.sessions == 31);
+  CHECK(y.lastSessionDay == 400);
+  CHECK(std::fabs(y.craft - 7.0) < 1e-9);
+  CHECK(y.kids.size() == save.player.youth.kids.size());
+  CHECK(y.kids[1].name == save.player.youth.kids[1].name);
+  CHECK(y.kids[1].tag == save.player.youth.kids[1].tag);
+  CHECK(std::fabs(y.kids[1].level - 4.25) < 1e-9);
+  CHECK(y.kids[1].ageAtJoin == save.player.youth.kids[1].ageAtJoin);
+  CHECK(y.graduated.size() == 1);
+  CHECK(y.graduated[0].name == std::string("Kit"));
+  // **The queue especially**, because a graduate waiting to step up is a
+  // promise the save has to keep for years.
+  CHECK(y.steppingUp.size() == 1);
+  CHECK(y.steppingUp[0] == std::string("Kit"));
+}
+
+static void TestLoadsVersion43Save() {
+  SaveGame save;
+  save.seed = "the-woodshed";
+  save.player.cash = 412.5;
+
+  std::string v43 = SerializeSave(save);
+  for (const char* k : {"youth.going=", "youth.day=", "youth.you=",
+                        "youth.coach=", "youth.sessions=", "youth.last=",
+                        "youth.craft=", "youth.n=", "youth.grads=",
+                        "youth.queue="}) {
+    DropSaveLine(v43, k);
+  }
+  SetSaveVersion(v43, 43);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v43, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(std::fabs(old.player.cash - 412.5) < 1e-9);
+  // A v43 career had the question asked and nothing behind it, and it loads
+  // with the question still open.
+  CHECK(!old.player.youth.going);
+  CHECK(old.player.youth.kids.empty());
+  CHECK(old.player.youth.steppingUp.empty());
   CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
 }
 
@@ -16515,6 +16917,16 @@ int main() {
   TestWalkingTheFloorCostsAnHourOfYourDay();
   TestTheFloorSurvivesASave();
   TestLoadsVersion42Save();
+  TestTheYouthTeamAnswersAQuestionSomebodyAsked();
+  TestNeitherGateSubstitutesForTheOther();
+  TestTheClimbingIsTheGateUntilYouKnowWhatYouAreDoing();
+  TestAPaidCoachIsWorseForTheKidsAndBetterForYourWeek();
+  TestASquadTrainsAndDoesNotGrind();
+  TestAKidYouCoachedTurnsUpChasingYou();
+  TestTheSquadNeverRunsOutOfKids();
+  TestASessionCostsAnEveningAndTwelveEnergy();
+  TestTheYouthTeamSurvivesASave();
+  TestLoadsVersion43Save();
   TestInsuranceIsWhatGetsADirtbagRepaired();
   TestTheLotDoesNotAlwaysTurnUp();
   TestNobodyIsNeverThereAndNobodyIsAlways();

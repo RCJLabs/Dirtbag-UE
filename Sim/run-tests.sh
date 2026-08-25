@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 mkdir -p ../build
 g++ -std=c++17 -O2 -Wall -Wextra -Werror \
     DirtbagRng.cpp DirtbagCore.cpp DirtbagSession.cpp DirtbagSessionLoop.cpp \
-    DirtbagDay.cpp DirtbagSave.cpp DirtbagConditions.cpp DirtbagCrag.cpp DirtbagFirstAscent.cpp DirtbagPartner.cpp DirtbagDog.cpp DirtbagGear.cpp DirtbagVan.cpp DirtbagJobs.cpp DirtbagFactions.cpp DirtbagCrew.cpp DirtbagDreams.cpp DirtbagCampfire.cpp DirtbagZones.cpp DirtbagCharacter.cpp DirtbagRival.cpp DirtbagComp.cpp DirtbagTeam.cpp DirtbagWorldStage.cpp DirtbagLeague.cpp DirtbagMedical.cpp DirtbagAilments.cpp DirtbagBodyContext.cpp DirtbagCraft.cpp DirtbagTown.cpp DirtbagKit.cpp DirtbagBody.cpp DirtbagAge.cpp DirtbagSport.cpp DirtbagTrad.cpp DirtbagHabits.cpp DirtbagNarrator.cpp DirtbagLife.cpp DirtbagLocals.cpp DirtbagGym.cpp DirtbagGymTown.cpp DirtbagGymFloor.cpp DirtbagLiving.cpp DirtbagBivy.cpp DirtbagLegacy.cpp DirtbagSponsor.cpp DirtbagEthics.cpp \
+    DirtbagDay.cpp DirtbagSave.cpp DirtbagConditions.cpp DirtbagCrag.cpp DirtbagFirstAscent.cpp DirtbagPartner.cpp DirtbagDog.cpp DirtbagGear.cpp DirtbagVan.cpp DirtbagJobs.cpp DirtbagFactions.cpp DirtbagCrew.cpp DirtbagDreams.cpp DirtbagCampfire.cpp DirtbagZones.cpp DirtbagCharacter.cpp DirtbagRival.cpp DirtbagComp.cpp DirtbagTeam.cpp DirtbagWorldStage.cpp DirtbagLeague.cpp DirtbagMedical.cpp DirtbagAilments.cpp DirtbagBodyContext.cpp DirtbagCraft.cpp DirtbagTown.cpp DirtbagKit.cpp DirtbagBody.cpp DirtbagAge.cpp DirtbagSport.cpp DirtbagTrad.cpp DirtbagHabits.cpp DirtbagNarrator.cpp DirtbagLife.cpp DirtbagLocals.cpp DirtbagGym.cpp DirtbagGymTown.cpp DirtbagGymFloor.cpp DirtbagYouth.cpp DirtbagLiving.cpp DirtbagBivy.cpp DirtbagLegacy.cpp DirtbagSponsor.cpp DirtbagEthics.cpp \
     tests/test_main.cpp \
     -o ../build/sim_tests
 
