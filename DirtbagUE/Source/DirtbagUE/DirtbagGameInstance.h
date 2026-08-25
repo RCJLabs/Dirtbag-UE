@@ -646,7 +646,10 @@ struct FDirtbagFireReadout
  * the level, so anything that has to be flipped by hand there is a setting
  * nobody can find.
  */
-UENUM(BlueprintType)
+// ScriptName because Python strips the leading letter: without it this and
+// FDirtbagVenue are both "DirtbagVenue" there, and the editor says so on
+// every startup.
+UENUM(BlueprintType, meta = (ScriptName = "DirtbagVenueKind"))
 enum class EDirtbagVenue : uint8
 {
 	Gym,
@@ -1461,6 +1464,16 @@ public:
 
 	/** Rebuild the on-screen options for the current question. */
 	void RefreshCreation();
+
+	/** The frame a creation key was last spent on. Creation is answered
+	 *  from two places -- the counter you happen to be standing at, and the
+	 *  player controller, which is the only listener that exists on the
+	 *  first frame of a career -- and both are bound to the same six keys.
+	 *  Which one the engine's input stack serves first is not ours to
+	 *  decide, so the rule is stated here instead: one press is one answer,
+	 *  and a second call in the same frame is the other listener rather
+	 *  than a second decision. Not saved; it means nothing across a load. */
+	uint64 LastCreationFrame = 0;
 
 	/** Armed by `TakeTheGigTheHardWay`, consumed by the next gig. Not
 	 *  saved: it is a decision about a shift you are standing in front of,

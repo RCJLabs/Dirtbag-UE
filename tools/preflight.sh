@@ -59,6 +59,10 @@ echo "== reflection macros sit on their declarations =="
 python3 tools/check-macros.py
 
 echo
+echo "== dynamic delegate targets are UFUNCTIONs =="
+python3 tools/check-dynamic.py
+
+echo
 echo "== engine field names =="
 python3 tools/check-engine-fields.py
 

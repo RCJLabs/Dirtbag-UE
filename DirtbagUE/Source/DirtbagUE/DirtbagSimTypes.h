@@ -595,8 +595,10 @@ struct FDirtbagProjectMemory
 	EDirtbagDiscipline Discipline = EDirtbagDiscipline::Boulder;
 };
 
-/** Career state — everything that outlives a day; what the save carries. */
-UENUM(BlueprintType)
+/** The six things on a van that break. Mirrors dirtbag::VanPart; the cost
+ *  and the consequence of each live in the sim, not here. */
+// See EDirtbagVenue: same collision with FDirtbagVanPart under Python.
+UENUM(BlueprintType, meta = (ScriptName = "DirtbagVanPartKind"))
 enum class EDirtbagVanPart : uint8
 {
 	Tyres,
@@ -2559,6 +2561,7 @@ struct FDirtbagOddJob
 	bool bNeedsVan = false;
 };
 
+/** Career state — everything that outlives a day; what the save carries. */
 USTRUCT(BlueprintType)
 struct FDirtbagPlayerState
 {

@@ -2431,6 +2431,15 @@ bool UDirtbagGameInstance::ChooseInCreation(int32 Which)
 	{
 		return false;
 	}
+	// See LastCreationFrame. The key still belonged to creation -- it was
+	// simply already spent by the other listener this frame -- so this
+	// returns true rather than letting the press fall through to a counter
+	// that is standing behind the creation screen.
+	if (LastCreationFrame == GFrameCounter)
+	{
+		return true;
+	}
+	LastCreationFrame = GFrameCounter;
 	if (!C.Options.IsValidIndex(Which))
 	{
 		// The key belonged to creation even though it named nobody --

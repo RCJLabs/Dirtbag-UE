@@ -446,6 +446,7 @@ private:
 	 *  so nothing the camera did during an attempt survives it. */
 	void RestCamera();
 
+	UFUNCTION()
 	void OnApproachBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 	                     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
 	                     bool bFromSweep, const FHitResult& SweepResult);
