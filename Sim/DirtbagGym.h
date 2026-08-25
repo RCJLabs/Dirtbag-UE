@@ -185,6 +185,55 @@ struct GymDials {
   // this port's.
   double wingYouth[kGymWingCount] = {0.0, 0.0, 0.0017, 0.0024, 0.0};
 
+  // **And what the federation looks at.** The other half of the pair cut in
+  // pass two for want of a reader: `GYM-9` reads it now. They are weighing
+  // your building against two others, and a back room with a steep board in
+  // it is the thing that says somebody serious trains here.
+  double wingBid[kGymWingCount] = {0.0, 0.45, 0.0, 0.3, 0.0};
+
+  // --- GYM-9: bidding to host a circuit round ---------------------------
+  // Deposit, insurance rider, and a federation sanctioning fee. **Not
+  // refundable**, which is what makes the bid a decision rather than a
+  // formality: you can lose $2,200 and a season.
+  double bidCost = 2200.0;
+
+  // A circuit round needs a room that can hold one, and walls somebody
+  // would put a national number on.
+  double bidMinMembers = 45.0;
+  int bidMinEquip = 1;
+
+  // **What the federation weighs.** The same membership and equipment the
+  // P&L already tracks, put on the same scale as the town's two rivals so
+  // the three of you are genuinely compared -- see `TownPressure`, which
+  // scores those two exactly this way.
+  double bidPerMembers = 40.0;
+  double bidPerEquipTier = 0.28;
+
+  // Your name counts, up to a point. The source caps a reputation term at
+  // half a point; this port's scene standing runs -1 to 1, so a perfect
+  // one is worth exactly that cap and a bad one is worth nothing.
+  double bidStandingWorth = 0.5;
+
+  // Clamped at both ends: the biggest room in town is not guaranteed it and
+  // the smallest is not shut out forever.
+  double bidFloor = 0.05;
+  double bidCeiling = 0.90;
+
+  // --- and running it ---------------------------------------------------
+  // How many turn up to a circuit round, and what is left of an entry fee
+  // after the federation takes its share.
+  double hostField = 34.0;
+  double hostFeePerHead = 26.0;
+
+  // People who came to watch and came back on Tuesday.
+  double hostMemberGain = 9.0;
+
+  // A full day on your feet, and none of it climbing.
+  double hostHours = 6.0;
+  double hostEnergy = 18.0;
+  double hostStanding = 7.0;
+  double hostPsyche = 0.06;
+
   // --- GYM-4: the one lever of yours that touches the town --------------
   // A live campaign blunts a rival's good month. That is what marketing is
   // for, it already costs real money, and it gives their hot streak a
@@ -254,6 +303,13 @@ struct Gym {
   // *answer* is state -- which incident fires is derived.
   GymIncident incident = GymIncident::None;
   int incidentDay = 0;
+
+  // GYM-9. The season you hold and the season you have had an answer for,
+  // -1 for neither. **Both are needed**: a bid you lose has to stick until
+  // the next season comes round, or the deposit is a re-roll.
+  int hostsSeason = -1;
+  int askedSeason = -1;
+  int roundsRun = 0;
 
   double members = 0.0;
   double balance = 0.0;
@@ -325,6 +381,38 @@ bool HasWing(const Gym& gym, GymWing wing);
 // GYM-1 phase 3. Needs both seats filled; locks pricing, mix and marketing
 // where they are; reversible any time. False if it cannot go either way.
 bool SetHandsOff(Gym& gym, bool handsOff);
+
+// --- GYM-9: hosting the circuit -------------------------------------------
+
+// What the federation sees when it looks at your building. Public because
+// the bid screen has to be able to say why you lost.
+double BidStrength(const Gym& gym, double sceneStanding,
+                   const GymDials& dials = GymDials{});
+
+// Why you cannot put yourself forward, or empty. **A bid you have already
+// lost this season is one of the reasons** -- the deposit does not buy a
+// second answer.
+std::string WhyNotBid(const Gym& gym, double cash, int season,
+                      const GymDials& dials = GymDials{});
+
+enum class BidAnswer { CannotAsk, TheyWentElsewhere, ItIsYours };
+
+// Put your gym forward. **Answered on the spot and deterministically** from
+// the gym's name and the season, so reopening the panel cannot re-roll it,
+// and the deposit is gone either way.
+//
+// `rivalPull` is what the other two rooms are worth today -- the same
+// number `TownPressure` divides by, because the federation is comparing the
+// three of you and not consulting its feelings about your gym.
+BidAnswer BidToHost(Gym& gym, double& cash, int season, double sceneStanding,
+                    double rivalPull, const GymDials& dials = GymDials{});
+
+// Is the circuit coming to your building this season?
+bool HoldsTheSeason(const Gym& gym, int season);
+
+// What the day is worth if you run it. The federation has already taken its
+// share out of the per-head figure.
+double WhatARoundPays(const GymDials& dials = GymDials{});
 bool LaunchCampaign(Gym& gym, double& cash, GymCampaign which, int day,
                     const GymDials& dials = GymDials{});
 

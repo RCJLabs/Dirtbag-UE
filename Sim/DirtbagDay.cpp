@@ -269,6 +269,61 @@ bool HostCompNight(PlayerState& player, DayState& day, const Rng& worldRng,
   return true;
 }
 
+std::string WhyNotBidToHost(const PlayerState& player, const DayDials& dials) {
+  (void)dials;
+  return WhyNotBid(player.gym, player.cash, player.circuit.season);
+}
+
+bool BidToHostTheSeason(PlayerState& player, const DayDials& dials) {
+  (void)dials;
+  // The federation weighs your building against the other two rooms in
+  // town -- the same number the membership drift already divides by, so a
+  // season spent building the place up is a season spent on the bid.
+  const double theirs = RivalPull(player.day, player.gym.name);
+  const double mine = StandingWith(player.standing, Faction::Scene);
+  return BidToHost(player.gym, player.cash, player.circuit.season, mine,
+                   theirs) == BidAnswer::ItIsYours;
+}
+
+std::string WhyNotRunTheRound(const PlayerState& player,
+                              const DayDials& dials) {
+  (void)dials;
+  if (!player.gym.owned) return "";
+  if (!HoldsTheSeason(player.gym, player.circuit.season)) {
+    return "The circuit is not meeting here this season.";
+  }
+  if (!RoundIsOpen(player.circuit, player.day)) {
+    // Either there is no round today, or today's has already been spent --
+    // by running it, or by climbing it.
+    return "No round here today.";
+  }
+  return "";
+}
+
+bool RunTheRound(PlayerState& player, DayState& day, const DayDials& dials) {
+  if (!WhyNotRunTheRound(player, dials).empty()) return false;
+  const GymDials gymDials;
+
+  // **You ran it. There is no scorecard with your name on it.** The round
+  // is marked done so the night tick does not then forfeit it on your
+  // behalf -- being on the floor all day is not the same as not turning up,
+  // and the ranking record must not read it as absence.
+  HostedIt(player.circuit);
+
+  Pay(player, WhatARoundPays(gymDials));
+  player.gym.members += gymDials.hostMemberGain;
+  player.gym.roundsRun++;
+  PassHours(day, gymDials.hostHours, dials);
+  day.energy = std::max(0.0, day.energy - gymDials.hostEnergy);
+  player.climber.psyche =
+      std::min(1.0, player.climber.psyche + gymDials.hostPsyche);
+  Shift(player.standing, Faction::Scene, gymDials.hostStanding / 100.0);
+  player.gymNews = "A circuit round at " + player.gym.name +
+                   ". You ran the clipboard all day and did not touch the "
+                   "wall. The people who won it did so on your walls.";
+  return true;
+}
+
 std::string WhyNoYouthTeam(const PlayerState& player, const DayDials& dials) {
   (void)dials;
   if (!player.gym.owned) return "";

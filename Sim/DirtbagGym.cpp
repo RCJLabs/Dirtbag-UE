@@ -434,6 +434,81 @@ double RatePerMember(const Gym& gym, const GymDials& dials) {
   return dials.rate[Slot(gym.price)] + dials.mixRate[Slot(gym.mix)];
 }
 
+double BidStrength(const Gym& gym, double sceneStanding,
+                   const GymDials& dials) {
+  if (!gym.owned) return 0.0;
+  double out = gym.members / std::max(1.0, dials.bidPerMembers) +
+               Slot(gym.equip) * dials.bidPerEquipTier;
+  // Your name counts, up to a point, and only in the direction that helps:
+  // the federation is not going to give a round to a bigger room because
+  // the scene likes you, and it is not going to take one away either.
+  out += std::max(0.0, sceneStanding) * dials.bidStandingWorth;
+  for (int i = 0; i < kGymWingCount; i++) {
+    if (gym.wings[i]) out += dials.wingBid[i];
+  }
+  return out;
+}
+
+std::string WhyNotBid(const Gym& gym, double cash, int season,
+                      const GymDials& dials) {
+  if (!gym.owned) return "";
+  if (gym.hostsSeason == season) return "You already have this season.";
+  if (gym.askedSeason == season) {
+    return "You have had their answer for this season. Next one.";
+  }
+  if (gym.members < dials.bidMinMembers) {
+    return "They want a room that can hold a circuit round -- " +
+           std::to_string(static_cast<int>(dials.bidMinMembers)) +
+           " members, you have " +
+           std::to_string(static_cast<int>(gym.members)) + ".";
+  }
+  if (Slot(gym.equip) < dials.bidMinEquip) {
+    return "They will not put a national number on those walls. Upgrade the "
+           "equipment first.";
+  }
+  if (cash < dials.bidCost) {
+    return "The deposit and the sanctioning fee run $" +
+           std::to_string(static_cast<int>(dials.bidCost)) + ".";
+  }
+  return "";
+}
+
+BidAnswer BidToHost(Gym& gym, double& cash, int season, double sceneStanding,
+                    double rivalPull, const GymDials& dials) {
+  if (!WhyNotBid(gym, cash, season, dials).empty()) {
+    return BidAnswer::CannotAsk;
+  }
+  // **Gone either way.** The deposit is what makes this a decision rather
+  // than a formality: you can lose $2,200 and a season together.
+  cash -= dials.bidCost;
+  gym.askedSeason = season;
+
+  const double mine = BidStrength(gym, sceneStanding, dials);
+  const double theirs = std::max(0.0, rivalPull);
+  const double odds =
+      mine + theirs > 0.0 ? mine / (mine + theirs) : dials.bidFloor;
+  // Clamped at both ends: the biggest room in town is not guaranteed it,
+  // and the smallest is not shut out of the sport forever.
+  const double chance =
+      std::min(dials.bidCeiling, std::max(dials.bidFloor, odds));
+  // Derived from the gym's name and the season, so reopening the panel
+  // cannot ask twice and get two answers.
+  const double roll =
+      Rng::FromSeed("gymbid|" + gym.name + "|" + std::to_string(season))
+          .NextDouble();
+  if (roll >= chance) return BidAnswer::TheyWentElsewhere;
+  gym.hostsSeason = season;
+  return BidAnswer::ItIsYours;
+}
+
+bool HoldsTheSeason(const Gym& gym, int season) {
+  return gym.owned && season > 0 && gym.hostsSeason == season;
+}
+
+double WhatARoundPays(const GymDials& dials) {
+  return std::round(dials.hostField) * dials.hostFeePerHead;
+}
+
 double WhatTheWingsTeach(const Gym& gym, const GymDials& dials) {
   if (!gym.owned) return 0.0;
   double out = 0.0;

@@ -178,6 +178,10 @@ int CompsDueBy(const Circuit& c, int day) {
   return n;
 }
 
+bool RoundIsOpen(const Circuit& c, int day) {
+  return CompIsToday(c, day) && c.compsDone < CompsDueBy(c, day);
+}
+
 bool SeasonOver(const Circuit& c, const CompDials& dials) {
   return c.compsDone >= dials.compsPerSeason;
 }
@@ -212,6 +216,13 @@ void BankResult(Circuit& c, const CompResult& result, bool finals,
       }
     }
   }
+  c.compsDone++;
+}
+
+void HostedIt(Circuit& c, const CompDials& dials) {
+  // They banked plenty and you banked nothing, the same as a no-show --
+  // the points are gone whichever side of the clipboard you were on.
+  c.rivalPoints += dials.forfeitRivalPoints;
   c.compsDone++;
 }
 

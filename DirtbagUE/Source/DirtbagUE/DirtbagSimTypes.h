@@ -1835,6 +1835,18 @@ struct FDirtbagGym
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	int32 IncidentDay = 0;
 
+	/** GYM-9. The circuit season your gym won the right to host, and the
+	 *  season you have had an answer for. -1 for neither — a bid you lose
+	 *  sticks until the next season comes round. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 HostsSeason = -1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 AskedSeason = -1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 RoundsRun = 0;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	double Members = 0.0;
 

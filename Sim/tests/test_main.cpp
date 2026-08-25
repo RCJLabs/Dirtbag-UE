@@ -15941,6 +15941,226 @@ static void TestLoadsVersion43Save() {
   CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
 }
 
+// --- GYM-9: hosting the circuit -------------------------------------------
+
+static void TestTheFederationIsWeighingTheRoomAndNotYourFeelings() {
+  GymDials d;
+  double cash = 200000.0;
+  Gym g = ABoughtGym(cash);
+
+  // **The same membership and equipment the P&L already tracks.** Nothing
+  // here is a second scoring pass over the player's choices -- it is the
+  // building, read the way the town's two rivals are read.
+  const double bare = BidStrength(g, 0.0, d);
+  g.members = 80.0;
+  CHECK(BidStrength(g, 0.0, d) > bare);
+  const double bigger = BidStrength(g, 0.0, d);
+  CHECK(UpgradeEquipment(g, cash, d));
+  CHECK(BidStrength(g, 0.0, d) > bigger);
+
+  // Your name counts, up to a point, and **only in the direction that
+  // helps**: they are not giving a round to a bigger room because the scene
+  // likes you, and not taking one away because it does not.
+  const double neutral = BidStrength(g, 0.0, d);
+  CHECK(BidStrength(g, 1.0, d) == neutral + d.bidStandingWorth);
+  CHECK(BidStrength(g, -1.0, d) == neutral);
+
+  // GYM-12: they look at the board room. The `bid` column was cut in pass
+  // two for want of a reader and this is the reader.
+  CHECK(BuildWing(g, cash, GymWing::Woody, d));
+  CHECK(BidStrength(g, 0.0, d) ==
+        neutral + d.wingBid[static_cast<int>(GymWing::Woody)]);
+  CHECK(BidStrength(Gym{}, 1.0, d) == 0.0);
+}
+
+static void TestTheDepositIsGoneEitherWay() {
+  GymDials d;
+  double cash = 200000.0;
+  Gym g = ABoughtGym(cash);
+  g.members = d.bidMinMembers;
+  CHECK(UpgradeEquipment(g, cash, d));
+
+  // **A bid you lose sticks until next season**, which is what makes it
+  // worth building the place up before you ask rather than asking every
+  // day until it lands.
+  const double before = cash;
+  const BidAnswer said = BidToHost(g, cash, 3, 0.5, 20.0, d);
+  CHECK(said != BidAnswer::CannotAsk);
+  CHECK(cash == before - d.bidCost);
+  CHECK(g.askedSeason == 3);
+  CHECK(WhyNotBid(g, cash, 3, d).find("had their answer") != std::string::npos);
+  CHECK(BidToHost(g, cash, 3, 0.5, 20.0, d) == BidAnswer::CannotAsk);
+  CHECK(cash == before - d.bidCost);        // and asking twice is not asking
+
+  // Against twenty rivals' worth of town they were never going to say yes,
+  // and the clamp is what stops "never" being literal.
+  CHECK(said == BidAnswer::TheyWentElsewhere);
+  CHECK(!HoldsTheSeason(g, 3));
+
+  // Next season is a new answer.
+  CHECK(WhyNotBid(g, cash, 4, d).empty());
+}
+
+static void TestYouCannotBidOnARoomTheyWouldNotUse() {
+  GymDials d;
+  double cash = 200000.0;
+  Gym g = ABoughtGym(cash);
+
+  // Two gates and they are different sentences, because the player can only
+  // do something about one of them at a time.
+  CHECK(WhyNotBid(g, cash, 1, d).find("hold a circuit round") !=
+        std::string::npos);
+  g.members = d.bidMinMembers;
+  CHECK(WhyNotBid(g, cash, 1, d).find("national number") != std::string::npos);
+  CHECK(UpgradeEquipment(g, cash, d));
+  CHECK(WhyNotBid(g, cash, 1, d).empty());
+
+  double thin = d.bidCost - 1.0;
+  CHECK(WhyNotBid(g, thin, 1, d).find("sanctioning fee") != std::string::npos);
+  CHECK(BidToHost(g, thin, 1, 0.0, 1.0, d) == BidAnswer::CannotAsk);
+  CHECK(g.askedSeason == -1);
+  // A gym nobody owns is not looking at the bid screen, so there is nothing
+  // to explain.
+  CHECK(WhyNotBid(Gym{}, cash, 1, d).empty());
+}
+
+static void TestTheBiggestRoomIsNotGuaranteedIt() {
+  GymDials d;
+  // **Clamped at both ends.** Over a career of seasons, a huge gym against
+  // a weak town still loses sometimes, and a small one against a strong
+  // town still wins sometimes -- otherwise the bid is a threshold wearing a
+  // roll's clothes.
+  int hugeWon = 0, smallWon = 0;
+  for (int season = 1; season <= 400; season++) {
+    double cash = 200000.0;
+    Gym huge = ABoughtGym(cash);
+    huge.name = "The Woodshed " + std::to_string(season);
+    huge.members = 400.0;
+    huge.equip = GymEquip::FullRenovation;
+    if (BidToHost(huge, cash, season, 1.0, 0.5, d) == BidAnswer::ItIsYours) {
+      hugeWon++;
+    }
+    double thin = 200000.0;
+    Gym small = ABoughtGym(thin);
+    small.name = "The Woodshed " + std::to_string(season);
+    small.members = d.bidMinMembers;
+    small.equip = GymEquip::HoldsAndMats;
+    if (BidToHost(small, thin, season, 0.0, 40.0, d) == BidAnswer::ItIsYours) {
+      smallWon++;
+    }
+  }
+  CHECK(hugeWon > 320 && hugeWon < 390);    // ~90%, not 100%
+  CHECK(smallWon > 5 && smallWon < 40);     // ~5%, not 0%
+}
+
+static void TestTheHostDoesNotGetAScorecard() {
+  PlayerState player;
+  DayState day;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  player.day = 100;
+  player.cash = GymDials{}.price + 50000.0;
+  CHECK(BuyTheGym(player.gym, player.cash, "The Woodshed", 100));
+  player.gym.members = 60.0;
+  CHECK(UpgradeEquipment(player.gym, player.cash));
+  player.circuit = StartSeason(world, 100, 3);
+
+  CHECK(WhyNotRunTheRound(player).find("not meeting here") != std::string::npos);
+  CHECK(!RunTheRound(player, day));
+
+  // The federation is comparing three rooms, so a town having a good month
+  // is a season you do not get -- pinned here so the test is about the
+  // trade and not about the roll.
+  player.gym.hostsSeason = 3;
+  CHECK(HoldsTheSeason(player.gym, 3));
+  CHECK(WhyNotRunTheRound(player).find("No round here today") !=
+        std::string::npos);
+
+  player.day = player.circuit.schedule.front();
+  CHECK(CompIsToday(player.circuit, player.day));
+  CHECK(WhyNotRunTheRound(player).empty());
+
+  const double cashWas = player.cash;
+  const double membersWas = player.gym.members;
+  const double doneWas = player.circuit.compsDone;
+  const double theirsWas = player.circuit.rivalPoints;
+  const double yoursWas = player.circuit.yourPoints;
+  const std::size_t recordWas = player.rankingRecord.size();
+  const double sceneWas = StandingWith(player.standing, Faction::Scene);
+
+  CHECK(RunTheRound(player, day));
+  CHECK(player.cash == cashWas + WhatARoundPays());
+  CHECK(player.gym.members == membersWas + GymDials{}.hostMemberGain);
+  CHECK(player.gym.roundsRun == 1);
+  CHECK(day.hour == 7.0 + GymDials{}.hostHours);
+  CHECK(day.energy == 100.0 - GymDials{}.hostEnergy);
+  CHECK(StandingWith(player.standing, Faction::Scene) > sceneWas);
+
+  // **The points are gone.** The round happened, the field banked it, and
+  // there is no scorecard with your name on it.
+  CHECK(player.circuit.compsDone == doneWas + 1);
+  CHECK(player.circuit.rivalPoints > theirsWas);
+  CHECK(player.circuit.yourPoints == yoursWas);
+
+  // ...but it is **not a no-show**, and that is the whole distinction: you
+  // were on the floor all day, and the ranking record does not read it as
+  // absence.
+  CHECK(player.rankingRecord.size() == recordWas);
+
+  // And the night tick does not then forfeit it on your behalf, which is
+  // what would happen to any date in the past that nobody resolved.
+  const std::size_t after = player.rankingRecord.size();
+  SleepToNextDay(player, day, world);
+  CHECK(player.rankingRecord.size() == after);
+  CHECK(!RunTheRound(player, day));         // and only the once
+}
+
+static void TestHostingSurvivesASaveAndDiesWithTheBuilding() {
+  SaveGame save;
+  save.seed = "the-woodshed";
+  double cash = GymDials{}.price;
+  CHECK(BuyTheGym(save.player.gym, cash, "The Woodshed", 40));
+  save.player.gym.hostsSeason = 6;
+  save.player.gym.askedSeason = 6;
+  save.player.gym.roundsRun = 3;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.gym.hostsSeason == 6);
+  CHECK(back.player.gym.askedSeason == 6);
+  CHECK(back.player.gym.roundsRun == 3);
+  CHECK(HoldsTheSeason(back.player.gym, 6));
+
+  // **The right to host is the building's, not yours.** Lose the building
+  // and the federation is not coming to the car park.
+  Gym gone;
+  CHECK(!HoldsTheSeason(gone, 6));
+  CHECK(gone.hostsSeason == -1);
+  // -1 and not 0, because season zero is a real season number and "asked
+  // and refused for season 0" would cost a career its first bid.
+  CHECK(gone.askedSeason == -1);
+}
+
+static void TestLoadsVersion44Save() {
+  SaveGame save;
+  save.seed = "the-woodshed";
+  save.player.cash = 91.5;
+
+  std::string v44 = SerializeSave(save);
+  for (const char* k : {"gym.hosts=", "gym.asked=", "gym.rounds="}) {
+    DropSaveLine(v44, k);
+  }
+  SetSaveVersion(v44, 44);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v44, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  CHECK(std::fabs(old.player.cash - 91.5) < 1e-9);
+  CHECK(old.player.gym.hostsSeason == -1);
+  CHECK(old.player.gym.askedSeason == -1);
+  CHECK(old.player.gym.roundsRun == 0);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
+}
+
 static void TestLoadsVersion38Save() {
   SaveGame save;
   save.seed = "the-woodshed";
@@ -16927,6 +17147,13 @@ int main() {
   TestASessionCostsAnEveningAndTwelveEnergy();
   TestTheYouthTeamSurvivesASave();
   TestLoadsVersion43Save();
+  TestTheFederationIsWeighingTheRoomAndNotYourFeelings();
+  TestTheDepositIsGoneEitherWay();
+  TestYouCannotBidOnARoomTheyWouldNotUse();
+  TestTheBiggestRoomIsNotGuaranteedIt();
+  TestTheHostDoesNotGetAScorecard();
+  TestHostingSurvivesASaveAndDiesWithTheBuilding();
+  TestLoadsVersion44Save();
   TestInsuranceIsWhatGetsADirtbagRepaired();
   TestTheLotDoesNotAlwaysTurnUp();
   TestNobodyIsNeverThereAndNobodyIsAlways();

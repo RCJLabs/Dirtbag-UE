@@ -767,6 +767,9 @@ FDirtbagGym FromSim(const dirtbag::Gym& In)
 	Out.bPassive = In.passive;
 	Out.Incident = static_cast<EDirtbagGymIncident>(In.incident);
 	Out.IncidentDay = In.incidentDay;
+	Out.HostsSeason = In.hostsSeason;
+	Out.AskedSeason = In.askedSeason;
+	Out.RoundsRun = In.roundsRun;
 	Out.Members = In.members;
 	Out.Balance = In.balance;
 	Out.DebtDays = In.debtDays;
@@ -796,6 +799,9 @@ dirtbag::Gym ToSim(const FDirtbagGym& In)
 	Out.passive = In.bPassive;
 	Out.incident = static_cast<dirtbag::GymIncident>(In.Incident);
 	Out.incidentDay = In.IncidentDay;
+	Out.hostsSeason = In.HostsSeason;
+	Out.askedSeason = In.AskedSeason;
+	Out.roundsRun = In.RoundsRun;
 	Out.members = In.Members;
 	Out.balance = In.Balance;
 	Out.debtDays = In.DebtDays;

@@ -146,6 +146,13 @@ double RivalStrength(GymRival r, int day, const std::string& salt,
 // other lever is *already* in the target, and scoring them here as well
 // would double-count the player's own choices. **They move the multiplier,
 // you move the base.**
+// What the other two rooms are worth today, added up. `TownPressure`
+// divides by this; `GYM-9`'s bid compares against it, because the
+// federation is weighing the three buildings against each other and not
+// consulting its feelings about yours.
+double RivalPull(int day, const std::string& salt,
+                 const GymTownDials& dials = GymTownDials{});
+
 double TownPressure(int day, const std::string& salt,
                     double campaignShield = 1.0,
                     const GymTownDials& dials = GymTownDials{});

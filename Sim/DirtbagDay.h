@@ -532,6 +532,30 @@ bool SpendTheEvening(PlayerState& player, DayState& day, Thread what,
 bool WalkTheGymFloor(PlayerState& player, DayState& day,
                      const DayDials& dials = DayDials{});
 
+// **GYM-9: put your gym forward to host the season's circuit rounds.**
+// Answered on the spot, deterministically, and a rejection stands until the
+// next season comes round -- the $2,200 deposit does not buy a second
+// answer, and it is gone either way.
+//
+// Returns whether the season is yours. `WhyNotBid` on the gym says why you
+// could not ask.
+bool BidToHostTheSeason(PlayerState& player, const DayDials& dials = DayDials{});
+std::string WhyNotBidToHost(const PlayerState& player,
+                            const DayDials& dials = DayDials{});
+
+// **Run the round.** The trade at circuit scale: on the day, you can run it
+// or you can climb it, and **the host does not get a scorecard**. Nobody
+// who has ever set a comp they were entered in would pretend otherwise --
+// you know where every hold is.
+//
+// Six hours, eighteen energy, thirty-four entries at $26 a head, nine
+// people who came to watch and came back on Tuesday, and the season's
+// points go to somebody else.
+bool RunTheRound(PlayerState& player, DayState& day,
+                 const DayDials& dials = DayDials{});
+std::string WhyNotRunTheRound(const PlayerState& player,
+                              const DayDials& dials = DayDials{});
+
 // **Found the youth team.** `GYM-2` asked the question -- Piper's mother
 // wanting to know whether there is a waitlist -- and this is the answer, so
 // it is gated on having actually lived that arc out. Four kids, a set of

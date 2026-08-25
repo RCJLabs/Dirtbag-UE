@@ -1498,7 +1498,11 @@ int32 UDirtbagGameInstance::DaysUntilComp() const
 
 bool UDirtbagGameInstance::CompIsToday() const
 {
-	return dirtbag::CompIsToday(DirtbagConvert::ToSim(Player.Circuit),
+	// **Open, not merely scheduled.** GYM-9 gave a comp date a second thing
+	// you can do with it, so "is there a comp today" now has to mean "is
+	// there one left today" -- otherwise you run the round and then climb
+	// the round you ran.
+	return dirtbag::RoundIsOpen(DirtbagConvert::ToSim(Player.Circuit),
 	                            Player.Day);
 }
 
@@ -3619,6 +3623,77 @@ FString UDirtbagGameInstance::GymFloorLine() const
 	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
 	return FString(UTF8_TO_TCHAR(
 	    dirtbag::FloorLine(Floor, Sim, Player.Day).c_str()));
+}
+
+bool UDirtbagGameInstance::BidToHostTheSeason()
+{
+	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	const bool bWon = dirtbag::BidToHostTheSeason(Sim);
+	Player = DirtbagConvert::FromSim(Sim);
+	return bWon;
+}
+
+FString UDirtbagGameInstance::BidWhyNot() const
+{
+	const dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	return FString(UTF8_TO_TCHAR(dirtbag::WhyNotBidToHost(Sim).c_str()));
+}
+
+bool UDirtbagGameInstance::HostingThisSeason() const
+{
+	return dirtbag::HoldsTheSeason(DirtbagConvert::ToSim(Player.Gym),
+	                               Player.Circuit.Season);
+}
+
+bool UDirtbagGameInstance::RunTheCircuitRound()
+{
+	dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState Today = DirtbagConvert::ToSim(Day);
+	if (!dirtbag::RunTheRound(Sim, Today))
+	{
+		return false;
+	}
+	Player = DirtbagConvert::FromSim(Sim);
+	Day = DirtbagConvert::FromSim(Today);
+	return true;
+}
+
+FString UDirtbagGameInstance::RoundWhyNot() const
+{
+	const dirtbag::PlayerState Sim = DirtbagConvert::ToSim(Player);
+	return FString(UTF8_TO_TCHAR(dirtbag::WhyNotRunTheRound(Sim).c_str()));
+}
+
+FString UDirtbagGameInstance::HostingLine() const
+{
+	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	if (!Sim.owned)
+	{
+		return FString();
+	}
+	if (HostingThisSeason())
+	{
+		return RoundWhyNot().IsEmpty()
+		           ? FString::Printf(
+		                 TEXT("A circuit round at %s today. Run it, or climb "
+		                      "it. Not both."),
+		                 *Player.Gym.Name)
+		           : FString::Printf(
+		                 TEXT("%s has the season. %d %s run so far."),
+		                 *Player.Gym.Name, Player.Gym.RoundsRun,
+		                 Player.Gym.RoundsRun == 1 ? TEXT("round") : TEXT("rounds"));
+	}
+	// What they will be weighing, said before you spend the deposit rather
+	// than after.
+	const double Mine = dirtbag::BidStrength(
+	    Sim, dirtbag::StandingWith(DirtbagConvert::ToSim(Player.Standing),
+	                               dirtbag::Faction::Scene));
+	const double Theirs = dirtbag::RivalPull(Player.Day,
+	                                         TCHAR_TO_UTF8(*Player.Gym.Name));
+	return FString::Printf(
+	    TEXT("The federation rates you %.2f against the other two rooms' "
+	         "%.2f."),
+	    Mine, Theirs);
 }
 
 bool UDirtbagGameInstance::FoundTheYouthTeam()

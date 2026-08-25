@@ -419,6 +419,17 @@ Circuit StartSeason(const Rng& worldRng, int day, int season,
 
 // Is one of this season's comps today, and is it the finals?
 bool CompIsToday(const Circuit& c, int day);
+
+// **Is today's round still there to be climbed?** A date on the schedule
+// that nothing has yet resolved.
+//
+// `CompIsToday` asks only about the calendar, and until `GYM-9` that was
+// the same question -- there was exactly one thing you could do with a comp
+// date and one way it could be spent. Now there are two, and the one that
+// does not involve a scorecard is the point: **running the round takes it
+// away**, and a predicate that cannot express that lets you run it in the
+// morning and climb it in the afternoon.
+bool RoundIsOpen(const Circuit& c, int day);
 bool FinalsToday(const Circuit& c, int day);
 
 // Days until the next one, or -1 outside the announcement window.
@@ -441,6 +452,16 @@ void BankResult(Circuit& c, const CompResult& result, bool finals,
 
 // You did not turn up. **The rival banks for it and you lose standing** --
 // a firm schedule you can ignore for free is a suggestion.
+// **GYM-9: you ran it instead of climbing it.** The round happened and the
+// field banked its points, so this costs you exactly what a no-show costs
+// you in the standings -- but it does not go on the ranking record as a
+// result worth less than nothing, because you were not absent. You were on
+// the floor all day with a clipboard.
+//
+// That difference is the whole shape of the trade: the host does not get a
+// scorecard, and nobody thinks less of them for it.
+void HostedIt(Circuit& c, const CompDials& dials = CompDials{});
+
 void Forfeit(Circuit& c, std::vector<RankingResult>& record, int day,
              const CompDials& dials = CompDials{});
 

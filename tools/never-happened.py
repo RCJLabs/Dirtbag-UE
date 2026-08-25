@@ -123,6 +123,14 @@ RUNS = [
     # coaching them yourself and nothing runs one anywhere else, so the paid
     # coach costs $30 a day for kids who stop entirely.
     ("hoarder", ["savings=60000", "gym=hired", "rival=1"]),
+    # **A competitor who also owns the room**, which is the only career that
+    # can face GYM-9's actual decision -- on the day, run the round or climb
+    # it. Nothing else in this battery both competes and can hold the
+    # $25,000 a building costs, so without this row the trade has nobody to
+    # make it and the whole system reads as an economy with no conflict in
+    # it. `savings=` on a non-hoarder policy used to be a silent no-op; it
+    # means what it says now, which is what made this row possible.
+    ("comper", ["savings=60000", "gym=life", "rival=1"]),
 ]
 
 SEEDS = ["crag-1", "valley-7", "north-3", "east-11", "west-5", "granite-2"]

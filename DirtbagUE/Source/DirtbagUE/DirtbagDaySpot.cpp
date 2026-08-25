@@ -519,6 +519,15 @@ FString ADirtbagDaySpot::PromptText() const
 				    FMath::RoundToInt(Game->GymRaiseAsked(bAsking)));
 			}
 		}
+		else if (GymPage == 5)
+		{
+			Line += FString::Printf(TEXT("\n   %s"), *Game->HostingLine());
+			const FString Cannot = Game->BidWhyNot();
+			if (!Cannot.IsEmpty() && !Game->HostingThisSeason())
+			{
+				Line += FString::Printf(TEXT("\n   %s"), *Cannot);
+			}
+		}
 		else if (GymPage == 4)
 		{
 			// The squad, or the reason there is not one yet.
@@ -1984,6 +1993,7 @@ FString ADirtbagDaySpot::GymLeverPageName() const
 	case 2: return TEXT("the people:  hire (1/2/3)   raise: yes (4) no (5)   more (6)");
 	case 3: return TEXT("the building:  wings (1-5)   more (6)");
 	case 4: return TEXT("the squad:  found it / session (1)   coach: you (2) hired (3)   more (6)");
+	case 5: return TEXT("the federation:  bid for the season (1)   run the round (2)   more (6)");
 	default: return TEXT("the keys:  hand it over (1)   the town (2)   more (6)");
 	}
 }
@@ -2011,7 +2021,7 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 	// Six keys, and pass two put more than six verbs behind this counter.
 	if (Index == 5)
 	{
-		GymPage = (GymPage + 1) % 6;
+		GymPage = (GymPage + 1) % 7;
 		Say(GymLeverPageName(), FColor::Silver, 4.f);
 		return true;
 	}
@@ -2155,6 +2165,36 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 			        : FString(TEXT("You take the sessions back. It is your "
 			                       "evening again, and theirs.")),
 			    FColor::Yellow, 8.f);
+			return true;
+		}
+		return true;
+
+	case 5:
+		if (Index == 0)
+		{
+			const FString Cannot = Game->BidWhyNot();
+			if (!Cannot.IsEmpty())
+			{
+				Say(Cannot, FColor::Silver, 7.f);
+				return true;
+			}
+			// **Answered on the spot, and the deposit is gone either way.**
+			Say(Game->BidToHostTheSeason()
+			        ? FString::Printf(
+			              TEXT("%s gets the season. The circuit is coming to "
+			                   "your building - and on the day you will have "
+			                   "to pick a side of the clipboard."),
+			              *Game->Player.Gym.Name)
+			        : FString(TEXT("They went elsewhere. The deposit is not "
+			                       "coming back.")),
+			    FColor::Yellow, 10.f);
+			return true;
+		}
+		if (Index == 1)
+		{
+			Say(Game->RunTheCircuitRound() ? Game->Player.GymNews
+			                               : Game->RoundWhyNot(),
+			    FColor::Yellow, 10.f);
 			return true;
 		}
 		return true;

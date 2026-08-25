@@ -341,6 +341,17 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // people this career ever climbed with. The honest reconstruction is that
 // you knew them at least as well as you know them now, which is exactly
 // what the runtime would derive on the next `BondsFrom` anyway.
+// v44 -> v45: hosting the circuit. A v44 career could own the room and the
+// circuit still met in somebody else's, so it loads holding no season and
+// having asked for none -- and **-1 rather than 0 matters here**, because
+// season zero is a real season number to `Circuit` and "asked and was
+// refused for season 0" would silently cost a career its first bid.
+void MigrateV44ToV45(SaveFields& fields) {
+  fields["gym.hosts"] = "-1";
+  fields["gym.asked"] = "-1";
+  fields["gym.rounds"] = "0";
+}
+
 // v43 -> v44: the youth team. A v43 career had Piper's mother asking the
 // question and nothing behind it, so it loads with no team -- which is
 // exactly what it had, and the question is still open the moment it loads.
@@ -750,7 +761,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36,
       &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39,
       &MigrateV39ToV40, &MigrateV40ToV41, &MigrateV41ToV42,
-      &MigrateV42ToV43, &MigrateV43ToV44};
+      &MigrateV42ToV43, &MigrateV43ToV44, &MigrateV44ToV45};
   return kMigrations;
 }
 
@@ -1251,6 +1262,9 @@ std::string SerializeSave(const SaveGame& save) {
   out << "gym.incident="
       << IntToStr(static_cast<int>(save.player.gym.incident)) << "\n";
   out << "gym.incidentday=" << IntToStr(save.player.gym.incidentDay) << "\n";
+  out << "gym.hosts=" << IntToStr(save.player.gym.hostsSeason) << "\n";
+  out << "gym.asked=" << IntToStr(save.player.gym.askedSeason) << "\n";
+  out << "gym.rounds=" << IntToStr(save.player.gym.roundsRun) << "\n";
 
   // GYM-2/GYM-5: the floor's memory. Beside the gym, not inside it.
   for (int i = 0; i < kGymRegularCount; i++) {
@@ -1976,6 +1990,11 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       gym.passive = passive != 0;
       gym.incident =
           static_cast<GymIncident>(within(incident, kGymIncidentCount));
+      if (!ParseInt(fields, "gym.hosts", gym.hostsSeason) ||
+          !ParseInt(fields, "gym.asked", gym.askedSeason) ||
+          !ParseInt(fields, "gym.rounds", gym.roundsRun)) {
+        return LoadResult::BadFormat;
+      }
 
       GymFloor& floor = save.player.floor;
       for (int i = 0; i < kGymRegularCount; i++) {

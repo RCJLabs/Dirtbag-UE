@@ -2147,6 +2147,31 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
 	FString GymFloorLine() const;
 
+	/** GYM-9: put your gym forward for the season's circuit rounds. $2,200,
+	 *  answered on the spot, and a rejection stands until the next season.
+	 *  Returns whether the season is yours. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool BidToHostTheSeason();
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString BidWhyNot() const;
+
+	/** Is the circuit meeting in your building this season? */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	bool HostingThisSeason() const;
+
+	/** GYM-9: run the round. **The host does not get a scorecard** — on the
+	 *  day you can run it or you can climb it, and this is the other one. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool RunTheCircuitRound();
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString RoundWhyNot() const;
+
+	/** One line: what the federation makes of the room, and what today is. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString HostingLine() const;
+
 	/** GYM-8: found the youth team. Needs Piper's arc lived out — the whole
 	 *  system is the answer to a question her mother asks at the end of it.
 	 *  YouthWhyNot says why not. */

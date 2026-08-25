@@ -112,6 +112,12 @@ struct Tally {
   int youthOldest = 0;
   double youthCraftEnd = 0.0;
   int youthSteppedUp = 0;
+  // GYM-9: the federation.
+  int gymBids = 0;
+  int gymSeasonsHeld = 0;
+  int gymRoundsRun = 0;
+  double gymBidSpend = 0.0;
+  double gymRoundPay = 0.0;
   int gymHandsOffDay = 0;
 
   int declinedTheOffer = 0;
@@ -347,11 +353,6 @@ int main(int argc, char** argv) {
   // for", which is exactly the hole dreams are supposed to fill. Nobody has
   // ever measured what a career can accumulate, or what accumulating costs
   // in climbing, and a dream cannot be priced without both.
-  const bool hoards = (argc > 5 && std::string(argv[5]) == "hoarder") ||
-                      (argc > 5 && std::string(argv[5]) == "dreamer");
-  const bool stakesClaims =
-      (argc > 5 && std::string(argv[5]) == "stakeout") || hoards;
-
   // **`comper` climbs the ladder.** Every other policy in this probe has
   // ignored the entire comp system, which means the circuit, the ranking
   // tiers, the national team, the World Cup and the Games were measured
@@ -498,6 +499,19 @@ int main(int argc, char** argv) {
   // -- at zero this is stakeout, and every dollar above it is bought with
   // days that could have been climbing.
   const double savingsTarget = std::atof(opt("savings", "20000").c_str());
+
+  // **Asking for a savings target is asking to hoard.** It used to be the
+  // `hoarder` policy alone, which made `savings=` a silent no-op on every
+  // other one -- and that quietly put the whole of GYM-9 out of reach of
+  // measurement, because no policy that competes could ever hold the
+  // $25,000 a building costs, so the one decision the system is about
+  // (run the round, or climb it) had nobody who could face it.
+  const bool hoards = (argc > 5 && std::string(argv[5]) == "hoarder") ||
+                      opts.count("savings") > 0 ||
+                      (argc > 5 && std::string(argv[5]) == "dreamer");
+  const bool stakesClaims =
+      (argc > 5 && std::string(argv[5]) == "stakeout") || hoards;
+
 
   // **Arg 13: how this climber handles being hurt.** Orthogonal to the
   // climbing policy on purpose -- Phase 10's second gate asks whether a
@@ -862,7 +876,7 @@ int main(int argc, char** argv) {
                std::string(TheVenues()[
                    player.worldCup.schedule[flight.round].venue].city) +
                ": " + std::to_string(r.place);
-      } else if (CompIsToday(player.circuit, player.day) &&
+      } else if (RoundIsOpen(player.circuit, player.day) &&
                  player.cash >= cpd.entryFee) {
         player.cash -= cpd.entryFee;
         const CompTier tier = TierFor(player.rankingPoints);
@@ -1910,6 +1924,14 @@ int main(int argc, char** argv) {
         break;   // one hire a day, the way one purchase a day is one day
       }
 
+      // **Climb the equipment ladder**, which pass two's policy skipped --
+      // and that omission is why `gym=run` never once bid to host: the
+      // federation will not put a national number on as-bought walls, so
+      // every bid was refused at a gate the policy had no way to pass.
+      if (player.gym.equip != GymEquip::FullRenovation) {
+        UpgradeEquipment(player.gym, player.cash, gd);
+      }
+
       // Then build onto it, in table order, one a day.
       for (int w = 0; w < kGymWingCount; w++) {
         const GymWing wing = static_cast<GymWing>(w);
@@ -1946,6 +1968,25 @@ int main(int argc, char** argv) {
         // money is there, and then a session every night it will take one.
         // Coached by you under `gym=life` and by somebody you pay under
         // `gym=hired` -- the two cannot be measured at once.
+        // **GYM-9.** Bid every season the room is big enough, and on the
+        // day, run it. Running rather than climbing is the whole decision
+        // and a policy that sometimes did one and sometimes the other
+        // would measure neither -- so this one is the host, always, and
+        // the cost of that shows up in the circuit columns.
+        if (WhyNotBidToHost(player).empty()) {
+          const double was = player.cash;
+          t.gymBids++;
+          if (BidToHostTheSeason(player)) t.gymSeasonsHeld++;
+          t.gymBidSpend += was - player.cash;
+        }
+        if (WhyNotRunTheRound(player).empty()) {
+          const double was = player.cash;
+          if (RunTheRound(player, today, dd)) {
+            t.gymRoundsRun++;
+            t.gymRoundPay += player.cash - was;
+          }
+        }
+
         if (!player.youth.going && FoundYouthTeam(player, world, dd)) {
           t.youthDay = player.day;
           if (paysACoach) SetTheYouthCoach(player, true, world);
@@ -2204,7 +2245,7 @@ int main(int argc, char** argv) {
          "\tgymfixed\tgymleft\tgymhands\tgymgone\tgymtopwage"
          "\tgymwalks\tgymcomps\tgymcohort\tgymarcs"
          "\tyouthday\tyouthsess\tyouthgrads\tyouthage\tyouthcraft"
-         "\tyouthstep\n");
+         "\tyouthstep\tgymbids\tgymheld\tgymrounds\tgymbid$\tgymround$\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -2225,7 +2266,8 @@ int main(int argc, char** argv) {
          "\t%d\t%d\t%.0f\t%.0f\t%d"
          "\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f"
          "\t%d\t%d\t%d\t%d"
-         "\t%d\t%d\t%d\t%d\t%.1f\t%d\n",
+         "\t%d\t%d\t%d\t%d\t%.1f\t%d"
+         "\t%d\t%d\t%d\t%.0f\t%.0f\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -2328,7 +2370,8 @@ int main(int argc, char** argv) {
          t.gymQuit, t.gymFixed, t.gymLeft, t.gymHandsOffDay, t.gymForeclosed,
          t.gymWorstWage, t.gymWalks, t.gymComps, t.gymCohortDay,
          t.gymArcsLived, t.youthDay, t.youthSessions, t.youthGrads,
-         t.youthOldest, t.youthCraftEnd, t.youthSteppedUp);
+         t.youthOldest, t.youthCraftEnd, t.youthSteppedUp, t.gymBids,
+         t.gymSeasonsHeld, t.gymRoundsRun, t.gymBidSpend, t.gymRoundPay);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

@@ -186,12 +186,18 @@ double RivalStrength(GymRival r, int day, const std::string& salt,
   return std::max(def.base * dials.rivalFloor, out);
 }
 
-double TownPressure(int day, const std::string& salt, double campaignShield,
-                    const GymTownDials& dials) {
+double RivalPull(int day, const std::string& salt,
+                 const GymTownDials& dials) {
   double total = 0.0;
   for (int i = 0; i < kGymRivalCount; i++) {
     total += RivalStrength(static_cast<GymRival>(i), day, salt, dials);
   }
+  return total;
+}
+
+double TownPressure(int day, const std::string& salt, double campaignShield,
+                    const GymTownDials& dials) {
+  const double total = RivalPull(day, salt, dials);
   const double shield = campaignShield > 0.0 ? campaignShield : 1.0;
   if (total <= 0.0) return dials.pressureMax;
   const double raw = RivalBaseTotal() / (total / shield);
