@@ -243,8 +243,6 @@ struct FDirtbagGuidebookReadout
 	int32 LinesHere = 0;
 };
 
-/** Which part of the handover is on screen. */
-UENUM(BlueprintType)
 /** The four questions a career opens with, in order. See
  *  Sim/DirtbagCharacter.h — the first three are a build and the fourth is a
  *  disposition, and none of them is optional: a climber with no answers is
@@ -401,6 +399,8 @@ struct FDirtbagCreationReadout
 	FString WhoYouAre;
 };
 
+/** Which part of the handover is on screen. */
+UENUM(BlueprintType)
 enum class EDirtbagHandoverStep : uint8
 {
 	/** What the career was, and what survives it. */

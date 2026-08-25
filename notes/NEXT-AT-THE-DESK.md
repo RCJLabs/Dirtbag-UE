@@ -33,7 +33,7 @@ What was checked here, so you know what is already ruled out:
 | Sim as one translation unit, 49 files, the way UBT will | clean |
 | `-Wshadow` across all of `Sim/` | zero |
 | 162,978 harness assertions | pass |
-| Fifteen preflight steps — thirteen checkers, the harness, the probe build | pass |
+| Sixteen preflight steps — fourteen checkers, the harness, the probe build | pass |
 | The season probe still builds and runs | yes — **this is new, see §5** |
 | New `UENUM`s are `uint8` | yes, all 8 |
 | New `USTRUCT`s declared before first use | yes — `check-engine-fields` asserts declaration order across 85 mirror structs |
@@ -41,6 +41,36 @@ What was checked here, so you know what is already ruled out:
 | Every new Blueprint verb reachable from the game | yes — `check-doors` covers all 257 |
 | Every sim field carried across the mirror | yes — `check-mirror-coverage`, 834 fields, 117 converters |
 | Non-ASCII added in new code | none — **but see §2, which is about the old code** |
+
+---
+
+## §0 — One UHT error, found and fixed 2026-08-25
+
+**You hit it and it was not from this week.** `DirtbagGameInstance.h(252):
+Error: Found 'UENUM' while parsing UENUM`.
+
+A `UENUM(BlueprintType)` had drifted **158 lines** from its `enum class
+EDirtbagHandoverStep`, with a complete second UENUM in between. UHT read the
+first macro, went looking for an enum, found another macro, and stopped.
+
+It landed on **2026-08-22**, in "The handover: you could not end a career",
+and it has two halves — the loud one that stopped your build, and a quiet
+one that had been true for three days: **the declaration it belonged to had
+no macro at all**, so `EDirtbagHandoverStep` was not reflected and nothing
+said so.
+
+Fixed, and there is now a checker: `tools/check-macros.py`, preflight step
+sixteen, which asserts that between a reflection macro and its keyword there
+may be blank lines and comments and nothing else — **both ways round**,
+because only one of the two halves stops a build. Verified by reintroducing
+the exact bug.
+
+Behind it I also statically checked the other things UHT rejects that can be
+seen from here — `UENUM(BlueprintType)` not `uint8`, a `USTRUCT`/`UCLASS`
+with no `GENERATED_BODY()`, a `UPROPERTY` outside a body, a type used before
+it is declared — and **all four are clean**. UHT stops at the first error,
+so that is worth knowing before you rebuild: there is no second one of those
+kinds waiting.
 
 ---
 

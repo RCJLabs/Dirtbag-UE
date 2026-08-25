@@ -14,6 +14,10 @@
 #                       is satisfied by the sim's own
 #   engine-defs         a sim file with no bridge .cpp, so UBT never
 #                       compiled it
+#   macros              a UENUM whose enum had drifted 158 lines down the
+#                       file, with another complete UENUM in between: UHT
+#                       said "Found 'UENUM' while parsing UENUM" and the
+#                       declaration it belonged to had no macro at all
 #   engine-fields       `Day.Day`, when the day counter lives on
 #                       FDirtbagPlayerState
 #   bodycontext         the comp resolver assembled its own AttemptInput and
@@ -42,6 +46,10 @@ echo "OK  build/season is current"
 echo
 echo "== engine definitions and bridge files =="
 python3 tools/check-engine-defs.py
+
+echo
+echo "== reflection macros sit on their declarations =="
+python3 tools/check-macros.py
 
 echo
 echo "== engine field names =="
