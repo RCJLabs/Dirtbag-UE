@@ -33,7 +33,7 @@ What was checked here, so you know what is already ruled out:
 | Sim as one translation unit, 49 files, the way UBT will | clean |
 | `-Wshadow` across all of `Sim/` | zero |
 | 162,978 harness assertions | pass |
-| Fourteen preflight steps — twelve checkers, the harness, the probe build | pass |
+| Fifteen preflight steps — thirteen checkers, the harness, the probe build | pass |
 | The season probe still builds and runs | yes — **this is new, see §5** |
 | New `UENUM`s are `uint8` | yes, all 8 |
 | New `USTRUCT`s declared before first use | yes — `check-engine-fields` asserts declaration order across 85 mirror structs |
@@ -84,15 +84,26 @@ that changed here and did not change in your local copy.
 
 ## §2 — The one real thing I found that I could not fix from here
 
-**Eighteen engine files contain non-ASCII characters — em dashes — and not
-one of them has a UTF-8 BOM.**
+**Non-ASCII characters — em dashes — are all over both halves of this
+project, and not one file carrying them has a UTF-8 BOM.**
 
-That includes user-facing text, not only comments:
+Measured precisely, because the first cut of this section undercounted it:
+
+| | |
+|---|---|
+| files carrying non-ASCII at all | **79** of 248 |
+| lines where it is inside a comment | 801 — harmless unless a mangled byte eats a newline |
+| lines where it is **inside code or a string literal** | **28, across 18 files** |
+
+The 28 are the ones that matter, and they are in both trees — `Sim/` is
+compiled by MSVC too, through the bridge TUs, so this is not an engine-only
+question:
 
 ```
 DirtbagClimbWall.cpp:602   TEXT("%s  %s%s — %s   (E to climb, G for the book)")
 DirtbagClimbWall.cpp:1270  TEXT("nothing to milk here — that cost you")
-DirtbagGameInstance.cpp:1296  TEXT("project — %s")
+Sim/DirtbagConditions.cpp:214   "sticky — this is the day"
+Sim/DirtbagAge.cpp:83           out += " — ";
 ```
 
 Unreal's own convention is that a source file containing non-ASCII must be
@@ -109,8 +120,15 @@ under the grade. If it says `—`, close this section. If it says anything
 else, the fix is one pass converting `—` to `--` across the module, and I
 will add a checker so it cannot come back.
 
-Every string I wrote this week is ASCII (`--`, not `—`) in both halves, so
-this cannot get worse while you decide.
+Every string I wrote this week is ASCII (`--`, not `—`) in both halves, and
+**`tools/check-ascii.py` now holds that line for everything written from
+here** — it is preflight step fifteen. It grandfathers the 79 files by a
+byte count, so a file may lose non-ASCII and may not gain it, which is the
+honest way to hold a line without pretending to have cleaned up behind it.
+
+If the answer comes back "they are mangled", the fix is one pass converting
+every one to `--`, then `python3 tools/check-ascii.py --bless`, at which
+point the numbers all go to zero and it becomes a flat ban.
 
 ---
 

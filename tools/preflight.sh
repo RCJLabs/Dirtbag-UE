@@ -68,6 +68,10 @@ echo "== FString never fed a std::string =="
 python3 tools/check-fstring.py
 
 echo
+echo "== new code stays ASCII =="
+python3 tools/check-ascii.py
+
+echo
 echo "== log categories defined once =="
 python3 tools/check-logcat.py
 
