@@ -18,6 +18,13 @@
 #                       file, with another complete UENUM in between: UHT
 #                       said "Found 'UENUM' while parsing UENUM" and the
 #                       declaration it belonged to had no macro at all
+#   callsites           SpendDayWith gained a required argument and TWO
+#                       call sites were never updated -- the probe, which
+#                       nothing built, and the game instance, which nothing
+#                       compiled. One bug, two build cycles
+#   callsites           FString::Printf given a ternary between two TEXT()s:
+#                       UE 5.8's format check is consteval and wants a
+#                       literal, and says so in 400 lines of template noise
 #   engine-fields       `Day.Day`, when the day counter lives on
 #                       FDirtbagPlayerState
 #   bodycontext         the comp resolver assembled its own AttemptInput and
@@ -54,6 +61,10 @@ python3 tools/check-macros.py
 echo
 echo "== engine field names =="
 python3 tools/check-engine-fields.py
+
+echo
+echo "== engine call sites match the sim =="
+python3 tools/check-callsites.py
 
 echo
 echo "== mirror coverage =="

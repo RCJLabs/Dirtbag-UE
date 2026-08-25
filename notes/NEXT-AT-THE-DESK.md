@@ -33,7 +33,7 @@ What was checked here, so you know what is already ruled out:
 | Sim as one translation unit, 49 files, the way UBT will | clean |
 | `-Wshadow` across all of `Sim/` | zero |
 | 162,978 harness assertions | pass |
-| Sixteen preflight steps — fourteen checkers, the harness, the probe build | pass |
+| Seventeen preflight steps — fifteen checkers, the harness, the probe build | pass |
 | The season probe still builds and runs | yes — **this is new, see §5** |
 | New `UENUM`s are `uint8` | yes, all 8 |
 | New `USTRUCT`s declared before first use | yes — `check-engine-fields` asserts declaration order across 85 mirror structs |
@@ -71,6 +71,55 @@ with no `GENERATED_BODY()`, a `UPROPERTY` outside a body, a type used before
 it is declared — and **all four are clean**. UHT stops at the first error,
 so that is worth knowing before you rebuild: there is no second one of those
 kinds waiting.
+
+---
+
+## §0b — Then MSVC found six, 2026-08-25
+
+UHT passed after §0. The compiler found six, in four files, and **five of
+the six were older than this week**:
+
+| | |
+|---|---|
+| `Game->GymNameToBuy` | it is the *spot's* property, not the game instance's |
+| `Printf("%s is yours.")` | knock-on from the above |
+| `SpendDayWith(P, bClimbedToday)` | **the same missing argument that broke the probe** |
+| `Line` hides `Line` | C4456, in the rival race |
+| `Printf(bWasFa ? TEXT(..) : TEXT(..), ..)` | UE 5.8's format check is `consteval` |
+| `Standing` hides `Standing` | C4456, in the HUD |
+
+All six fixed. **Two are worth knowing about beyond the fix:**
+
+**`SpendDayWith` was one bug that cost two build cycles.** The turnout commit
+gave it a required `smell` argument and missed two call sites — the season
+probe, which nothing here built, and the game instance, which nothing here
+compiled. I found the probe on Monday and fixed it and did not think to ask
+where else that function was called.
+
+**The HUD shadow was not cosmetic.** Two locals called `Standing`; the inner
+block fetched the *circuit* standing, tested it for emptiness, and then drew
+the *faction* standing under it. It has been printing the wrong line under
+the ranking for as long as both have existed. C4456 is what found it.
+
+Three new preflight steps came out of this, and **all three were verified by
+reintroducing the exact bug** — which is how I learned that two of them
+looked like they worked and did not:
+
+- `check-macros.py` — a reflection macro must sit on its declaration.
+- `check-callsites.py` — every `dirtbag::` call in the engine must match the
+  sim's parameter count, and every `FString::Printf` format must be a
+  literal. Its first cut found the declarations with a pattern that
+  forbade braces, which excluded every function defaulting a dial the way
+  this project defaults dials — so the rule was live with almost nothing in
+  its table. It reads 483 call sites now; it read 211 then.
+- `check-ascii.py` — §2.
+
+What is still **not** checked here, and would have caught two of today's
+six: **shadowing in the engine module.** `-Wshadow` covers `Sim/` only,
+because `Sim/` is the half that compiles here. I have not written a lexical
+shadow checker because I do not trust one I cannot test against a compiler,
+and MSVC already catches it in one build. If a third one turns up, it is
+worth the risk.
 
 ---
 

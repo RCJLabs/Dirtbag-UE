@@ -342,11 +342,17 @@ void ADirtbagHUD::DrawNeeds(UDirtbagGameInstance* Game, float H)
 		Y += 22.f;
 		DrawText(Game->RankLine(), FLinearColor(0.72f, 0.78f, 0.62f, 1.f), X,
 		         Y, GEngine->GetSmallFont(), 1.f);
-		const FString Standing = Game->CircuitStandingLine();
-		if (!Standing.IsEmpty())
+		// **The shadow was not cosmetic.** Both of these were called
+		// `Standing`, and this block drew the outer one -- so the circuit
+		// standing line was fetched, tested for emptiness, and then the
+		// faction standing was printed under it instead. MSVC's C4456 is
+		// what found it.
+		const FString CircuitStanding = Game->CircuitStandingLine();
+		if (!CircuitStanding.IsEmpty())
 		{
 			Y += 18.f;
-			DrawText(Standing, kDim, X, Y, GEngine->GetSmallFont(), 1.f);
+			DrawText(CircuitStanding, kDim, X, Y, GEngine->GetSmallFont(),
+			         1.f);
 		}
 		// And whether your name is on the paper. Silent until it ever has
 		// been, because a team you have never been near is not a status.

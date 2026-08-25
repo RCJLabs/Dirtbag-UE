@@ -4495,8 +4495,13 @@ void UDirtbagGameInstance::AdvanceTheLot()
 	LotNews.Reset();
 	for (dirtbag::Partner& P : Lot)
 	{
-		// Rapport is earned by turning up and climbing, not by existing.
-		dirtbag::SpendDayWith(P, bClimbedToday);
+		// Rapport is earned by turning up and climbing, not by existing --
+		// and **how you turned up smells**, which is the argument the
+		// turnout commit added and this call site never got. See
+		// Sim/DirtbagLiving.h: grime multiplies the three social gains and
+		// this is one of them.
+		dirtbag::SpendDayWith(P, bClimbedToday,
+		                      dirtbag::GrimeSocial(Player.Living.Grime));
 
 		const int Line = dirtbag::PartnerTakesFirstAscent(World, P, SimCrag,
 		                                                  Taken, Player.Day);
@@ -4573,7 +4578,7 @@ void UDirtbagGameInstance::AdvanceTheLot()
 			// about.
 			if (dirtbag::RaceRanOut(R, Player.Day))
 			{
-				const FString Line =
+				const FString RacedLine =
 				    FString(R.race.routeName.c_str());
 				const bool bWasFa = R.race.forFirstAscent;
 				if (bWasFa)
@@ -4588,11 +4593,20 @@ void UDirtbagGameInstance::AdvanceTheLot()
 					}
 				}
 				dirtbag::TheyWonTheRace(R);
-				RivalNews = FString::Printf(
-				    bWasFa ? TEXT("%s did %s. It was never yours to lose, "
-				                  "and it is theirs now.")
-				           : TEXT("%s did %s. You had five days."),
-				    UTF8_TO_TCHAR(R.name.c_str()), *Line);
+				// **UE 5.8 checks format strings at compile time**, and
+				// `TCheckedFormatString` is consteval -- so the format has
+				// to be a literal at the call, and a ternary between two
+				// `TEXT()`s decays to `const wchar_t*` and cannot be one.
+				// Two calls rather than one clever argument.
+				RivalNews =
+				    bWasFa
+				        ? FString::Printf(
+				              TEXT("%s did %s. It was never yours to lose, "
+				                   "and it is theirs now."),
+				              UTF8_TO_TCHAR(R.name.c_str()), *RacedLine)
+				        : FString::Printf(
+				              TEXT("%s did %s. You had five days."),
+				              UTF8_TO_TCHAR(R.name.c_str()), *RacedLine);
 			}
 			else if (!dirtbag::RaceIsOn(R))
 			{

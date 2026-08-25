@@ -1470,9 +1470,8 @@ void ADirtbagDaySpot::OnInteract()
 	{
 		if (!Game->Player.Gym.bOwned)
 		{
-			Say(Game->BuyTheGym(Game->GymNameToBuy)
-			        ? FString::Printf(TEXT("%s is yours."),
-			                          *Game->GymNameToBuy)
+			Say(Game->BuyTheGym(GymNameToBuy)
+			        ? FString::Printf(TEXT("%s is yours."), *GymNameToBuy)
 			        : FString(TEXT("Not for that.")),
 			    FColor::Yellow, 6.f);
 			break;
