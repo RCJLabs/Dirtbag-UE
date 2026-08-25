@@ -91,3 +91,16 @@ fixes and they are not exclusive:
 
 None of those is a late-game *system*, which is what the 2D game actually
 put there. They are ways of not needing one yet.
+
+## Answered
+
+*2026-08-25.* The gap is closed, and it took two passes of gym ownership to
+close it. A fully-built gym absorbs **$61,100** of capital — $25,000 for the
+building, $8,000 for the equipment ladder, $5,500 for the two hires, and
+$22,600 for the five wings — against the hoarder's $60,378, plus wages,
+upkeep and about 367 incident bills over thirty years of ownership.
+
+`notes/the-gym-pass-one.md` and `notes/the-gym-pass-two.md` have the
+working. The salaried career's $609,045 is untouched by any of it, and that
+is a separate question: a wallet twenty times the largest purchase in the
+game is not a hole one system can fill.

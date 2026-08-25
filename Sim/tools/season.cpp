@@ -84,7 +84,21 @@ struct Tally {
   double gymBalanceEnd = 0.0;
   double gymMembersEnd = 0.0;
   int gymDaysOwned = 0;
+  // **Nights the gym was in the news**, which since pass two is incidents
+  // as well as the bank -- so the foreclosures are counted separately or
+  // the column quietly stops meaning what it is named.
   int gymLost = 0;
+  int gymForeclosed = 0;
+  double gymWorstWage = 0.0;
+  // Pass two. What the building actually absorbed, and what it did with it.
+  double gymSpent = 0.0;
+  int gymWings = 0;
+  int gymHired = 0;
+  int gymRaises = 0;
+  int gymQuit = 0;
+  int gymFixed = 0;
+  int gymLeft = 0;
+  int gymHandsOffDay = 0;
 
   int declinedTheOffer = 0;
   int retiredByBody = 0;
@@ -507,6 +521,12 @@ int main(int argc, char** argv) {
   // a saving career holds -- so the measurement that matters is whether a
   // career that buys one is better or worse off for it.
   const bool buysAGym = optOn("gym");
+  // **`gym=run` is pass two.** `gym=1` buys the building and leaves every
+  // lever where it starts, which is what pass one measured; `gym=run` also
+  // staffs it, builds onto it, answers what lands on the clipboard and
+  // eventually hands over the keys. The two together are how you find out
+  // whether pass two absorbs the ceiling pass one only half-absorbed.
+  const bool runsAGym = opt("gym", "") == "run";
   const std::string retirePolicy = opt("retire", "always");
   const std::string medPolicy = opt("med", "");
   const auto has = [&medPolicy](const char* what) {
@@ -1526,7 +1546,12 @@ int main(int argc, char** argv) {
       // before turnout existed there was no difference between the two.
       bool sawThem = false;
       for (const Partner& h : hereToday) sawThem = sawThem || h.name == p.name;
-      SpendDayWith(p, sawThem && t.daysClimbed > climbedBefore);
+      // **And how you turned up smells.** The engine reads grime into the
+      // three social gains through `GrimeSocial`; the probe has to read it
+      // the same way or it is measuring a cleaner climber than the one the
+      // player is.
+      SpendDayWith(p, sawThem && t.daysClimbed > climbedBefore,
+                   GrimeSocial(player.living.grime));
       std::vector<std::string> taken = lotTaken;
       for (const ProjectMemory& m : player.projects)
         if (m.firstAscent) taken.push_back(m.routeName);
@@ -1811,12 +1836,83 @@ int main(int argc, char** argv) {
     if (buysAGym && !player.gym.owned && player.cash >= GymDials{}.price) {
       BuyTheGym(player.gym, player.cash, "The Woodshed", player.day);
       t.boughtGymOnDay = player.day;
+      t.gymSpent += GymDials{}.price;
+    }
+
+    // **`gym=run`: the levers pass two put on the counter.** Every choice
+    // here is the simple one on purpose -- the top of the shortlist, the
+    // wings in table order, always say yes to a raise, always pay the bill
+    // if the money is there. A policy that picked cleverly would be
+    // measuring my picking rather than the system.
+    if (runsAGym && player.gym.owned) {
+      const GymDials gd;
+
+      // The clipboard first, because it is the thing with a clock on it.
+      if (player.gym.incident != GymIncident::None) {
+        const GymIncidentDef* def = IncidentDef(player.gym.incident);
+        const int which =
+            def != nullptr && player.cash >= def->choices[0].cost ? 0 : 1;
+        const IncidentAnswer said =
+            AnswerTheIncident(player.gym, player.cash, which, gd);
+        if (said.answered) {
+          Shift(player.standing, Faction::Scene, said.standing / 100.0);
+          if (which == 0) t.gymFixed++; else t.gymLeft++;
+          if (def != nullptr) t.gymSpent += def->choices[which].cost;
+        }
+      }
+
+      // Tenure. Always granted -- refusing is the interesting choice and
+      // therefore the one a measurement policy must not make for you.
+      for (int seat = 0; seat < 2; seat++) {
+        const bool desk = seat == 0;
+        if (!IsAskingForARaise(player.gym, desk, player.day, gd)) continue;
+        const RaiseAnswer said =
+            AnswerTheAsk(player.gym, desk, true, player.day, gd);
+        if (said == RaiseAnswer::Granted) t.gymRaises++;
+        if (said == RaiseAnswer::TheyQuit) t.gymQuit++;
+      }
+
+      // The desk before the setter, whoever is at the top of the list.
+      for (int seat = 0; seat < 2; seat++) {
+        const bool desk = seat == 0;
+        if (desk ? player.gym.frontDesk : player.gym.setter) continue;
+        const double was = player.cash;
+        if (Hire(player.gym, player.cash, desk, player.day, 0, gd)) {
+          t.gymHired++;
+          t.gymSpent += was - player.cash;
+        }
+        break;   // one hire a day, the way one purchase a day is one day
+      }
+
+      // Then build onto it, in table order, one a day.
+      for (int w = 0; w < kGymWingCount; w++) {
+        const GymWing wing = static_cast<GymWing>(w);
+        if (HasWing(player.gym, wing)) continue;
+        const double was = player.cash;
+        if (BuildWing(player.gym, player.cash, wing, gd)) {
+          t.gymWings++;
+          t.gymSpent += was - player.cash;
+        }
+        break;
+      }
+
+      // And once both seats are filled, hand it over.
+      if (!player.gym.passive && SetHandsOff(player.gym, true)) {
+        t.gymHandsOffDay = player.day;
+      }
     }
 
     SleepToNextDay(player, today, world, dd);
 
     if (player.gym.owned) t.gymDaysOwned++;
     if (!player.gymNews.empty()) t.gymLost++;
+    if (player.gymNews.find("The bank took") != std::string::npos) {
+      t.gymForeclosed++;
+    }
+    for (int seat = 0; seat < 2; seat++) {
+      const GymStaffer* who = WhoIsOn(player.gym, seat == 0);
+      if (who != nullptr) t.gymWorstWage = std::max(t.gymWorstWage, who->wage);
+    }
 
     // What the night did to it. Counted rather than asserted, because the
     // question is *how often* and no harness check can ask that.
@@ -2025,7 +2121,9 @@ int main(int argc, char** argv) {
          "\twsomeone\twhome\twmusic\twbooks\twstove"
          "\tgreeted\tfirstgreet\tknown\tgsent\tgnamed\tgaway\tghurt"
          "\tgbroke\tgwon\tgspons\tsaid"
-         "\tgymday\tgymdays\tgymbal\tgymmem\tgymlost\n");
+         "\tgymday\tgymdays\tgymbal\tgymmem\tgymlost"
+         "\tgymspent\tgymwings\tgymhired\tgymraises\tgymquit"
+         "\tgymfixed\tgymleft\tgymhands\tgymgone\tgymtopwage\n");
   printf("ROW\t%s\t%s\t%.1f\t%.0f\t%.0f\t%d\t%d\t%d\t%d\t%.1f\t%+.2f"
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\t%d\t%.0f\t%d"
          "\t%.2f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%d\t%d"
@@ -2043,7 +2141,8 @@ int main(int argc, char** argv) {
          "\t%d\t%d\t%.0f\t%d\t%d\t%d\t%d\t%.2f"
          "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
          "\t%d\t%d\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s"
-         "\t%d\t%d\t%.0f\t%.0f\t%d\n",
+         "\t%d\t%d\t%.0f\t%.0f\t%d"
+         "\t%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\n",
          seed.c_str(),
          takeTheSalary    ? "salary"
          : mindReputation ? "careful"
@@ -2142,7 +2241,9 @@ int main(int argc, char** argv) {
          t.greetedByKind[static_cast<int>(Heard::Sponsored)],
          t.lastSaid.empty() ? "nothing" : t.lastSaid.c_str(),
          t.boughtGymOnDay, t.gymDaysOwned, t.gymBalanceEnd, t.gymMembersEnd,
-         t.gymLost);
+         t.gymLost, t.gymSpent, t.gymWings, t.gymHired, t.gymRaises,
+         t.gymQuit, t.gymFixed, t.gymLeft, t.gymHandsOffDay, t.gymForeclosed,
+         t.gymWorstWage);
 
   if (quiet) {
     printf("%6.1f %8d %8d %8d %8d %9.1f %7.0f\n", restUntilSkin,

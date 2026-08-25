@@ -263,6 +263,16 @@ private:
 	/** The gym's levers on keys 1-6. Returns true when it handled the
 	 *  press, so the chain below it never sees it. */
 	bool PullGymLever(int32 Index);
+
+	/** Which page of the gym's levers the six keys are currently pointing
+	 *  at. **Pass two put more verbs on this counter than there are number
+	 *  keys**, so they are paged rather than crammed: the floor, the
+	 *  people, the building, the keys. An open incident overrides all four
+	 *  -- it is the one with a clock on it. */
+	int32 GymPage = 0;
+
+	/** What the six keys are pointing at right now, for the prompt. */
+	FString GymLeverPageName() const;
 	/** Returns true if it handled the key, i.e. this is the fire. */
 	bool SetStakeNotch(int32 Notch);
 

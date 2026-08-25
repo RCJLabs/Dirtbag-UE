@@ -341,6 +341,53 @@ void MigrateV23ToV24(SaveFields& fields) { fields["ranking"] = "0"; }
 // people this career ever climbed with. The honest reconstruction is that
 // you knew them at least as well as you know them now, which is exactly
 // what the runtime would derive on the next `BondsFrom` anyway.
+// v41 -> v42: the gym, pass two. A v41 career could own the building but
+// its two staff were a pair of booleans, it had no wings and nothing ever
+// went wrong in it.
+//
+// **The staff are the interesting half of this migration**, and the source
+// names the answer: a save from before `GYM-3` "derives a plain
+// 1.0-quality staffer on the base wage", so an existing gym's books do not
+// move by a cent. The name is derived from the gym's, which means the
+// person who has apparently been on that desk for two years finally gets
+// one, rather than being hired this morning by a save loader.
+void MigrateV41ToV42(SaveFields& fields) {
+  const GymDials fresh;
+  const auto named = fields.find("gym.name");
+  const std::string gymName = named == fields.end() ? std::string() : named->second;
+  int since = 0;
+  ParseInt(fields, "gym.day", since);
+
+  for (int role = 0; role < 2; role++) {
+    const bool desk = role == 0;
+    const std::string key = desk ? "gym.deskwho" : "gym.setwho";
+    // The middle of the shortlist is the 1.0-quality trait in both tables,
+    // which is what makes this a derivation and not a gift.
+    const std::vector<GymStaffer> pool =
+        GymCandidates(gymName, desk, 0, fresh);
+    std::string who = "Sam";
+    std::string trait;
+    for (const GymStaffer& c : pool) {
+      if (c.quality == 1.0) { who = c.name; trait = c.trait; break; }
+    }
+    fields[key + ".name"] = who;
+    fields[key + ".trait"] = trait;
+    fields[key + ".wage"] =
+        NumToStr(desk ? fresh.frontDeskWage : fresh.setterWage);
+    fields[key + ".quality"] = NumToStr(1.0);
+    fields[key + ".hired"] = IntToStr(since);
+    fields[key + ".ask"] = IntToStr(since + fresh.raiseDays);
+    fields[key + ".refusals"] = "0";
+  }
+
+  for (int i = 0; i < kGymWingCount; i++) {
+    fields["gym.wing" + IntToStr(i)] = "0";
+  }
+  fields["gym.passive"] = "0";
+  fields["gym.incident"] = "0";
+  fields["gym.incidentday"] = "0";
+}
+
 // v40 -> v41: where you park. A v40 career had one place to sleep and no
 // city writing tickets, so it loads parked in the Lot with a clean record
 // -- which is where it was and what it had.
@@ -661,7 +708,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV30ToV31, &MigrateV31ToV32, &MigrateV32ToV33,
       &MigrateV33ToV34, &MigrateV34ToV35, &MigrateV35ToV36,
       &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39,
-      &MigrateV39ToV40, &MigrateV40ToV41};
+      &MigrateV39ToV40, &MigrateV40ToV41, &MigrateV41ToV42};
   return kMigrations;
 }
 
@@ -1139,6 +1186,29 @@ std::string SerializeSave(const SaveGame& save) {
   out << "gym.balance=" << NumToStr(save.player.gym.balance) << "\n";
   out << "gym.debtdays=" << IntToStr(save.player.gym.debtDays) << "\n";
   out << "gym.tick=" << IntToStr(save.player.gym.lastTickDay) << "\n";
+  // GYM-3: and the two people in it. Written whether or not the seat is
+  // filled, because an empty seat's record is a well-defined blank and a
+  // conditional field is a parse branch waiting to go wrong.
+  for (int role = 0; role < 2; role++) {
+    const GymStaffer& who =
+        role == 0 ? save.player.gym.desk : save.player.gym.routesetter;
+    const std::string k = role == 0 ? "gym.deskwho." : "gym.setwho.";
+    out << k << "name=" << who.name << "\n";
+    out << k << "trait=" << who.trait << "\n";
+    out << k << "wage=" << NumToStr(who.wage) << "\n";
+    out << k << "quality=" << NumToStr(who.quality) << "\n";
+    out << k << "hired=" << IntToStr(who.hiredDay) << "\n";
+    out << k << "ask=" << IntToStr(who.nextAskDay) << "\n";
+    out << k << "refusals=" << IntToStr(who.refusals) << "\n";
+  }
+  for (int i = 0; i < kGymWingCount; i++) {
+    out << "gym.wing" << IntToStr(i) << "="
+        << IntToStr(save.player.gym.wings[i] ? 1 : 0) << "\n";
+  }
+  out << "gym.passive=" << IntToStr(save.player.gym.passive ? 1 : 0) << "\n";
+  out << "gym.incident="
+      << IntToStr(static_cast<int>(save.player.gym.incident)) << "\n";
+  out << "gym.incidentday=" << IntToStr(save.player.gym.incidentDay) << "\n";
 
   out << "hunger.carried=" << NumToStr(save.player.hungerCarried) << "\n";
   out << "loc.titles=" << IntToStr(save.player.locals.knownTitles) << "\n";
@@ -1781,6 +1851,43 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
       gym.mix = static_cast<GymSetMix>(within(mix, kGymSetMixCount));
       gym.equip = static_cast<GymEquip>(within(equip, kGymEquipCount));
       gym.campaign = static_cast<GymCampaign>(within(camp, kGymCampaignCount));
+
+      for (int role = 0; role < 2; role++) {
+        GymStaffer& who = role == 0 ? gym.desk : gym.routesetter;
+        const std::string k = role == 0 ? "gym.deskwho." : "gym.setwho.";
+        if (!ParseDouble(fields, k + "wage", who.wage) ||
+            !ParseDouble(fields, k + "quality", who.quality) ||
+            !ParseInt(fields, k + "hired", who.hiredDay) ||
+            !ParseInt(fields, k + "ask", who.nextAskDay) ||
+            !ParseInt(fields, k + "refusals", who.refusals)) {
+          return LoadResult::BadFormat;
+        }
+        // The name and the trait are free text, so a missing key is a
+        // format error the same way `gym.name` is, and an empty one is a
+        // legitimate empty seat.
+        const auto n = fields.find(k + "name");
+        const auto t = fields.find(k + "trait");
+        if (n == fields.end() || t == fields.end()) return LoadResult::BadFormat;
+        who.name = n->second;
+        who.trait = t->second;
+      }
+
+      for (int i = 0; i < kGymWingCount; i++) {
+        int built = 0;
+        if (!ParseInt(fields, "gym.wing" + IntToStr(i), built)) {
+          return LoadResult::BadFormat;
+        }
+        gym.wings[i] = built != 0;
+      }
+      int passive = 0, incident = 0;
+      if (!ParseInt(fields, "gym.passive", passive) ||
+          !ParseInt(fields, "gym.incident", incident) ||
+          !ParseInt(fields, "gym.incidentday", gym.incidentDay)) {
+        return LoadResult::BadFormat;
+      }
+      gym.passive = passive != 0;
+      gym.incident =
+          static_cast<GymIncident>(within(incident, kGymIncidentCount));
     }
     if (!ParseDouble(fields, "hunger.carried", save.player.hungerCarried)) {
       return LoadResult::BadFormat;

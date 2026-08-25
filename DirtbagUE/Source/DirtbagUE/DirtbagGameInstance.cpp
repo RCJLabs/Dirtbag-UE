@@ -3395,17 +3395,212 @@ bool UDirtbagGameInstance::UpgradeGymEquipment()
 	return true;
 }
 
-bool UDirtbagGameInstance::HireForTheGym(bool bFrontDesk)
+TArray<FDirtbagGymStaffer> UDirtbagGameInstance::GymCandidatesFor(
+    bool bFrontDesk) const
+{
+	TArray<FDirtbagGymStaffer> Out;
+	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	if (!Sim.owned)
+	{
+		return Out;
+	}
+	for (const dirtbag::GymStaffer& Who :
+	     dirtbag::GymCandidates(Sim.name, bFrontDesk, Player.Day))
+	{
+		Out.Add(DirtbagConvert::FromSim(Who));
+	}
+	return Out;
+}
+
+bool UDirtbagGameInstance::HireForTheGym(bool bFrontDesk, int32 Which)
 {
 	dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
 	double Cash = Player.Cash;
-	if (!dirtbag::Hire(Sim, Cash, bFrontDesk))
+	if (!dirtbag::Hire(Sim, Cash, bFrontDesk, Player.Day, Which))
 	{
 		return false;
 	}
 	Player.Gym = DirtbagConvert::FromSim(Sim);
 	Player.Cash = Cash;
 	return true;
+}
+
+bool UDirtbagGameInstance::GymStaffIsAsking(bool bFrontDesk) const
+{
+	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	return dirtbag::IsAskingForARaise(Sim, bFrontDesk, Player.Day);
+}
+
+double UDirtbagGameInstance::GymRaiseAsked(bool bFrontDesk) const
+{
+	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	if (!dirtbag::IsAskingForARaise(Sim, bFrontDesk, Player.Day))
+	{
+		return 0.0;
+	}
+	return dirtbag::TheRaiseTheyWant(Sim, bFrontDesk);
+}
+
+FString UDirtbagGameInstance::AnswerTheGymRaise(bool bFrontDesk, bool bGrant)
+{
+	dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	const dirtbag::GymStaffer* Who = dirtbag::WhoIsOn(Sim, bFrontDesk);
+	if (Who == nullptr)
+	{
+		return FString();
+	}
+	const FString Name = UTF8_TO_TCHAR(Who->name.c_str());
+	const double Wanted = dirtbag::TheRaiseTheyWant(Sim, bFrontDesk);
+	const dirtbag::RaiseAnswer Said =
+	    dirtbag::AnswerTheAsk(Sim, bFrontDesk, bGrant, Player.Day);
+	if (Said == dirtbag::RaiseAnswer::NotAsking)
+	{
+		return FString();
+	}
+	Player.Gym = DirtbagConvert::FromSim(Sim);
+	switch (Said)
+	{
+		case dirtbag::RaiseAnswer::Granted:
+			return FString::Printf(
+			    TEXT("%s gets the raise - $%d a day from tomorrow."), *Name,
+			    FMath::RoundToInt(Wanted));
+		case dirtbag::RaiseAnswer::TheySulk:
+			return FString::Printf(
+			    TEXT("%s takes it fine. They keep turning up. They stop going "
+			         "out of their way."),
+			    *Name);
+		default:
+			return FString::Printf(
+			    TEXT("%s handed in notice. You have been asked twice and said "
+			         "no twice."),
+			    *Name);
+	}
+}
+
+bool UDirtbagGameInstance::BuildGymWing(EDirtbagGymWing Wing)
+{
+	dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	double Cash = Player.Cash;
+	if (!dirtbag::BuildWing(Sim, Cash, static_cast<dirtbag::GymWing>(Wing)))
+	{
+		return false;
+	}
+	Player.Gym = DirtbagConvert::FromSim(Sim);
+	Player.Cash = Cash;
+	return true;
+}
+
+FString UDirtbagGameInstance::GymWingShopLine(EDirtbagGymWing Wing) const
+{
+	const dirtbag::GymDials Dials;
+	const int32 Slot = static_cast<int32>(Wing);
+	if (Slot < 0 || Slot >= dirtbag::kGymWingCount)
+	{
+		return FString();
+	}
+	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	if (dirtbag::HasWing(Sim, static_cast<dirtbag::GymWing>(Wing)))
+	{
+		return FString::Printf(
+		    TEXT("%s - built. $%d a day to keep."),
+		    UTF8_TO_TCHAR(dirtbag::GymWingName(static_cast<dirtbag::GymWing>(Wing))),
+		    FMath::RoundToInt(Dials.wingUpkeep[Slot]));
+	}
+	return FString::Printf(
+	    TEXT("%s - $%d, then $%d a day. %s"),
+	    UTF8_TO_TCHAR(dirtbag::GymWingName(static_cast<dirtbag::GymWing>(Wing))),
+	    FMath::RoundToInt(Dials.wingCost[Slot]),
+	    FMath::RoundToInt(Dials.wingUpkeep[Slot]),
+	    UTF8_TO_TCHAR(dirtbag::GymWingBlurb(static_cast<dirtbag::GymWing>(Wing))));
+}
+
+bool UDirtbagGameInstance::SetGymHandsOff(bool bHandsOff)
+{
+	dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	if (!dirtbag::SetHandsOff(Sim, bHandsOff))
+	{
+		return false;
+	}
+	Player.Gym = DirtbagConvert::FromSim(Sim);
+	return true;
+}
+
+FString UDirtbagGameInstance::GymIncidentText() const
+{
+	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	const dirtbag::GymIncidentDef* Def = dirtbag::IncidentDef(Sim.incident);
+	if (Def == nullptr)
+	{
+		return FString();
+	}
+	return FString::Printf(TEXT("%s. %s"), UTF8_TO_TCHAR(Def->title),
+	                       UTF8_TO_TCHAR(Def->text));
+}
+
+FString UDirtbagGameInstance::GymIncidentChoiceLine(int32 Which) const
+{
+	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	const dirtbag::GymIncidentDef* Def = dirtbag::IncidentDef(Sim.incident);
+	if (Def == nullptr || Which < 0 || Which > 1)
+	{
+		return FString();
+	}
+	const dirtbag::GymIncidentChoice& Choice = Def->choices[Which];
+	if (Choice.cost <= 0.0)
+	{
+		return UTF8_TO_TCHAR(Choice.label);
+	}
+	return FString::Printf(TEXT("%s - $%d"), UTF8_TO_TCHAR(Choice.label),
+	                       FMath::RoundToInt(Choice.cost));
+}
+
+bool UDirtbagGameInstance::AnswerTheGymIncident(int32 Which)
+{
+	dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	double Cash = Player.Cash;
+	const dirtbag::IncidentAnswer Said =
+	    dirtbag::AnswerTheIncident(Sim, Cash, Which);
+	if (!Said.answered)
+	{
+		return false;
+	}
+	Player.Gym = DirtbagConvert::FromSim(Sim);
+	Player.Cash = Cash;
+	// Standing is the scene's, and the gym does not know about the scene -
+	// the same split the foreclosure and the night's lapse both use.
+	if (Said.standing != 0.0)
+	{
+		dirtbag::Standing Scene = DirtbagConvert::ToSim(Player.Standing);
+		dirtbag::Shift(Scene, dirtbag::Faction::Scene, Said.standing / 100.0);
+		Player.Standing = DirtbagConvert::FromSim(Scene);
+	}
+	Player.GymNews = UTF8_TO_TCHAR(Said.line.c_str());
+	return true;
+}
+
+FString UDirtbagGameInstance::TheTownLine() const
+{
+	const dirtbag::Gym Sim = DirtbagConvert::ToSim(Player.Gym);
+	if (!Sim.owned)
+	{
+		return FString();
+	}
+	// **What the other two are up to, and what time of year it is.** The
+	// two things that move the membership when the player has not touched a
+	// lever, so they are the two things the readout has to name.
+	const dirtbag::TownMove Move = dirtbag::WhatTheTownDid(
+	    dirtbag::TownWindow(Player.Day), Sim.name);
+	const double Pressure = dirtbag::TownPressure(
+	    Player.Day, Sim.name,
+	    Sim.campaign != dirtbag::GymCampaign::None && Sim.campaignUntil >= Player.Day
+	        ? dirtbag::GymDials{}.campaignShield[static_cast<int>(Sim.campaign)]
+	        : 1.0);
+	return FString::Printf(
+	    TEXT("%s %s  -  the town is %s you.  %s"),
+	    UTF8_TO_TCHAR(dirtbag::GymRivalName(Move.who)),
+	    UTF8_TO_TCHAR(Move.what),
+	    Pressure >= 1.0 ? TEXT("with") : TEXT("against"),
+	    UTF8_TO_TCHAR(dirtbag::GymSeasonNote(dirtbag::GymSeasonOf(Player.Day))));
 }
 
 bool UDirtbagGameInstance::LaunchGymCampaign(EDirtbagGymCampaign Which)

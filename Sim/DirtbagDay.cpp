@@ -651,6 +651,12 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
   if (player.gym.owned) {
     const std::string was = player.gym.name;
     const GymNight night = GymDay(player.gym, worldRng, player.day);
+    // GYM-6: something landed, or something you left ran out of days and
+    // answered itself. Either way it is the night's news about the place.
+    if (!night.news.empty()) player.gymNews = night.news;
+    if (night.standing != 0.0) {
+      Shift(player.standing, Faction::Scene, night.standing / 100.0);
+    }
     if (night.foreclosed) {
       // The standing hit is here rather than in the gym, because standing
       // is the scene's and the gym does not know about the scene.

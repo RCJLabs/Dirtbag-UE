@@ -27,6 +27,18 @@ cd "$(dirname "$0")/.."
 echo "== sim harness + unity build =="
 ./Sim/run-tests.sh
 
+# **The probe is a build too, and nothing here was building it.**
+# `SpendDayWith` gained a required argument in the turnout commit and
+# season.cpp was never updated, so every measurement claim between that
+# commit and this one could not have been re-run -- and preflight stayed
+# green throughout, because check-parity reads the probe's source and
+# never-happened.py runs a binary that was already on disk. A tool's own
+# coverage is the bug, for the fourth time.
+echo
+echo "== the probe still builds =="
+./Sim/tools/build-season.sh >/dev/null
+echo "OK  build/season is current"
+
 echo
 echo "== engine definitions and bridge files =="
 python3 tools/check-engine-defs.py

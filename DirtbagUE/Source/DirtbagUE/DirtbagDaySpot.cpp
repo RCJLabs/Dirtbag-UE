@@ -51,6 +51,25 @@ void ADirtbagDaySpot::BeginPlay()
 	                                          &ADirtbagDaySpot::OnTriggerEnd);
 }
 
+// Which seat you are hiring for. **The desk before the setter** -- the
+// cheaper hire before the dearer one, which is the order anybody would do
+// it in, and it means one key set covers both jobs. Defined up here
+// because the prompt and the keys have to agree about it.
+static bool WhichSeatIsOpen(const FDirtbagGym& Gym, bool& bFrontDesk)
+{
+	if (!Gym.bFrontDesk) { bFrontDesk = true; return true; }
+	if (!Gym.bSetter) { bFrontDesk = false; return true; }
+	return false;
+}
+
+// And who is asking for more money, in the same order.
+static bool WhoIsAsking(const UDirtbagGameInstance& Game, bool& bFrontDesk)
+{
+	if (Game.GymStaffIsAsking(true)) { bFrontDesk = true; return true; }
+	if (Game.GymStaffIsAsking(false)) { bFrontDesk = false; return true; }
+	return false;
+}
+
 FString ADirtbagDaySpot::PromptText() const
 {
 	if (!Game)
@@ -449,9 +468,56 @@ FString ADirtbagDaySpot::PromptText() const
 			    TEXT("Buy the gym?  (E)  -  $%.0f.  You have $%.0f"),
 			    Game->GymPrice(), Game->Player.Cash);
 		}
-		FString Line = FString::Printf(
-		    TEXT("%s\n   %s\n   price (1/2/3)   sets (4)   kit (5)   hire (6)"),
-		    *Game->GymLine(), *Game->GymLeverLine());
+
+		// **An open incident takes the whole prompt over**, because while it
+		// is open the number keys mean something else entirely, and a
+		// prompt that lies about what a key does is worse than no prompt.
+		if (Game->Player.Gym.Incident != EDirtbagGymIncident::None)
+		{
+			return FString::Printf(TEXT("%s\n   %s\n   (1) %s\n   (2) %s"),
+			                       *Game->GymLine(), *Game->GymIncidentText(),
+			                       *Game->GymIncidentChoiceLine(0),
+			                       *Game->GymIncidentChoiceLine(1));
+		}
+		FString Line = FString::Printf(TEXT("%s\n   %s\n   %s"),
+		                               *Game->GymLine(), *Game->GymLeverLine(),
+		                               *GymLeverPageName());
+		if (GymPage == 1)
+		{
+			// The shortlist is the page, so it belongs on the page rather
+			// than behind a keypress that spends money to read it.
+			bool bSeat = true;
+			if (WhichSeatIsOpen(Game->Player.Gym, bSeat))
+			{
+				const TArray<FDirtbagGymStaffer> Pool =
+				    Game->GymCandidatesFor(bSeat);
+				for (int32 i = 0; i < Pool.Num(); i++)
+				{
+					Line += FString::Printf(TEXT("\n   (%d) %s, $%d - %s"), i + 1,
+					                        *Pool[i].Name,
+					                        FMath::RoundToInt(Pool[i].Wage),
+					                        *Pool[i].Trait);
+				}
+			}
+			bool bAsking = true;
+			if (WhoIsAsking(*Game, bAsking))
+			{
+				Line += FString::Printf(
+				    TEXT("\n   %s wants another $%d a day."),
+				    bAsking ? *Game->Player.Gym.Desk.Name
+				            : *Game->Player.Gym.RouteSetter.Name,
+				    FMath::RoundToInt(Game->GymRaiseAsked(bAsking)));
+			}
+		}
+		else if (GymPage == 2)
+		{
+			for (int32 i = 0; i < 5; i++)
+			{
+				Line += FString::Printf(
+				    TEXT("\n   (%d) %s"), i + 1,
+				    *Game->GymWingShopLine(static_cast<EDirtbagGymWing>(i)));
+			}
+		}
 		const FString Trouble = Game->GymWarningLine();
 		if (!Trouble.IsEmpty())
 		{
@@ -1349,7 +1415,10 @@ void ADirtbagDaySpot::OnInteract()
 			Say(TEXT("The ads are out."), FColor::Yellow, 5.f);
 			break;
 		}
-		Say(Game->GymLine(), FColor::Yellow, 5.f);
+		// Nothing to launch, so it reads the room instead. **The town is
+		// what moved the membership while you were not looking**, and this
+		// is the only place it gets said out loud.
+		Say(Game->TheTownLine(), FColor::Silver, 9.f);
 		break;
 	}
 	case EDirtbagSpotKind::Evening:
@@ -1877,38 +1946,137 @@ bool ADirtbagDaySpot::PickABivy(int32 Index)
 	return true;
 }
 
+FString ADirtbagDaySpot::GymLeverPageName() const
+{
+	switch (GymPage)
+	{
+	case 0: return TEXT("the floor:  price (1/2/3)   sets (4)   kit (5)   more (6)");
+	case 1: return TEXT("the people:  hire (1/2/3)   raise: yes (4) no (5)   more (6)");
+	case 2: return TEXT("the building:  wings (1-5)   more (6)");
+	default: return TEXT("the keys:  hand it over (1)   the town (2)   more (6)");
+	}
+}
+
+// And who is asking for more money, in the same order.
 bool ADirtbagDaySpot::PullGymLever(int32 Index)
 {
 	if (!Game || !bPlayerNear || Kind != EDirtbagSpotKind::Gym) { return false; }
 	if (!Game->Player.Gym.bOwned) { return false; }
-	switch (Index)
+
+	// **The clipboard outranks the levers.** While something is open the
+	// first two keys answer it and nothing else is on offer, because it is
+	// the one thing here with a clock on it -- leave it four days and it
+	// answers itself, the cheap way.
+	if (Game->Player.Gym.Incident != EDirtbagGymIncident::None)
 	{
-	case 0: Game->SetGymPrice(EDirtbagGymPrice::Budget); break;
-	case 1: Game->SetGymPrice(EDirtbagGymPrice::Standard); break;
-	case 2: Game->SetGymPrice(EDirtbagGymPrice::Premium); break;
-	case 3:
-	{
-		// Cycles, because three mixes on one key is a cycle and three more
-		// keys for a lever nobody pulls twice a season is not.
-		const uint8 Next = (static_cast<uint8>(Game->Player.Gym.Mix) + 1) % 3;
-		Game->SetGymMix(static_cast<EDirtbagGymSetMix>(Next));
-		break;
+		if (Index > 1) { return false; }
+		Say(Game->AnswerTheGymIncident(Index)
+		        ? Game->Player.GymNews
+		        : FString(TEXT("Not for that.")),
+		    FColor::Yellow, 8.f);
+		return true;
 	}
-	case 4:
-		Say(Game->UpgradeGymEquipment()
-		        ? TEXT("The kit is in.")
-		        : TEXT("Not for that, or there is nothing left to buy."),
-		    FColor::Yellow, 5.f);
+
+	// Six keys, and pass two put more than six verbs behind this counter.
+	if (Index == 5)
+	{
+		GymPage = (GymPage + 1) % 4;
+		Say(GymLeverPageName(), FColor::Silver, 4.f);
 		return true;
-	case 5:
-		// The desk first, then the setter — the cheaper hire before the
-		// dearer one, which is the order anybody would do it in.
-		Say(Game->HireForTheGym(!Game->Player.Gym.bFrontDesk)
-		        ? TEXT("They start tomorrow.")
-		        : TEXT("Not for that, or they are already on."),
-		    FColor::Yellow, 5.f);
+	}
+
+	bool bSeat = true;
+	switch (GymPage)
+	{
+	case 0:
+		switch (Index)
+		{
+		case 0: Game->SetGymPrice(EDirtbagGymPrice::Budget); break;
+		case 1: Game->SetGymPrice(EDirtbagGymPrice::Standard); break;
+		case 2: Game->SetGymPrice(EDirtbagGymPrice::Premium); break;
+		case 3:
+		{
+			// Cycles, because three mixes on one key is a cycle and three
+			// more keys for a lever nobody pulls twice a season is not.
+			const uint8 Next = (static_cast<uint8>(Game->Player.Gym.Mix) + 1) % 3;
+			Game->SetGymMix(static_cast<EDirtbagGymSetMix>(Next));
+			break;
+		}
+		default:
+			Say(Game->UpgradeGymEquipment()
+			        ? TEXT("The kit is in.")
+			        : TEXT("Not for that, or there is nothing left to buy."),
+			    FColor::Yellow, 5.f);
+			return true;
+		}
+		break;
+
+	case 1:
+		if (Index <= 2)
+		{
+			if (!WhichSeatIsOpen(Game->Player.Gym, bSeat))
+			{
+				Say(TEXT("Both jobs are taken."), FColor::Silver, 4.f);
+				return true;
+			}
+			const TArray<FDirtbagGymStaffer> Pool = Game->GymCandidatesFor(bSeat);
+			if (!Pool.IsValidIndex(Index)) { return true; }
+			const FDirtbagGymStaffer Who = Pool[Index];
+			Say(Game->HireForTheGym(bSeat, Index)
+			        ? FString::Printf(TEXT("%s starts tomorrow - $%d a day. %s"),
+			                          *Who.Name, FMath::RoundToInt(Who.Wage),
+			                          *Who.Trait)
+			        : FString(TEXT("Not for that.")),
+			    FColor::Yellow, 7.f);
+			return true;
+		}
+		{
+			if (!WhoIsAsking(*Game, bSeat))
+			{
+				Say(TEXT("Nobody is asking."), FColor::Silver, 4.f);
+				return true;
+			}
+			const FString Said = Game->AnswerTheGymRaise(bSeat, Index == 3);
+			Say(Said.IsEmpty() ? FString(TEXT("Nobody is asking.")) : Said,
+			    FColor::Yellow, 7.f);
+		}
 		return true;
-	default: return false;
+
+	case 2:
+	{
+		const EDirtbagGymWing Wing = static_cast<EDirtbagGymWing>(Index);
+		Say(Game->BuildGymWing(Wing)
+		        ? FString::Printf(TEXT("%s - up and open."),
+		                          *Game->GymWingShopLine(Wing))
+		        : Game->GymWingShopLine(Wing),
+		    FColor::Yellow, 7.f);
+		return true;
+	}
+
+	default:
+		if (Index == 0)
+		{
+			const bool bWas = Game->Player.Gym.bPassive;
+			if (!Game->SetGymHandsOff(!bWas))
+			{
+				Say(TEXT("Needs a front desk and a setter before it can run "
+				         "without you."),
+				    FColor::Silver, 6.f);
+				return true;
+			}
+			Say(bWas ? TEXT("Back in the books - you are calling the shots "
+			                "again.")
+			         : TEXT("It runs itself now. Pricing, mix and marketing "
+			                "lock in as they are."),
+			    FColor::Yellow, 7.f);
+			return true;
+		}
+		if (Index == 1)
+		{
+			Say(Game->TheTownLine(), FColor::Silver, 9.f);
+			return true;
+		}
+		return true;
 	}
 	Say(Game->GymLine(), FColor::Yellow, 5.f);
 	return true;

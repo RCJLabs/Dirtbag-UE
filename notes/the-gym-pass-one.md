@@ -80,6 +80,12 @@ levers — against a hoarder's $60,378. **Most of the absorption lives in the
 parts not yet ported**: wings, a league to run, a $2,200 comp bid, the youth
 team. The argument holds; it needs pass two to fully land.
 
+> *2026-08-25.* Pass two landed it. The five wings add **$22,600** of
+> capital, taking a fully-built gym to **$61,100** against that $60,378 —
+> see `notes/the-gym-pass-two.md`. The $41,000 above was two figures short:
+> the equipment ladder is $8,000 cumulative and the two hires $5,500, so
+> pass one's own absorbable total was **$38,500**, not $41,000.
+
 ## One thing measurement corrected on the way
 
 The foreclosure test first hired both staff, on the theory that two wages

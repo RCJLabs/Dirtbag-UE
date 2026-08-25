@@ -49,6 +49,7 @@
 #include "DirtbagNarrator.h"
 #include "DirtbagLife.h"
 #include "DirtbagGym.h"
+#include "DirtbagGymTown.h"
 #include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
 #include "DirtbagLocals.h"
@@ -1712,6 +1713,63 @@ enum class EDirtbagGymEquip : uint8 { AsBought, HoldsAndMats, FullRenovation };
 UENUM(BlueprintType)
 enum class EDirtbagGymCampaign : uint8 { None, Flyers, Social };
 
+/** An expansion wing. The deliberate opposite of the equipment ladder:
+ *  independent, in any order, and what it moves is *who* comes. Mirrors
+ *  dirtbag::GymWing. */
+UENUM(BlueprintType)
+enum class EDirtbagGymWing : uint8 { Showers, Woody, Kids, Annex, Cafe };
+
+/** The things that go wrong in a year, and the one that goes right. Mirrors
+ *  dirtbag::GymIncident. */
+UENUM(BlueprintType)
+enum class EDirtbagGymIncident : uint8
+{
+	None,
+	Pipe,
+	Spinner,
+	Ac,
+	Viral,
+	Inspector,
+	Poach
+};
+
+/** The season, as the gym's books feel it. Mirrors dirtbag::GymSeason —
+ *  named off the climate model rather than the calendar, so **the slump is
+ *  autumn**: send season, and the whole town is at the crag. */
+UENUM(BlueprintType)
+enum class EDirtbagGymSeason : uint8 { Spring, Summer, Autumn, Winter };
+
+/** One of the two people who actually run your building. Mirrors
+ *  dirtbag::GymStaffer — a name, one true thing about them, a wage of their
+ *  own and a quality that scales the boost the books already used. */
+USTRUCT(BlueprintType)
+struct FDirtbagGymStaffer
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FString Trait;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	double Wage = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	double Quality = 1.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 HiredDay = 0;
+
+	/** The day tenure comes due and they ask for more. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 NextAskDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 Refusals = 0;
+};
+
 /** The gym you bought. Mirrors dirtbag::Gym — see Sim/DirtbagGym.h, and
  *  concepts/DECISION-gym-ownership.md for why a recorded cut came back. */
 USTRUCT(BlueprintType)
@@ -1749,6 +1807,31 @@ struct FDirtbagGym
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	bool bSetter = false;
+
+	/** And who is in those two seats. Blank while the seat is empty. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FDirtbagGymStaffer Desk;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	FDirtbagGymStaffer RouteSetter;
+
+	/** One flag per wing, indexed by EDirtbagGymWing — independent, so a
+	 *  set rather than a tier. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	TArray<bool> Wings;
+
+	/** Hands off: both seats filled, cheaper to run, and pricing, mix and
+	 *  marketing locked where you left them. Reversible any time. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	bool bPassive = false;
+
+	/** The thing on the clipboard, and the day it landed. Leave it four
+	 *  days and it answers itself the cheap way. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	EDirtbagGymIncident Incident = EDirtbagGymIncident::None;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
+	int32 IncidentDay = 0;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	double Members = 0.0;
@@ -2736,6 +2819,8 @@ namespace DirtbagConvert
 	dirtbag::Locals ToSim(const FDirtbagLocals& In);
 	FDirtbagGym FromSim(const dirtbag::Gym& In);
 	dirtbag::Gym ToSim(const FDirtbagGym& In);
+	FDirtbagGymStaffer FromSim(const dirtbag::GymStaffer& In);
+	dirtbag::GymStaffer ToSim(const FDirtbagGymStaffer& In);
 	FDirtbagLiving FromSim(const dirtbag::Living& In);
 	dirtbag::Living ToSim(const FDirtbagLiving& In);
 	FDirtbagBivy FromSim(const dirtbag::Bivy& In);

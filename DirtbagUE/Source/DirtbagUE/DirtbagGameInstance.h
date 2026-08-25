@@ -2080,8 +2080,59 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
 	bool UpgradeGymEquipment();
 
+	/** GYM-3: who is on the desk this week. Three of them, stable while the
+	 *  player thinks about it, a different three next week. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	TArray<FDirtbagGymStaffer> GymCandidatesFor(bool bFrontDesk) const;
+
+	/** Take one of them, by index into GymCandidatesFor. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
-	bool HireForTheGym(bool bFrontDesk);
+	bool HireForTheGym(bool bFrontDesk, int32 Which);
+
+	/** Tenure comes due at forty days. What they want, and whether they
+	 *  are asking at all. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	bool GymStaffIsAsking(bool bFrontDesk) const;
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	double GymRaiseAsked(bool bFrontDesk) const;
+
+	/** Grant it and they stay as they were, only dearer. Refuse and they
+	 *  keep turning up and stop trying quite so hard; refuse twice and they
+	 *  do not. Returns the line to show, or empty if nobody is asking. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	FString AnswerTheGymRaise(bool bFrontDesk, bool bGrant);
+
+	/** GYM-12: build a wing. No order, no prerequisite, only the money. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool BuildGymWing(EDirtbagGymWing Wing);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString GymWingShopLine(EDirtbagGymWing Wing) const;
+
+	/** Hands off. Needs both seats filled; locks pricing, mix and marketing
+	 *  where they are; reversible any time. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool SetGymHandsOff(bool bHandsOff);
+
+	/** GYM-6: what is on the clipboard, and the two ways out of it. Empty
+	 *  when nothing is open. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString GymIncidentText() const;
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString GymIncidentChoiceLine(int32 Which) const;
+
+	/** Answer it. False if you cannot pay for that answer, or if there is
+	 *  nothing open. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
+	bool AnswerTheGymIncident(int32 Which);
+
+	/** GYM-4 and GYM-6: what the other two gyms are up to this month, and
+	 *  what time of year it is for the floor. The readout that tells you
+	 *  why the membership moved when you did not touch anything. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Gym")
+	FString TheTownLine() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
 	bool LaunchGymCampaign(EDirtbagGymCampaign Which);

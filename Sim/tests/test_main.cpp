@@ -16,6 +16,7 @@
 #include "../DirtbagLife.h"
 #include "../DirtbagLocals.h"
 #include "../DirtbagGym.h"
+#include "../DirtbagGymTown.h"
 #include "../DirtbagBivy.h"
 #include "../DirtbagLiving.h"
 #include "../DirtbagMedical.h"
@@ -82,6 +83,18 @@ static void DropSaveLine(std::string& save, const char* key) {
   if (at == std::string::npos) return;
   save.erase(at, save.find('\n', at) + 1 - at);
   CHECK(save.find(key) == std::string::npos);
+}
+
+// Remove every line whose key starts with `prefix`. A whole family of
+// fields the old version never had -- a counted list, or one record
+// written field by field.
+static void DropSaveLines(std::string& save, const char* prefix) {
+  std::size_t at = save.find(prefix);
+  CHECK(at != std::string::npos);
+  while (at != std::string::npos) {
+    save.erase(at, save.find('\n', at) + 1 - at);
+    at = save.find(prefix);
+  }
 }
 
 // Relabel a save written by this build as an older one.
@@ -14449,7 +14462,14 @@ static void TestYouCannotBuyWhatYouCannotAfford() {
 }
 
 static void TestTheFloorIsAMeterAndNotASwitch() {
+  // **The town held still**, which is what the clamp dials are for. With
+  // GYM-4 and GYM-6 live the target is not a constant, so a test about the
+  // drift model has to stop the thing the drift model is chasing -- see
+  // TestTheFloorIsAlwaysChasing for the other half.
   GymDials d;
+  d.town.pressureMin = 1.0;
+  d.town.pressureMax = 1.0;
+  for (int i = 0; i < kGymSeasonCount; i++) d.town.seasonPull[i] = 0.0;
   const Rng world = Rng::FromSeed("the-woodshed");
   double cash = 0.0;
   Gym g = ABoughtGym(cash);
@@ -14517,13 +14537,16 @@ static void TestEquipmentIsALadderAndStaffAreAWage() {
   UpgradeEquipment(straight, fresh, d);
   CHECK(std::fabs((before - fresh) - d.equipCost[2]) < 1e-9);
 
-  // A hire pulls members and costs a wage every day after.
+  // A hire pulls members and costs a wage every day after -- **their own
+  // wage**, not the role's, which is the whole of GYM-3 in one assertion.
   const double pulling = MembersItPullsToward(g, d);
   const double paying = DailyOverhead(g, d);
-  CHECK(Hire(g, cash, true, d));
+  CHECK(Hire(g, cash, true, 1, 0, d));
+  const GymStaffer* hired = WhoIsOn(g, true);
+  CHECK(hired != nullptr);
   CHECK(MembersItPullsToward(g, d) > pulling);
-  CHECK(DailyOverhead(g, d) - paying == d.frontDeskWage);
-  CHECK(!Hire(g, cash, true, d));          // one desk, one person
+  CHECK(DailyOverhead(g, d) - paying == hired->wage);
+  CHECK(!Hire(g, cash, true, 1, 0, d));    // one desk, one person
 }
 
 static void TestACampaignRunsOutAndOnlyOneRunsAtATime() {
@@ -14534,6 +14557,8 @@ static void TestACampaignRunsOutAndOnlyOneRunsAtATime() {
 
   const double quiet = MembersItPullsToward(g, d);
   CHECK(LaunchCampaign(g, cash, GymCampaign::Social, 1, d));
+  // Twice over, in fact: the boost is in the base, and a live campaign
+  // also shields you from whatever the other two gyms are doing.
   CHECK(MembersItPullsToward(g, d) > quiet);
   // Launching does not stack, and the gate is the running one rather than
   // the money.
@@ -14545,7 +14570,14 @@ static void TestACampaignRunsOutAndOnlyOneRunsAtATime() {
   }
   CHECK(ended);
   CHECK(g.campaign == GymCampaign::None);
-  CHECK(MembersItPullsToward(g, d) == quiet);   // and the pull goes with it
+  // And the pull goes with it. **Compared against a twin rather than
+  // against the number sampled on day 1**: the target is multiplied by the
+  // town and the year now, so the only honest control is the same gym on
+  // the same day that never ran the campaign.
+  Gym never = ABoughtGym(cash);
+  never.lastTickDay = g.lastTickDay;
+  CHECK(std::fabs(MembersItPullsToward(g, d) -
+                  MembersItPullsToward(never, d)) < 1e-9);
   // ...after which you can run another.
   CHECK(LaunchCampaign(g, cash, GymCampaign::Flyers, 40, d));
 }
@@ -14598,6 +14630,12 @@ static void TestTheNoticeboardIsQuietWhileTheBooksAreFine() {
 
   for (int day = 2; day <= 40; day++) GymDay(g, world, day, d);
   CHECK(g.balance > 0.0);
+  // **An open incident is legitimately not quiet**, and after the grace
+  // window one can land on any night -- so the quiet being asserted here is
+  // the quiet of the books, with anything on the clipboard cleared first.
+  double pocket = 100000.0;
+  AnswerTheIncident(g, pocket, 0, d);
+  CHECK(g.incident == GymIncident::None);
   CHECK(GymWarning(g, d).empty());          // nothing to say, so nothing said
   CHECK(!GymLine(g, d).empty());            // ...but the readout still reads
 
@@ -14639,7 +14677,7 @@ static void TestTheGymSurvivesASave() {
   SetMix(save.player.gym, GymSetMix::Hardcore);
   cash = 20000.0;
   CHECK(UpgradeEquipment(save.player.gym, cash));
-  CHECK(Hire(save.player.gym, cash, false));
+  CHECK(Hire(save.player.gym, cash, false, 40, 0));
   CHECK(LaunchCampaign(save.player.gym, cash, GymCampaign::Social, 40));
   save.player.gym.members = 31.0;
   save.player.gym.balance = -412.5;
@@ -14665,6 +14703,515 @@ static void TestTheGymSurvivesASave() {
   CHECK(GymWarning(g) == GymWarning(save.player.gym));
   CHECK(std::fabs(MembersItPullsToward(g) -
                   MembersItPullsToward(save.player.gym)) < 1e-9);
+}
+
+// --- GYM-4 and GYM-6: the town and the year -------------------------------
+
+static void TestTheTownIsWeatherAndNotATax() {
+  // **The invariant the source records paying for.** Its first cut of the
+  // rival tables was net-positive and averaged 0.948 pressure -- a silent
+  // 5% nerf to every gym in the game forever, invisible because it looked
+  // like competition. Each table has to sum to zero, or this is a tax.
+  //
+  // Asserted through the public surface rather than against the tables,
+  // because the tables are the thing that would drift.
+  const GymTownDials d;
+  for (int r = 0; r < kGymRivalCount; r++) {
+    const GymRival who = static_cast<GymRival>(r);
+    double total = 0.0;
+    int seen = 0;
+    // Every window in a long career, so every move in the table gets drawn
+    // many times over and their mean is the table's mean.
+    for (int w = 0; w < 4000; w++) {
+      const TownMove m = WhatTheTownDid(w, "The Woodshed");
+      if (m.who != who) continue;
+      total += m.pull;
+      seen++;
+    }
+    CHECK(seen > 500);              // and both rooms actually move
+    CHECK(std::fabs(total / seen) < 0.02);
+  }
+
+  // ...and over a career the pressure it produces averages about 1.0 --
+  // the town is a weather system, not a headwind.
+  double sum = 0.0;
+  for (int day = 1; day <= 10950; day++) {
+    sum += TownPressure(day, "The Woodshed", 1.0, d);
+  }
+  const double mean = sum / 10950.0;
+  CHECK(mean > 0.96 && mean < 1.04);
+}
+
+static void TestTheYearIsARhythmAndNotATax() {
+  // The same invariant one system over, and **the one deliberate deviation
+  // in this port**: the source's four pulls are balanced against equal
+  // calendar quarters, and this port names its seasons off the temperature,
+  // which makes them 61/121/61/122. Ported as written they average +0.0298
+  // -- a permanent 3% bonus to every gym forever. Re-centred, they do not.
+  const GymTownDials d;
+  double sum = 0.0;
+  for (int day = 1; day <= 365; day++) sum += SeasonPull(day, d);
+  CHECK(std::fabs(sum / 365.0) < 0.001);
+
+  // And it runs the way this world runs rather than the way the real one
+  // does: **the slump is autumn**, because autumn is send season and the
+  // whole town is at the crag.
+  CHECK(d.seasonPull[static_cast<int>(GymSeason::Autumn)] < 0.0);
+  CHECK(d.seasonPull[static_cast<int>(GymSeason::Summer)] > 0.0);
+  CHECK(d.seasonPull[static_cast<int>(GymSeason::Winter)] > 0.0);
+  CHECK(d.seasonPull[static_cast<int>(GymSeason::Autumn)] <
+        d.seasonPull[static_cast<int>(GymSeason::Spring)]);
+  // Named off the climate model, so it agrees with the rest of the port.
+  CHECK(GymSeasonOf(200) == GymSeason::Summer);
+  CHECK(!std::string(GymSeasonNote(GymSeason::Autumn)).empty());
+}
+
+static void TestTheTownIsYoursAndNotAScript() {
+  // Salted with the gym's name, and the source records why: keyed on the
+  // day alone the town's whole history is one fixed script identical in
+  // every save, and measured over the days players actually reach that
+  // script sits slightly against you. No playthrough could be dealt a kind
+  // town.
+  int differed = 0;
+  for (int w = 0; w < 200; w++) {
+    const TownMove mine = WhatTheTownDid(w, "The Woodshed");
+    const TownMove theirs = WhatTheTownDid(w, "Gravity Club");
+    if (mine.who != theirs.who || mine.pull != theirs.pull) differed++;
+  }
+  CHECK(differed > 100);
+
+  // ...and it is still fixed for a given save: the same name, the same
+  // window, the same move, however many times you ask.
+  CHECK(WhatTheTownDid(17, "The Woodshed").pull ==
+        WhatTheTownDid(17, "The Woodshed").pull);
+}
+
+static void TestTheTownIsClampedAtBothEnds() {
+  const GymTownDials d;
+  double lowest = 99.0, highest = 0.0;
+  for (int day = 1; day <= 10950; day++) {
+    const double p = TownPressure(day, "The Woodshed", 1.0, d);
+    lowest = std::min(lowest, p);
+    highest = std::max(highest, p);
+  }
+  // A rival hot streak is a squeeze, not a death sentence; their bad one is
+  // an advantage, not a monopoly.
+  CHECK(lowest >= d.pressureMin);
+  CHECK(highest <= d.pressureMax);
+  // And both ends are actually reachable, or the clamp is decoration.
+  CHECK(lowest < 0.9);
+  CHECK(highest > 1.1);
+}
+
+static void TestMarketingIsTheAnswerToTheOtherTwoGyms() {
+  // The one lever of yours that touches the multiplier. Every other lever
+  // is already in the base, and scoring them here too would double-count
+  // the player's own choices -- which is the bug the source records.
+  const GymTownDials d;
+  int helped = 0;
+  for (int day = 1; day <= 900; day++) {
+    const double bare = TownPressure(day, "The Woodshed", 1.0, d);
+    const double shielded = TownPressure(day, "The Woodshed", 1.18, d);
+    CHECK(shielded >= bare - 1e-12);
+    if (shielded > bare + 1e-9) helped++;
+  }
+  CHECK(helped > 500);   // and it is not only ever a rounding difference
+}
+
+static void TestTheFloorIsAlwaysChasing() {
+  // The other half of TestTheFloorIsAMeterAndNotASwitch. With the town live
+  // the target is not a constant, and **that is the point**: a move lands
+  // every nine days and the floor closes fifteen percent of the gap a day,
+  // so the membership never arrives, it tracks. A business you have to keep
+  // answering for rather than one you set once.
+  GymDials d;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+  SetPrice(g, GymPrice::Budget);
+
+  double moved = 0.0, worst = 0.0;
+  double was = MembersItPullsToward(g, d);
+  for (int day = 2; day <= 800; day++) {
+    GymDay(g, world, day, d);
+    if (day < 60) continue;                 // let the initial drift settle
+    const double now = MembersItPullsToward(g, d);
+    moved = std::max(moved, std::fabs(now - was));
+    worst = std::max(worst, std::fabs(g.members - now));
+    was = now;
+  }
+  CHECK(moved > 3.0);      // the target genuinely moves under it
+  CHECK(worst > 5.0);      // so the floor is genuinely behind it
+  CHECK(worst < 25.0);     // ...and never running away
+}
+
+static void TestSomethingGoesWrongAndItHasAClock() {
+  GymDials d;
+  const Rng world = Rng::FromSeed("the-woodshed");
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+
+  // **Nothing goes wrong while you are settling in.** A fortnight's grace,
+  // and it is derived from the day rather than rolled, so asking twice
+  // gives the same answer.
+  for (int day = 1; day < 1 + d.town.incidentGrace; day++) {
+    CHECK(IncidentToday(g.name, 1, day, true, d.town) == GymIncident::None);
+  }
+
+  int landed = -1;
+  for (int day = 2; day <= 400 && landed < 0; day++) {
+    if (GymDay(g, world, day, d).landed != GymIncident::None) landed = day;
+  }
+  CHECK(landed > 0);
+  CHECK(g.incident != GymIncident::None);
+  CHECK(g.incidentDay == landed);
+  // It is the loudest thing on the noticeboard, because it is the one with
+  // a clock on it.
+  CHECK(GymWarning(g, d).find("needs an answer") != std::string::npos);
+
+  // Leave it, and **it answers itself the way you would expect** -- the
+  // cheap option, and its cost.
+  const double before = g.members;
+  const GymIncidentDef* def = IncidentDef(g.incident);
+  CHECK(def != nullptr);
+  GymNight lapsed;
+  for (int day = landed + 1; day <= landed + d.town.incidentDays + 1; day++) {
+    const GymNight n = GymDay(g, world, day, d);
+    if (n.lapsed != GymIncident::None) lapsed = n;
+  }
+  CHECK(lapsed.lapsed != GymIncident::None);
+  CHECK(g.incident == GymIncident::None);
+  CHECK(lapsed.news.find("You left it") != std::string::npos);
+  CHECK(g.members <= before);
+  CHECK(lapsed.standing == def->choices[1].standing);
+}
+
+static void TestAnsweringItCostsMoneyOrCostsYouSomethingElse() {
+  GymDials d;
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+  g.incident = GymIncident::Pipe;
+  g.incidentDay = 20;
+
+  // **Every choice in the table is a bill or a consequence, never both and
+  // never neither.** That is the shape of the whole system: you can always
+  // pay your way out, and not paying is never free.
+  for (int i = 1; i < kGymIncidentCount; i++) {
+    const GymIncidentDef* def = IncidentDef(static_cast<GymIncident>(i));
+    CHECK(def != nullptr);
+    for (int c = 0; c < 2; c++) {
+      const GymIncidentChoice& choice = def->choices[c];
+      const bool bill = choice.cost > 0.0;
+      const bool consequence =
+          choice.members < 0.0 || choice.standing < 0.0 || choice.matchesTheOffer;
+      const bool upside = choice.members > 0.0 || choice.standing > 0.0;
+      CHECK(bill || consequence || upside);
+      CHECK(!std::string(choice.label).empty());
+      CHECK(!std::string(choice.line).empty());
+    }
+  }
+
+  // You cannot answer what you cannot pay for, and a refused answer leaves
+  // it open rather than half-resolving it.
+  double broke = 10.0;
+  CHECK(!AnswerTheIncident(g, broke, 0, d).answered);
+  CHECK(g.incident == GymIncident::Pipe);
+  CHECK(broke == 10.0);
+
+  double flush = 5000.0;
+  const IncidentAnswer got = AnswerTheIncident(g, flush, 0, d);
+  CHECK(got.answered);
+  CHECK(flush == 5000.0 - IncidentDef(GymIncident::Pipe)->choices[0].cost);
+  CHECK(!got.line.empty());
+  CHECK(g.incident == GymIncident::None);
+  // ...and it cannot be answered twice.
+  CHECK(!AnswerTheIncident(g, flush, 1, d).answered);
+}
+
+static void TestNobodyPoachesASetterYouDoNotHave() {
+  const GymTownDials d;
+  bool sawPoach = false, sawSomethingElse = false;
+  for (int day = 20; day <= 4000; day++) {
+    const GymIncident with = IncidentToday("The Woodshed", 1, day, true, d);
+    const GymIncident without = IncidentToday("The Woodshed", 1, day, false, d);
+    if (with == GymIncident::Poach) sawPoach = true;
+    if (without != GymIncident::None) sawSomethingElse = true;
+    CHECK(without != GymIncident::Poach);
+  }
+  CHECK(sawPoach);
+  CHECK(sawSomethingElse);
+
+  // And matching the offer is the one answer in the table with a tail: it
+  // costs you every day from here.
+  GymDials full;
+  double cash = 0.0;
+  Gym g = ABoughtGym(cash);
+  cash = 20000.0;
+  CHECK(Hire(g, cash, false, 1, 0, full));
+  g.incident = GymIncident::Poach;
+  g.incidentDay = 20;
+  const double was = WhoIsOn(g, false)->wage;
+  const double owed = DailyOverhead(g, full);
+  CHECK(AnswerTheIncident(g, cash, 0, full).answered);
+  CHECK(WhoIsOn(g, false)->wage == was + full.town.poachRaise);
+  CHECK(DailyOverhead(g, full) == owed + full.town.poachRaise);
+}
+
+// --- GYM-3: the staff are people ------------------------------------------
+
+static void TestTheShortlistIsThreeDifferentPeople() {
+  GymDials d;
+  const std::vector<GymStaffer> pool = GymCandidates("The Woodshed", true, 30, d);
+  CHECK(static_cast<int>(pool.size()) == d.hirePool);
+  for (size_t i = 0; i < pool.size(); i++) {
+    CHECK(!pool[i].name.empty());
+    CHECK(!pool[i].trait.empty());
+    CHECK(pool[i].wage >= d.lowestWage);
+    for (size_t j = i + 1; j < pool.size(); j++) {
+      // Three identical candidates is not a choice, and two Devs is a bug
+      // report.
+      CHECK(pool[i].name != pool[j].name);
+      CHECK(pool[i].trait != pool[j].trait);
+      CHECK(pool[i].quality != pool[j].quality);
+    }
+  }
+
+  // **Stable while you think about it**, and a different week is different
+  // people. Sleeping on it is not a re-roll; it is a fortnight.
+  const std::vector<GymStaffer> again = GymCandidates("The Woodshed", true, 34, d);
+  for (size_t i = 0; i < pool.size(); i++) CHECK(again[i].name == pool[i].name);
+
+  bool moved = false;
+  for (int week = 0; week < 40 && !moved; week++) {
+    const std::vector<GymStaffer> later =
+        GymCandidates("The Woodshed", true, 30 + week * 7, d);
+    for (size_t i = 0; i < pool.size(); i++) {
+      if (later[i].name != pool[i].name) moved = true;
+    }
+  }
+  CHECK(moved);
+
+  // The desk and the setter are different jobs and different lists.
+  const std::vector<GymStaffer> desk = GymCandidates("The Woodshed", true, 30, d);
+  const std::vector<GymStaffer> sets = GymCandidates("The Woodshed", false, 30, d);
+  bool differs = false;
+  for (size_t i = 0; i < desk.size(); i++) {
+    if (desk[i].trait != sets[i].trait) differs = true;
+  }
+  CHECK(differs);
+}
+
+static void TestTheRightHireDependsOnALeverYouAlreadyPulled() {
+  // **The claim the source says it measured**, checked in this port rather
+  // than taken on trust: the wage spread beats the quality spread at budget
+  // pricing and loses to it everywhere else. When a member is worth $8 you
+  // want a cheap body on the desk; when they are worth $22 you want the one
+  // who knows their name. The first cut had the best candidate winning at
+  // every tier, which is not a choice.
+  //
+  // Measured with the town held at 1.0, because pressure multiplies the
+  // boost and not the wage -- a kind town leans the whole thing toward
+  // quality, which is a second-order truth this test is not about.
+  GymDials d;
+  d.town.pressureMin = 1.0;
+  d.town.pressureMax = 1.0;
+  for (int i = 0; i < kGymSeasonCount; i++) d.town.seasonPull[i] = 0.0;
+
+  const auto worthPerDay = [&](GymPrice price, const GymStaffer& who) {
+    Gym g;
+    double cash = d.price;
+    BuyTheGym(g, cash, "The Woodshed", 1, d);
+    SetPrice(g, price);
+    const double bare =
+        MembersItPullsToward(g, d) * RatePerMember(g, d) - DailyOverhead(g, d);
+    g.frontDesk = true;
+    g.desk = who;
+    return MembersItPullsToward(g, d) * RatePerMember(g, d) -
+           DailyOverhead(g, d) - bare;
+  };
+
+  const std::vector<GymStaffer> pool = GymCandidates("The Woodshed", true, 30, d);
+  const GymStaffer* best = &pool[0];
+  const GymStaffer* cheapest = &pool[0];
+  for (const GymStaffer& c : pool) {
+    if (c.quality > best->quality) best = &c;
+    if (c.wage < cheapest->wage) cheapest = &c;
+  }
+  CHECK(best != cheapest);
+  CHECK(worthPerDay(GymPrice::Budget, *cheapest) >
+        worthPerDay(GymPrice::Budget, *best));
+  CHECK(worthPerDay(GymPrice::Premium, *best) >
+        worthPerDay(GymPrice::Premium, *cheapest));
+}
+
+static void TestTenureComesDueAndRefusingHasTwoPrices() {
+  GymDials d;
+  double cash = 20000.0;
+  Gym g = ABoughtGym(cash);
+  CHECK(Hire(g, cash, true, 1, 0, d));
+  CHECK(!IsAskingForARaise(g, true, 1, d));
+  CHECK(AnswerTheAsk(g, true, true, 1, d) == RaiseAnswer::NotAsking);
+
+  const int asks = 1 + d.raiseDays;
+  CHECK(IsAskingForARaise(g, true, asks, d));
+  const double was = WhoIsOn(g, true)->wage;
+  const double wants = TheRaiseTheyWant(g, true, d);
+  CHECK(wants >= 3.0);
+  CHECK(AnswerTheAsk(g, true, true, asks, d) == RaiseAnswer::Granted);
+  CHECK(WhoIsOn(g, true)->wage == was + wants);
+  CHECK(!IsAskingForARaise(g, true, asks, d));   // and the clock resets
+
+  // **Refusing costs quality, not attendance.** They keep turning up and
+  // stop going out of their way, which is what makes it the expensive no.
+  const int second = asks + d.raiseDays;
+  const double quality = WhoIsOn(g, true)->quality;
+  const double wage = WhoIsOn(g, true)->wage;
+  CHECK(AnswerTheAsk(g, true, false, second, d) == RaiseAnswer::TheySulk);
+  CHECK(g.frontDesk);
+  CHECK(WhoIsOn(g, true)->quality < quality);
+  CHECK(WhoIsOn(g, true)->wage == wage);         // and it did not cost a cent
+
+  // Refuse twice and they go, and the empty seat cannot run the place.
+  CHECK(SetHandsOff(g, true) == false);          // no setter yet anyway
+  const int third = second + d.raiseDays;
+  CHECK(AnswerTheAsk(g, true, false, third, d) == RaiseAnswer::TheyQuit);
+  CHECK(!g.frontDesk);
+  CHECK(WhoIsOn(g, true) == nullptr);
+  CHECK(DailyOverhead(g, d) == d.overhead);      // off the books entirely
+}
+
+// --- GYM-12 and hands-off -------------------------------------------------
+
+static void TestWingsAreIndependentAndOnlyOneOfThemEarns() {
+  GymDials d;
+  double cash = 100000.0;
+  Gym g = ABoughtGym(cash);
+  g.members = 40.0;
+
+  // **No order and no prerequisite**, which is the whole difference from
+  // the equipment ladder: build the dear one first if you want to.
+  CHECK(BuildWing(g, cash, GymWing::Annex, d));
+  CHECK(HasWing(g, GymWing::Annex));
+  CHECK(!HasWing(g, GymWing::Showers));
+  CHECK(!BuildWing(g, cash, GymWing::Annex, d));   // and only the once
+
+  double broke = 10.0;
+  CHECK(!BuildWing(g, broke, GymWing::Cafe, d));
+  CHECK(broke == 10.0);
+
+  // Every wing pulls people and costs upkeep; exactly one earns money by
+  // itself, and it is the one with a coffee machine in it.
+  int earners = 0;
+  for (int i = 0; i < kGymWingCount; i++) {
+    CHECK(d.wingTarget[i] > 0.0);
+    CHECK(d.wingUpkeep[i] > 0.0);
+    CHECK(d.wingCost[i] > 0.0);
+    if (d.wingEarns[i] > 0.0) earners++;
+    CHECK(!std::string(GymWingName(static_cast<GymWing>(i))).empty());
+    CHECK(!std::string(GymWingBlurb(static_cast<GymWing>(i))).empty());
+  }
+  CHECK(earners == 1);
+  CHECK(WhatTheWingsEarn(g, d) == 0.0);            // the annex is not a cafe
+  double more = 100000.0;
+  CHECK(BuildWing(g, more, GymWing::Cafe, d));
+  CHECK(WhatTheWingsEarn(g, d) > 0.0);
+
+  // **The ceiling this system exists to absorb.** All five wings, both
+  // hires, the equipment ladder and the building is real money.
+  double everything = 0.0;
+  Gym other;
+  double buying = d.price;
+  BuyTheGym(other, buying, "The Woodshed", 1, d);
+  everything += d.price + d.equipCost[kGymEquipCount - 1] +
+                d.frontDeskCost + d.setterCost;
+  for (int i = 0; i < kGymWingCount; i++) everything += d.wingCost[i];
+  CHECK(everything > 55000.0);
+}
+
+static void TestItCanRunWithoutYouOnceThereIsSomebodyToRunIt() {
+  GymDials d;
+  double cash = 50000.0;
+  Gym g = ABoughtGym(cash);
+
+  // **Both seats, or it does not run without you.** That was the trigger:
+  // the reward for staffing the place properly is not having to be in it.
+  CHECK(!SetHandsOff(g, true));
+  CHECK(Hire(g, cash, true, 1, 0, d));
+  CHECK(!SetHandsOff(g, true));
+  CHECK(Hire(g, cash, false, 1, 0, d));
+
+  const double owed = DailyOverhead(g, d);
+  CHECK(SetHandsOff(g, true));
+  CHECK(g.passive);
+  CHECK(DailyOverhead(g, d) == owed - d.passiveOverheadSaving);
+  CHECK(!SetHandsOff(g, true));               // already there
+
+  // ...and the price is that the day-to-day levers lock where you left
+  // them. Staffing and equipment stay yours -- those are owner-level calls.
+  const GymPrice price = g.price;
+  SetPrice(g, GymPrice::Premium);
+  SetMix(g, GymSetMix::Hardcore);
+  CHECK(g.price == price);
+  CHECK(g.mix == GymSetMix::AllComers);
+  CHECK(!LaunchCampaign(g, cash, GymCampaign::Social, 2, d));
+  CHECK(UpgradeEquipment(g, cash, d));
+
+  // Reversible any time.
+  CHECK(SetHandsOff(g, false));
+  SetPrice(g, GymPrice::Premium);
+  CHECK(g.price == GymPrice::Premium);
+
+  // And it cannot outlive an empty seat.
+  CHECK(SetHandsOff(g, true));
+  CHECK(AnswerTheAsk(g, false, false, 1 + d.raiseDays, d) ==
+        RaiseAnswer::TheySulk);
+  CHECK(AnswerTheAsk(g, false, false, 1 + 2 * d.raiseDays, d) ==
+        RaiseAnswer::TheyQuit);
+  CHECK(!g.passive);
+}
+
+static void TestLoadsVersion41Save() {
+  SaveGame save;
+  save.seed = "the-woodshed";
+  double cash = GymDials{}.price;
+  CHECK(BuyTheGym(save.player.gym, cash, "The Woodshed", 40));
+  save.player.gym.setter = true;      // the way a v41 save carried a hire:
+  save.player.gym.frontDesk = true;   // a boolean, and nobody behind it
+
+  std::string v41 = SerializeSave(save);
+  for (const char* k : {"gym.deskwho.", "gym.setwho.", "gym.wing"}) {
+    DropSaveLines(v41, k);
+  }
+  for (const char* k : {"gym.passive=", "gym.incidentday=", "gym.incident="}) {
+    DropSaveLine(v41, k);
+  }
+  SetSaveVersion(v41, 41);
+
+  SaveGame old;
+  CHECK(DeserializeSave(v41, old) == LoadResult::Ok);
+  CHECK(old.version == kSaveVersion);
+  const Gym& g = old.player.gym;
+  CHECK(g.owned);
+
+  // **The books do not move by a cent**, which is the whole promise of this
+  // migration: a derived staffer on the base wage at quality 1.0 costs and
+  // pulls exactly what the boolean did.
+  const GymDials d;
+  CHECK(WhoIsOn(g, true) != nullptr);
+  CHECK(WhoIsOn(g, true)->wage == d.frontDeskWage);
+  CHECK(WhoIsOn(g, false)->wage == d.setterWage);
+  CHECK(WhoIsOn(g, true)->quality == 1.0);
+  CHECK(WhoIsOn(g, false)->quality == 1.0);
+  // ...and the person who has apparently been on that desk since day 40
+  // gets a name and a tenure, rather than being hired by a save loader.
+  CHECK(!WhoIsOn(g, true)->name.empty());
+  CHECK(WhoIsOn(g, true)->hiredDay == 40);
+  CHECK(!IsAskingForARaise(g, true, 41, d));
+
+  for (int i = 0; i < kGymWingCount; i++) CHECK(!g.wings[i]);
+  CHECK(!g.passive);
+  CHECK(g.incident == GymIncident::None);
+  CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
 }
 
 static void TestLoadsVersion38Save() {
@@ -14713,7 +15260,10 @@ static void TestLosingTheGymIsToldOnceAndCostsStanding() {
   for (int i = 0; i < 400; i++) {
     const double justBefore = StandingWith(player.standing, Faction::Scene);
     SleepToNextDay(player, day, world);
-    if (!player.gymNews.empty()) {
+    // **The foreclosure specifically**, not any gym news. GYM-6's incidents
+    // write to the same line, and one of those landing is not the bank
+    // taking the building.
+    if (player.gymNews.find("The bank took") != std::string::npos) {
       CHECK(toldOn < 0);          // exactly once, never twice
       toldOn = player.day;
       // **Read on the night it happens.** The scene forgets slowly and
@@ -15616,6 +16166,21 @@ int main() {
   TestTheBankTakesItBack();
   TestTheNoticeboardIsQuietWhileTheBooksAreFine();
   TestTheGymRunsOnItsOwnRng();
+  TestTheTownIsWeatherAndNotATax();
+  TestTheYearIsARhythmAndNotATax();
+  TestTheTownIsYoursAndNotAScript();
+  TestTheTownIsClampedAtBothEnds();
+  TestMarketingIsTheAnswerToTheOtherTwoGyms();
+  TestTheFloorIsAlwaysChasing();
+  TestSomethingGoesWrongAndItHasAClock();
+  TestAnsweringItCostsMoneyOrCostsYouSomethingElse();
+  TestNobodyPoachesASetterYouDoNotHave();
+  TestTheShortlistIsThreeDifferentPeople();
+  TestTheRightHireDependsOnALeverYouAlreadyPulled();
+  TestTenureComesDueAndRefusingHasTwoPrices();
+  TestWingsAreIndependentAndOnlyOneOfThemEarns();
+  TestItCanRunWithoutYouOnceThereIsSomebodyToRunIt();
+  TestLoadsVersion41Save();
   TestInsuranceIsWhatGetsADirtbagRepaired();
   TestTheLotDoesNotAlwaysTurnUp();
   TestNobodyIsNeverThereAndNobodyIsAlways();

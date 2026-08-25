@@ -592,6 +592,32 @@ dirtbag::Living ToSim(const FDirtbagLiving& In)
 	return Out;
 }
 
+FDirtbagGymStaffer FromSim(const dirtbag::GymStaffer& In)
+{
+	FDirtbagGymStaffer Out;
+	Out.Name = UTF8_TO_TCHAR(In.name.c_str());
+	Out.Trait = UTF8_TO_TCHAR(In.trait.c_str());
+	Out.Wage = In.wage;
+	Out.Quality = In.quality;
+	Out.HiredDay = In.hiredDay;
+	Out.NextAskDay = In.nextAskDay;
+	Out.Refusals = In.refusals;
+	return Out;
+}
+
+dirtbag::GymStaffer ToSim(const FDirtbagGymStaffer& In)
+{
+	dirtbag::GymStaffer Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.trait = TCHAR_TO_UTF8(*In.Trait);
+	Out.wage = In.Wage;
+	Out.quality = In.Quality;
+	Out.hiredDay = In.HiredDay;
+	Out.nextAskDay = In.NextAskDay;
+	Out.refusals = In.Refusals;
+	return Out;
+}
+
 FDirtbagGym FromSim(const dirtbag::Gym& In)
 {
 	FDirtbagGym Out;
@@ -605,6 +631,16 @@ FDirtbagGym FromSim(const dirtbag::Gym& In)
 	Out.CampaignUntil = In.campaignUntil;
 	Out.bFrontDesk = In.frontDesk;
 	Out.bSetter = In.setter;
+	Out.Desk = FromSim(In.desk);
+	Out.RouteSetter = FromSim(In.routesetter);
+	Out.Wings.Reset();
+	for (int32 i = 0; i < dirtbag::kGymWingCount; i++)
+	{
+		Out.Wings.Add(In.wings[i]);
+	}
+	Out.bPassive = In.passive;
+	Out.Incident = static_cast<EDirtbagGymIncident>(In.incident);
+	Out.IncidentDay = In.incidentDay;
 	Out.Members = In.members;
 	Out.Balance = In.balance;
 	Out.DebtDays = In.debtDays;
@@ -625,6 +661,15 @@ dirtbag::Gym ToSim(const FDirtbagGym& In)
 	Out.campaignUntil = In.CampaignUntil;
 	Out.frontDesk = In.bFrontDesk;
 	Out.setter = In.bSetter;
+	Out.desk = ToSim(In.Desk);
+	Out.routesetter = ToSim(In.RouteSetter);
+	for (int32 i = 0; i < dirtbag::kGymWingCount; i++)
+	{
+		Out.wings[i] = In.Wings.IsValidIndex(i) ? In.Wings[i] : false;
+	}
+	Out.passive = In.bPassive;
+	Out.incident = static_cast<dirtbag::GymIncident>(In.Incident);
+	Out.incidentDay = In.IncidentDay;
 	Out.members = In.Members;
 	Out.balance = In.Balance;
 	Out.debtDays = In.DebtDays;

@@ -99,6 +99,15 @@ RUNS = [
     ("greedy", ["careers=1", "retire=late"]),
     # And the bold season, where head is trained and nothing is padded.
     ("greedy", ["pads=0"]),
+    # **The gym, both passes.** A battery with no gym in it reports the
+    # whole business dead -- the same coverage failure the medical
+    # suffixes caused, and the fifth time this project has been bitten by
+    # a tool whose own reach was the bug. `gym=1` is the P&L engine with
+    # every lever left where it starts; `gym=run` staffs it, builds onto
+    # it and answers what lands on the clipboard. It needs a wallet that
+    # can reach $25,000, which is what the hoard is for.
+    ("hoarder", ["savings=60000", "gym=1"]),
+    ("hoarder", ["savings=60000", "gym=run"]),
 ]
 
 SEEDS = ["crag-1", "valley-7", "north-3", "east-11", "west-5", "granite-2"]
