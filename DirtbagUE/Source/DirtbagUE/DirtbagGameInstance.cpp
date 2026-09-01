@@ -2371,7 +2371,10 @@ bool UDirtbagGameInstance::SettleTheWorldStage()
 void UDirtbagGameInstance::RecordResult(double Points)
 {
 	dirtbag::PlayerState P = DirtbagConvert::ToSim(Player);
-	dirtbag::Record(P.rankingRecord, Player.Day, Points);
+	// The circuit is the boulder circuit; speed keeps its own board. See
+	// RankingIn in Sim/DirtbagComp.h.
+	dirtbag::Record(P.rankingRecord, Player.Day, Points,
+	                dirtbag::CompDiscipline::Boulder);
 	Player.RankingRecord.Reset(P.rankingRecord.size());
 	for (const dirtbag::RankingResult& R : P.rankingRecord)
 	{

@@ -52,6 +52,7 @@
 #include "DirtbagGymFloor.h"
 #include "DirtbagGymTown.h"
 #include "DirtbagGymLeague.h"
+#include "DirtbagSpeed.h"
 #include "DirtbagYouth.h"
 #include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
@@ -75,6 +76,17 @@ UENUM(BlueprintType)
 enum class EDirtbagDiscipline : uint8
 {
 	Boulder, Sport, Trad
+};
+
+/** What a *comp* is, which is a different axis from what a route is. The
+ *  Olympic programme is boulder, lead and speed; there is no trad comp and
+ *  there is no speed route. Mirrors dirtbag::CompDiscipline. */
+UENUM(BlueprintType)
+enum class EDirtbagCompDiscipline : uint8
+{
+	Boulder UMETA(DisplayName = "Boulder"),
+	Sport UMETA(DisplayName = "Lead"),
+	Speed UMETA(DisplayName = "Speed")
 };
 
 UENUM(BlueprintType)
@@ -1174,6 +1186,170 @@ struct FDirtbagRankingResult
 	/** Negative for a no-show. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	double Points = 0.0;
+
+	/** Which discipline it was earned in. Which room you are allowed into
+	 *  is read off your ranking in that one -- see RankingIn. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	EDirtbagCompDiscipline Discipline = EDirtbagCompDiscipline::Boulder;
+
+	/** A result off a save older than the discipline split. Counts toward
+	 *  all three, because the alternative is telling a ten-year career it
+	 *  has never entered a lead comp. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	bool bEveryDiscipline = false;
+};
+
+/** One run on the speed wall, as the beat produced it. Mirrors
+ *  dirtbag::SpeedRun -- and these four are the only inputs the clock reads,
+ *  which is what makes a played run and a resolved one the same run. */
+USTRUCT(BlueprintType)
+struct FDirtbagSpeedRun
+{
+	GENERATED_BODY()
+
+	/** Went on the amber. A DNF, whatever else you did. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Speed")
+	bool bFalseStart = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Speed")
+	double ReactionMs = 350.0;
+
+	/** **Cumulative** absolute error across the rungs, not the worst one. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Speed")
+	double OffBeatMs = 0.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Speed")
+	int32 Fumbles = 0;
+};
+
+/** Two runs, fastest counts. Mirrors dirtbag::SpeedRound. */
+USTRUCT(BlueprintType)
+struct FDirtbagSpeedRound
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	TArray<double> Runs;
+
+	/** Zero until a run is logged. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	double Best = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	double Score = 0.0;
+};
+
+/** Somebody in the qualifying eight. Mirrors dirtbag::SpeedEntrant. */
+USTRUCT(BlueprintType)
+struct FDirtbagSpeedEntrant
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	double Grade = 0.0;
+};
+
+/** One heat, after it was raced. Mirrors dirtbag::SpeedHeatLog. */
+USTRUCT(BlueprintType)
+struct FDirtbagSpeedHeatLog
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	FString Label;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	FString Opponent;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	double YourSeconds = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	double TheirSeconds = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	bool bYouWon = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	bool bTheyFalseStarted = false;
+};
+
+/** The knockout. Mirrors dirtbag::SpeedBracket. */
+USTRUCT(BlueprintType)
+struct FDirtbagSpeedBracket
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	TArray<FDirtbagSpeedEntrant> Field;
+
+	/** 0 quarter, 1 semi, 2 the last one. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	int32 Round = 0;
+
+	/** The last one is the bronze match rather than the final, because a
+	 *  semi you lost drops you into it rather than out of the building. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	bool bBronze = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	FDirtbagSpeedEntrant Opponent;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	double OpponentSeconds = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	bool bOpponentFalseStarted = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	double YourSeconds = 0.0;
+
+	/** This heat has a result the player has not read yet. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	bool bResolved = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	bool bYouWonIt = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	bool bDone = false;
+
+	/** 0 while live; 1 win, 2 final loss, 3 bronze, 4, 5 out at the quarter. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	int32 Placement = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	TArray<FDirtbagSpeedHeatLog> Log;
+};
+
+/** A lap on the gym's speed wall. Mirrors dirtbag::SpeedPracticeResult. */
+USTRUCT(BlueprintType)
+struct FDirtbagSpeedPracticeResult
+{
+	GENERATED_BODY()
+
+	/** False when there was not the energy for it -- and no energy was
+	 *  spent finding that out. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	bool bRan = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	bool bClean = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	bool bPersonalBest = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	double Seconds = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	double PowerGained = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Speed")
+	double TechniqueGained = 0.0;
 };
 
 /** Which round of a comp is on the wall. Mirrors dirtbag::CompRound. */
@@ -2650,6 +2826,11 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Youth")
 	FDirtbagYouth Youth;
 
+	/** The fastest clean lap you have ever run on a speed wall, in seconds.
+	 *  Zero means never, not instant. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Speed")
+	double SpeedPersonalBest = 0.0;
+
 	/** The league you run, if you started one. See FDirtbagGymLeague. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	FDirtbagGymLeague GymLeague;
@@ -3084,6 +3265,21 @@ namespace DirtbagConvert
 	FDirtbagLeagueStanding FromSim(const dirtbag::LeagueStanding& In);
 	FDirtbagGymLeague FromSim(const dirtbag::GymLeague& In);
 	dirtbag::GymLeague ToSim(const FDirtbagGymLeague& In);
+
+	FDirtbagSpeedRun FromSim(const dirtbag::SpeedRun& In);
+	dirtbag::SpeedRun ToSim(const FDirtbagSpeedRun& In);
+	FDirtbagSpeedRound FromSim(const dirtbag::SpeedRound& In);
+	dirtbag::SpeedRound ToSim(const FDirtbagSpeedRound& In);
+	FDirtbagSpeedEntrant FromSim(const dirtbag::SpeedEntrant& In);
+	dirtbag::SpeedEntrant ToSim(const FDirtbagSpeedEntrant& In);
+	FDirtbagSpeedHeatLog FromSim(const dirtbag::SpeedHeatLog& In);
+	dirtbag::SpeedHeatLog ToSim(const FDirtbagSpeedHeatLog& In);
+	FDirtbagSpeedBracket FromSim(const dirtbag::SpeedBracket& In);
+	dirtbag::SpeedBracket ToSim(const FDirtbagSpeedBracket& In);
+	FDirtbagSpeedPracticeResult FromSim(
+	    const dirtbag::SpeedPracticeResult& In);
+	dirtbag::SpeedPracticeResult ToSim(
+	    const FDirtbagSpeedPracticeResult& In);
 	FDirtbagLiving FromSim(const dirtbag::Living& In);
 	dirtbag::Living ToSim(const FDirtbagLiving& In);
 	FDirtbagBivy FromSim(const dirtbag::Bivy& In);

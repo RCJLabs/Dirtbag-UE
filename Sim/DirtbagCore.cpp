@@ -28,6 +28,15 @@ Climber NewClimber(const Rng& rng) {
   return c;
 }
 
+const char* CompDisciplineName(CompDiscipline d) {
+  switch (d) {
+    case CompDiscipline::Boulder: return "boulder";
+    case CompDiscipline::Sport:   return "lead";
+    case CompDiscipline::Speed:   return "speed";
+  }
+  return "boulder";
+}
+
 const char* BoulderGradeName(int grade) {
   static const char* kNames[] = {
       "V0", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9",

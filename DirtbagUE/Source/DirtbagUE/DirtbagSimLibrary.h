@@ -570,4 +570,106 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
 	static void WriteTheLotIntoTheBook(UPARAM(ref) FDirtbagCrag& Book,
 	                                   const FDirtbagPlayerState& Player);
+
+	// --- speed climbing (SPEED-1..4) ------------------------------------
+	//
+	// The live core, exposed the way the session's is: the presentation
+	// layer drives the beat and hands the sim what the player did, and
+	// SpeedRunTime is the whole clock. Nothing here rolls anything except
+	// the field, which is the only part nobody is playing.
+
+	/** The pace this grade could hold, if nothing goes wrong. Seconds. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static double SpeedTimeForGrade(double Grade);
+
+	/** Milliseconds between beats up the wall, by grade. What the rhythm
+	 *  widget runs at. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static double SpeedPaceMs(double Grade);
+
+	/** Comp points for a time. Floors at zero: a slow run is worth nothing,
+	 *  not less than nothing. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static double SpeedScore(double Seconds);
+
+	/** The clock. Takes what the player did, not what the player is. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static double SpeedRunTime(double Grade, const FDirtbagSpeedRun& Run);
+
+	/** A run nobody played -- the bot on the live core, so a career
+	 *  resolved headlessly and one played by hand use the same clock. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static FDirtbagSpeedRun SpeedBotRun(const FString& WorldSeed,
+	                                    const FString& Salt, double Grade,
+	                                    double Nerve);
+
+	/** A field runner's time: their pace, jittered. `bHeat` widens the
+	 *  spread and lets them false-start, because one race against one
+	 *  person is a coin-flip in a way a time trial is not. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static double SpeedFieldTime(const FString& WorldSeed,
+	                             const FString& Salt, double Grade,
+	                             bool bHeat);
+
+	/** Log one run into the round. Does nothing once the round is full. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static void LogSpeedRun(UPARAM(ref) FDirtbagSpeedRound& Round,
+	                        double Seconds);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static bool SpeedRoundIsDone(const FDirtbagSpeedRound& Round);
+
+	/** "Quarterfinal" / "Semifinal" / "Bronze match" / "Final". */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static FString SpeedHeatName(int32 Round, bool bBronze);
+
+	/** Seed the knockout from the qualifying eight and draw the first
+	 *  opponent. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static FDirtbagSpeedBracket SeedTheSpeedBracket(
+	    const FString& WorldSeed, int32 Day,
+	    const TArray<FDirtbagSpeedEntrant>& Qualifiers, double YourGrade);
+
+	/** Race the heat. Takes no seed: the opponent's time was rolled when
+	 *  the heat was drawn, so by the time you run it nothing is left to
+	 *  decide. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static void ResolveSpeedHeat(UPARAM(ref) FDirtbagSpeedBracket& Bracket,
+	                             double YourSeconds);
+
+	/** Move to the next heat once the player has read the last one. A win
+	 *  advances; a semifinal loss drops to the bronze match. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static void NextSpeedHeat(UPARAM(ref) FDirtbagSpeedBracket& Bracket,
+	                          const FString& WorldSeed, int32 Day,
+	                          double YourGrade);
+
+	/** What the heat reads like, in the game's voice. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static FString SpeedHeatLine(const FDirtbagSpeedBracket& Bracket);
+
+	/** A lap on the gym's speed wall. Trains, logs a personal best, and
+	 *  costs energy and nothing else -- a run takes twenty seconds, so
+	 *  charging time for it would be a lie. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static FDirtbagSpeedPracticeResult RunTheSpeedWall(
+	    UPARAM(ref) FDirtbagPlayerState& Player,
+	    UPARAM(ref) FDirtbagDayState& Day, double Seconds);
+
+	/** "Personal best 7.42s.", or empty when there has never been a clean
+	 *  run -- **not "0.00s"**, which is a wall record nobody has set. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static FString SpeedPersonalBestLine(double PersonalBest);
+
+	/** "boulder" / "lead" / "speed". */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
+	static FString CompDisciplineName(EDirtbagCompDiscipline Discipline);
+
+	/** Your national ranking in one discipline. **This is the number that
+	 *  decides which room you are in**, where RankingPoints is the number
+	 *  the national team and the Games read. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
+	static double RankingInDiscipline(const FDirtbagPlayerState& Player,
+	                                  EDirtbagCompDiscipline Discipline,
+	                                  int32 Today);
 };

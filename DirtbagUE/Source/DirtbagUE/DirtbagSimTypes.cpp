@@ -210,6 +210,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.circuit = ToSim(In.Circuit);
 	Out.worldCup = ToSim(In.WorldCup);
 	Out.olympics = ToSim(In.Olympics);
+	Out.speedPersonalBest = In.SpeedPersonalBest;
 	Out.league = ToSim(In.League);
 	Out.medical = ToSim(In.Medical);
 	Out.hand = ToSim(In.Hand);
@@ -299,6 +300,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Circuit = FromSim(In.circuit);
 	Out.WorldCup = FromSim(In.worldCup);
 	Out.Olympics = FromSim(In.olympics);
+	Out.SpeedPersonalBest = In.speedPersonalBest;
 	Out.League = FromSim(In.league);
 	Out.Medical = FromSim(In.medical);
 	Out.Hand = FromSim(In.hand);
@@ -1569,11 +1571,157 @@ dirtbag::League ToSim(const FDirtbagLeague& In)
 	return Out;
 }
 
+FDirtbagSpeedRun FromSim(const dirtbag::SpeedRun& In)
+{
+	FDirtbagSpeedRun Out;
+	Out.bFalseStart = In.falseStart;
+	Out.ReactionMs = In.reactionMs;
+	Out.OffBeatMs = In.offBeatMs;
+	Out.Fumbles = In.fumbles;
+	return Out;
+}
+
+dirtbag::SpeedRun ToSim(const FDirtbagSpeedRun& In)
+{
+	dirtbag::SpeedRun Out;
+	Out.falseStart = In.bFalseStart;
+	Out.reactionMs = In.ReactionMs;
+	Out.offBeatMs = In.OffBeatMs;
+	Out.fumbles = In.Fumbles;
+	return Out;
+}
+
+FDirtbagSpeedRound FromSim(const dirtbag::SpeedRound& In)
+{
+	FDirtbagSpeedRound Out;
+	for (double T : In.runs) { Out.Runs.Add(T); }
+	Out.Best = In.best;
+	Out.Score = In.score;
+	return Out;
+}
+
+dirtbag::SpeedRound ToSim(const FDirtbagSpeedRound& In)
+{
+	dirtbag::SpeedRound Out;
+	for (double T : In.Runs) { Out.runs.push_back(T); }
+	Out.best = In.Best;
+	Out.score = In.Score;
+	return Out;
+}
+
+FDirtbagSpeedEntrant FromSim(const dirtbag::SpeedEntrant& In)
+{
+	FDirtbagSpeedEntrant Out;
+	Out.Name = FString(In.name.c_str());
+	Out.Grade = In.grade;
+	return Out;
+}
+
+dirtbag::SpeedEntrant ToSim(const FDirtbagSpeedEntrant& In)
+{
+	dirtbag::SpeedEntrant Out;
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	Out.grade = In.Grade;
+	return Out;
+}
+
+FDirtbagSpeedHeatLog FromSim(const dirtbag::SpeedHeatLog& In)
+{
+	FDirtbagSpeedHeatLog Out;
+	Out.Label = FString(In.label.c_str());
+	Out.Opponent = FString(In.opponent.c_str());
+	Out.YourSeconds = In.yourSeconds;
+	Out.TheirSeconds = In.theirSeconds;
+	Out.bYouWon = In.youWon;
+	Out.bTheyFalseStarted = In.theyFalseStarted;
+	return Out;
+}
+
+dirtbag::SpeedHeatLog ToSim(const FDirtbagSpeedHeatLog& In)
+{
+	dirtbag::SpeedHeatLog Out;
+	Out.label = TCHAR_TO_UTF8(*In.Label);
+	Out.opponent = TCHAR_TO_UTF8(*In.Opponent);
+	Out.yourSeconds = In.YourSeconds;
+	Out.theirSeconds = In.TheirSeconds;
+	Out.youWon = In.bYouWon;
+	Out.theyFalseStarted = In.bTheyFalseStarted;
+	return Out;
+}
+
+FDirtbagSpeedBracket FromSim(const dirtbag::SpeedBracket& In)
+{
+	FDirtbagSpeedBracket Out;
+	for (const dirtbag::SpeedEntrant& E : In.field)
+	{
+		Out.Field.Add(FromSim(E));
+	}
+	Out.Round = In.round;
+	Out.bBronze = In.bronze;
+	Out.Opponent = FromSim(In.opponent);
+	Out.OpponentSeconds = In.opponentSeconds;
+	Out.bOpponentFalseStarted = In.opponentFalseStarted;
+	Out.YourSeconds = In.yourSeconds;
+	Out.bResolved = In.resolved;
+	Out.bYouWonIt = In.youWonIt;
+	Out.bDone = In.done;
+	Out.Placement = In.placement;
+	for (const dirtbag::SpeedHeatLog& L : In.log) { Out.Log.Add(FromSim(L)); }
+	return Out;
+}
+
+dirtbag::SpeedBracket ToSim(const FDirtbagSpeedBracket& In)
+{
+	dirtbag::SpeedBracket Out;
+	for (const FDirtbagSpeedEntrant& E : In.Field)
+	{
+		Out.field.push_back(ToSim(E));
+	}
+	Out.round = In.Round;
+	Out.bronze = In.bBronze;
+	Out.opponent = ToSim(In.Opponent);
+	Out.opponentSeconds = In.OpponentSeconds;
+	Out.opponentFalseStarted = In.bOpponentFalseStarted;
+	Out.yourSeconds = In.YourSeconds;
+	Out.resolved = In.bResolved;
+	Out.youWonIt = In.bYouWonIt;
+	Out.done = In.bDone;
+	Out.placement = In.Placement;
+	for (const FDirtbagSpeedHeatLog& L : In.Log) { Out.log.push_back(ToSim(L)); }
+	return Out;
+}
+
+FDirtbagSpeedPracticeResult FromSim(const dirtbag::SpeedPracticeResult& In)
+{
+	FDirtbagSpeedPracticeResult Out;
+	Out.bRan = In.ran;
+	Out.bClean = In.clean;
+	Out.bPersonalBest = In.personalBest;
+	Out.Seconds = In.seconds;
+	Out.PowerGained = In.powerGained;
+	Out.TechniqueGained = In.techniqueGained;
+	return Out;
+}
+
+dirtbag::SpeedPracticeResult ToSim(const FDirtbagSpeedPracticeResult& In)
+{
+	dirtbag::SpeedPracticeResult Out;
+	Out.ran = In.bRan;
+	Out.clean = In.bClean;
+	Out.personalBest = In.bPersonalBest;
+	Out.seconds = In.Seconds;
+	Out.powerGained = In.PowerGained;
+	Out.techniqueGained = In.TechniqueGained;
+	return Out;
+}
+
 FDirtbagRankingResult FromSim(const dirtbag::RankingResult& In)
 {
 	FDirtbagRankingResult Out;
 	Out.Day = In.day;
 	Out.Points = In.points;
+	Out.Discipline = static_cast<EDirtbagCompDiscipline>(In.discipline);
+	Out.bEveryDiscipline = In.everyDiscipline;
 	return Out;
 }
 
@@ -1582,6 +1730,8 @@ dirtbag::RankingResult ToSim(const FDirtbagRankingResult& In)
 	dirtbag::RankingResult Out;
 	Out.day = In.Day;
 	Out.points = In.Points;
+	Out.discipline = static_cast<dirtbag::CompDiscipline>(In.Discipline);
+	Out.everyDiscipline = In.bEveryDiscipline;
 	return Out;
 }
 

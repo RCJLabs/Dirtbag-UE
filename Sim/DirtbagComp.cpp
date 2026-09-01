@@ -85,8 +85,12 @@ double CircuitPoints(int place, int fieldSize, const CompDials& dials) {
 }
 
 void Record(std::vector<RankingResult>& record, int day, double points,
-            const CompDials& dials) {
-  record.push_back(RankingResult{day, points});
+            CompDiscipline discipline, const CompDials& dials) {
+  RankingResult fresh;
+  fresh.day = day;
+  fresh.points = points;
+  fresh.discipline = discipline;
+  record.push_back(fresh);
   // Dropped here rather than at read time, so a thirty-year career does not
   // carry seven hundred results it can never count.
   const int cutoff = day - dials.rankingWindowDays;
@@ -106,6 +110,17 @@ double RankingFrom(const std::vector<RankingResult>& record, int today,
     if (r.day > cutoff) total += r.points;
   }
   // A run of no-shows makes you unranked, not negative.
+  return std::max(0.0, total);
+}
+
+double RankingIn(const std::vector<RankingResult>& record, int today,
+                 CompDiscipline discipline, const CompDials& dials) {
+  const int cutoff = today - dials.rankingWindowDays;
+  double total = 0.0;
+  for (const RankingResult& r : record) {
+    if (r.day <= cutoff) continue;
+    if (r.everyDiscipline || r.discipline == discipline) total += r.points;
+  }
   return std::max(0.0, total);
 }
 
@@ -235,7 +250,10 @@ void Forfeit(Circuit& c, std::vector<RankingResult>& record, int day,
   // rather than being subtracted from a running total. Same reason the
   // ranking is a window: the cost has to age out too, or a bad year
   // follows a climber forever while a good one does not.
-  Record(record, day, -dials.forfeitRankingLoss, dials);
+  // A no-show is a no-show in the discipline you were entered in, and the
+  // circuit is the boulder circuit.
+  Record(record, day, -dials.forfeitRankingLoss, CompDiscipline::Boulder,
+         dials);
   c.compsDone++;
 }
 

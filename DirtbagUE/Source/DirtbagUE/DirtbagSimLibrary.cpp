@@ -1031,3 +1031,149 @@ void UDirtbagSimLibrary::WriteIntoTheBook(FDirtbagCrag& Book,
 	}
 }
 
+
+// --- speed climbing (SPEED-1..4) ----------------------------------------
+
+double UDirtbagSimLibrary::SpeedTimeForGrade(double Grade)
+{
+	return dirtbag::SpeedTimeForGrade(Grade);
+}
+
+double UDirtbagSimLibrary::SpeedPaceMs(double Grade)
+{
+	return dirtbag::SpeedPaceMs(Grade);
+}
+
+double UDirtbagSimLibrary::SpeedScore(double Seconds)
+{
+	return dirtbag::SpeedScore(Seconds);
+}
+
+double UDirtbagSimLibrary::SpeedRunTime(double Grade,
+                                        const FDirtbagSpeedRun& Run)
+{
+	return dirtbag::RunTime(Grade, DirtbagConvert::ToSim(Run));
+}
+
+FDirtbagSpeedRun UDirtbagSimLibrary::SpeedBotRun(const FString& WorldSeed,
+                                                 const FString& Salt,
+                                                 double Grade, double Nerve)
+{
+	const dirtbag::Rng W = dirtbag::Rng::FromStream(
+	    TCHAR_TO_UTF8(*WorldSeed), dirtbag::Stream::Session);
+	return DirtbagConvert::FromSim(
+	    dirtbag::BotRun(W, TCHAR_TO_UTF8(*Salt), Grade, Nerve));
+}
+
+double UDirtbagSimLibrary::SpeedFieldTime(const FString& WorldSeed,
+                                          const FString& Salt, double Grade,
+                                          bool bHeat)
+{
+	const dirtbag::Rng W = dirtbag::Rng::FromStream(
+	    TCHAR_TO_UTF8(*WorldSeed), dirtbag::Stream::Session);
+	return dirtbag::FieldTime(W, TCHAR_TO_UTF8(*Salt), Grade, bHeat);
+}
+
+void UDirtbagSimLibrary::LogSpeedRun(FDirtbagSpeedRound& Round,
+                                     double Seconds)
+{
+	dirtbag::SpeedRound R = DirtbagConvert::ToSim(Round);
+	dirtbag::LogRun(R, Seconds);
+	Round = DirtbagConvert::FromSim(R);
+}
+
+bool UDirtbagSimLibrary::SpeedRoundIsDone(const FDirtbagSpeedRound& Round)
+{
+	return dirtbag::RoundIsDone(DirtbagConvert::ToSim(Round));
+}
+
+FString UDirtbagSimLibrary::SpeedHeatName(int32 Round, bool bBronze)
+{
+	return FString(dirtbag::HeatName(Round, bBronze));
+}
+
+FDirtbagSpeedBracket UDirtbagSimLibrary::SeedTheSpeedBracket(
+    const FString& WorldSeed, int32 Day,
+    const TArray<FDirtbagSpeedEntrant>& Qualifiers, double YourGrade)
+{
+	const dirtbag::Rng W = dirtbag::Rng::FromStream(
+	    TCHAR_TO_UTF8(*WorldSeed), dirtbag::Stream::Worldgen);
+	std::vector<dirtbag::SpeedEntrant> Field;
+	for (const FDirtbagSpeedEntrant& E : Qualifiers)
+	{
+		Field.push_back(DirtbagConvert::ToSim(E));
+	}
+	return DirtbagConvert::FromSim(
+	    dirtbag::SeedTheBracket(W, Day, Field, YourGrade));
+}
+
+void UDirtbagSimLibrary::ResolveSpeedHeat(FDirtbagSpeedBracket& Bracket,
+                                          double YourSeconds)
+{
+	dirtbag::SpeedBracket B = DirtbagConvert::ToSim(Bracket);
+	dirtbag::ResolveHeat(B, YourSeconds);
+	Bracket = DirtbagConvert::FromSim(B);
+}
+
+void UDirtbagSimLibrary::NextSpeedHeat(FDirtbagSpeedBracket& Bracket,
+                                       const FString& WorldSeed, int32 Day,
+                                       double YourGrade)
+{
+	const dirtbag::Rng W = dirtbag::Rng::FromStream(
+	    TCHAR_TO_UTF8(*WorldSeed), dirtbag::Stream::Worldgen);
+	dirtbag::SpeedBracket B = DirtbagConvert::ToSim(Bracket);
+	dirtbag::NextHeat(B, W, Day, YourGrade);
+	Bracket = DirtbagConvert::FromSim(B);
+}
+
+FString UDirtbagSimLibrary::SpeedHeatLine(const FDirtbagSpeedBracket& Bracket)
+{
+	return FString(dirtbag::HeatLine(DirtbagConvert::ToSim(Bracket)).c_str());
+}
+
+FDirtbagSpeedPracticeResult UDirtbagSimLibrary::RunTheSpeedWall(
+    FDirtbagPlayerState& Player, FDirtbagDayState& Day, double Seconds)
+{
+	// The mirror flattens the five skills onto the climber rather than
+	// nesting a Skills struct, so they are carried across by hand here.
+	dirtbag::Skills S;
+	S.power = Player.Climber.Power;
+	S.fingers = Player.Climber.Fingers;
+	S.technique = Player.Climber.Technique;
+	S.endurance = Player.Climber.Endurance;
+	S.head = Player.Climber.Head;
+	double Energy = Day.Energy;
+	double Best = Player.SpeedPersonalBest;
+	const dirtbag::SpeedPracticeResult R = dirtbag::PracticeRun(
+	    S, Energy, Best, Seconds, dirtbag::DayDials{}.trainingCeiling);
+	Player.Climber.Power = S.power;
+	Player.Climber.Technique = S.technique;
+	Day.Energy = Energy;
+	Player.SpeedPersonalBest = Best;
+	return DirtbagConvert::FromSim(R);
+}
+
+FString UDirtbagSimLibrary::SpeedPersonalBestLine(double PersonalBest)
+{
+	return FString(dirtbag::PersonalBestLine(PersonalBest).c_str());
+}
+
+double UDirtbagSimLibrary::RankingInDiscipline(
+    const FDirtbagPlayerState& Player, EDirtbagCompDiscipline Discipline,
+    int32 Today)
+{
+	std::vector<dirtbag::RankingResult> Record;
+	for (const FDirtbagRankingResult& R : Player.RankingRecord)
+	{
+		Record.push_back(DirtbagConvert::ToSim(R));
+	}
+	return dirtbag::RankingIn(
+	    Record, Today, static_cast<dirtbag::CompDiscipline>(Discipline));
+}
+
+FString UDirtbagSimLibrary::CompDisciplineName(
+    EDirtbagCompDiscipline Discipline)
+{
+	return FString(dirtbag::CompDisciplineName(
+	    static_cast<dirtbag::CompDiscipline>(Discipline)));
+}

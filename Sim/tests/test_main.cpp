@@ -20,6 +20,7 @@
 #include "../DirtbagGymFloor.h"
 #include "../DirtbagGymTown.h"
 #include "../DirtbagGymLeague.h"
+#include "../DirtbagSpeed.h"
 #include "../DirtbagYouth.h"
 #include "../DirtbagBivy.h"
 #include "../DirtbagLiving.h"
@@ -1564,8 +1565,8 @@ static void TestComp() {
   // "a career can fail to reach the Games" was false for every seed.
   {
     std::vector<RankingResult> record;
-    Record(record, 10, 100.0, cd);
-    Record(record, 20, 100.0, cd);
+    Record(record, 10, 100.0, CompDiscipline::Boulder, cd);
+    Record(record, 20, 100.0, CompDiscipline::Boulder, cd);
     CHECK(RankingFrom(record, 20, cd) == 200.0);
     // A result counts for a year and then it is gone: recorded on day 10
     // it is worth something through day 374 and worth nothing on 375.
@@ -1579,7 +1580,7 @@ static void TestComp() {
     // seven hundred results it can never count.
     std::vector<RankingResult> long_;
     for (int day = 1; day <= 30 * 365; day += 14) {
-      Record(long_, day, 40.0, cd);
+      Record(long_, day, 40.0, CompDiscipline::Boulder, cd);
     }
     CHECK(static_cast<int>(long_.size()) < 30);
   }
@@ -2152,7 +2153,7 @@ static void TestCircuit() {
   {
     Circuit c = StartSeason(world, 1, 1, cd);
     std::vector<RankingResult> record;
-    Record(record, 1, 100.0, cd);
+    Record(record, 1, 100.0, CompDiscipline::Boulder, cd);
     Forfeit(c, record, 2, cd);
     CHECK(c.compsDone == 1);
     CHECK(c.yourPoints == 0.0);
@@ -2198,7 +2199,7 @@ static void TestCircuit() {
     // champion, which is the zero-tie bug from the comp in a longer coat.
     Circuit c = StartSeason(world, 1, 1, cd);
     std::vector<RankingResult> record;
-    Record(record, 1, 500.0, cd);
+    Record(record, 1, 500.0, CompDiscipline::Boulder, cd);
     for (int i = 0; i < cd.compsPerSeason; i++) Forfeit(c, record, 2, cd);
     CHECK(SeasonOver(c, cd));
     const SeasonEnd e = CloseSeason(c, cd);
@@ -2294,7 +2295,7 @@ static void TestCircuitCareer() {
                RankingPointsFor(r.place, r.fieldSize,
                                 TierFor(keen.rankingPoints, cd), finals,
                                 false, false, false, cd),
-               cd);
+               CompDiscipline::Boulder, cd);
       }
       SleepToNextDay(keen, kd, w);
     }
@@ -4705,8 +4706,8 @@ static void TestWorldStageSave() {
   // the record the night tick recomputes the ranking as zero, so a
   // load-bearing save bug here reads as "the game forgot your career".
   const CompDials cds;
-  Record(save.player.rankingRecord, 40, 120.0, cds);
-  Record(save.player.rankingRecord, 55, -2.0, cds);
+  Record(save.player.rankingRecord, 40, 120.0, CompDiscipline::Boulder, cds);
+  Record(save.player.rankingRecord, 55, -2.0, CompDiscipline::Boulder, cds);
   save.player.rankingPoints =
       RankingFrom(save.player.rankingRecord, 55, cds);
   save.player.team.lastReviewDay = 44;
@@ -17198,6 +17199,312 @@ static void TestLoadsVersion36Save() {
   CHECK(static_cast<int>(DefaultMigrations().size()) == kSaveVersion - 1);
 }
 
+// --- speed climbing (SPEED-1..4, OLY-4) ---------------------------------
+
+static void TestTheWallRecordHolds() {
+  const SpeedDials d;
+  // **Nothing gets under the floor.** The route is the same route for
+  // everybody and it has a bottom; a grade high enough to argue with that
+  // is a bug in the dial, not a world record.
+  for (int g = 0; g <= 20; g++) {
+    const double t = SpeedTimeForGrade(g, d);
+    CHECK(t >= d.floorSeconds - 1e-9);
+    CHECK(t <= d.baseSeconds + 1e-9);
+  }
+  CHECK(SpeedTimeForGrade(0, d) == d.baseSeconds);
+  CHECK(SpeedTimeForGrade(60, d) == d.floorSeconds);
+  // And the clock holds it too, against the best start and a clean cadence.
+  SpeedRun perfect;
+  perfect.reactionMs = 0.0;
+  CHECK(RunTime(20, perfect, d) >= d.floorSeconds - 1e-9);
+  // A score never goes negative: a slow run is worth nothing, not less.
+  CHECK(SpeedScore(d.dnfSeconds, d) == 0.0);
+  CHECK(SpeedScore(d.floorSeconds, d) > 0.0);
+}
+
+static void TestTheStartIsTheEvent() {
+  const SpeedDials d;
+  SpeedRun neutral;
+  neutral.reactionMs = d.reactionOkMs;
+  const double base = RunTime(8, neutral, d);
+
+  SpeedRun quick = neutral;
+  quick.reactionMs = d.reactionOkMs - d.reactionScaleMs;   // a second's worth
+  SpeedRun slow = neutral;
+  slow.reactionMs = d.reactionOkMs + d.reactionScaleMs;
+  CHECK(std::fabs((base - RunTime(8, quick, d)) - 1.0) < 1e-9);
+  CHECK(std::fabs((RunTime(8, slow, d) - base) - 1.0) < 1e-9);
+
+  // Capped both ways. Without this a superhuman reaction beats the wall
+  // record, which is the one thing the floor exists to stop.
+  SpeedRun absurd = neutral;
+  absurd.reactionMs = 0.0;
+  CHECK(base - RunTime(8, absurd, d) <= d.reactionCapSeconds + 1e-9);
+
+  // And going on the amber is a DNF, whatever else you did.
+  SpeedRun jumped;
+  jumped.falseStart = true;
+  jumped.reactionMs = 0.0;
+  CHECK(RunTime(20, jumped, d) == d.dnfSeconds);
+}
+
+static void TestTheCadenceCostsWhatItSays() {
+  const SpeedDials d;
+  SpeedRun clean;
+  const double base = RunTime(8, clean, d);
+
+  // **Error inside the window is free.** Sixteen reaches each a hair late is
+  // a clean run, and a model that charged for them would make a perfect run
+  // the only clean one -- which is not what a window is.
+  SpeedRun tidy = clean;
+  tidy.offBeatMs = d.beatWindowMs * d.rungs;
+  CHECK(std::fabs(RunTime(8, tidy, d) - base) < 1e-9);
+
+  // A second past the window costs offBeatPenalty seconds.
+  SpeedRun ragged = clean;
+  ragged.offBeatMs = d.beatWindowMs * d.rungs + 1000.0;
+  CHECK(std::fabs((RunTime(8, ragged, d) - base) - d.offBeatPenalty) < 1e-9);
+
+  SpeedRun fumbled = clean;
+  fumbled.fumbles = 3;
+  CHECK(std::fabs((RunTime(8, fumbled, d) - base) - 3 * d.fumbleSeconds) <
+        1e-9);
+
+  // The pace tightens with the grade, and is clamped at both ends.
+  CHECK(SpeedPaceMs(20, d) < SpeedPaceMs(2, d));
+  CHECK(SpeedPaceMs(0, d) <= d.paceCeilingMs);
+  CHECK(SpeedPaceMs(60, d) >= d.paceFloorMs);
+}
+
+static void TestTwoRunsAndTheFastestCounts() {
+  const SpeedDials d;
+  SpeedRound r;
+  LogRun(r, 9.0, d);
+  CHECK(!RoundIsDone(r, d));
+  CHECK(r.best == 9.0);
+  LogRun(r, 7.5, d);
+  CHECK(RoundIsDone(r, d));
+  CHECK(r.best == 7.5);
+  CHECK(std::fabs(r.score - SpeedScore(7.5, d)) < 1e-9);
+  // A third run is not a run.
+  LogRun(r, 5.0, d);
+  CHECK(r.runs.size() == 2u);
+  CHECK(r.best == 7.5);
+
+  // A round of nothing but DNFs still has a best, and it is worth zero.
+  SpeedRound blown;
+  LogRun(blown, d.dnfSeconds, d);
+  LogRun(blown, d.dnfSeconds, d);
+  CHECK(blown.best == d.dnfSeconds);
+  CHECK(blown.score == 0.0);
+}
+
+static std::vector<SpeedEntrant> AQualifyingEight() {
+  std::vector<SpeedEntrant> f;
+  for (int i = 0; i < 8; i++) {
+    f.push_back(SpeedEntrant{"Q" + std::to_string(i), 14.0 - i * 0.5});
+  }
+  return f;
+}
+
+static void TestABracketEndsInAPlacement() {
+  const SpeedDials d;
+  const Rng w = Rng::FromStream("speedseed", Stream::Worldgen);
+  // Run it out at both ends: a career that wins every heat, and one that
+  // loses the first. Every path must terminate with a placement.
+  for (int win = 0; win < 2; win++) {
+    SpeedBracket b = SeedTheBracket(w, 100, AQualifyingEight(), 12.0, d);
+    int guard = 0;
+    while (!b.done && guard++ < 10) {
+      // Beat or lose to the opponent by a clear margin, deliberately.
+      const double you = win ? std::max(d.floorSeconds, b.opponentSeconds - 0.5)
+                             : b.opponentSeconds + 0.5;
+      ResolveHeat(b, you, d);
+      if (!b.done) NextHeat(b, w, 100, 12.0, d);
+    }
+    CHECK(b.done);
+    CHECK(b.placement >= 1 && b.placement <= 5);
+    CHECK(win ? b.placement == 1 : b.placement == 5);
+    CHECK(!b.log.empty());
+    CHECK(!HeatLine(b).empty());
+  }
+}
+
+static void TestABronzeIsNotAnExit() {
+  const SpeedDials d;
+  const Rng w = Rng::FromStream("speedseed2", Stream::Worldgen);
+  SpeedBracket b = SeedTheBracket(w, 200, AQualifyingEight(), 12.0, d);
+  // Win the quarter, lose the semi. **That is not the end of the day**: it
+  // is the bronze match, and a bracket that walked you out of the building
+  // there would be missing a medal the format actually awards.
+  ResolveHeat(b, std::max(d.floorSeconds, b.opponentSeconds - 0.4), d);
+  CHECK(b.youWonIt);
+  CHECK(!b.done);
+  NextHeat(b, w, 200, 12.0, d);
+  CHECK(b.round == 1);
+  ResolveHeat(b, b.opponentSeconds + 0.4, d);
+  CHECK(!b.done);
+  NextHeat(b, w, 200, 12.0, d);
+  CHECK(b.bronze);
+  CHECK(b.round == 2);
+  ResolveHeat(b, std::max(d.floorSeconds, b.opponentSeconds - 0.4), d);
+  CHECK(b.done);
+  CHECK(b.placement == 3);
+
+  // And a false start loses the heat however fast the opponent was not.
+  SpeedBracket f = SeedTheBracket(w, 201, AQualifyingEight(), 12.0, d);
+  ResolveHeat(f, d.dnfSeconds, d);
+  CHECK(!f.youWonIt);
+  CHECK(f.placement == 5);
+}
+
+static void TestPracticeTrainsAndBanksAPersonalBest() {
+  const SpeedDials d;
+  Skills s;
+  s.power = 40.0;
+  s.technique = 40.0;
+  double energy = 100.0, pb = 0.0;
+
+  SpeedPracticeResult a = PracticeRun(s, energy, pb, 8.4, 200.0, d);
+  CHECK(a.ran && a.clean && a.personalBest);
+  CHECK(pb == 8.4);
+  CHECK(s.power > 40.0);
+  CHECK(s.technique > 40.0);
+  CHECK(a.techniqueGained < a.powerGained);
+  CHECK(std::fabs(energy - (100.0 - d.practiceEnergy)) < 1e-9);
+
+  // Slower is not a personal best, and does not un-set the old one.
+  SpeedPracticeResult b = PracticeRun(s, energy, pb, 9.9, 200.0, d);
+  CHECK(b.clean && !b.personalBest);
+  CHECK(pb == 8.4);
+
+  // A false start burns the gas and teaches nothing.
+  const double before = s.power;
+  SpeedPracticeResult c = PracticeRun(s, energy, pb, d.dnfSeconds, 200.0, d);
+  CHECK(c.ran && !c.clean && !c.personalBest);
+  CHECK(s.power == before);
+
+  // No gas, no run -- and no energy spent finding that out.
+  double empty = 1.0;
+  SpeedPracticeResult none = PracticeRun(s, empty, pb, 8.0, 200.0, d);
+  CHECK(!none.ran);
+  CHECK(empty == 1.0);
+
+  // Never run clean reads as nothing, **not as a wall record**.
+  CHECK(PersonalBestLine(0.0).empty());
+  CHECK(!PersonalBestLine(8.4).empty());
+}
+
+static void TestTheBetterClimberUsuallyWinsAndNotAlways() {
+  const SpeedDials d;
+  const Rng w = Rng::FromStream("speedmeasure", Stream::Session);
+  // **A speed heat is one race.** Measured over four thousand runs a grade
+  // apart, the stronger climber is clearly ahead on the mean -- and loses
+  // often enough that a knockout is a knockout. If either half of that
+  // stopped being true the format would be pointless in one direction or
+  // rigged in the other.
+  int ahead = 0;
+  const int n = 4000;
+  double sumStrong = 0.0, sumWeak = 0.0;
+  int strongRuns = 0, weakRuns = 0;
+  for (int i = 0; i < n; i++) {
+    const std::string s = std::to_string(i);
+    const SpeedRun strong = BotRun(w, "s" + s, 12.0, 0.6, d);
+    const SpeedRun weak = BotRun(w, "w" + s, 11.0, 0.6, d);
+    const double ts = RunTime(12.0, strong, d);
+    const double tw = RunTime(11.0, weak, d);
+    if (ts < tw) ahead++;
+    if (!strong.falseStart) { sumStrong += ts; strongRuns++; }
+    if (!weak.falseStart) { sumWeak += tw; weakRuns++; }
+  }
+  CHECK(strongRuns > 0 && weakRuns > 0);
+  // A grade is worth `perGrade` seconds of pace and the means say so.
+  const double gap = sumWeak / weakRuns - sumStrong / strongRuns;
+  CHECK(gap > d.perGrade * 0.6);
+  CHECK(gap < d.perGrade * 1.4);
+  // Ahead most of the time, beaten a real share of it. Measured: 75.8% a
+  // half-grade up, 90.0% a grade up, 94.8% two grades up.
+  CHECK(ahead > n * 0.80);
+  CHECK(ahead < n * 0.96);
+
+  // **And a heat is a lottery in a way a time trial is not.** The
+  // opponent's spread is 1.4 seconds wide, which is two grades of pace, so
+  // the same climber who is 90% ahead on the clock is 85.6% ahead in one
+  // race and **dead level against their own grade**. That is the source's
+  // design and not a slack dial: a knockout that the seeding decided would
+  // not be a knockout. Measured level, so it is asserted as level.
+  int wonHeat = 0;
+  for (int i = 0; i < n; i++) {
+    const std::string s = std::to_string(i);
+    const double you = RunTime(12.0, BotRun(w, "hy" + s, 12.0, 0.6, d), d);
+    if (you < FieldTime(w, "ht" + s, 12.0, true, d)) wonHeat++;
+  }
+  CHECK(wonHeat > n * 0.42);
+  CHECK(wonHeat < n * 0.58);
+
+  // **Nerve buys the start and nothing else.** A steady climber goes on the
+  // amber far less often than a rattled one at the same grade.
+  int calmDnf = 0, rattledDnf = 0;
+  for (int i = 0; i < n; i++) {
+    const std::string s = std::to_string(i);
+    if (BotRun(w, "c" + s, 12.0, 1.0, d).falseStart) calmDnf++;
+    if (BotRun(w, "r" + s, 12.0, 0.0, d).falseStart) rattledDnf++;
+  }
+  CHECK(rattledDnf > calmDnf * 2);
+}
+
+static void TestSpeedIsItsOwnRanking() {
+  const CompDials cd;
+  std::vector<RankingResult> record;
+  Record(record, 10, 400.0, CompDiscipline::Boulder, cd);
+  Record(record, 12, 90.0, CompDiscipline::Speed, cd);
+
+  // **Which room you are in is read off the discipline.** A National
+  // boulderer walking up to a speed wall for the first time is a Local
+  // speed climber, and the whole point of OLY-4 is that they are entered as
+  // one.
+  CHECK(RankingIn(record, 20, CompDiscipline::Boulder, cd) == 400.0);
+  CHECK(RankingIn(record, 20, CompDiscipline::Speed, cd) == 90.0);
+  CHECK(RankingIn(record, 20, CompDiscipline::Sport, cd) == 0.0);
+  // The national number is still the sum -- the logged deviation from the
+  // source, and the reason the three named rungs did not have to move.
+  CHECK(RankingFrom(record, 20, cd) == 490.0);
+  CHECK(TierFor(RankingIn(record, 20, CompDiscipline::Speed, cd), cd) <
+        TierFor(RankingIn(record, 20, CompDiscipline::Boulder, cd), cd));
+
+  // A result off a save that predates disciplines counts toward all three,
+  // which is what the v46 migration writes.
+  std::vector<RankingResult> old;
+  RankingResult legacy;
+  legacy.day = 5;
+  legacy.points = 300.0;
+  legacy.everyDiscipline = true;
+  old.push_back(legacy);
+  for (int i = 0; i < kCompDisciplineCount; i++) {
+    CHECK(RankingIn(old, 20, static_cast<CompDiscipline>(i), cd) == 300.0);
+  }
+}
+
+static void TestSpeedSurvivesASave() {
+  SaveGame save;
+  save.player.speedPersonalBest = 7.42;
+  save.player.rankingRecord.clear();
+  Record(save.player.rankingRecord, 30, 55.0, CompDiscipline::Speed);
+  RankingResult legacy;
+  legacy.day = 31;
+  legacy.points = 12.0;
+  legacy.everyDiscipline = true;
+  save.player.rankingRecord.push_back(legacy);
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(std::fabs(back.player.speedPersonalBest - 7.42) < 1e-9);
+  CHECK(back.player.rankingRecord.size() == 2u);
+  CHECK(back.player.rankingRecord[0].discipline == CompDiscipline::Speed);
+  CHECK(!back.player.rankingRecord[0].everyDiscipline);
+  CHECK(back.player.rankingRecord[1].everyDiscipline);
+}
+
 static void TestTheBillYouCannotCoverIsBetweenYouAndThem() {
   PlayerState player;
   DayState day = WakeUp(player);
@@ -17571,6 +17878,17 @@ int main() {
   TestTheTownSurvivesASave();
   TestLoadsVersion36Save();
   TestTheBillYouCannotCoverIsBetweenYouAndThem();
+
+  TestTheWallRecordHolds();
+  TestTheStartIsTheEvent();
+  TestTheCadenceCostsWhatItSays();
+  TestTwoRunsAndTheFastestCounts();
+  TestABracketEndsInAPlacement();
+  TestABronzeIsNotAnExit();
+  TestTheBetterClimberUsuallyWinsAndNotAlways();
+  TestPracticeTrainsAndBanksAPersonalBest();
+  TestSpeedIsItsOwnRanking();
+  TestSpeedSurvivesASave();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);

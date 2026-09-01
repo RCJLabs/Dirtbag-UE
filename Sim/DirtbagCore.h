@@ -46,6 +46,14 @@ enum class RouteType { Crimp, Power, Endurance, Technical, Dyno, Crack };
 // engine mirror static_asserts against it, so Boulder=0 and Sport=1 are
 // load-bearing numbers rather than an ordering.
 enum class Discipline { Boulder, Sport, Trad };
+
+// What a *comp* is, which is a different axis from what a route is. The
+// Olympic programme is boulder, lead and speed; there is no trad comp and
+// there is no speed route. Conflating the two is how a speed wall ends up
+// in a guidebook.
+enum class CompDiscipline { Boulder, Sport, Speed };
+constexpr int kCompDisciplineCount = 3;
+const char* CompDisciplineName(CompDiscipline d);
 enum class HoldType { Crimp, Sloper, Pinch, Pocket, Jug, Dyno, Crack };
 
 struct Move {

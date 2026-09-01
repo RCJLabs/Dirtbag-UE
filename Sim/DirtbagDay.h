@@ -265,6 +265,11 @@ struct PlayerState {
   // night, and never sooner than three weeks out.
   Olympics olympics;
 
+  // `SPEED-2`: the fastest clean lap you have ever run on a speed wall, in
+  // seconds. **Zero means never, not instant** -- see PersonalBestLine,
+  // which refuses to print a wall record nobody has set.
+  double speedPersonalBest = 0.0;
+
   // The other end of the same system: a Wednesday at the gym, five
   // dollars, and a number that is yours. Worth no ranking points at all --
   // see Sim/DirtbagLeague.h for why that is the design rather than an

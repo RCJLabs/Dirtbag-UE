@@ -233,6 +233,42 @@ migration registry is not theoretical any more.
 
 ---
 
+## §0d — The speed wall needs a place to be, 2026-09-01
+
+`Sim/DirtbagSpeed.*` is built, tested and wired to Blueprint through
+`UDirtbagSimLibrary` (`Dirtbag|Speed`). **What it does not have is a door**,
+because a speed wall is a place and placing one is Phase 6.
+
+Two things to decide at the desk, and neither takes long:
+
+**Where the practice wall goes.** It wants to be at a gym, it costs seven
+energy and no time, and it is the one training verb in the game with a
+number attached to it -- a personal best. `RunTheSpeedWall` takes the player,
+the day and the seconds the beat produced, and hands back what was gained
+and whether the number on the wall changed. A `Kind = Gym` Day Spot with one
+more key would do it; so would a second `ADirtbagClimbWall` with a
+`bSpeedWall` flag, which is the better answer if the beat is going to be
+staged on an actual wall.
+
+**What the beat looks like.** This is the part that cannot be specified from
+here and is the whole feature:
+
+1. **The start.** A hold of random length, then GO. Tap during the hold and
+   it is a false start -- `bFalseStart` on the run, and the sim does the
+   rest. Tap after, and the milliseconds are `ReactionMs`.
+2. **The cadence.** `SpeedPaceMs(Grade)` is the millisecond gap between
+   beats, sixteen of them, alternating hands. Sum the absolute error and
+   hand it over as `OffBeatMs`; count wrong-hand reaches as `Fumbles`. **Do
+   not pre-judge them against the window** -- the sim owns the window, and
+   a widget that filtered first would be scoring the run twice.
+3. Hand the whole `FDirtbagSpeedRun` to `SpeedRunTime` and that is the time.
+
+The knockout (`SeedTheSpeedBracket` / `ResolveSpeedHeat` / `NextSpeedHeat`)
+is the same beat with the stakes changed and needs no new widget -- one
+opponent, one clock, and `SpeedHeatLine` for the sentence.
+
+---
+
 ## §1 — Build it, and expect UHT to be the thing that breaks
 
 **Twenty-nine new `USTRUCT`/`UENUM`s and sixty-seven new `UFUNCTION`s**

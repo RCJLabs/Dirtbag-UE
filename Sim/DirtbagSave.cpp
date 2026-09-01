@@ -765,6 +765,26 @@ void MigrateV4ToV5(SaveFields& fields) {
   fields["dog.fed"] = "0.4";
 }
 
+// v46 -> v47: speed climbing, and a ranking that knows which discipline a
+// result came from (`SPEED-1`..`SPEED-4`, `OLY-4`).
+//
+// **Every result already on the record counts toward all three.** A v46
+// career has ten years of comps on it and no record of which discipline any
+// of them was, so tagging them all `Boulder` would tell a National lead
+// climber they have never entered a lead comp. The 2D game's own migration
+// makes the same call for the same reason.
+void MigrateV46ToV47(SaveFields& fields) {
+  fields["speed.pb"] = "0";
+  int results = 0;
+  if (ParseInt(fields, "rank.results", results)) {
+    for (int i = 0; i < results; i++) {
+      const std::string k = "rank.r" + IntToStr(i);
+      fields[k + "c"] = "0";   // Boulder, and unread while `a` is set
+      fields[k + "a"] = "1";   // counts toward every discipline
+    }
+  }
+}
+
 }  // namespace
 
 const std::vector<Migration>& DefaultMigrations() {
@@ -783,7 +803,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39,
       &MigrateV39ToV40, &MigrateV40ToV41, &MigrateV41ToV42,
       &MigrateV42ToV43, &MigrateV43ToV44, &MigrateV44ToV45,
-      &MigrateV45ToV46};
+      &MigrateV45ToV46, &MigrateV46ToV47};
   return kMigrations;
 }
 
@@ -1009,6 +1029,9 @@ std::string SerializeSave(const SaveGame& save) {
         const std::string k = "rank.r" + IntToStr(static_cast<int>(i));
         out << k << "d=" << IntToStr(rr[i].day) << "\n";
         out << k << "p=" << NumToStr(rr[i].points) << "\n";
+        out << k << "c=" << IntToStr(static_cast<int>(rr[i].discipline))
+            << "\n";
+        out << k << "a=" << (rr[i].everyDiscipline ? "1" : "0") << "\n";
       }
 
       const Medical& mm = save.player.medical;
@@ -1103,6 +1126,8 @@ std::string SerializeSave(const SaveGame& save) {
         out << "league.field" << IntToStr(static_cast<int>(i)) << "="
             << NumToStr(lg.fieldPoints[i]) << "\n";
       }
+
+      out << "speed.pb=" << NumToStr(save.player.speedPersonalBest) << "\n";
 
       const Olympics& og = save.player.olympics;
       out << "og.next=" << IntToStr(og.nextDay) << "\n";
@@ -1648,6 +1673,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
                   save.player.upkeep.lastShrinkDay) ||
         !ParseInt(fields, "up.shrinks",
                   save.player.upkeep.shrinkSessions) ||
+        !ParseDouble(fields, "speed.pb", save.player.speedPersonalBest) ||
         !ParseInt(fields, "og.next", save.player.olympics.nextDay) ||
         !ParseInt(fields, "og.appearances",
                   save.player.olympics.appearances) ||
@@ -1774,10 +1800,18 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     for (int i = 0; i < rankResults; i++) {
       const std::string k = "rank.r" + IntToStr(i);
       RankingResult r;
+      int disc = 0, every = 0;
       if (!ParseInt(fields, k + "d", r.day) ||
-          !ParseDouble(fields, k + "p", r.points)) {
+          !ParseDouble(fields, k + "p", r.points) ||
+          !ParseInt(fields, k + "c", disc) ||
+          !ParseInt(fields, k + "a", every)) {
         return LoadResult::BadFormat;
       }
+      if (disc < 0 || disc >= kCompDisciplineCount) {
+        return LoadResult::BadFormat;
+      }
+      r.discipline = static_cast<CompDiscipline>(disc);
+      r.everyDiscipline = every != 0;
       save.player.rankingRecord.push_back(r);
     }
 

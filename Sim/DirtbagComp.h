@@ -368,18 +368,46 @@ double CircuitPoints(int place, int fieldSize,
 struct RankingResult {
   int day = 0;
   double points = 0.0;   // negative for a no-show
+
+  // `OLY-4`: which discipline it was earned in. Which room you are allowed
+  // into is read off your ranking **in that discipline** -- a National
+  // boulderer walking up to a speed wall for the first time is a Local
+  // speed climber, and should be in the Local field.
+  CompDiscipline discipline = CompDiscipline::Boulder;
+
+  // A result from before the ranking knew about disciplines, which counts
+  // toward all three. The 2D game's own migration does exactly this
+  // (`discRank = {natlPts, natlPts, natlPts}`) and the reason is the same:
+  // the alternative is telling a ten-year career it has never entered a
+  // sport comp.
+  bool everyDiscipline = false;
 };
 
 // Put a result on the record, and drop anything that has aged out. Pruning
 // here rather than at read time keeps the save bounded: a thirty-year
 // career would otherwise carry seven hundred results it can never count.
 void Record(std::vector<RankingResult>& record, int day, double points,
+            CompDiscipline discipline = CompDiscipline::Boulder,
             const CompDials& dials = CompDials{});
 
 // What the record adds up to today. Floors at zero -- a run of no-shows
 // makes you unranked, not negative.
 double RankingFrom(const std::vector<RankingResult>& record, int today,
                    const CompDials& dials = CompDials{});
+
+// The same, for one discipline. **This is the number that decides which
+// room you are in**, where `RankingFrom` is the number the national team
+// and the Games read.
+//
+// The two deliberately do not agree, and the deviation from the source is
+// logged in Sim/DirtbagSpeed.h: 2D's national number is the *best* of the
+// three because its ranking is a lifetime total and needs something to stop
+// three disciplines inflating one figure. This port's has been a one-year
+// rolling window since the ladder shipped, and its three named rungs were
+// measured against the sum.
+double RankingIn(const std::vector<RankingResult>& record, int today,
+                 CompDiscipline discipline,
+                 const CompDials& dials = CompDials{});
 
 // What a comp adds to your national ranking: the placement points weighted
 // by which room you were in, half as much again at a finals, plus a lump
