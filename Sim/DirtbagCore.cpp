@@ -6,6 +6,49 @@
 
 namespace dirtbag {
 
+Climber NewClimber(const Rng& rng) {
+  Rng r = rng.Derive("body-you-arrived-in");
+  Climber c;
+  // +/- 6 on a 7.14-point grade: under a grade of head start in any one
+  // axis, enough that this career's easy style is not last career's.
+  const auto skill = [&]() {
+    return kStartingSkill + r.FloatRange(-6.0, 6.0);
+  };
+  c.skills.power = skill();
+  c.skills.fingers = skill();
+  c.skills.technique = skill();
+  c.skills.endurance = skill();
+  c.skills.head = skill();
+  // Average stays the most common build, the way it is at any crag.
+  const double m = r.NextDouble();
+  c.morphology = m < 0.40   ? Morphology::Average
+                 : m < 0.60 ? Morphology::Compact
+                 : m < 0.80 ? Morphology::Lanky
+                            : Morphology::Powerful;
+  return c;
+}
+
+const char* RouteTypeName(RouteType type) {
+  switch (type) {
+    case RouteType::Crimp:     return "crimp";
+    case RouteType::Power:     return "power";
+    case RouteType::Endurance: return "endurance";
+    case RouteType::Technical: return "technical";
+    case RouteType::Dyno:      return "dyno";
+    case RouteType::Crack:     return "crack";
+  }
+  return "crimp";
+}
+
+const char* CompDisciplineName(CompDiscipline d) {
+  switch (d) {
+    case CompDiscipline::Boulder: return "boulder";
+    case CompDiscipline::Sport:   return "lead";
+    case CompDiscipline::Speed:   return "speed";
+  }
+  return "boulder";
+}
+
 const char* BoulderGradeName(int grade) {
   static const char* kNames[] = {
       "V0", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9",
@@ -76,7 +119,17 @@ Route BuildRoute(const Rng& worldRng, const std::string& name, int grade,
     if (move.hold == HoldType::Jug && !move.crux) {
       move.restQuality = rng.FloatRange(0.3, 0.8);
     }
-    if (discipline == Discipline::Sport && i == moveCount / 2 && !move.crux) {
+    // A pitch is not a long boulder. Real sport routes have stances every
+    // few moves, and that is the whole reason a climber can stay on one for
+    // twenty moves at their limit — measured without them, a V7.8 climber
+    // sent a 19-move V7 pitch 0.9% of the time while sending the V7 boulder
+    // 68%, because pump accrued for the full length with almost nowhere to
+    // shake out. One guaranteed mid-route rest was not a pitch, it was a
+    // boulder with a ledge in it.
+    if (discipline != Discipline::Boulder && !move.crux && i % 4 == 3) {
+      move.restQuality = std::max(move.restQuality, rng.FloatRange(0.35, 0.85));
+    }
+    if (discipline != Discipline::Boulder && i == moveCount / 2 && !move.crux) {
       move.restQuality = std::max(move.restQuality, rng.FloatRange(0.4, 0.9));
     }
     route.moves.push_back(move);

@@ -7,10 +7,20 @@
 
 #pragma once
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
+#include "DirtbagRng.h"
+
 namespace dirtbag {
+
+// Shared because more than one translation unit wants it, and because two
+// file-local copies is not a saving: the Unreal build concatenates these
+// units into one, where a second anonymous-namespace definition of the same
+// signature is a redefinition error. The g++ harness compiles each file
+// separately and never sees it.
+inline double Clamp01(double v) { return std::max(0.0, std::min(1.0, v)); }
 
 // --- Grades -----------------------------------------------------------------
 
@@ -24,7 +34,28 @@ const char* SportGradeName(int grade);    // "5.7".."5.16a"
 // --- Routes -----------------------------------------------------------------
 
 enum class RouteType { Crimp, Power, Endurance, Technical, Dyno, Crack };
-enum class Discipline { Boulder, Sport };
+constexpr int kRouteTypeCount = 6;
+const char* RouteTypeName(RouteType type);
+// What kind of climbing this is, which is really a question about what is
+// between you and the ground.
+//
+//   Boulder  nothing but foam, and only for the last few moves of a line.
+//   Sport    bolts: already there, evenly spaced, and every one bomber.
+//   Trad     whatever you can get in, wherever the rock lets you, placed
+//            with one hand while the other one holds on.
+//
+// Appended rather than inserted: the save file stores this by value and the
+// engine mirror static_asserts against it, so Boulder=0 and Sport=1 are
+// load-bearing numbers rather than an ordering.
+enum class Discipline { Boulder, Sport, Trad };
+
+// What a *comp* is, which is a different axis from what a route is. The
+// Olympic programme is boulder, lead and speed; there is no trad comp and
+// there is no speed route. Conflating the two is how a speed wall ends up
+// in a guidebook.
+enum class CompDiscipline { Boulder, Sport, Speed };
+constexpr int kCompDisciplineCount = 3;
+const char* CompDisciplineName(CompDiscipline d);
 enum class HoldType { Crimp, Sloper, Pinch, Pocket, Jug, Dyno, Crack };
 
 struct Move {
@@ -44,10 +75,44 @@ struct Route {
   std::vector<Move> moves;
 };
 
+// --- What is holding the rope --------------------------------------------
+//
+// These two live here, in the vocabulary, rather than in DirtbagTrad.h where
+// their behaviour is. The runout model in DirtbagSport.h reads protection
+// and the resolver in DirtbagSession.h carries a rack, and neither of those
+// files can include the trad one without a cycle. Two words in the shared
+// vocabulary is the cheap answer; two copies of them would be the expensive
+// one.
+
+// How much you trust what is on the rope, per move index. Zero at a move
+// with nothing at it.
+//
+// Sport leaves this empty and means it: bolts are a property of how the
+// line was equipped, `BoltsFor` derives them from the route, and they are
+// all bomber. Trad fills it in as the leader places, because a nut is a
+// property of the attempt and not of the rock — climb the same pitch twice
+// and you will not protect it the same way.
+struct Protection {
+  std::vector<double> quality;
+};
+
+// What is on your harness. Not a list of sizes — a count and a standard,
+// because the interesting decisions are "have I got enough left for the
+// headwall" and "will this hold", and neither of them is about whether the
+// #2 is still at the belay.
+struct Rack {
+  int pieces = 0;       // how many placements you have left in you
+  double quality = 0.0; // 0 a borrowed set of nuts .. 1 a double set of cams
+};
+
 // --- Climbers ---------------------------------------------------------------
 
 struct Skills {
   // All 0..100, as in the 2D game.
+  //
+  // These default to zero, which is right for a struct and wrong for a
+  // person: a climber at 0 is not a beginner, they are somebody who cannot
+  // pull on. Anything constructing a *climber* wants kStartingSkill.
   double power = 0.0;
   double fingers = 0.0;
   double technique = 0.0;
@@ -55,14 +120,88 @@ struct Skills {
   double head = 0.0;
 };
 
+// What somebody who turns up at the Lot is made of. 50 is "solid
+// intermediate" on the ladder in concepts/BALANCE-SKILL-LADDER.md — V5.0,
+// which is where a new career starts and where an inherited one restarts.
+//
+// It is a named constant because it was previously *nowhere*: the engine's
+// FDirtbagClimber defaulted every skill to 50 in its own header, the sim's
+// Skills{} defaulted them to 0, and Inherit returned a plain PlayerState.
+// So the second generation of every career was born with zero in all five,
+// could not climb a V0, and could never be offered retirement — because
+// that test needs a peak above zero and they never had one.
+constexpr double kStartingSkill = 50.0;
+
 enum class Morphology { Compact, Average, Lanky, Powerful };
+
+// What goes wrong, and where it bites. Climbing injuries are specific —
+// nobody has "an injury", they have a pulley or an elbow — and which one
+// decides what you can still climb on, which is the whole of what makes an
+// injury a decision rather than a pause.
+enum class InjuryKind {
+  Pulley,      // the classic: a finger, and crimps are over
+  Lumbrical,   // pockets, and only pockets, and it takes forever
+  Elbow,       // the slow one nobody rests properly; everything, a little
+  Shoulder,    // slopers and anything dynamic; crimping is fine
+};
+constexpr int kInjuryKindCount = 4;
+
+struct Injury {
+  bool active = false;
+  InjuryKind kind = InjuryKind::Pulley;
+  double severity = 0.0;   // 0..1; what it costs and how long it holds you
+  int daysLeft = 0;
+
+  // **Who owns the clock.** `BodyDay` counts `daysLeft` down and clears
+  // the injury when it hits zero; that was the whole of the injury model
+  // through Phase 3. Phase 10's staged comeback is a second clock over the
+  // same flag, and two owners of one flag disagree -- measured, before it
+  // was fixed: a career took **316 cortisone shots and was hurt for 10,696
+  // of 10,950 days**, because the comeback reached its last stage, the
+  // injury was still flagged active, and the medical tick started the
+  // whole thing again the next morning.
+  //
+  // Set by `StartComeback` and cleared when the injury heals. While it is
+  // true `BodyDay` leaves the count alone and `DirtbagMedical` is the
+  // authority -- it rewrites `daysLeft` nightly so everything that reads
+  // it still reads the truth.
+  bool staged = false;
+};
 
 struct Climber {
   Skills skills;
   Morphology morphology = Morphology::Average;
   double skin = 9.0;    // session budget, 0..9; thin skin hurts crimps
   double psyche = 0.7;  // 0..1
+
+  // Training load, 0..100. The second body budget, and a much slower one
+  // than skin: skin is back in six nights, load takes a month. It rises
+  // with how hard you pull rather than how often, because that is what
+  // hurts tendons — a mileage day on jugs costs skin and buys load nothing.
+  //
+  // This exists because two Phase 3 measurements in a row ended at the same
+  // wall: skin was the only budget, so nothing money could buy added
+  // climbing to a year, it only moved it around (notes/phase3-kit.md).
+  double load = 0.0;
+
+  // What is currently wrong with you.
+  Injury injury;
 };
+
+// A climber as they arrive at the Lot: the starting body, and nothing else
+// assumed. Use this rather than `Climber{}` anywhere a *person* is being
+// made, because `Climber{}` is a zeroed struct and a person is not.
+// A new climber, drawn from the world rather than stamped out. Skills sit
+// around kStartingSkill with a spread of about three quarters of a grade,
+// and morphology is rolled -- which matters, because the resolver reads it
+// against every move's reachBias: a Lanky climber and a Compact one own
+// different cruxes, which is the cheapest real variety a career can have.
+//
+// Deterministic from the rng, so the same world hands the same life the
+// same body. There is deliberately no unseeded version: the one that
+// stamped out flat 50s and Average, four times in a row, is what made four
+// generations read word-for-word identical (ROADMAP 2026-08-22).
+Climber NewClimber(const Rng& rng);
 
 // --- Conditions -------------------------------------------------------------
 

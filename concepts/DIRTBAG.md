@@ -53,7 +53,7 @@ factions (4, opposed), persistent partners with their own careers, the Lot neigh
 
 **Redesigned for 3D:** the climbing loop itself (above); skin/pump embodiment; morphology; weather/light as world state, not a modifier line.
 
-**Cut or defer past 1.0:** comps/Olympics, expeditions (El Cap tier — this is THE WALL's design, fold in later), deep-water solo, big-wall multi-day, filmmaking/photography economy, minigames (poker etc. — keep ONE campfire game), gym ownership, Solo mode, Notown/Halloween. The 2D game took years to accrete these; the 3D game earns them the same way.
+**Cut or defer past 1.0:** ~~comps/Olympics~~ (**REVERSED 2026-08-23 — back in scope, see [DECISION-comps-are-back.md](DECISION-comps-are-back.md).** Evan: *"wait comps were cut??? ok bring them back and the olympics. that's a huge part of the game."* The cut list's stated reasoning — *the 2D game took years to accrete these* — is right about the rest of this line and wrong about comps: the ladder is not an accretion, it is the half of a climbing career that has an ending, it is what the national ranking points at, the 2D zone graph gives the Olympic Village one of only three van-only destinations, and Evan named it unprompted when describing the world from memory. **Leagues come with it** as the same system's low end.), expeditions (El Cap tier — this is THE WALL's design, fold in later), deep-water solo, big-wall multi-day, filmmaking/photography economy, minigames (poker etc. — keep ONE campfire game), ~~gym ownership~~ (**REVERSED 2026-08-24 — back in scope, see [DECISION-gym-ownership.md](DECISION-gym-ownership.md).** The cut's reasoning was sound and was made without a number; measured, the game's most expensive purchase is $30,000 and a career that climbs more days than any other policy can hold $60,378, while a salaried one holds $609,045. **Decided, and deliberately not yet scoped** — the 2D source is not in this repo and the decision doc records what is needed before a line is written.), Solo mode, Notown/Halloween. The 2D game took years to accrete these; the 3D game earns them the same way.
 
 ## 5. The session proof (replaces the old FBIK pathfinder)
 
@@ -73,8 +73,18 @@ Ship order, each rung a coherent game:
 ## 7. Fab shopping list (verified 2026-08)
 
 **Exists — buy, don't build:**
-- **Climbing systems (as scaffolding):** [Procedural Climbing with Control Rig](https://www.fab.com/listings/9a460f95-7079-48b6-b38f-e17d764d4f34) — Full Body IK placement with *no canned animations*, the closest match to our model; [Climb and Vaulting Component V2](https://www.fab.com/listings/a32f69ab-aefd-4d38-869f-b5414364aca1) and Dynamic Ledge Climb System as animation-driven references; [Dragon IK Plugin](https://www.fab.com/listings/d3f8d256-d8d9-4d27-91c1-c61e55e984a6) as a general IK fallback.
-- **Rock/terrain:** Quixel Megascans — free for UE. Cliffs, boulders, canyon surfaces solved.
+- ~~**Climbing systems (as scaffolding):**~~ **OBSOLETE 2026-08-22 — do not
+  buy.** CLAUDE.md's core design call retired this whole category: *"no
+  physical climbing simulation, no hand-IK."* The climber interpolates along
+  a spline playing back six authored loops, and `ClimbingAnimationSet`
+  (already owned) covers them. The largest saving on this list, and it comes
+  from a decision rather than a purchase. Kept below for the record: [Procedural Climbing with Control Rig](https://www.fab.com/listings/9a460f95-7079-48b6-b38f-e17d764d4f34) — Full Body IK placement with *no canned animations*, the closest match to our model; [Climb and Vaulting Component V2](https://www.fab.com/listings/a32f69ab-aefd-4d38-869f-b5414364aca1) and Dynamic Ledge Climb System as animation-driven references; [Dragon IK Plugin](https://www.fab.com/listings/d3f8d256-d8d9-4d27-91c1-c61e55e984a6) as a general IK fallback.
+- **Rock/terrain:** Quixel Megascans. ⚠️ **"free for UE" is stale as of
+  2026-08-22** — free Megascans ended 31 December 2024, the library moved to
+  Fab, and assets are priced individually (a subset stays free; Megaplants
+  are free). Still the right choice for the rock and still worth buying, but
+  it is a line item now rather than a freebie. Cliffs, boulders, canyon
+  surfaces solved.
 - **Locomotion base:** Epic's free Game Animation Sample (motion matching, 500+ ground animations) for everything that isn't climbing.
 - **The dog:** [DOG on Fab](https://www.fab.com/listings/5a41c4ec-d50f-45e0-8384-c6dc905468c5) — 26 animations incl. sniff, howl, rest, sleep. The emotional register is purchasable.
 - **Town/vehicles:** small-town packs exist (Americana is a thinner category than European rural — budget shopping time); [City Sample Vehicles](https://www.fab.com/listings/2909157b-ddfa-4cef-a925-69dc2467021f) free for drivable bases; camper van models exist individually.

@@ -1,0 +1,729 @@
+// The sim as Blueprint nodes. Thin by design: every function here converts,
+// calls into Sim/, converts back. If a behavior question comes up, the
+// answer lives in Sim/ (and its tests), never here.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "UObject/Object.h"
+
+#include "DirtbagSimTypes.h"
+
+#include <vector>
+
+#include "DirtbagSimLibrary.generated.h"
+
+// The complete save path — and deliberately not on the Blueprint library.
+//
+// UHT parses every declaration inside a UCLASS body, including the ones it
+// is not asked to reflect, and it cannot resolve a plain namespaced C++ type
+// inside a container: `TArray<dirtbag::Legacy>` fails with "Unable to find
+// 'class', 'delegate', 'enum', or 'struct'". So these live out here, taking
+// the sim's own std::vector rather than a TArray for the same reason.
+//
+// UDirtbagSimLibrary's SaveToFile/LoadFromFile pair writes a save with no
+// legacies in it, which is correct only for a first life. Anything holding
+// generations must come through here or it will quietly disinherit them.
+
+namespace DirtbagSaveIO
+{
+	bool SaveGameToFile(const FString& Seed, const FDirtbagPlayerState& Player,
+	                    const std::vector<dirtbag::Legacy>& Legacies,
+	                    const FString& Filename);
+
+	EDirtbagLoadResult LoadGameFromFile(
+	    const FString& Filename, FString& OutSeed,
+	    FDirtbagPlayerState& OutPlayer,
+	    std::vector<dirtbag::Legacy>& OutLegacies);
+}
+
+/**
+ * One live attempt the minigame drives move by move (SETUP.md §4 step 4).
+ * Create with UDirtbagSimLibrary::BeginLiveAttempt, then per move:
+ * PeekOdds drives the tension UI, StepMove commits with HOLD TO CLIMB's
+ * execution quality, ShakeOut is the release verb. Finish for the result,
+ * CommitToSession to pay skin/warmth/psyche and update the project ledger.
+ */
+UCLASS(BlueprintType)
+class UDirtbagLiveAttempt : public UObject
+{
+	GENERATED_BODY()
+
+public:
+	/** Odds the next move faces at this execution. Pure preview — no roll. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	double PeekOdds(double Execution) const;
+
+	/** Commit to the next move. After it the attempt may be over. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	FDirtbagMoveResult StepMove(double Execution);
+
+	/** Release to shake out at the current stance. Returns net pump
+	 *  recovered; negative means the hang tax beat the stance. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	double ShakeOut();
+
+	/** **Get something in, here, before the next move.** Returns the
+	 *  quality of what went on the rope — zero when the rock gave you
+	 *  nothing worth having, which still costs you the piece and the pump,
+	 *  because finding that out is what the pump was spent on.
+	 *
+	 *  The other release verb, and the one that makes a trad lead a lead:
+	 *  it is a decision made mid-go, under pump, with the clock running.
+	 *  No-op returning 0 on anything that is not a trad lead. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	double PlaceGear();
+
+	/** What a sensible leader would do at the next move — the batch
+	 *  resolver's own policy, so a prompt that defaults to it defaults to
+	 *  what the measured game does. Pure. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	bool WouldPlaceGear() const;
+
+	/** **The newest thing worth saying**, for a wall driving the attempt
+	 *  move by move. An empty Line and Move of -1 mean silence, which is
+	 *  the right answer most moves and is the whole design — a line a move
+	 *  is a log, not commentary. See Sim/DirtbagNarrator.h. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	FDirtbagBeat LastWord();
+
+	/** The whole attempt as a watcher would tell it — for the replay, the
+	 *  highlight reel and the camera. Safe to call mid-attempt: it tells
+	 *  what has happened so far and does not invent an ending. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	TArray<FDirtbagBeat> Beats();
+
+	/** Pieces still on the harness. Zero is a solo from here up. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	int32 GetRackLeft() const;
+
+	/** How much you trust what is holding the rope at the next move, and
+	 *  how far above it you are — the two halves of the head game, for a
+	 *  HUD that has to say "psychological, and the bolt is below your
+	 *  feet" without printing a number. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	double GetLastPieceTrust() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	bool IsOver() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	double GetPump() const;
+
+	/** Index of the next unclimbed move (== moves completed so far). */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	int32 GetNextMoveIndex() const;
+
+	/** Styles, skin and the sent flag — call once the attempt is over. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	FDirtbagAttemptResult Finish() const;
+
+	/** Pays the session (skin, warmth, psyche) and updates the project
+	 *  ledger, exactly as the sim's batch path does. Call once per attempt,
+	 *  after Finish. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Attempt")
+	void CommitToSession(UPARAM(ref) FDirtbagSessionState& Session,
+	                     UPARAM(ref) FDirtbagProjectMemory& Memory) const;
+
+	// Internal state; set by BeginLiveAttempt only.
+	dirtbag::LiveAttempt Live;
+};
+
+UCLASS()
+class UDirtbagSimLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+	/** Deterministically builds a route's moves from its identity — same
+	 *  seed + name always yields the same line (worldgen rng stream). */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	static FDirtbagRoute BuildRoute(const FString& WorldSeed,
+	                                const FString& RouteName, int32 Grade,
+	                                int32 TrueGrade, EDirtbagRouteType Type,
+	                                EDirtbagDiscipline Discipline);
+
+	/** A fresh session for this climber: full skin, stone cold. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	static FDirtbagSessionState StartSession(const FDirtbagClimber& Climber);
+
+	/** One bot-driven burn (the staged-replay path, SETUP.md §4 step 3):
+	 *  resolves the whole attempt and updates session + ledger in place.
+	 *  The returned timeline is the staging script. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	static FDirtbagAttemptResult AttemptInSession(
+	    const FString& SessionSeed, UPARAM(ref) FDirtbagSessionState& Session,
+	    UPARAM(ref) FDirtbagProjectMemory& Memory,
+	    const FDirtbagClimber& Climber, const FDirtbagRoute& Route,
+	    double Friction = 0.5, double BotExecution = 0.72);
+
+	/** One player-driven burn (the interactive path, SETUP.md §4 step 4).
+	 *  Reads session + ledger but does not change them — CommitToSession on
+	 *  the returned object does that when the attempt ends. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	static UDirtbagLiveAttempt* BeginLiveAttempt(
+	    const FString& SessionSeed, const FDirtbagSessionState& Session,
+	    const FDirtbagProjectMemory& Memory, const FDirtbagClimber& Climber,
+	    const FDirtbagRoute& Route, double Friction = 0.5);
+
+	/** "V7" / "5.12a" — the guidebook's ladder for UI text. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag")
+	static FString GradeName(int32 Grade, EDirtbagDiscipline Discipline);
+
+	// --- The day loop ---------------------------------------------------
+
+	/** The gym's route board: Count routes laddered V0 upward, deterministic
+	 *  per seed, occasional in-house sandbag included. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static TArray<FDirtbagRoute> GymBoard(const FString& WorldSeed,
+	                                      int32 Count = 8);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FDirtbagDayState WakeUp(const FDirtbagPlayerState& Player);
+
+	/** Time is never free: hunger rides along. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static void PassHours(UPARAM(ref) FDirtbagDayState& Day, double Hours);
+
+	/** False when the wallet says no. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static bool EatMeal(UPARAM(ref) FDirtbagPlayerState& Player,
+	                    UPARAM(ref) FDirtbagDayState& Day);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static void WorkShift(UPARAM(ref) FDirtbagPlayerState& Player,
+	                      UPARAM(ref) FDirtbagDayState& Day);
+
+	/** The climber as they are right now — career skills plus today's
+	 *  fatigue speaking through psyche. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FDirtbagClimber ClimberForSession(const FDirtbagPlayerState& Player,
+	                                         const FDirtbagDayState& Day);
+
+	/** Pull on: seeds the day's session from the current climber. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static void StartGymSession(UPARAM(ref) FDirtbagPlayerState& Player,
+	                            UPARAM(ref) FDirtbagDayState& Day);
+
+	/** One bot-driven burn inside a day: resolves against the day's session
+	 *  and the player's ledger for this route, then books the day-costs and
+	 *  training creep. The one-stop replay node for the gym flow. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FDirtbagAttemptResult DayAttempt(
+	    const FString& SessionSeed, UPARAM(ref) FDirtbagPlayerState& Player,
+	    UPARAM(ref) FDirtbagDayState& Day, const FDirtbagRoute& Route,
+	    double Friction = 0.5, double BotExecution = 0.72);
+
+	/** One player-driven burn inside a day. Drive the returned attempt with
+	 *  PeekOdds/StepMove/ShakeOut, then hand it to CommitLiveAttempt. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static UDirtbagLiveAttempt* BeginDayLiveAttempt(
+	    const FString& SessionSeed, const FDirtbagPlayerState& Player,
+	    const FDirtbagDayState& Day, const FDirtbagRoute& Route,
+	    double Friction = 0.5);
+
+	/** Pays the session, the project ledger, and the day (time, energy,
+	 *  training) for a finished live attempt. Call once, when it's over. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FDirtbagAttemptResult CommitLiveAttempt(
+	    UDirtbagLiveAttempt* Attempt, UPARAM(ref) FDirtbagPlayerState& Player,
+	    UPARAM(ref) FDirtbagDayState& Day);
+
+	/** Lights out: skin regrows, training load comes down, psyche drifts
+	 *  home, day advances, bills land on their morning. This is also where
+	 *  the body rolls — above the load threshold, on a day you pulled on,
+	 *  this is when an injury lands. Day state resets to the next wake. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static void SleepToNextDay(const FString& Seed,
+	                           UPARAM(ref) FDirtbagPlayerState& Player,
+	                           UPARAM(ref) FDirtbagDayState& Day);
+
+	/** Reading the line from the ground: judged against the guidebook grade,
+	 *  so a sandbag looks reasonable right until you are on it. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static EDirtbagRouteRead ReadRoute(const FDirtbagClimber& Climber,
+	                                   const FDirtbagRoute& Route);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FString ReadRouteText(EDirtbagRouteRead Read);
+
+	/** How close that attempt was, 0..1. See Sim/DirtbagSession.h — the
+	 *  sim decides, because two attempts that end at move 9 of 12 can be a
+	 *  heartbreak and a formality and the timeline knows which. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static double HowClose(const FDirtbagAttemptResult& Result,
+	                       int32 TotalMoves);
+
+	/** What that reads as. Never a number — the gate this exists for is
+	 *  about a watcher rather than a reader. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static FString HowCloseText(double Close);
+
+	/** How much the pump shows, 0..1. One curve for the camera sway, the
+	 *  breath and whatever needs it next — see Sim/DirtbagSession.h. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static double PumpShows(double Pump);
+
+	/** Does getting there need the van? The Lot and town do not; rock
+	 *  does. See Sim/DirtbagZones.h — the port had one travel rule where
+	 *  the 2D game has two. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static bool NeedsTheVan(EDirtbagZone Zone);
+
+	/** Minutes on foot, or -1 if you cannot walk it. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static double WalkMinutes(EDirtbagZone From, EDirtbagZone To);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static bool ZoneIsACrag(EDirtbagZone Zone);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag")
+	static FString ZoneName(EDirtbagZone Zone);
+
+	/** What the project ledgers add up to — ability, hardest send, nemesis. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FDirtbagCareerSummary SummarizeCareer(const FDirtbagPlayerState& Player);
+
+	/** The career in one dry line, for a stats card. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Day")
+	static FString CareerLine(const FDirtbagCareerSummary& Career);
+
+	// --- Save / load ----------------------------------------------------
+	// Serialization itself lives in Sim/DirtbagSave (versioned, migrated,
+	// harness-tested); these nodes only move the bytes.
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
+	static FString SaveToText(const FString& Seed,
+	                          const FDirtbagPlayerState& Player);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
+	static EDirtbagLoadResult LoadFromText(const FString& Text, FString& OutSeed,
+	                                       FDirtbagPlayerState& OutPlayer);
+
+	/** Writes under <Project>/Saved/SaveGames/. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
+	static bool SaveToFile(const FString& Seed,
+	                       const FDirtbagPlayerState& Player,
+	                       const FString& Filename = FString(TEXT("dirtbag-save.txt")));
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Save")
+	static EDirtbagLoadResult LoadFromFile(
+	    const FString& Filename, FString& OutSeed,
+	    FDirtbagPlayerState& OutPlayer);
+
+	// --- Conditions ------------------------------------------------------
+	// The day's weather and its prime window. All derived from world seed +
+	// day, so none of it is saved and none of it can drift from a reload.
+
+	/** This world's weather on this day. Deterministic; costs nothing to
+	 *  ask twice. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static FDirtbagWeather WeatherFor(const FString& WorldSeed, int32 Day);
+
+	/** Friction 0..1 on this face at this hour — the number the resolver
+	 *  eats. Below ~0.3 you are wasting skin. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static double FrictionAt(const FDirtbagWeather& Weather,
+	                         EDirtbagAspect Aspect, double Hour);
+
+	/** What the holds actually feel like: air temperature plus the heat the
+	 *  wall has banked from the sun, shed on a lag. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static double RockTempF(const FDirtbagWeather& Weather,
+	                        EDirtbagAspect Aspect, double Hour);
+
+	/** The day's best span, or bExists false on a day that never comes good. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static FDirtbagPrimeWindow PrimeWindowFor(const FDirtbagWeather& Weather,
+	                                          EDirtbagAspect Aspect);
+
+	/** When the light arrives and when it goes, on this day of the year.
+	 *  16.5 hours midsummer, 7.9 midwinter — in December the light is gone
+	 *  at 16:26, which is before a nine-to-five lets you out. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static double FirstLightHour(int32 Day);
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static double LastLightHour(int32 Day);
+
+	// --- Sport -----------------------------------------------------------
+	// A pitch is not a long boulder. Above the first bolt the ground stops
+	// being the question and the runout takes over; clipping costs pump,
+	// and more from a bad stance.
+
+	/** Which move each bolt is at. Empty for a boulder. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Sport")
+	static TArray<int32> BoltsFor(const FDirtbagRoute& Route);
+
+	/** 0 clipped and safe .. 1 as far above the bolt as fear goes. Always 0
+	 *  on a boulder, and always 0 below the first bolt — down there you are
+	 *  not runout, you are bouldering. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sport")
+	static double RunoutAt(const FDirtbagRoute& Route, int32 MoveIndex);
+
+	/** Above the first bolt the crash pad stops mattering, which is what
+	 *  keeps the boulder penalty from following a climber up a pitch. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sport")
+	static bool OnTheRope(const FDirtbagRoute& Route, int32 MoveIndex);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sport")
+	static bool IsClippingMove(const FDirtbagRoute& Route, int32 MoveIndex);
+
+	/** "clipped" / "the bolt is below your feet" / "a long way above the
+	 *  last clip" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sport")
+	static FString RunoutText(double Runout);
+
+	/** Does this line need somebody on the other end? Boulders never do. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Sport")
+	static bool NeedsABelayer(const FDirtbagRoute& Route);
+
+	/** The valley's rope crag: a steep north-facing cave forty minutes up
+	 *  the hill. North-facing is the point — Roadside bakes all morning, so
+	 *  in high summer this is the only rock worth walking to. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static FDirtbagCrag ShadedCave(const FString& Seed);
+
+	/** The valley's trad crag: an hour up the hill, east-facing, sixteen
+	 *  lines and three unclimbed ones, and the only rock you cannot climb
+	 *  without owning a rack. Its classics are moderate where the cave's
+	 *  are hard — trad is the one discipline whose entry-level lines are
+	 *  the famous ones. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static FDirtbagCrag TheOldButtress(const FString& Seed);
+
+	// --- Trad -------------------------------------------------------------
+	// The rack, and what it is worth. The placing verb itself lives on the
+	// live attempt in the game instance, beside the shake-out, because it
+	// is a thing the player does mid-go rather than a thing they read.
+
+	/** Which rung of the shelf this rack is. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static EDirtbagRackTier RackTier(const FDirtbagRack& Rack);
+
+	/** What a rung of the shelf gets you. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static FDirtbagRack RackOf(EDirtbagRackTier Tier);
+
+	/** What that rung costs. The most expensive thing in the game. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static double RackPrice(EDirtbagRackTier Tier);
+
+	/** "a set of nuts" / "a rack of cams" / "doubles" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static FString RackTierName(EDirtbagRackTier Tier);
+
+	/** No rack, no lead. The rope stays in the van for a different reason
+	 *  than it does when nobody will belay you, and both are real. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static bool CanLeadTrad(const FDirtbagRack& Rack);
+
+	/** "bomber" / "that'll do" / "psychological". Never a number: the whole
+	 *  point of a placement is that you are looking at it and deciding. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static FString PieceText(double Quality);
+
+	/** "a rack of cams, eleven pieces left" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Trad")
+	static FString RackText(const FDirtbagRack& Rack);
+
+	// --- The narrator -----------------------------------------------------
+
+	/** The loudest few, in the order they happened, for a caller with three
+	 *  lines of room rather than eight. The ending always makes the cut. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Narrator")
+	static TArray<FDirtbagBeat> Loudest(const TArray<FDirtbagBeat>& Beats,
+	                                    int32 HowMany);
+
+	/** "crux" / "runout" / "nearly blew it" — what the camera keys off. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Narrator")
+	static FString BeatKindName(EDirtbagBeatKind Kind);
+
+	// --- Habits and quirks ------------------------------------------------
+	// A habit is what you have been doing lately and it can change; a quirk
+	// is what you turned out to be and it does not. Everything here is a
+	// read: the logbook is written by climbing, and nothing else writes it.
+
+	/** How you have been climbing, loudest first. Usually one or two, and
+	 *  empty until you have done enough for the question to mean anything. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static TArray<EDirtbagHabit> HabitsNow(const FDirtbagLogbook& Logbook,
+	                                       int32 Today);
+
+	/** "grinding" / "never warming up" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString HabitName(EDirtbagHabit Habit);
+
+	/** One dry second-person line about it. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString HabitLine(EDirtbagHabit Habit);
+
+	/** "obsessive" / "a morning person" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString QuirkName(EDirtbagQuirk Quirk);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString QuirkLine(EDirtbagQuirk Quirk);
+
+	/** Which habit this quirk hardened out of, or None for a picked one. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static EDirtbagHabit HabitBehind(EDirtbagQuirk Quirk);
+
+	/** Is this one you choose at the start rather than become? */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static bool IsPickedQuirk(EDirtbagQuirk Quirk);
+
+	/** The line the game says on the night a habit stops being a habit.
+	 *  Empty for None, which is almost every night. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString QuirkLanded(EDirtbagQuirk Quirk);
+
+	/** One sentence: what you have been doing lately, and what you have
+	 *  become. Two questions, answered separately on purpose. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Habits")
+	static FString HowYouClimb(const FDirtbagQuirks& Quirks,
+	                           const FDirtbagLogbook& Logbook, int32 Today);
+
+	// --- The town --------------------------------------------------------
+	// Six venues, authored. The opening hours are the mechanic: the diner
+	// shuts at nine so a long day means eating from a warmer, and the gear
+	// shop keeps banker's hours so a resole competes with the window.
+
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Town")
+	static FDirtbagTown Town();
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Town")
+	static bool VenueIsOpen(const FDirtbagVenue& Venue, double Hour);
+
+	/** Every venue offering this service, in book order. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Town")
+	static TArray<FDirtbagVenue> VenuesFor(EDirtbagService Service);
+
+	/** The best open venue for a service right now, cheapest first among
+	 *  those that are open. bFound is false when the town is shut. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Town")
+	static FDirtbagVenue OpenVenueFor(EDirtbagService Service, double Hour,
+	                                  bool& bFound);
+
+	/** "The Ridgeline Diner - open until 21:00" / "closed until 07:00" */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Town")
+	static FString VenueText(const FDirtbagVenue& Venue, double Hour);
+
+	// --- Work ------------------------------------------------------------
+
+	/** What is on the board today. Deterministic per world and day, three
+	 *  different things, pay wobbling either side of the listed rate. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Work")
+	static TArray<FDirtbagOddJob> OddJobBoard(const FString& Seed, int32 Day);
+
+	/** "sticky - this is the day" / "greasy". */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static FString ConditionsText(double Friction);
+
+	/** "window 5:30pm to 7:15pm, best at 6:30pm". */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Conditions")
+	static FString WindowText(const FDirtbagPrimeWindow& Window);
+
+	// --- The crag --------------------------------------------------------
+
+	/** The guidebook for this world's roadside crag. Authored lines, seeded
+	 *  moves — same seed, same rock, forever. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static FDirtbagCrag RoadsideCrag(const FString& WorldSeed);
+
+	/** The Sun Terrace: south-facing boulders, the winter crag. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static FDirtbagCrag SunTerrace(const FString& WorldSeed);
+
+	/** "Diesel  V5  ***" / "project, the arete left of Diesel — ..." */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static FString GuidebookLine(const FDirtbagCragLine& Line);
+
+	/** Write what the player has done back into the book: given names, who
+	 *  did the first ascent, and the grade the line turned out to be.
+	 *
+	 *  The crag is generated from the world seed and none of it is saved, so
+	 *  an ascent lives only in the player's ledger. Without this the page
+	 *  never changes and a named line reads as an unclimbed project forever.
+	 *  Idempotent — run it over a freshly built book and again the moment a
+	 *  line is named. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static void WriteIntoTheBook(UPARAM(ref) FDirtbagCrag& Book,
+	                             const FDirtbagPlayerState& Player,
+	                             const FString& By);
+
+	/** The generations before this one, written into the same book.
+	 *
+	 *  Not Blueprint-visible: it takes the sim's own Legacy vector, which is
+	 *  where the engine keeps them, and there is no mirror for it because a
+	 *  TArray of a namespaced type is a UHT error. */
+	static void WriteLegaciesIntoTheBook(
+	    FDirtbagCrag& Book, const std::vector<dirtbag::Legacy>& Legacies);
+
+	/** What the Lot has put up, replayed from the saved bonds.
+	 *
+	 *  Partners are rebuilt from the world seed every day and thrown away;
+	 *  only PartnerBond survives, and it carries the route keys. Without
+	 *  this the crag forgets every ascent the Lot ever made the moment the
+	 *  day ends. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Crag")
+	static void WriteTheLotIntoTheBook(UPARAM(ref) FDirtbagCrag& Book,
+	                                   const FDirtbagPlayerState& Player);
+
+	// --- speed climbing (SPEED-1..4) ------------------------------------
+	//
+	// The live core, exposed the way the session's is: the presentation
+	// layer drives the beat and hands the sim what the player did, and
+	// SpeedRunTime is the whole clock. Nothing here rolls anything except
+	// the field, which is the only part nobody is playing.
+
+	/** The pace this grade could hold, if nothing goes wrong. Seconds. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static double SpeedTimeForGrade(double Grade);
+
+	/** Milliseconds between beats up the wall, by grade. What the rhythm
+	 *  widget runs at. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static double SpeedPaceMs(double Grade);
+
+	/** Comp points for a time. Floors at zero: a slow run is worth nothing,
+	 *  not less than nothing. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static double SpeedScore(double Seconds);
+
+	/** The clock. Takes what the player did, not what the player is. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static double SpeedRunTime(double Grade, const FDirtbagSpeedRun& Run);
+
+	/** A run nobody played -- the bot on the live core, so a career
+	 *  resolved headlessly and one played by hand use the same clock. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static FDirtbagSpeedRun SpeedBotRun(const FString& WorldSeed,
+	                                    const FString& Salt, double Grade,
+	                                    double Nerve);
+
+	/** A field runner's time: their pace, jittered. `bHeat` widens the
+	 *  spread and lets them false-start, because one race against one
+	 *  person is a coin-flip in a way a time trial is not. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static double SpeedFieldTime(const FString& WorldSeed,
+	                             const FString& Salt, double Grade,
+	                             bool bHeat);
+
+	/** Log one run into the round. Does nothing once the round is full. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static void LogSpeedRun(UPARAM(ref) FDirtbagSpeedRound& Round,
+	                        double Seconds);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static bool SpeedRoundIsDone(const FDirtbagSpeedRound& Round);
+
+	/** "Quarterfinal" / "Semifinal" / "Bronze match" / "Final". */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static FString SpeedHeatName(int32 Round, bool bBronze);
+
+	/** Seed the knockout from the qualifying eight and draw the first
+	 *  opponent. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static FDirtbagSpeedBracket SeedTheSpeedBracket(
+	    const FString& WorldSeed, int32 Day,
+	    const TArray<FDirtbagSpeedEntrant>& Qualifiers, double YourGrade);
+
+	/** Race the heat. Takes no seed: the opponent's time was rolled when
+	 *  the heat was drawn, so by the time you run it nothing is left to
+	 *  decide. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static void ResolveSpeedHeat(UPARAM(ref) FDirtbagSpeedBracket& Bracket,
+	                             double YourSeconds);
+
+	/** Move to the next heat once the player has read the last one. A win
+	 *  advances; a semifinal loss drops to the bronze match. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static void NextSpeedHeat(UPARAM(ref) FDirtbagSpeedBracket& Bracket,
+	                          const FString& WorldSeed, int32 Day,
+	                          double YourGrade);
+
+	/** What the heat reads like, in the game's voice. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static FString SpeedHeatLine(const FDirtbagSpeedBracket& Bracket);
+
+	/** A lap on the gym's speed wall. Trains, logs a personal best, and
+	 *  costs energy and nothing else -- a run takes twenty seconds, so
+	 *  charging time for it would be a lie. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Speed")
+	static FDirtbagSpeedPracticeResult RunTheSpeedWall(
+	    UPARAM(ref) FDirtbagPlayerState& Player,
+	    UPARAM(ref) FDirtbagDayState& Day, double Seconds);
+
+	/** "Personal best 7.42s.", or empty when there has never been a clean
+	 *  run -- **not "0.00s"**, which is a wall record nobody has set. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Speed")
+	static FString SpeedPersonalBestLine(double PersonalBest);
+
+	/** "boulder" / "lead" / "speed". */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
+	static FString CompDisciplineName(EDirtbagCompDiscipline Discipline);
+
+	/** Your national ranking in one discipline. **This is the number that
+	 *  decides which room you are in**, where RankingPoints is the number
+	 *  the national team and the Games read. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
+	static double RankingInDiscipline(const FDirtbagPlayerState& Player,
+	                                  EDirtbagCompDiscipline Discipline,
+	                                  int32 Today);
+
+	// --- what you climb makes you (DEPTH-6, CHAR-6, CHAR-7, PSY-2) ------
+
+	/** "crimp" / "power" / "endurance" / "technical" / "dyno" / "crack". */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString RouteTypeName(EDirtbagRouteType Type);
+
+	/** "specialty" / "solid" / "neutral" / "weak" / "anti-style", or empty
+	 *  before there is enough mileage to have an opinion. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString StyleTierName(const FDirtbagPlayerState& Player,
+	                             EDirtbagRouteType Type);
+
+	/** The styles you are best and worst at. Both meaningless before there
+	 *  is enough mileage -- check StyleTierName is not empty first. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static EDirtbagRouteType YourStyle(const FDirtbagPlayerState& Player);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static EDirtbagRouteType YourAntiStyle(const FDirtbagPlayerState& Player);
+
+	/** "Known for crimp. Everybody has watched you on crack." Empty before
+	 *  there is enough mileage, and its own sentence for a generalist --
+	 *  which is a real answer and not a missing one. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString StyleLine(const FDirtbagPlayerState& Player);
+
+	/** Has a style gone deep enough to have a name? **Nothing is named
+	 *  without the player** -- this only says one is ready. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static bool AMoveWantsAName(const FDirtbagPlayerState& Player,
+	                            EDirtbagRouteType& Type);
+
+	/** What kind of move it is, in words: "crimp sequence", "dyno", "crack
+	 *  pitch". What the naming prompt asks about. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString SignatureKind(EDirtbagRouteType Type);
+
+	/** Name it. False on an empty name or when nothing was ready. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Style")
+	static bool NameTheMove(UPARAM(ref) FDirtbagPlayerState& Player,
+	                        const FString& Name);
+
+	/** What a named move reads like once it has one. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString SignatureLine(const FDirtbagSignature& Signature);
+
+	/** What has stopped answering, or empty when nothing is stuck. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString PlateauLine(const FDirtbagPlayerState& Player);
+
+	/** What the sameness reads like, or empty until it is worth saying. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString StaleLine(const FDirtbagPlayerState& Player);
+};

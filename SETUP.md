@@ -7,25 +7,72 @@ template for most of this — same method, second verse.
 
 ## 1. Create the project
 
-1. Unreal Engine **5.4+** (5.6 recommended — the asset packs shortlisted below are current there).
-2. New project → **Games → Third Person → C++** (not Blueprint-only; the sim is C++).
-   Name it `DirtbagUE`, create it *inside this repo* so the `.uproject`, `Source/`,
-   and `Content/` live alongside `Sim/` and `ROADMAP.md`.
-3. Add Unreal's standard `.gitignore` for the project dirs (Binaries, Intermediate,
-   DerivedDataCache, Saved) — same set landnam-ue uses.
+1. Unreal Engine **5.4+** (verified plan below written against 5.8; the
+   version only matters when buying asset packs — check each pack lists your
+   engine version on Fab before purchase).
+2. Pull this repo to your machine and check out the working branch first —
+   the project must be created *inside the repo*:
+   `git clone git@github.com:RCJLabs/Unreal-Game-2.git && cd Unreal-Game-2 && git checkout claude/dirtbag-unreal-port-ggvybe`
+3. New project → **Games → Third Person → C++** (not Blueprint-only; the sim
+   is C++). Name it `DirtbagUE`, and set the project *location* to the repo
+   root — the launcher creates `Unreal-Game-2/DirtbagUE/` with the
+   `.uproject`, `Source/`, and `Content/` inside it, alongside `Sim/` and
+   `ROADMAP.md`.
+4. Add Unreal's standard `.gitignore` under `DirtbagUE/` (Binaries,
+   Intermediate, DerivedDataCache, Saved, `.vs`, `*.sln`) — same set
+   landnam-ue uses. Commit and push the scaffold once it compiles clean, so
+   container sessions can see the real `Source/` tree.
 
 ## 2. Wire in the sim core
 
-1. Add the files in `Sim/` to the game module (list them in the module's build
-   rules or place the module's include path over `Sim/`). They are plain C++ —
-   no engine includes — and must stay that way: the same translation units are
-   compiled by `Sim/run-tests.sh`, which is what keeps the sim testable without
-   the editor. Engine-facing wrappers (USTRUCT mirrors, Blueprint function
-   libraries) go in `Source/`, never in `Sim/`.
-2. Smoke test: from any actor, `dirtbag::Rng::FromSeed("grim-fjord-123")` and
-   log five `NextDouble()` values — they must match the golden vector in
-   `Sim/tests/test_main.cpp` exactly. If they don't, stop and find out why
-   before building anything on top.
+> **Status (2026-08-15): steps 1–2 are committed to the repo** — the
+> Build.cs include path, the four bridge files, and the smoke-test code in
+> `DirtbagUEGameMode` all exist. Your part: pull, right-click
+> `DirtbagUE.uproject` → *Generate Visual Studio project files*, build,
+> press Play, and verify the log output in step 3.
+
+The sim files are plain C++ with no engine includes, and must stay that way:
+the same translation units are compiled by `Sim/run-tests.sh`, which is what
+keeps the sim testable without the editor. Engine-facing wrappers (USTRUCT
+mirrors, Blueprint function libraries) go in `Source/`, never in `Sim/`.
+
+1. In `DirtbagUE/Source/DirtbagUE/DirtbagUE.Build.cs`, add `using System.IO;`
+   at the top and this line in the constructor so `#include "DirtbagRng.h"`
+   resolves everywhere in the module:
+   `PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "../../../Sim"));`
+2. UBT only compiles `.cpp` files that live under the module, so add one
+   thin bridge file per sim translation unit in
+   `DirtbagUE/Source/DirtbagUE/` — this keeps the TUs identical to the
+   harness rather than merging them:
+   - `SimRng.cpp` → `#include "../../../Sim/DirtbagRng.cpp"`
+   - `SimCore.cpp` → `#include "../../../Sim/DirtbagCore.cpp"`
+   - `SimSession.cpp` → `#include "../../../Sim/DirtbagSession.cpp"`
+   - `SimSessionLoop.cpp` → `#include "../../../Sim/DirtbagSessionLoop.cpp"`
+3. Smoke test — prove the port is bit-exact before building anything on top.
+   In the template's GameMode, override `BeginPlay` and log the golden seed:
+
+   ```cpp
+   #include "DirtbagRng.h"
+
+   void ADirtbagUEGameMode::BeginPlay() {
+     Super::BeginPlay();
+     dirtbag::Rng rng = dirtbag::Rng::FromSeed("golden");
+     for (int i = 0; i < 5; i++) {
+       UE_LOG(LogTemp, Display, TEXT("golden[%d] = %.17g"), i, rng.NextDouble());
+     }
+   }
+   ```
+
+   Press Play and check the Output Log for exactly:
+   ```
+   golden[0] = 0.59432327281683683
+   golden[1] = 0.94342079781927168
+   golden[2] = 0.30383505066856742
+   golden[3] = 0.76765315467491746
+   golden[4] = 0.47240672400221229
+   ```
+   (The same five values are frozen in `Sim/tests/test_main.cpp`.) If they
+   don't match, stop and find out why before building anything on top.
 
 ## 3. Phase 0 shopping list (Fab)
 
@@ -40,19 +87,110 @@ Two purchases, both cheap, both replaceable later:
    warehouse pack until Phase 1 — Phase 0's question is tension and
    legibility, and art hides the answer.
 
+## 3a. Vendored Fab packs (not in the repo)
+
+Some purchased packs are too big to version and are ignored in `.gitignore`.
+A fresh clone will not have them, and any level or Blueprint referencing them
+will show missing references until they are reinstalled from the Fab library
+in the Epic launcher, into `DirtbagUE/Content/` under the pack's own name.
+
+| pack | folder | size |
+| --- | --- | --- |
+| PWL Light Manager | `Content/PWL_Light_Manager/` | 235 MB |
+| Procedural Building Generator | `Content/ProceduralBuildingGenerator/` | 681 MB |
+
+**Why they are ignored rather than tracked in LFS.** `.gitattributes` routes
+`*.uasset` and `*.umap` through Git LFS, which is right for our own content —
+Blueprints, levels, the climb-wall assets — because those are small and change
+often. It is wrong for these: 916 MB is the entire free LFS tier (~1 GB
+storage, ~1 GB/month bandwidth) spent in a single commit, one fresh clone
+would exhaust the month's bandwidth, and **LFS storage is not reclaimed by
+deleting the files or rewriting history** — the objects stay and the quota
+stays spent. Against that, reinstalling from the launcher costs five minutes.
+
+Add a row here whenever a pack is added to the ignore list, so the reinstall
+list stays complete rather than living in somebody's memory.
+
 ## 4. Phase 0 build order (suggested)
 
+> **The sim is already exposed to Blueprint** (`Source/DirtbagUE/
+> DirtbagSimTypes.*`, `DirtbagSimLibrary.*`): search the node menu for
+> "Dirtbag". Do not re-implement any sim behavior in Blueprint — if a node
+> is missing, ask for it and it gets added to the wrapper (and, if needed,
+> the sim + its tests) container-side.
+
+0. Import the purchased climbing animation set (Hammerhead). If it targets
+   the UE5 skeleton it drops straight onto the template character; otherwise
+   use the auto-retargeter (right-click the anims → Retarget Animations).
+   Needed for Phase 0: hang idle, a climb-up/reach for each side, a fall.
 1. Blockout room + a 15° wall plane with 8–10 hold markers on a spline.
 2. Character walks up (Third Person template as-is), interaction prompt,
    camera moves to the session frame.
-3. Climb loop: advance hold-to-hold on the spline, playing the animation set;
-   each move's outcome comes from `dirtbag::ResolveAttempt` — feed the whole
-   attempt at session start, stage the returned timeline (odds → hesitation,
-   pumpAfter → shake-outs and slowing, failure index → the fall).
-4. Then make it *interactive*: run moves one at a time, HOLD TO CLIMB timing
-   filling the per-move `execution` scalar. This is the moment Phase 0 exists
-   for — the difference between watching a replay and driving an attempt.
+3. Staged replay first: a `BP_ClimbSession` actor calls **Build Route**
+   (worldgen seed + route name/grade/type) → **Start Session** (climber) →
+   **Attempt In Session** (bot-driven). Stage the returned `Timeline` on the
+   spline: `Odds` → hesitation before the move, `PumpAfter` → shake-outs and
+   slowing, first failed entry → the fall onto the mat; `bSent` → top-out.
+4. Then make it *interactive* — the moment Phase 0 exists for: swap step 3's
+   resolve for **Begin Live Attempt**, then per move **Peek Odds** (drive
+   the tension readout while HOLD TO CLIMB charges), **Step Move** with the
+   timing-derived execution scalar (0..1) on commit, **Shake Out** on
+   release at a stance (first shake is the stance's value; milking it
+   diminishes and pays a hang tax). When **Is Over**: **Finish** for the
+   result card, then **Commit To Session** so skin/warmth/psyche and the
+   project ledger update — never bookkeep those presentation-side.
+5. Pump bar UI bound to the live attempt's **Get Pump**. Then the Done-when
+   playtest (ROADMAP.md Phase 0).
 5. Pump bar UI. Then the Done-when playtest (ROADMAP.md Phase 0).
+
+## 4b. Zone volumes — place these as you sculpt (Phase 6)
+
+**Do this while you are making ground, not after.** One `ADirtbagZoneVolume`
+per walkable zone, dropped over that zone's patch of the landscape and
+scaled to cover it.
+
+Two properties, both on the actor:
+
+| property | what |
+|---|---|
+| **Zone** | which zone this patch of ground is |
+| **bAnnounceOnEntry** | says the zone's name and its one line the first time you walk in each day. Leave it on for everything except the Lot |
+
+**Why it matters, and it is not cosmetic.** `CurrentZone` is written by
+exactly one line in the whole project: a travel spot's arrival. That is
+correct today because every zone is a pocket you press E to reach. The
+moment the Lot and downtown are one continuous landscape, a player can walk
+from one into the other without pressing anything — and `CurrentZone` still
+says the Lot.
+
+That is not a crash and it is not visible. `WalkHours` reads `CurrentZone`
+as the **origin** of the next walk, so every walk after the first would be
+priced from wherever you last *travelled* rather than from where you are. A
+twenty-minute walk costs somebody else's twenty minutes. It is the same
+silent-wrong-number the map widening introduced, one layer further out.
+
+Rules of thumb:
+
+- **Overlapping at the borders is fine and expected.** The last one entered
+  wins, which is what crossing a border means.
+- **Van-only destinations do not need one** — Roadside, the Cave, the
+  Terrace, the Olympic Village, the farm. You arrive there by travelling and
+  the travel spot already says so. Placing one anyway is harmless.
+- **Size generously.** The default box is 80m × 80m, which is a district
+  rather than a doorway. A volume you have to resize before it does anything
+  is a volume somebody forgets to resize.
+- The volume the player spawns inside counts at `BeginPlay`, so the first
+  frame of a career is already right.
+
+**Eleven walkable zones**, in the grid order `Sim/DirtbagZones.cpp` uses:
+the Lot, downtown, Old Town, Midtown, the Trailhead, the Outskirts, Uptown,
+Market Row, Grand Plaza, Greenwood Park, Trout Lake.
+
+Nine of those have no content and will not for months. They get a
+walk-through, a name and one line — which is what a real town has anyway
+between the places you go.
+
+---
 
 ## 5. House rules that carry over (from landnam-ue / CLAUDE.md discipline)
 

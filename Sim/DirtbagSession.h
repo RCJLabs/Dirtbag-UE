@@ -17,6 +17,10 @@
 
 #include "DirtbagCore.h"
 #include "DirtbagRng.h"
+// For TradDials, which is a default argument of the placing verb below. The
+// trad header includes nothing but the core vocabulary, exactly so that it
+// can be included from here without a cycle.
+#include "DirtbagTrad.h"
 
 namespace dirtbag {
 
@@ -24,6 +28,14 @@ enum class Style { Onsight, Flash, Redpoint, Sent, Fell };
 
 // Every number a designer might turn, in one place, with its reason.
 struct SessionDials {
+  // What a skill number *means* in grades — the ladder's whole calibration.
+  // At span 14 / floor -2: skill 50 is a V5 climber, 65 is V7, 80 is V9,
+  // 100 is V12, leaving the top of the ladder for the exceptional (both
+  // ladders are open-ended at the top). The 0..100 range therefore spans a
+  // whole climbing life, not a warmup: most careers live between 30 and 70.
+  double skillGradeSpan = 14.0;
+  double skillGradeFloor = -2.0;
+
   // Odds curve: how steeply per-move odds fall as move difficulty exceeds
   // effective skill. At 1.9, a fresh climber lands a move at their exact
   // level ~82% of the time (≈30% over a 6-move boulder — a project at your
@@ -49,8 +61,110 @@ struct SessionDials {
   // Conditions: full swing (0→1 friction) worth about half a letter grade.
   double frictionWeight = 6.0;
 
-  // Skin: thin skin bites on crimps; falls cost the 2D game's 1 point.
-  double thinSkinPenalty = 0.15;
+  // Dirt, on a line nobody has cleaned. Deliberately brutal next to
+  // friction: filthy rock is not "worse conditions", it is a different and
+  // mostly impossible route, and the brush is the only answer. At 4 grades,
+  // a virgin line sits far enough out of reach that cleaning is the first
+  // move rather than an optimisation.
+  double dirtGradePenalty = 4.0;
+
+  // Warmup: grades of ability missing when stone cold. The session loop
+  // meters warmth (about two warmup boulders buy it all back); a bare
+  // AttemptInput is fully warm by default so single-attempt callers and the
+  // pre-loop tests are untouched.
+  double coldStartPenalty = 1.5;
+
+  // Psyche as ability, centered on 0.7 (an ordinary day). Being wrecked
+  // (0.0) costs about a grade; being lit up (1.0) buys back less than half
+  // of one — despair is louder than stoke, as anyone who has belayed a
+  // heartbroken projecter knows.
+  double psycheWeight = 1.5;
+
+  // Shake-outs, live form: the first shake at a stance is its full value
+  // (what the batch bot takes automatically); milking it further halves each
+  // time and pays a flat hang tax, so a poor stance goes net-negative fast.
+  // That falloff is the release-to-shake decision.
+  double shakeDiminish = 0.5;
+  double shakeHangCost = 4.0;
+
+  // Skin, as a quality across its whole range rather than a cliff.
+  //
+  // This used to bite only below 3 and only on crimps, capping at 0.45
+  // grades — which made skin 9 and skin 3 identical to climb on, and meant
+  // resting was worth nothing at all: a season played fresh and a season
+  // played wrecked came out the same, measured, because skin is conserved
+  // and spreading it changed no outcome (notes/phase2-season-probe.md).
+  //
+  // Squared so the top of the range is nearly free and the bottom bites
+  // hard, which is how skin actually goes: 9 to 7 is nothing, 3 to 1 is the
+  // difference between climbing and not. Sized against the other ability
+  // terms — under coldStartPenalty (1.5) and well under pumpGradePenalty
+  // (3.0), because skin should shape a session rather than decide it.
+  double skinGradePenalty = 1.4;   // grades lost on crimps at zero skin
+  double freshSkin = 9.0;          // where the penalty reaches zero
+  // Good holds still hurt on shot skin, just less. Sloper and jug days are
+  // what you climb when your tips are gone, and that should be a real
+  // option rather than a free one.
+  double skinBiteOnGoodHolds = 0.35;
+
+  // Dead rubber, priced like thin skin and for the same reason: it should
+  // shape what you get on rather than decide it. Mirrors GearDials so the
+  // resolver and the shop agree; the numbers live there.
+  double deadShoeGradePenalty = 1.1;
+
+  // **What a wrecked joint costs, in grade units, on the holds it serves.**
+  // Sized against the shoe: dead rubber is 1.1 and a joint you have had
+  // four cortisone shots in should be worse than bad shoes and not as bad
+  // as being currently injured (2.6). It is also permanent, which is the
+  // whole point -- this is the number that makes a career shortenable by
+  // choices made while hurt.
+  double jointTollGrade = 1.6;
+  double shoeBiteOnGoodHolds = 0.3;
+
+  // Climbing above bare ground, in grade units, at the top of a line. Under
+  // deadShoeGradePenalty (1.1) on purpose: being gripped is a real handicap
+  // and never the whole story. It scales with how far up you are, so the
+  // first moves are free - nobody has ever been scared on move one - and
+  // the last ones are not, which is exactly where a boulderer backs off.
+  // Mirrors KitDials so the resolver and the shop agree; the numbers live
+  // there. The fourth such pair, and the only one that was not written down
+  // as one — which is how both of KitDials' copies came to be read by
+  // nothing at all.
+  double noPadGradePenalty = 0.9;
+  double padGroundedFraction = 0.35;
+
+  // Above the bolt, in grade units at maximum runout. Paid out of head the
+  // same way a boulder's missing pad is, because it is the same feeling
+  // arriving by a different route. Mirrors SportDials so the resolver and
+  // the guidebook agree; the number lives there.
+  double runoutGradePenalty = 1.1;
+
+  // Above the *ground*, on a rope route, with nothing in. The largest
+  // number in this struct, because it is the only one that prices dying
+  // rather than falling. Mirrors SportDials; the number and the reason
+  // live there.
+  double soloGradePenalty = 3.2;
+
+  // What knowing the sequence is worth, in grade units at full beta — and
+  // how much more it is worth on a long route, because there is more of it
+  // to have. A six-move boulder is one puzzle; a twenty-move pitch is a
+  // dozen, and wiring them is most of what redpointing *is*.
+  //
+  // Held flat, a climber one grade above their level topped out at 4.8%
+  // even fully rehearsed, because per-move odds compound over fifteen moves
+  // and half a grade could not pay for that. Flat beta quietly said that
+  // learning a pitch is worth no more than learning a boulder problem.
+  double betaGradeValue = 0.5;
+  int betaFlatUntilMoves = 8;      // a boulder is unchanged, exactly
+  double betaValueAtLength = 2.2;  // multiplier once a route is long
+  int betaLongAtMoves = 22;
+
+  // Being hurt, in grade units on the holds the injury actually bites.
+  // Above dirtGradePenalty would be wrong — a hurt climber is not a filthy
+  // route — and below skinGradePenalty (1.4) would make it noise. Mirrors
+  // BodyDials so the resolver and the physio agree; the number lives there.
+  double injuryGradePenalty = 2.6;
+
   double fallSkinCost = 1.0;
   double sendSkinCost = 0.35;
 
@@ -58,12 +172,136 @@ struct SessionDials {
   double morphologyWeight = 4.0;
 };
 
+// A skill number (0..100) as a grade on the V ladder. The single source of
+// this mapping: the resolver reads it to price a move, the day loop reads it
+// to decide whether an attempt was hard enough to train anything. Two copies
+// of this formula would drift, and the drift would be invisible.
+double SkillToGrade(double skill, const SessionDials& dials = SessionDials{});
+
+// The other way round. Needed wherever something is defined by the grade it
+// climbs rather than the skill it has -- the rival, whose whole model is a
+// position on the ladder. Written here beside its inverse rather than
+// open-coded at the call site, because two copies of one conversion is how
+// a rival ends up a beginner: the first version of `AsAClimber` handed a
+// *grade* to a parameter expecting a *skill*, and they took zero first
+// ascents in thirty years without a single test noticing.
+double GradeToSkill(double grade, const SessionDials& dials = SessionDials{});
+
+// How much consequence this move carries, in grade units, before any nerve
+// discounts it: the runout above the last bolt, or the ground under an
+// unpadded boulder. Zero on move one of anything and zero on a well-padded
+// line, which is the point — it is a measure of what you are committing to,
+// not of how hard the move is.
+//
+// The single source of that question. The resolver prices a scary move with
+// it and the day loop trains head off it, and two copies of "how bold was
+// that" would drift exactly the way two copies of SkillToGrade would.
+// `gear` is what is on the rope, and it is only ever read on a trad
+// route: a boulder has none and a sport route derives its own from the
+// bolts. Trailing and empty by default so every existing caller — the day
+// loop's head training, the golden vectors, the engine's HUD — resolves
+// exactly as it always did.
+double ExposureAt(const Route& route, int index, double padding,
+                  const SessionDials& dials = SessionDials{},
+                  const Protection& gear = Protection{});
+
+// What this climber can do on this route's kind of holds, in grades —
+// the ground-up read, before pump, execution, or luck get a say.
+double AbilityOnRoute(const Climber& climber, const Route& route,
+                      const SessionDials& dials = SessionDials{});
+
+// Reading the line from the ground. Judges against the route's *guidebook*
+// grade, never its true grade: a sandbag is supposed to look reasonable
+// right up until you're on it.
+enum class RouteRead { Warmup, Comfortable, AtYourLimit, Project, NotThisYear };
+
+// `DEPTH-8`: which grade you are reading the line at. The guidebook's
+// number until you have been on it, and the rock's afterwards. **The route
+// always climbs at its true grade whether or not you know** -- this is only
+// about what you can see from the ground.
+int GradeYouSee(const Route& route, bool knowsTheGrade);
+
+// **What the sandbag turned out to be.** Empty unless the line is not what
+// the book says -- which is most of them, because most guidebook grades are
+// right.
+std::string WhatItReallyIs(const Route& route);
+
+RouteRead ReadRoute(const Climber& climber, const Route& route,
+                    const SessionDials& dials = SessionDials{});
+
+// The read in the game's own voice. Text lives here for now; it moves to
+// DataTables when route descriptions become content.
+const char* ReadRouteText(RouteRead read);
+
+// The same read, against the grade you can actually see. `ReadRoute` is
+// this with `knowsTheGrade` false, kept because the golden vectors call it
+// and because a caller with no ledger to hand is reading a guidebook.
+RouteRead ReadRouteKnowing(const Climber& climber, const Route& route,
+                           bool knowsTheGrade,
+                           const SessionDials& dials = SessionDials{});
+
 struct AttemptInput {
   Climber climber;
   Route route;
   Conditions conditions;
   double beta = 0.0;        // 0 = no knowledge, 1 = fully rehearsed
   int attemptNumber = 1;    // across the project's history, for style
+  double warmth = 1.0;      // 0 cold .. 1 warm; the session loop starts cold
+  double cleanliness = 1.0; // 1 clean rock .. 0 never been touched
+  double shoeWear = 0.0;    // 0 new rubber .. 1 dead; see DirtbagGear.h
+  // 0 bare ground .. 1 as padded as it gets; see DirtbagKit.h. Defaults to
+  // fully padded so that every caller who has not heard of pads - the
+  // golden vectors included - resolves exactly as it always did.
+  double padding = 1.0;
+  // Straight off the odds, in grade units, for who this climber is. Only a
+  // *flaw* ever fills this -- see Sim/DirtbagCharacter.h, where nothing
+  // else is allowed near send odds, which is what keeps where-you-came-from
+  // from being a difficulty setting. Defaults to zero so every caller that
+  // has not heard of it -- the golden vectors included -- resolves exactly
+  // as it always did.
+  double oddsPenalty = 0.0;
+  // How steady this climber is above the last piece, over and above what
+  // their head skill says -- temperament rather than ability. Shifts the
+  // resolver's `nerve`, which is otherwise head mapped off fifty. Zero for
+  // anybody without a temperament, so the golden vectors are untouched.
+  double boldness = 0.0;
+  // **What the joints carry, forever**, 0..1 per joint and parallel to
+  // `InjuryKind`. Cortisone in a finger and old scars on it both make that
+  // finger a weaker finger, small and permanent and only where it bites --
+  // exactly like an active injury, but for the rest of the career rather
+  // than for a month. See Sim/DirtbagMedical.h.
+  //
+  // Zero for anybody nothing has happened to, so every caller that has not
+  // heard of it -- the golden vectors included -- resolves exactly as it
+  // always did.
+  double jointDamage[kInjuryKindCount] = {0.0, 0.0, 0.0, 0.0};
+
+  // **What the current stage of the comeback costs**, as a multiplier on
+  // the injury penalty. One while you are resting it, about a third on a
+  // graded return -- which is what makes the last stage *climbing* rather
+  // than a longer wait, and it is the whole reason the comeback is staged
+  // instead of timed. See Sim/DirtbagMedical.h.
+  //
+  // One by default, so a caller that has never heard of the medical file
+  // -- the golden vectors included -- resolves exactly as it always did.
+  double injuryStagePenalty = 1.0;
+
+  // **Flat, on every hold, because you are ill rather than injured** --
+  // there is no such thing as a cold that is fine on slopers, and an
+  // abscess does not care what you are holding. In grade units, and zero
+  // for anybody who is well, so every existing caller and every golden
+  // vector resolves exactly as it did. See Sim/DirtbagAilments.h.
+  double ailmentPenalty = 0.0;
+
+  // **What is on your harness when you leave the ground.** Empty for a
+  // boulderer and for a sport climber, both of whom are correct to leave
+  // it in the van, and the reason a trad route you cannot protect is a
+  // route you do not lead. See Sim/DirtbagTrad.h.
+  //
+  // Only the *starting* rack: what is left partway up is state, and state
+  // lives in LiveAttempt beside the pump.
+  Rack rack;
+
   // Per-move minigame quality, 0..1. Missing entries fall back to botExecution.
   std::vector<double> execution;
   double botExecution = 0.72;
@@ -83,6 +321,15 @@ struct AttemptResult {
   double skinCost = 0.0;
   double peakPump = 0.0;
   std::vector<MoveResult> timeline;
+
+  // **What ended up on the rope**, and empty on anything that is not a
+  // trad lead. Part of the result rather than thrown away with the live
+  // attempt because two different things need it after the fact: the
+  // staging, which cannot show a whipper onto a bad nut it does not know
+  // about, and the day loop's head training, which reads exposure off the
+  // highpoint and would otherwise price a well-protected pitch and a solo
+  // identically.
+  Protection gear;
 };
 
 // Resolves one attempt. The rng should be a per-attempt derivation
@@ -90,5 +337,150 @@ struct AttemptResult {
 // and replayable.
 AttemptResult ResolveAttempt(Rng& rng, const AttemptInput& input,
                              const SessionDials& dials = SessionDials{});
+
+// --- Live attempts -----------------------------------------------------------
+//
+// The batch resolver unrolled so the minigame can drive it move by move —
+// SETUP.md step 4, the difference between watching a replay and driving an
+// attempt. HOLD TO CLIMB fills each StepMove's execution as it happens;
+// releasing is ShakeOut. ResolveAttempt is implemented on this core with a
+// bot policy (one shake at every stance that offers one), so the batch and
+// live forms cannot drift apart.
+
+struct LiveAttempt {
+  // Treat as opaque outside the sim; Begin/Peek/Step/Shake/Finish drive it.
+  // Fields stay public so the harness can stage exact situations.
+  AttemptInput input;   // its execution vector is unused; exec arrives per step
+  SessionDials dials;
+  Rng rng;
+  double pump = 0.0;
+  int nextMove = 0;
+  int shakesAtStance = 0;
+  bool over = false;
+
+  // **What is on the rope so far, and what is left on the harness.** State
+  // of the attempt, exactly like the pump: the same leader on the same
+  // pitch twice does not protect it the same way, which is the sentence
+  // this whole discipline is built out of.
+  //
+  // Empty and zero on a boulder or a bolted route, where protection is a
+  // property of the rock rather than of the go.
+  Protection gear;
+  int rackLeft = 0;
+  AttemptResult partial;  // timeline/highpoint/peak so far; Finish completes it
+};
+
+LiveAttempt BeginAttempt(const Rng& rng, const AttemptInput& input,
+                         const SessionDials& dials = SessionDials{});
+
+// Odds the next move would face at this execution — the UI's "how close is
+// this" readout. Pure: no rolls, no state change.
+double PeekOdds(const LiveAttempt& la, double execution);
+
+// Commit to the next move with the minigame's execution quality. After it
+// the attempt may be over (fell, or topped out). Calling on a finished
+// attempt is a no-op returning an empty MoveResult.
+MoveResult StepMove(LiveAttempt& la, double execution);
+
+// Release to shake out at the current stance. Returns net pump recovered
+// (negative when the hang tax beat the stance). No-op before the first move
+// or after the attempt ends.
+double ShakeOut(LiveAttempt& la);
+
+// **Get something in, here, before the next move.** Returns the quality of
+// what went on the rope — zero when the rock gave you nothing worth having,
+// which still costs you the piece and the pump, because finding that out is
+// what the pump was spent on.
+//
+// A verb of the live attempt, sitting beside ShakeOut for the same reason
+// ShakeOut sits here: it is a thing the player does mid-go, under pump,
+// with the clock running. That is gate 2 of the milestone, and it is why
+// this is not a field on AttemptInput.
+//
+// No-op returning 0 on anything that is not a trad lead, on a finished
+// attempt, with an empty harness, or at a move that already has a piece
+// at it — two pieces at one move is a belay, not a lead.
+double PlaceGear(LiveAttempt& la, const TradDials& dials = TradDials{});
+
+// What a sensible leader would do at the next move: the batch resolver's
+// policy, and the honest default for a live prompt. Pure.
+bool WouldPlace(const LiveAttempt& la, const TradDials& dials = TradDials{});
+
+bool AttemptOver(const LiveAttempt& la);
+
+// Styles, skin and the sent flag — same accounting as the batch resolver.
+AttemptResult FinishAttempt(const LiveAttempt& la);
+
+// --- How close was that ------------------------------------------------------
+//
+// Phase 0's gate was **"a watcher can tell how close an attempt was without
+// reading a number"**, and it was signed off on a blockout wall with a debug
+// HUD -- which is to say it was proved by reading numbers. Phase 5 re-asks
+// it of a game rather than a prototype, and the first thing the re-asking
+// turned up is that *nothing in this project had ever decided what "close"
+// means*. The presentation was left to infer it from a pump bar and a move
+// index, which is the same as not having it: two attempts that end at move
+// 9 of 12 can be a heartbreak and a formality, and the timeline knows which.
+//
+// So it is a sim judgement, with dials and tests, and the staging reads it.
+// The rule from CLAUDE.md is exact about this: if it can be unit-tested, it
+// does not belong in the presentation layer.
+
+struct CloseDials {
+  // How much of "close" is simply how far you got.
+  //
+  // Above 1, so the top of a route is worth disproportionately more than
+  // the bottom -- which is true of climbing and false of arithmetic. Nine
+  // moves out of twelve is not three quarters of a send; it is most of a
+  // route and none of a tick, and the number should say so.
+  double topHeavy = 1.8;
+
+  // How much falling off something desperate discounts it.
+  //
+  // Getting eighty percent up and fluffing a jug is the closest thing to a
+  // send there is -- you had it. Getting eighty percent up and falling off
+  // the crux is a good go and everybody in the car park knows the
+  // difference. At 0 the two are identical; at 1 a fall off a zero-odds
+  // move counts for nothing at all.
+  double blownIt = 0.35;
+};
+
+// 0 = nowhere near it, 1 = done. `totalMoves` is the route's length, which
+// the result does not carry.
+double HowClose(const AttemptResult& result, int totalMoves,
+                const CloseDials& dials = CloseDials{});
+
+// What that reads as, in words, because the gate is about a watcher rather
+// than a reader. Never a number.
+const char* HowCloseText(double close);
+
+// --- How much the pump shows -------------------------------------------------
+//
+// 0 = nothing a watcher could see, 1 = obviously about to come off.
+//
+// This exists because two different parts of the staging had already
+// guessed at the same curve. The session camera's pump sway used a bare
+// `(pump/100)^2` typed into the engine, and the breath was about to need
+// the same shape again -- and a third copy would have arrived with the
+// animation. Three guesses at one number is the thing dial discipline is
+// for, so the curve lives here, once, and the camera, the sound and
+// anything after them read it.
+//
+// It is deliberately not linear. Pump is a private number for the first
+// third of a route -- you are working and nobody can tell -- and then it
+// is the only thing about you.
+
+struct ShowDials {
+  // Below this you are just climbing. A watcher who can read pump off a
+  // fresh climber is reading a bar, which is the thing Phase 0's gate
+  // exists to make unnecessary.
+  double quietBelow = 35.0;
+
+  // Above 1, so it comes on late and hard rather than creeping in. The
+  // shape of the last four moves of a route you are about to fall off.
+  double curve = 2.0;
+};
+
+double PumpShows(double pump, const ShowDials& dials = ShowDials{});
 
 }  // namespace dirtbag
