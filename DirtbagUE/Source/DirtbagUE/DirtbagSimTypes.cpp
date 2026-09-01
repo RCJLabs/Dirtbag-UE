@@ -219,6 +219,8 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.lastBill = In.LastBill;
 	Out.lastBillDay = In.LastBillDay;
 	Out.scoutedTheField = In.bScoutedTheField;
+	Out.mentor = ToSim(In.Mentor);
+	Out.roster = ToSim(In.Roster);
 	Out.style = ToSim(In.Style);
 	Out.signature = ToSim(In.Signature);
 	Out.signature2 = ToSim(In.Signature2);
@@ -327,6 +329,8 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.LastBill = In.lastBill;
 	Out.LastBillDay = In.lastBillDay;
 	Out.bScoutedTheField = In.scoutedTheField;
+	Out.Mentor = FromSim(In.mentor);
+	Out.Roster = FromSim(In.roster);
 	Out.Style = FromSim(In.style);
 	Out.Signature = FromSim(In.signature);
 	Out.Signature2 = FromSim(In.signature2);
@@ -1605,6 +1609,115 @@ dirtbag::League ToSim(const FDirtbagLeague& In)
 	Out.nights = In.Nights;
 	Out.blockWins = In.BlockWins;
 	Out.lastClimbedNight = In.LastClimbedNight;
+	return Out;
+}
+
+FDirtbagMentor FromSim(const dirtbag::Mentor& In)
+{
+	FDirtbagMentor Out;
+	Out.Stage = In.stage;
+	Out.LastDay = In.lastDay;
+	Out.SaidAtTheLot = In.saidAtTheLot;
+	return Out;
+}
+
+dirtbag::Mentor ToSim(const FDirtbagMentor& In)
+{
+	dirtbag::Mentor Out;
+	Out.stage = In.Stage;
+	Out.lastDay = In.LastDay;
+	Out.saidAtTheLot = In.SaidAtTheLot;
+	return Out;
+}
+
+FDirtbagClient FromSim(const dirtbag::Client& In)
+{
+	FDirtbagClient Out;
+	Out.Who = In.who;
+	// The name and the blurb come off the cast rather than the save: they
+	// are what the person *is*, and a save carrying them would let a
+	// hand-edit rename somebody the code still thinks it knows.
+	if (const dirtbag::ClientDef* Def = dirtbag::TheClient(In.who))
+	{
+		Out.Name = FString(Def->name);
+		Out.Blurb = FString(Def->blurb);
+	}
+	Out.Plan = static_cast<EDirtbagFocus>(In.plan);
+	Out.Grade = In.grade;
+	Out.StartGrade = In.startGrade;
+	Out.Progress = In.progress;
+	Out.Sessions = In.sessions;
+	Out.Goal = FString(In.goal.c_str());
+	Out.StartDay = In.startDay;
+	Out.LastSessionDay = In.lastSessionDay;
+	Out.bSawIt = In.sawIt;
+	// It crosses so the round trip cannot lose it, and it is not a
+	// UPROPERTY so nothing can show it. See FDirtbagClient::bProdigy.
+	Out.bProdigy = In.prodigy;
+	return Out;
+}
+
+dirtbag::Client ToSim(const FDirtbagClient& In)
+{
+	dirtbag::Client Out;
+	Out.who = In.Who;
+	Out.plan = static_cast<dirtbag::Focus>(In.Plan);
+	Out.grade = In.Grade;
+	Out.startGrade = In.StartGrade;
+	Out.progress = In.Progress;
+	Out.sessions = In.Sessions;
+	Out.goal = TCHAR_TO_UTF8(*In.Goal);
+	Out.startDay = In.StartDay;
+	Out.lastSessionDay = In.LastSessionDay;
+	Out.sawIt = In.bSawIt;
+	Out.prodigy = In.bProdigy;
+	return Out;
+}
+
+FDirtbagRoster FromSim(const dirtbag::Roster& In)
+{
+	FDirtbagRoster Out;
+	for (const dirtbag::Client& C : In.clients) { Out.Clients.Add(FromSim(C)); }
+	Out.Graduated = In.graduated;
+	return Out;
+}
+
+dirtbag::Roster ToSim(const FDirtbagRoster& In)
+{
+	dirtbag::Roster Out;
+	for (const FDirtbagClient& C : In.Clients)
+	{
+		Out.clients.push_back(ToSim(C));
+	}
+	Out.graduated = In.Graduated;
+	return Out;
+}
+
+FDirtbagCoachedSession FromSim(const dirtbag::CoachedSession& In)
+{
+	FDirtbagCoachedSession Out;
+	Out.bRan = In.ran;
+	Out.bGraduated = In.graduated;
+	Out.bProdigy = In.prodigy;
+	Out.Cash = In.cash;
+	Out.Rep = In.rep;
+	Out.ProgressGained = In.progressGained;
+	Out.bGradedUp = In.gradedUp;
+	Out.Line = FString(In.line.c_str());
+	return Out;
+}
+
+dirtbag::CoachedSession ToSim(const FDirtbagCoachedSession& In)
+{
+	dirtbag::CoachedSession Out;
+	Out.ran = In.bRan;
+	Out.graduated = In.bGraduated;
+	Out.prodigy = In.bProdigy;
+	Out.cash = In.Cash;
+	Out.rep = In.Rep;
+	Out.progressGained = In.ProgressGained;
+	Out.gradedUp = In.bGradedUp;
+	Out.line = TCHAR_TO_UTF8(*In.Line);
 	return Out;
 }
 

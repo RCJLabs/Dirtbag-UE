@@ -257,6 +257,26 @@ void ADirtbagClimbWall::BeginPlay()
 	    this, &ADirtbagClimbWall::OnApproachEnd);
 }
 
+void ADirtbagClimbWall::OnTheLesson()
+{
+	// **Not while you are on the wall**, and not indoors: she haunts the
+	// crag and has nothing to say about plastic.
+	if (!Game || !bPlayerNear || Phase != EPhase::Idle) { return; }
+	if (!Game->TheMentorIsAround())
+	{
+		// Silent when she is simply not here. A key that says "nobody is
+		// around" every press is a key that teaches you not to press it.
+		return;
+	}
+	const FString Learned = Game->ClimbWithTheMentor();
+	if (Learned.IsEmpty()) { return; }
+	// Her words first and what you took from it second, because that is the
+	// order it happens in. The day carries her line -- see DayState::heard,
+	// which is where everything anybody says to you lands.
+	Toast(Game->Day.Heard, FColor::Silver, 14.f);
+	Toast(Learned, FColor::Yellow, 10.f);
+}
+
 void ADirtbagClimbWall::OnGuidebook()
 {
 	// Not while you are on the wall. Reading the book mid-attempt is not a
@@ -838,6 +858,10 @@ void ADirtbagClimbWall::OnApproachBegin(UPrimitiveComponent*, AActor* OtherActor
 			                        &ADirtbagClimbWall::OnGuidebook);
 			InputComponent->BindKey(EKeys::T, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnShortcut);
+			// `WRLD-10`: the old crusher, if she is here. Her own key
+			// because taking a lesson is not the same press as pulling on.
+			InputComponent->BindKey(EKeys::M, IE_Pressed, this,
+			                        &ADirtbagClimbWall::OnTheLesson);
 			InputComponent->BindKey(EKeys::One, IE_Pressed, this,
 			                        &ADirtbagClimbWall::OnShortcut1);
 			InputComponent->BindKey(EKeys::Two, IE_Pressed, this,

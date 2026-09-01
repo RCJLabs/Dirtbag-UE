@@ -2398,6 +2398,107 @@ FString UDirtbagGameInstance::TaxWarningLine() const
 	        .c_str());
 }
 
+bool UDirtbagGameInstance::TheMentorIsAround() const
+{
+	return dirtbag::TheMentorIsAround(
+	    DirtbagConvert::ToSim(Player),
+	    dirtbag::Rng::FromStream(TCHAR_TO_UTF8(*Seed),
+	                             dirtbag::Stream::Worldgen));
+}
+
+FString UDirtbagGameInstance::ClimbWithTheMentor()
+{
+	dirtbag::PlayerState P = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState D = DirtbagConvert::ToSim(Day);
+	const std::string Learned = dirtbag::ClimbWithTheMentor(P, D);
+	if (Learned.empty()) { return FString(); }
+	Player.Mentor = DirtbagConvert::FromSim(P.mentor);
+	Player.Climber = DirtbagConvert::FromSim(P.climber);
+	Day.Heard = FString(D.heard.c_str());
+	return FString(Learned.c_str());
+}
+
+FString UDirtbagGameInstance::WhatTheOldTimerSays()
+{
+	dirtbag::PlayerState P = DirtbagConvert::ToSim(Player);
+	const std::string Said = dirtbag::WhatTheOldTimerSays(P);
+	// Written back whatever she said: the point of the bitfield is that she
+	// does not repeat herself, and that only holds if the flag survives.
+	Player.Mentor = DirtbagConvert::FromSim(P.mentor);
+	return FString(Said.c_str());
+}
+
+bool UDirtbagGameInstance::TakeOnAClient()
+{
+	dirtbag::PlayerState P = DirtbagConvert::ToSim(Player);
+	if (!dirtbag::TakeOnAClient(
+	        P, dirtbag::Rng::FromStream(TCHAR_TO_UTF8(*Seed),
+	                                    dirtbag::Stream::Worldgen)))
+	{
+		return false;
+	}
+	Player.Roster = DirtbagConvert::FromSim(P.roster);
+	return true;
+}
+
+bool UDirtbagGameInstance::SetAClientsPlan(int32 Which, EDirtbagFocus Plan)
+{
+	dirtbag::PlayerState P = DirtbagConvert::ToSim(Player);
+	if (!dirtbag::SetAClientsPlan(P, Which,
+	                              static_cast<dirtbag::Focus>(Plan)))
+	{
+		return false;
+	}
+	Player.Roster = DirtbagConvert::FromSim(P.roster);
+	return true;
+}
+
+FDirtbagCoachedSession UDirtbagGameInstance::CoachAClient(int32 Which)
+{
+	dirtbag::PlayerState P = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState D = DirtbagConvert::ToSim(Day);
+	const dirtbag::CoachedSession Out = dirtbag::CoachAClient(
+	    P, D, Which,
+	    dirtbag::Rng::FromStream(TCHAR_TO_UTF8(*Seed),
+	                             dirtbag::Stream::Events));
+	if (!Out.ran) { return FDirtbagCoachedSession{}; }
+	Player.Roster = DirtbagConvert::FromSim(P.roster);
+	Player.Cash = P.cash;
+	Player.Owed = P.owed;
+	Player.Hand = DirtbagConvert::FromSim(P.hand);
+	Player.Standing = DirtbagConvert::FromSim(P.standing);
+	Day = DirtbagConvert::FromSim(D);
+	return DirtbagConvert::FromSim(Out);
+}
+
+FString UDirtbagGameInstance::CoachWhyNot(int32 Which) const
+{
+	return FString(dirtbag::WhyNotCoach(DirtbagConvert::ToSim(Player),
+	                                    DirtbagConvert::ToSim(Day), Which)
+	                   .c_str());
+}
+
+FString UDirtbagGameInstance::RosterLine() const
+{
+	return FString(
+	    dirtbag::RosterLine(DirtbagConvert::ToSim(Player.Roster)).c_str());
+}
+
+FString UDirtbagGameInstance::FocusName(EDirtbagFocus Focus)
+{
+	return FString(dirtbag::FocusName(static_cast<dirtbag::Focus>(Focus)));
+}
+
+FString UDirtbagGameInstance::FocusTeaches(EDirtbagFocus Focus)
+{
+	return FString(dirtbag::FocusTeaches(static_cast<dirtbag::Focus>(Focus)));
+}
+
+FString UDirtbagGameInstance::FocusBecomes(EDirtbagFocus Focus)
+{
+	return FString(dirtbag::FocusBecomes(static_cast<dirtbag::Focus>(Focus)));
+}
+
 bool UDirtbagGameInstance::ScoutTheField()
 {
 	dirtbag::PlayerState P = DirtbagConvert::ToSim(Player);
@@ -3847,9 +3948,32 @@ bool UDirtbagGameInstance::RunTheLeagueNight()
 	{
 		return false;
 	}
+	// `COACH-5`: **your people show up.** Coaching that produces no public
+	// outcome is a number in a panel -- so a client who knows you turns up
+	// to the night you are running, how they do is written by who they are,
+	// and it lands on your standing because everyone in the room knows
+	// whose client that is.
+	double Watched = 0.0;
+	ClientNight = dirtbag::TheyTurnedUpToLeagueNight(
+	    Sim.roster,
+	    dirtbag::Rng::FromStream(TCHAR_TO_UTF8(*Seed),
+	                             dirtbag::Stream::Events),
+	    Sim.day, dirtbag::FocusRoute(dirtbag::Focus::Technique), Watched);
+	if (Watched > 0.0)
+	{
+		dirtbag::Shift(Sim.standing, dirtbag::Faction::Scene, Watched);
+	}
+
 	Player = DirtbagConvert::FromSim(Sim);
 	Day = DirtbagConvert::FromSim(Today);
 	return true;
+}
+
+TArray<FString> UDirtbagGameInstance::HowYourPeopleDid() const
+{
+	TArray<FString> Out;
+	for (const std::string& Line : ClientNight) { Out.Add(FString(Line.c_str())); }
+	return Out;
 }
 
 FString UDirtbagGameInstance::LeagueWhyNotTonight() const

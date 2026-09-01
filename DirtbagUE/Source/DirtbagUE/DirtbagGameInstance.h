@@ -2205,6 +2205,66 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
 	bool WalkTheFloor();
 
+	// --- taught, and teaching (WRLD-10, TUT-6, ROSTER-1, COACH-5) -------
+
+	/** `WRLD-10`: is she at the crag today, with a lesson in it? */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Mentor")
+	bool TheMentorIsAround() const;
+
+	/** Take the lesson. Returns what you took from it; her own words land
+	 *  on the day, where everything anybody says to you lands. Empty when
+	 *  there is no lesson to take. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Mentor")
+	FString ClimbWithTheMentor();
+
+	/** `TUT-6`: what she says at the Lot, before she is anybody's mentor.
+	 *  One thing per visit, each once ever, and the last hands you to the
+	 *  arc. Empty when she has nothing left. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Mentor")
+	FString WhatTheOldTimerSays();
+
+	/** `ROSTER-1`: take somebody on. False when the books are full. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Coaching")
+	bool TakeOnAClient();
+
+	/** Set a client's plan -- the decision the whole system is about.
+	 *  Their weakness is the right answer. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Coaching")
+	bool SetAClientsPlan(int32 Which, EDirtbagFocus Plan);
+
+	/** An hour with one of them. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Coaching")
+	FDirtbagCoachedSession CoachAClient(int32 Which);
+
+	/** Why you cannot, in the game's voice. Empty when you can. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Coaching")
+	FString CoachWhyNot(int32 Which) const;
+
+	/** What your clients did at the last league night, kept across the call
+	 *  because `RunTheLeagueNight` returns a bool and the lines have to
+	 *  reach the screen somehow -- the same shape the World Cup's season
+	 *  news uses. Not a UPROPERTY: it is std::string and it is transient. */
+	std::vector<std::string> ClientNight;
+
+	/** `COACH-5`: what your clients did at the league night you just ran.
+	 *  Empty when nobody came, which is most nights early on. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Coaching")
+	TArray<FString> HowYourPeopleDid() const;
+
+	/** What the books read like. Empty when nobody is on them. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Coaching")
+	FString RosterLine() const;
+
+	/** What a focus is called, what it teaches, and who it makes them. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Coaching")
+	static FString FocusName(EDirtbagFocus Focus);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Coaching")
+	static FString FocusTeaches(EDirtbagFocus Focus);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Coaching")
+	static FString FocusBecomes(EDirtbagFocus Focus);
+
 	/** `CLB-32`: study the field before a comp that is on the calendar.
 	 *  Costs an evening's focus and no time -- film study is what you do
 	 *  instead of sleeping, not instead of climbing. False if you cannot;

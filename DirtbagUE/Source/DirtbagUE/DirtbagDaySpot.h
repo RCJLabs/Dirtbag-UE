@@ -337,6 +337,14 @@ private:
 	void OnRack();
 	void OnStudy();
 
+	/** `ROSTER-1`: the books, at the van. `Q` opens them and cycles whose
+	 *  hour it is; while they are open the number keys set that client's
+	 *  plan, the way the guidebook already takes 1/2/3 while it is open.
+	 *  -1 is closed. */
+	void OnBooks();
+	bool SetAPlan(int32 Which);
+	int32 OnTheBooks = -1;
+
 	/** While the book is open, 1/2/3 turn the page rather than naming a
 	 *  dream or sizing a stake. Returns true if the book took the key. */
 	bool TurnGuidebookPage(int32 Which);

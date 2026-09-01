@@ -523,6 +523,84 @@ bool HangboardSession(PlayerState& player, DayState& day, const KitDials& kit,
   return true;
 }
 
+namespace {
+
+// The one number both halves of the mentor file read off a climber. Kept
+// here rather than in five call sites, because the five would drift.
+double AllroundGradeOf(const Skills& s) {
+  return SkillToGrade((s.power + s.fingers + s.technique + s.endurance +
+                       s.head) / 5.0);
+}
+
+}  // namespace
+
+bool TheMentorIsAround(const PlayerState& player, const Rng& worldRng) {
+  return SheIsAround(player.mentor, AllroundGradeOf(player.climber.skills),
+                     worldRng, player.day);
+}
+
+std::string ClimbWithTheMentor(PlayerState& player, DayState& day) {
+  const Lesson* lesson =
+      ClimbWithHer(player.mentor, player.climber.skills, player.day);
+  if (lesson == nullptr) return std::string();
+  // Her voice first and what you took from it second, because that is the
+  // order it happens in.
+  day.heard = lesson->line;
+  return std::string(lesson->learned);
+}
+
+std::string WhatTheOldTimerSays(PlayerState& player) {
+  // `TUT-6` gates its lines on what is actually true about you now. "No van
+  // yet" is the Rig -- the van you saved for -- because every career starts
+  // in *a* van and the line is about not having the one you want.
+  return WhatSheSaysAtTheLot(player.mentor,
+                             AllroundGradeOf(player.climber.skills),
+                             player.cash, player.van.rig);
+}
+
+bool TakeOnAClient(PlayerState& player, const Rng& worldRng) {
+  return TakeThemOn(player.roster, worldRng, player.day);
+}
+
+bool SetAClientsPlan(PlayerState& player, int which, Focus plan) {
+  return SetThePlan(player.roster, which, plan);
+}
+
+std::string WhyNotCoach(const PlayerState& player, const DayState& day,
+                        int which) {
+  if (which < 0 ||
+      which >= static_cast<int>(player.roster.clients.size())) {
+    return "Nobody on the books.";
+  }
+  if (player.roster.clients[which].lastSessionDay == player.day) {
+    return "You have had them today. An hour is an hour.";
+  }
+  if (day.energy < 10.0) return "Nothing left to give anybody today.";
+  return std::string();
+}
+
+CoachedSession CoachAClient(PlayerState& player, DayState& day, int which,
+                            const Rng& worldRng, const RosterDials& roster) {
+  CoachedSession none;
+  // **Gated on its own reason, not on another function's silence.**
+  if (!WhyNotCoach(player, day, which).empty()) return none;
+
+  const CoachedSession out = CoachThem(
+      player.roster, which,
+      player.hand.skill[static_cast<int>(Craft::Coaching)], worldRng,
+      player.day, roster);
+  if (!out.ran) return out;
+
+  // An hour of somebody else's climbing is an hour of your day, and it is
+  // work: it goes through the trade like every other shift, which is what
+  // makes a coaching career a career rather than a side panel.
+  PassHours(day, 1.0);
+  WorkTheTrade(player.hand, Craft::Coaching, 1.0);
+  Pay(player, out.cash);
+  if (out.rep > 0.0) Shift(player.standing, Faction::Scene, out.rep);
+  return out;
+}
+
 std::string WhyNotScout(const PlayerState& player, const DayState& day,
                         const CompDials& comp) {
   if (player.circuit.season == 0) return "There is no season on.";

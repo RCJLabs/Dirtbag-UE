@@ -849,6 +849,22 @@ void MigrateV49ToV50(SaveFields& fields) {
   }
 }
 
+// v50 -> v51: somebody taught you, and you teach somebody (`WRLD-10`,
+// `TUT-6`, `ROSTER-1`).
+//
+// **An existing career has not met her and has nobody on the books**, and
+// that is right rather than unfortunate: she notices you once you are
+// climbing real grades, so a v50 career at V8 walks up to the crag tomorrow
+// and gets the whole arc. Backdating it would hand a five-lesson
+// relationship to somebody who never had it.
+void MigrateV50ToV51(SaveFields& fields) {
+  fields["mentor.stage"] = "0";
+  fields["mentor.last"] = "-1";
+  fields["mentor.said"] = "0";
+  fields["roster.n"] = "0";
+  fields["roster.grads"] = "0";
+}
+
 }  // namespace
 
 const std::vector<Migration>& DefaultMigrations() {
@@ -868,7 +884,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV39ToV40, &MigrateV40ToV41, &MigrateV41ToV42,
       &MigrateV42ToV43, &MigrateV43ToV44, &MigrateV44ToV45,
       &MigrateV45ToV46, &MigrateV46ToV47, &MigrateV47ToV48,
-      &MigrateV48ToV49, &MigrateV49ToV50};
+      &MigrateV48ToV49, &MigrateV49ToV50, &MigrateV50ToV51};
   return kMigrations;
 }
 
@@ -1226,6 +1242,27 @@ std::string SerializeSave(const SaveGame& save) {
       out << "scouted=" << (save.player.scoutedTheField ? "1" : "0") << "\n";
       out << "bill.last=" << NumToStr(save.player.lastBill) << "\n";
       out << "bill.day=" << IntToStr(save.player.lastBillDay) << "\n";
+      out << "mentor.stage=" << IntToStr(save.player.mentor.stage) << "\n";
+      out << "mentor.last=" << IntToStr(save.player.mentor.lastDay) << "\n";
+      out << "mentor.said=" << IntToStr(save.player.mentor.saidAtTheLot)
+          << "\n";
+      const std::vector<Client>& rc = save.player.roster.clients;
+      out << "roster.n=" << IntToStr(static_cast<int>(rc.size())) << "\n";
+      out << "roster.grads=" << IntToStr(save.player.roster.graduated) << "\n";
+      for (std::size_t i = 0; i < rc.size(); i++) {
+        const std::string k = "roster.c" + IntToStr(static_cast<int>(i));
+        out << k << "who=" << IntToStr(rc[i].who) << "\n";
+        out << k << "plan=" << IntToStr(static_cast<int>(rc[i].plan)) << "\n";
+        out << k << "grade=" << NumToStr(rc[i].grade) << "\n";
+        out << k << "start=" << NumToStr(rc[i].startGrade) << "\n";
+        out << k << "prog=" << NumToStr(rc[i].progress) << "\n";
+        out << k << "sess=" << IntToStr(rc[i].sessions) << "\n";
+        out << k << "prod=" << (rc[i].prodigy ? "1" : "0") << "\n";
+        out << k << "saw=" << (rc[i].sawIt ? "1" : "0") << "\n";
+        out << k << "goal=" << rc[i].goal << "\n";
+        out << k << "day=" << IntToStr(rc[i].startDay) << "\n";
+        out << k << "last=" << IntToStr(rc[i].lastSessionDay) << "\n";
+      }
 
       const Olympics& og = save.player.olympics;
       out << "og.next=" << IntToStr(og.nextDay) << "\n";
@@ -1650,7 +1687,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         rankResults = 0, leagueFields = 0, medDiag = 0, medTreat = 0,
         medStage = 0, medJoints = 0, medScars = 0, medInsured = 0,
         medTreated = 0, medStaged = 0, sickActive = 0, sickMeds = 0,
-        toothStage = 0, craftN = 0, scouted = 0;
+        toothStage = 0, craftN = 0, scouted = 0, rosterN = 0;
     if (!ParseString(fields, "rival.name", rv.name) ||
         !ParseInt(fields, "rival.style", style) ||
         !ParseInt(fields, "rival.vibe", vibe) ||
@@ -1786,6 +1823,11 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseInt(fields, "scouted", scouted) ||
         !ParseDouble(fields, "bill.last", save.player.lastBill) ||
         !ParseInt(fields, "bill.day", save.player.lastBillDay) ||
+        !ParseInt(fields, "mentor.stage", save.player.mentor.stage) ||
+        !ParseInt(fields, "mentor.last", save.player.mentor.lastDay) ||
+        !ParseInt(fields, "mentor.said", save.player.mentor.saidAtTheLot) ||
+        !ParseInt(fields, "roster.n", rosterN) ||
+        !ParseInt(fields, "roster.grads", save.player.roster.graduated) ||
         !ParseString(fields, "sig.name", save.player.signature.name) ||
         !ParseString(fields, "sig2.name", save.player.signature2.name) ||
         !ParseInt(fields, "og.next", save.player.olympics.nextDay) ||
@@ -1939,6 +1981,33 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     }
 
     save.player.scoutedTheField = scouted != 0;
+
+    save.player.roster.clients.clear();
+    for (int i = 0; i < rosterN; i++) {
+      const std::string k = "roster.c" + IntToStr(i);
+      Client client;
+      int plan = 0, prodigy = 0, sawIt = 0;
+      if (!ParseInt(fields, k + "prod", prodigy) ||
+          !ParseInt(fields, k + "saw", sawIt) ||
+          !ParseInt(fields, k + "who", client.who) ||
+          !ParseInt(fields, k + "plan", plan) ||
+          !ParseDouble(fields, k + "grade", client.grade) ||
+          !ParseDouble(fields, k + "start", client.startGrade) ||
+          !ParseDouble(fields, k + "prog", client.progress) ||
+          !ParseInt(fields, k + "sess", client.sessions) ||
+          !ParseInt(fields, k + "day", client.startDay) ||
+          !ParseInt(fields, k + "last", client.lastSessionDay)) {
+        return LoadResult::BadFormat;
+      }
+      if (plan < 0 || plan >= kFocusCount) return LoadResult::BadFormat;
+      client.plan = static_cast<Focus>(plan);
+      client.prodigy = prodigy != 0;
+      client.sawIt = sawIt != 0;
+      // A goal is allowed to be empty; a client without one is between
+      // projects, not a corrupt save.
+      ParseString(fields, k + "goal", client.goal);
+      save.player.roster.clients.push_back(client);
+    }
 
     save.player.rankingRecord.clear();
     for (int i = 0; i < rankResults; i++) {

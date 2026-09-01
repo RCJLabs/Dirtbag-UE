@@ -668,6 +668,15 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 	{
 		StakeNotch = FMath::Clamp(StartingStakeNotch, 0, 2);
 		RefreshFireTable();
+		// `TUT-6`: she is in the Lot from the first day, long before she
+		// is anybody's mentor. One thing per visit, each once ever, and
+		// **said on arrival rather than behind a key** -- an old-timer you
+		// have to press a button to hear is a tooltip.
+		if (Game)
+		{
+			const FString Said = Game->WhatTheOldTimerSays();
+			if (!Said.IsEmpty()) { Say(Said, FColor::Silver, 10.f); }
+		}
 	}
 
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
@@ -738,6 +747,10 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnHangboard);
 			InputComponent->BindKey(EKeys::G, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnRack);
+			// `ROSTER-1`: the books. Its own key, at the van, and it
+			// borrows the number keys while it is open.
+			InputComponent->BindKey(EKeys::Q, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnBooks);
 			// `CLB-32`: an evening with the tape, at the van. Its own key
 			// because it is not a yes to anything -- it is a decision to
 			// spend a night not sleeping.
@@ -1144,6 +1157,64 @@ void ADirtbagDaySpot::OnGuidebook()
 	PushPrompt();
 }
 
+void ADirtbagDaySpot::OnBooks()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Van)
+	{
+		return;
+	}
+	const int32 Count = Game->Player.Roster.Clients.Num();
+	if (Count == 0)
+	{
+		// Nobody yet. The first press takes somebody on, because an empty
+		// panel with a "take somebody on" button on it is a panel.
+		if (Game->TakeOnAClient())
+		{
+			OnTheBooks = 0;
+			Say(Game->RosterLine(), FColor::Yellow, 8.f);
+		}
+		else
+		{
+			Say(TEXT("Nobody is asking."), FColor::Silver, 4.f);
+		}
+		PushPrompt();
+		return;
+	}
+	// Open, then cycle, then closed -- so the same key that opens the books
+	// is the one that puts them away.
+	OnTheBooks = OnTheBooks + 1 >= Count ? -1 : OnTheBooks + 1;
+	if (OnTheBooks < 0)
+	{
+		if (Game->TakeOnAClient()) { Say(Game->RosterLine(), FColor::Yellow, 8.f); }
+	}
+	PushPrompt();
+}
+
+bool ADirtbagDaySpot::SetAPlan(int32 Which)
+{
+	if (!Game || OnTheBooks < 0 || Kind != EDirtbagSpotKind::Van)
+	{
+		return false;
+	}
+	if (Which < 0 || Which >= 5) { return true; }   // the key was the books'
+	if (!Game->SetAClientsPlan(OnTheBooks, static_cast<EDirtbagFocus>(Which)))
+	{
+		return true;
+	}
+	const EDirtbagFocus Plan = static_cast<EDirtbagFocus>(Which);
+	// Three sentences from the sim rather than three built here: what the
+	// plan is called, what an hour of it actually is, and what it makes
+	// them if you stick with it.
+	Say(FString::Printf(TEXT("%s on %s -- %s. Give it a season and they are "
+	                         "%s."),
+	                    *Game->Player.Roster.Clients[OnTheBooks].Name,
+	                    *Game->FocusName(Plan), *Game->FocusTeaches(Plan),
+	                    *Game->FocusBecomes(Plan)),
+	    FColor::Yellow, 7.f);
+	PushPrompt();
+	return true;
+}
+
 bool ADirtbagDaySpot::TurnGuidebookPage(int32 Which)
 {
 	if (!Game || !Game->Guidebook.bActive)
@@ -1506,6 +1577,38 @@ void ADirtbagDaySpot::OnInteract()
 		                                           Hours * 60.0),
 		                    *Game->WaitAdvice()),
 		    FColor::Cyan, 5.f);
+		break;
+	}
+	case EDirtbagSpotKind::Van:
+	{
+		// `ROSTER-1`: an hour with whoever the books are open on. Only
+		// while they are open, so E at the van still means everything else
+		// it meant.
+		if (OnTheBooks >= 0)
+		{
+			const FString Why = Game->CoachWhyNot(OnTheBooks);
+			const FDirtbagCoachedSession Went = Game->CoachAClient(OnTheBooks);
+			if (!Went.bRan)
+			{
+				Say(Why, FColor::Silver, 5.f);
+				break;
+			}
+			Say(Went.Line, Went.bProdigy ? FColor::Yellow : FColor::White,
+			    Went.bProdigy ? 10.f : 6.f);
+			if (Went.bProdigy)
+			{
+				Say(TEXT("You have been doing this long enough to know what "
+				         "you are looking at. That one is going to be very "
+				         "good."),
+				    FColor::Yellow, 10.f);
+			}
+			if (Went.bGraduated)
+			{
+				// The slot is free and the books have moved under you.
+				OnTheBooks = -1;
+			}
+			break;
+		}
 		break;
 	}
 	case EDirtbagSpotKind::Sleep:
@@ -2214,9 +2317,19 @@ bool ADirtbagDaySpot::PullGymLever(int32 Index)
 		}
 		if (Index == 4 || (Index <= 3 && Game->Player.GymLeague.bRunning))
 		{
-			Say(Game->RunTheLeagueNight() ? Game->Player.GymNews
-			                              : Game->LeagueWhyNotTonight(),
+			const bool bRan = Game->RunTheLeagueNight();
+			Say(bRan ? Game->Player.GymNews : Game->LeagueWhyNotTonight(),
 			    FColor::Yellow, 10.f);
+			// `COACH-5`: and who of yours was in the room. Said after the
+			// night's own line, because the table is the news and your
+			// people are what it meant to you.
+			if (bRan)
+			{
+				for (const FString& Line : Game->HowYourPeopleDid())
+				{
+					Say(Line, FColor::Silver, 8.f);
+				}
+			}
 			return true;
 		}
 		return true;
@@ -2254,6 +2367,7 @@ void ADirtbagDaySpot::OnChoose1()
 {
 	if (Game && Game->ChooseOnAScreen(0)) { return; }
 	if (SkipTravel()) { return; }
+	if (SetAPlan(0)) { return; }
 	if (PickABivy(0)) { return; }
 	if (PullGymLever(0)) { return; }
 	if (TurnGuidebookPage(0)) { return; }
@@ -2264,6 +2378,7 @@ void ADirtbagDaySpot::OnChoose2()
 {
 	if (Game && Game->ChooseOnAScreen(1)) { return; }
 	if (SkipTravel()) { return; }
+	if (SetAPlan(1)) { return; }
 	if (PickABivy(1)) { return; }
 	if (PullGymLever(1)) { return; }
 	if (TurnGuidebookPage(1)) { return; }
@@ -2274,6 +2389,7 @@ void ADirtbagDaySpot::OnChoose3()
 {
 	if (Game && Game->ChooseOnAScreen(2)) { return; }
 	if (SkipTravel()) { return; }
+	if (SetAPlan(2)) { return; }
 	if (PickABivy(2)) { return; }
 	if (PullGymLever(2)) { return; }
 	if (TurnGuidebookPage(2)) { return; }
@@ -2292,12 +2408,14 @@ void ADirtbagDaySpot::OnChoose3()
 void ADirtbagDaySpot::OnChoose4()
 {
 	if (Game && Game->ChooseOnAScreen(3)) { return; }
+	if (SetAPlan(3)) { return; }
 	if (PickABivy(3)) { return; }
 	PullGymLever(3);
 }
 void ADirtbagDaySpot::OnChoose5()
 {
 	if (Game && Game->ChooseOnAScreen(4)) { return; }
+	if (SetAPlan(4)) { return; }
 	if (PickABivy(4)) { return; }
 	PullGymLever(4);
 }

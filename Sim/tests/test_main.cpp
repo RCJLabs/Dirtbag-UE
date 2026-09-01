@@ -21,6 +21,7 @@
 #include "../DirtbagGymTown.h"
 #include "../DirtbagGymLeague.h"
 #include "../DirtbagSpeed.h"
+#include "../DirtbagMentor.h"
 #include "../DirtbagMonotony.h"
 #include "../DirtbagStyle.h"
 #include "../DirtbagTax.h"
@@ -17747,6 +17748,304 @@ static void TestWhoYouTurnedIntoSurvivesASave() {
   CHECK(back.player.stale.venue == "the Terrace");
 }
 
+// --- taught, and teaching (WRLD-10, TUT-6, ROSTER-1, COACH-5, JOB-10) ---
+
+static void TestSheOnlyBothersOnceYouAreClimbing() {
+  const MentorDials d;
+  const Rng w = Rng::FromStream("mentorseed", Stream::Worldgen);
+  Mentor m;
+  // Nothing she can tell a beginner that the rock is not already saying.
+  for (int day = 1; day < 200; day++) {
+    CHECK(!SheIsAround(m, d.minGrade - 1.0, w, day, d));
+  }
+  // And once you are climbing, she turns up **reliably** -- a mentor you
+  // have to farm is a spawn, not a person.
+  int seen = 0;
+  for (int day = 1; day <= 200; day++) {
+    if (SheIsAround(m, d.minGrade + 1.0, w, day, d)) seen++;
+  }
+  CHECK(seen > 120);
+  // The same day is the same day: a reload does not re-roll her.
+  const bool once = SheIsAround(m, d.minGrade + 1.0, w, 57, d);
+  CHECK(once == SheIsAround(m, d.minGrade + 1.0, w, 57, d));
+}
+
+static void TestTheCurriculumIsAnArcAndEnds() {
+  const MentorDials d;
+  Mentor m;
+  Skills s;
+  s.power = s.fingers = s.technique = s.endurance = s.head = 40.0;
+  const Skills before = s;
+
+  std::set<std::string> titles;
+  for (int i = 0; i < d.sessions; i++) {
+    CHECK(!SheIsDoneWithYou(m, d));
+    const Lesson* l = ClimbWithHer(m, s, 10 + i * 3, d);
+    CHECK(l != nullptr);
+    CHECK(std::string(l->title).size() > 0);
+    titles.insert(l->title);
+  }
+  // Five different lessons, in order, each once.
+  CHECK(static_cast<int>(titles.size()) == d.sessions);
+  CHECK(SheIsDoneWithYou(m, d));
+  // **And then she is done.** An arc that could be farmed forever is a
+  // training menu with a face on it.
+  CHECK(ClimbWithHer(m, s, 200, d) == nullptr);
+  const Rng w = Rng::FromStream("mentorseed", Stream::Worldgen);
+  CHECK(!SheIsAround(m, 10.0, w, 300, d));
+
+  // She taught movement and nerve, and did not touch what she never claimed
+  // to: nothing in her curriculum is about pulling harder.
+  CHECK(s.technique > before.technique);
+  CHECK(s.head > before.head);
+  CHECK(s.endurance > before.endurance);
+  CHECK(s.power == before.power);
+  CHECK(s.fingers == before.fingers);
+}
+
+static void TestSheIsInTheLotBeforeSheIsAMentor() {
+  const MentorDials d;
+  Mentor m;
+  // **A brand-new player meets her.** That is the whole of TUT-6: she was
+  // crag-only and V3-gated, so the character who exists to teach you the
+  // game was unreachable until after you had worked it out.
+  const std::string first = WhatSheSaysAtTheLot(m, 0.0, 400.0, false, d);
+  CHECK(!first.empty());
+  // One thing per visit, each once ever.
+  const std::string second = WhatSheSaysAtTheLot(m, 0.0, 400.0, false, d);
+  CHECK(!second.empty());
+  CHECK(second != first);
+
+  // Gated on what is true about you now: broke gets the broke line, and a
+  // climber who is not broke never hears it.
+  Mentor rich;
+  std::set<std::string> flush;
+  for (int i = 0; i < 10; i++) {
+    const std::string line = WhatSheSaysAtTheLot(rich, 0.0, 5000.0, true, d);
+    if (line.empty()) break;
+    flush.insert(line);
+  }
+  Mentor skint;
+  std::set<std::string> broke;
+  for (int i = 0; i < 10; i++) {
+    const std::string line = WhatSheSaysAtTheLot(skint, 0.0, 5.0, true, d);
+    if (line.empty()) break;
+    broke.insert(line);
+  }
+  CHECK(broke.size() > flush.size());
+
+  // And she runs out. She is a person with things to say, not a tip rotator.
+  Mentor talked;
+  for (int i = 0; i < 20; i++) {
+    WhatSheSaysAtTheLot(talked, 5.0, 5.0, false, d);
+  }
+  CHECK(WhatSheSaysAtTheLot(talked, 5.0, 5.0, false, d).empty());
+}
+
+static void TestThePlanIsTheMechanic() {
+  const RosterDials d;
+  const Rng w = Rng::FromStream("rosterseed", Stream::Worldgen);
+  // Coaching somebody on their weakness beats a comfortable hour on what
+  // they are already good at. **If that is not true the plan is a label.**
+  double onWeakness = 0.0, onStrength = 0.0, generic = 0.0;
+  for (int seed = 0; seed < 60; seed++) {
+    for (int who = 0; who < HowManyClientsThereAre(); who++) {
+      const ClientDef* def = TheClient(who);
+      Focus other = Focus::Power;
+      for (int f = 0; f < kFocusCount; f++) {
+        const Focus cand = static_cast<Focus>(f);
+        if (cand != def->strength && cand != def->weakness) {
+          other = cand;
+          break;
+        }
+      }
+      const Rng rw =
+          Rng::FromStream("plan" + std::to_string(seed), Stream::Worldgen);
+      for (int arm = 0; arm < 3; arm++) {
+        Roster r;
+        Client c;
+        c.who = who;
+        c.plan = arm == 0 ? def->weakness : (arm == 1 ? def->strength : other);
+        r.clients.push_back(c);
+        const CoachedSession s = CoachThem(r, 0, 50.0, rw, 100 + seed, d);
+        CHECK(s.ran);
+        if (arm == 0) onWeakness += s.progressGained;
+        else if (arm == 1) onStrength += s.progressGained;
+        else generic += s.progressGained;
+      }
+    }
+  }
+  CHECK(onWeakness > onStrength);
+  CHECK(onStrength > generic);
+
+  // An hour is an hour: the same client twice in a day is one session.
+  Roster once;
+  CHECK(TakeThemOn(once, w, 10, d));
+  const CoachedSession a = CoachThem(once, 0, 40.0, w, 10, d);
+  CHECK(a.ran);
+  CHECK(a.cash == d.sessionFee);
+  CHECK(!CoachThem(once, 0, 40.0, w, 10, d).ran);
+  CHECK(CoachThem(once, 0, 40.0, w, 11, d).ran);
+
+  // **They start on their strength, not their weakness.** You do not know
+  // the weakness on day one; that is what the first session is for.
+  Roster fresh;
+  CHECK(TakeThemOn(fresh, w, 5, d));
+  CHECK(fresh.clients[0].plan == TheClient(fresh.clients[0].who)->strength);
+  CHECK(SetThePlan(fresh, 0, TheClient(fresh.clients[0].who)->weakness));
+  CHECK(fresh.clients[0].plan == TheClient(fresh.clients[0].who)->weakness);
+  CHECK(!SetThePlan(fresh, 9, Focus::Head));
+}
+
+static void TestAClientGraduatesAndFreesTheSlot() {
+  const RosterDials d;
+  const Rng w = Rng::FromStream("gradseed", Stream::Worldgen);
+  Roster r;
+  for (int i = 0; i < d.maxClients; i++) CHECK(TakeThemOn(r, w, 1 + i, d));
+  CHECK(!RoomForOneMore(r, d));
+  CHECK(!TakeThemOn(r, w, 20, d));
+  CHECK(static_cast<int>(r.clients.size()) == d.maxClients);
+  // Nobody is on the books twice.
+  CHECK(r.clients[0].who != r.clients[1].who);
+  CHECK(r.clients[1].who != r.clients[2].who);
+  CHECK(r.clients[0].who != r.clients[2].who);
+
+  SetThePlan(r, 0, TheClient(r.clients[0].who)->weakness);
+  bool graduated = false;
+  int day = 30;
+  for (int i = 0; i < 400 && !graduated; i++) {
+    const CoachedSession s = CoachThem(r, 0, 80.0, w, day++, d);
+    if (s.graduated) {
+      graduated = true;
+      // **The payoff is that it ends.** A parting gift, your name moves,
+      // and the slot is free -- not a number that grinds forever.
+      CHECK(s.cash > d.sessionFee);
+      CHECK(s.rep > 0.0);
+      CHECK(!s.line.empty());
+    }
+  }
+  CHECK(graduated);
+  CHECK(r.graduated == 1);
+
+  // `JOB-10`: **a prodigy is a fact about the person, and it pays once.**
+  // Rolled per session it produced 1,647 of them in a thirty-year career,
+  // which is a bonus with a nice name on it rather than a revelation.
+  {
+    Roster p;
+    CHECK(TakeThemOn(p, w, 900, d));
+    p.clients[0].prodigy = true;
+    SetThePlan(p, 0, TheClient(p.clients[0].who)->weakness);
+    int seen = 0;
+    for (int i = 0; i < 40; i++) {
+      if (CoachThem(p, 0, 100.0, w, 1000 + i, d).prodigy) seen++;
+      if (p.clients.empty()) break;
+    }
+    CHECK(seen == 1);
+
+    // And you only see it if you read them right. A career of comfortable
+    // sessions never finds out.
+    Roster missed;
+    CHECK(TakeThemOn(missed, w, 900, d));
+    missed.clients[0].prodigy = true;
+    SetThePlan(missed, 0, TheClient(missed.clients[0].who)->strength);
+    int never = 0;
+    for (int i = 0; i < 40; i++) {
+      if (missed.clients.empty()) break;
+      if (CoachThem(missed, 0, 100.0, w, 1000 + i, d).prodigy) never++;
+    }
+    CHECK(never == 0);
+
+    // Nor if you are not good enough to recognise it.
+    Roster green;
+    CHECK(TakeThemOn(green, w, 900, d));
+    green.clients[0].prodigy = true;
+    SetThePlan(green, 0, TheClient(green.clients[0].who)->weakness);
+    int blind = 0;
+    for (int i = 0; i < 40; i++) {
+      if (green.clients.empty()) break;
+      if (CoachThem(green, 0, d.prodigyFromCraft - 1.0, w, 1000 + i, d)
+              .prodigy) {
+        blind++;
+      }
+    }
+    CHECK(blind == 0);
+  }
+  CHECK(static_cast<int>(r.clients.size()) == d.maxClients - 1);
+  CHECK(RoomForOneMore(r, d));
+  CHECK(TakeThemOn(r, w, 500, d));
+}
+
+static void TestYourPeopleTurnUp() {
+  const RosterDials d;
+  const Rng w = Rng::FromStream("leagueseed", Stream::Worldgen);
+  Roster r;
+  CHECK(TakeThemOn(r, w, 1, d));
+  const ClientDef* def = TheClient(r.clients[0].who);
+
+  // Somebody who has only just met you does not turn up to anything.
+  double gained = 0.0;
+  CHECK(TheyTurnedUpToLeagueNight(r, w, 10, RouteType::Crimp, gained, d)
+            .empty());
+  CHECK(gained == 0.0);
+
+  r.clients[0].sessions = d.leagueSessions;
+  // **Written by who they are.** A room set to their strength is a good
+  // night, every time; a room that finds their weakness is not.
+  int good = 0, rough = 0;
+  for (int day = 1; day <= 60; day++) {
+    Roster s = r;
+    double g = 0.0;
+    const std::vector<std::string> lines = TheyTurnedUpToLeagueNight(
+        s, w, day, FocusRoute(def->strength), g, d);
+    if (!lines.empty()) {
+      good++;
+      CHECK(g > 0.0);
+      CHECK(s.clients[0].progress > r.clients[0].progress);
+    }
+    Roster t = r;
+    double h = 0.0;
+    const std::vector<std::string> bad = TheyTurnedUpToLeagueNight(
+        t, w, day, FocusRoute(def->weakness), h, d);
+    if (!bad.empty()) {
+      rough++;
+      CHECK(h == 0.0);
+      CHECK(t.clients[0].progress == r.clients[0].progress);
+    }
+  }
+  // They come sometimes, not always -- the chance is a chance.
+  CHECK(good > 10 && good < 60);
+  CHECK(rough > 10 && rough < 60);
+}
+
+static void TestTheRosterSurvivesASave() {
+  SaveGame save;
+  const Rng w = Rng::FromStream("saveseed", Stream::Worldgen);
+  save.player.mentor.stage = 3;
+  save.player.mentor.lastDay = 88;
+  save.player.mentor.saidAtTheLot = 5;
+  CHECK(TakeThemOn(save.player.roster, w, 12));
+  CHECK(TakeThemOn(save.player.roster, w, 13));
+  SetThePlan(save.player.roster, 1, Focus::Durable);
+  save.player.roster.clients[0].progress = 42.5;
+  save.player.roster.clients[0].sessions = 9;
+  save.player.roster.graduated = 2;
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.mentor.stage == 3);
+  CHECK(back.player.mentor.lastDay == 88);
+  CHECK(back.player.mentor.saidAtTheLot == 5);
+  CHECK(back.player.roster.clients.size() == 2u);
+  CHECK(back.player.roster.clients[0].who ==
+        save.player.roster.clients[0].who);
+  CHECK(std::fabs(back.player.roster.clients[0].progress - 42.5) < 1e-9);
+  CHECK(back.player.roster.clients[0].sessions == 9);
+  CHECK(back.player.roster.clients[1].plan == Focus::Durable);
+  CHECK(back.player.roster.clients[1].goal ==
+        save.player.roster.clients[1].goal);
+  CHECK(back.player.roster.graduated == 2);
+}
+
 // --- the three small ones (DEPTH-8, DEPTH-19, CLB-32) -------------------
 
 static void TestYouLearnAGradeByGettingOnIt() {
@@ -18431,6 +18730,13 @@ int main() {
   TestYouLearnAGradeByGettingOnIt();
   TestClimbingHarderCostsMoreToLive();
   TestScoutingIsAPlanForOneComp();
+  TestSheOnlyBothersOnceYouAreClimbing();
+  TestTheCurriculumIsAnArcAndEnds();
+  TestSheIsInTheLotBeforeSheIsAMentor();
+  TestThePlanIsTheMechanic();
+  TestAClientGraduatesAndFreesTheSlot();
+  TestYourPeopleTurnUp();
+  TestTheRosterSurvivesASave();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);

@@ -457,6 +457,7 @@ private:
 
 	void OnInteract();
 	void OnClean();
+	void OnTheLesson();
 	void OnAskBeta();
 	void OnHoldPressed();
 	void OnHoldReleased();

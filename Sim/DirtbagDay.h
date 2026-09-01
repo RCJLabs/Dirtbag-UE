@@ -20,6 +20,7 @@
 #include "DirtbagConditions.h"
 #include "DirtbagWorldStage.h"
 #include "DirtbagCore.h"
+#include "DirtbagMentor.h"
 #include "DirtbagMonotony.h"
 #include "DirtbagRival.h"
 #include "DirtbagStyle.h"
@@ -322,6 +323,14 @@ struct PlayerState {
   // charges it and Sleep plumbs no return value through.
   double lastBill = 0.0;
   int lastBillDay = -1;
+
+  // `WRLD-10` / `TUT-6`: the old crusher who taught you, and how far
+  // through she got. See Sim/DirtbagMentor.h.
+  Mentor mentor;
+
+  // `ROSTER-1`: the people who pay you to teach them. Up to three, each
+  // with a plan you set.
+  Roster roster;
 
   // `CLB-32`: you have watched the film for the comp that is coming. Moves
   // onto the board when the board is set -- see TakeTheScoutingIn.
@@ -780,6 +789,34 @@ bool AMoveWantsAName(const PlayerState& player, RouteType& out,
 // people say about you.
 bool NameTheMove(PlayerState& player, const std::string& name,
                  const StyleDials& style = StyleDials{});
+
+// `WRLD-10`: is she at the crag today, with a lesson in it? Reads your
+// grade off the climber, so a caller cannot ask on behalf of somebody else.
+bool TheMentorIsAround(const PlayerState& player, const Rng& worldRng);
+
+// Take the lesson. Returns her line and what you took from it, or empty
+// when there is none to take.
+std::string ClimbWithTheMentor(PlayerState& player, DayState& day);
+
+// `TUT-6`: what she says at the Lot, before she is anybody's mentor. One
+// thing per visit, each once ever. Empty when she has nothing left.
+std::string WhatTheOldTimerSays(PlayerState& player);
+
+// `ROSTER-1`: take somebody on. False when the books are full.
+bool TakeOnAClient(PlayerState& player, const Rng& worldRng);
+
+// Set a client's plan -- the decision the whole system is about.
+bool SetAClientsPlan(PlayerState& player, int which, Focus plan);
+
+// An hour with one of them. Pays, moves them, and sometimes ends the
+// relationship, which is the point: a client who graduates is the payoff.
+CoachedSession CoachAClient(PlayerState& player, DayState& day, int which,
+                            const Rng& worldRng,
+                            const RosterDials& roster = RosterDials{});
+
+// Why you cannot coach right now, in the game's voice. Empty when you can.
+std::string WhyNotCoach(const PlayerState& player, const DayState& day,
+                        int which);
 
 // `CLB-32`: study the field before a comp that is on the calendar.
 //

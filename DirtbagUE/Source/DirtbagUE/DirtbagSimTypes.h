@@ -56,6 +56,7 @@
 #include "DirtbagTax.h"
 #include "DirtbagStyle.h"
 #include "DirtbagMonotony.h"
+#include "DirtbagMentor.h"
 #include "DirtbagYouth.h"
 #include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
@@ -1212,6 +1213,158 @@ struct FDirtbagRankingResult
 	 *  has never entered a lead comp. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	bool bEveryDiscipline = false;
+};
+
+/** One of the five areas both halves of the mentor system speak. Mirrors
+ *  dirtbag::Focus -- what somebody needs and what you can teach are the
+ *  same list, which is why the source reuses one vocabulary. */
+UENUM(BlueprintType)
+enum class EDirtbagFocus : uint8
+{
+	Power UMETA(DisplayName = "Bouldering & Power"),
+	Technique UMETA(DisplayName = "Footwork & Movement"),
+	Siege UMETA(DisplayName = "Projecting & Beta"),
+	Head UMETA(DisplayName = "The Mental Game"),
+	Durable UMETA(DisplayName = "Longevity & Health")
+};
+
+/** The old crusher who taught you, and how far through she got. Mirrors
+ *  dirtbag::Mentor. */
+USTRUCT(BlueprintType)
+struct FDirtbagMentor
+{
+	GENERATED_BODY()
+
+	/** 0 unmet, 1..N lessons taken. Reaching N graduates you. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Mentor")
+	int32 Stage = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Mentor")
+	int32 LastDay = -1;
+
+	/** Which of her Lot lines you have already heard, as a bitfield. She
+	 *  says each once, ever. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Mentor")
+	int32 SaidAtTheLot = 0;
+};
+
+/** One of her lessons: her voice, and what you took from it. Mirrors
+ *  dirtbag::Lesson. */
+USTRUCT(BlueprintType)
+struct FDirtbagLesson
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Mentor")
+	FString Title;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Mentor")
+	FString Line;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Mentor")
+	FString Learned;
+};
+
+/** Somebody who pays you to teach them. Mirrors dirtbag::Client. */
+USTRUCT(BlueprintType)
+struct FDirtbagClient
+{
+	GENERATED_BODY()
+
+	/** Index into the cast; -1 is an empty slot. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	int32 Who = -1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	FString Blurb;
+
+	/** The plan you set. Their weakness is the right answer; their strength
+	 *  is a comfortable session that wastes the hour. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	EDirtbagFocus Plan = EDirtbagFocus::Technique;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	double Grade = 2.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	double StartGrade = 2.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	double Progress = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	int32 Sessions = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	FString Goal;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	int32 StartDay = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	int32 LastSessionDay = -1;
+
+	/** You have seen what they are. The talent was theirs before you met
+	 *  them; the seeing is yours. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	bool bSawIt = false;
+
+	/** This one is the real thing.
+	 *
+	 *  **Deliberately not a UPROPERTY.** It has to survive the engine's
+	 *  ToSim/FromSim round trip -- dropping it would re-roll a client's
+	 *  talent on every call -- but no Blueprint may read it, because it is
+	 *  the answer to the question the coaching is asking. A plain member
+	 *  does both: it copies, and it is invisible to reflection. */
+	bool bProdigy = false;
+};
+
+/** The people on your books. Mirrors dirtbag::Roster. */
+USTRUCT(BlueprintType)
+struct FDirtbagRoster
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	TArray<FDirtbagClient> Clients;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	int32 Graduated = 0;
+};
+
+/** An hour with one of them. Mirrors dirtbag::CoachedSession. */
+USTRUCT(BlueprintType)
+struct FDirtbagCoachedSession
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	bool bRan = false;
+
+	/** They do not need you any more. The payoff is that it ends. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	bool bGraduated = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	bool bProdigy = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	double Cash = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	double Rep = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	double ProgressGained = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	bool bGradedUp = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	FString Line;
 };
 
 /** Every attempt and every send, by style. Mirrors dirtbag::StyleLog. Not
@@ -2961,6 +3114,14 @@ struct FDirtbagPlayerState
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	bool bScoutedTheField = false;
 
+	/** The old crusher who taught you. See FDirtbagMentor. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Mentor")
+	FDirtbagMentor Mentor;
+
+	/** The people who pay you to teach them. See FDirtbagRoster. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Coaching")
+	FDirtbagRoster Roster;
+
 	/** What a career of climbing made you. See FDirtbagStyleLog. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
 	FDirtbagStyleLog Style;
@@ -3427,6 +3588,15 @@ namespace DirtbagConvert
 	FDirtbagLeagueStanding FromSim(const dirtbag::LeagueStanding& In);
 	FDirtbagGymLeague FromSim(const dirtbag::GymLeague& In);
 	dirtbag::GymLeague ToSim(const FDirtbagGymLeague& In);
+
+	FDirtbagMentor FromSim(const dirtbag::Mentor& In);
+	dirtbag::Mentor ToSim(const FDirtbagMentor& In);
+	FDirtbagClient FromSim(const dirtbag::Client& In);
+	dirtbag::Client ToSim(const FDirtbagClient& In);
+	FDirtbagRoster FromSim(const dirtbag::Roster& In);
+	dirtbag::Roster ToSim(const FDirtbagRoster& In);
+	FDirtbagCoachedSession FromSim(const dirtbag::CoachedSession& In);
+	dirtbag::CoachedSession ToSim(const FDirtbagCoachedSession& In);
 
 	FDirtbagStyleLog FromSim(const dirtbag::StyleLog& In);
 	dirtbag::StyleLog ToSim(const FDirtbagStyleLog& In);
