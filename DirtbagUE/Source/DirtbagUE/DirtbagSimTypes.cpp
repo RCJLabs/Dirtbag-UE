@@ -91,6 +91,7 @@ dirtbag::ProjectMemory ToSim(const FDirtbagProjectMemory& In)
 	Out.cleanliness = In.Cleanliness;
 	Out.givenName = TCHAR_TO_UTF8(*In.GivenName);
 	Out.firstAscent = In.bFirstAscent;
+	Out.knowsTheGrade = In.bKnowsTheGrade;
 	Out.confirmedGrade = In.ConfirmedGrade;
 	Out.discipline = static_cast<dirtbag::Discipline>(In.Discipline);
 	return Out;
@@ -178,6 +179,7 @@ FDirtbagProjectMemory FromSim(const dirtbag::ProjectMemory& In)
 	Out.Cleanliness = In.cleanliness;
 	Out.GivenName = UTF8_TO_TCHAR(In.givenName.c_str());
 	Out.bFirstAscent = In.firstAscent;
+	Out.bKnowsTheGrade = In.knowsTheGrade;
 	Out.ConfirmedGrade = In.confirmedGrade;
 	Out.Discipline = static_cast<EDirtbagDiscipline>(In.discipline);
 	return Out;
@@ -214,6 +216,9 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.olympics = ToSim(In.Olympics);
 	Out.speedPersonalBest = In.SpeedPersonalBest;
 	Out.tax = ToSim(In.Tax);
+	Out.lastBill = In.LastBill;
+	Out.lastBillDay = In.LastBillDay;
+	Out.scoutedTheField = In.bScoutedTheField;
 	Out.style = ToSim(In.Style);
 	Out.signature = ToSim(In.Signature);
 	Out.signature2 = ToSim(In.Signature2);
@@ -319,6 +324,9 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Olympics = FromSim(In.olympics);
 	Out.SpeedPersonalBest = In.speedPersonalBest;
 	Out.Tax = FromSim(In.tax);
+	Out.LastBill = In.lastBill;
+	Out.LastBillDay = In.lastBillDay;
+	Out.bScoutedTheField = In.scoutedTheField;
 	Out.Style = FromSim(In.style);
 	Out.Signature = FromSim(In.signature);
 	Out.Signature2 = FromSim(In.signature2);

@@ -1572,6 +1572,13 @@ bool UDirtbagGameInstance::EnterComp()
 	GLiveComp = dirtbag::SetTheBoard(
 	    dirtbag::Rng::FromSeed(TCHAR_TO_UTF8(*Seed)),
 	    dirtbag::TierFor(Player.RankingPoints), AllroundGrade(), Player.Day);
+	// `CLB-32`: the plan comes into the room with you and is spent here --
+	// one comp, not every comp after it.
+	{
+		dirtbag::PlayerState P = DirtbagConvert::ToSim(Player);
+		dirtbag::TakeTheScoutingIn(GLiveComp, P);
+		Player.bScoutedTheField = P.scoutedTheField;
+	}
 	Comp = FDirtbagCompReadout{};
 	Comp.bActive = true;
 	RefreshComp();
@@ -2389,6 +2396,29 @@ FString UDirtbagGameInstance::TaxWarningLine() const
 	return FString(
 	    dirtbag::TaxWarning(DirtbagConvert::ToSim(Player.Tax), Player.Day)
 	        .c_str());
+}
+
+bool UDirtbagGameInstance::ScoutTheField()
+{
+	dirtbag::PlayerState P = DirtbagConvert::ToSim(Player);
+	dirtbag::DayState D = DirtbagConvert::ToSim(Day);
+	if (!dirtbag::ScoutTheField(P, D)) { return false; }
+	Player.bScoutedTheField = P.scoutedTheField;
+	Day.Energy = D.energy;
+	return true;
+}
+
+FString UDirtbagGameInstance::ScoutWhyNot() const
+{
+	return FString(dirtbag::WhyNotScout(DirtbagConvert::ToSim(Player),
+	                                    DirtbagConvert::ToSim(Day))
+	                   .c_str());
+}
+
+FString UDirtbagGameInstance::BillLine() const
+{
+	return FString(
+	    dirtbag::BillLine(DirtbagConvert::ToSim(Player)).c_str());
 }
 
 FString UDirtbagGameInstance::TaxNewsLine() const

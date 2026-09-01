@@ -423,6 +423,10 @@ AttemptResult AttemptProblem(CompState& comp, int problemIndex,
   // than a worse climber, because the climber is the same person -- it is
   // the situation that is harder.
   in.oddsPenalty = (1.0 - dials.pressure) * 2.0;
+  // `CLB-32`: and the plan, once per attempt across the whole comp rather
+  // than spent on the first one -- it is a plan for the session, not a
+  // one-shot.
+  if (comp.scouted) in.oddsPenalty -= dials.scoutingEdge;
   in.padding = 1.0;      // it is a competition wall; the mats are the floor
   in.warmth = 1.0;       // you warmed up in isolation
   in.cleanliness = 1.0;  // freshly set

@@ -17747,6 +17747,150 @@ static void TestWhoYouTurnedIntoSurvivesASave() {
   CHECK(back.player.stale.venue == "the Terrace");
 }
 
+// --- the three small ones (DEPTH-8, DEPTH-19, CLB-32) -------------------
+
+static void TestYouLearnAGradeByGettingOnIt() {
+  const Rng w = Rng::FromStream("sandbag", Stream::Worldgen);
+  // A line the book has wrong in the direction that matters.
+  Route bag = BuildRoute(w, "Second Breakfast", 2, 4, RouteType::Crimp,
+                         Discipline::Boulder);
+  CHECK(bag.grade == 2);
+  CHECK(bag.trueGrade == 4);
+
+  // **From the ground you read the book, and the book is wrong.**
+  CHECK(GradeYouSee(bag, false) == 2);
+  CHECK(GradeYouSee(bag, true) == 4);
+  CHECK(!WhatItReallyIs(bag).empty());
+  CHECK(WhatItReallyIs(bag).find("sandbagging") != std::string::npos);
+
+  Climber c;
+  c.skills = {55, 55, 55, 55, 55};
+  const RouteRead cold = ReadRouteKnowing(c, bag, false);
+  const RouteRead known = ReadRouteKnowing(c, bag, true);
+  // Knowing makes it read harder, which is the whole point: a line that has
+  // spat you off nine times should not read "comfortable" on the tenth.
+  CHECK(static_cast<int>(known) >= static_cast<int>(cold));
+  // And the old two-argument call is the guidebook's read, unchanged --
+  // the golden vectors go through it.
+  CHECK(ReadRoute(c, bag) == cold);
+
+  // A line the book has right says nothing at all. **Not "it is exactly
+  // what it says"** -- that is a sentence nobody would ever say out loud.
+  Route honest = BuildRoute(w, "Shade Line", 4, 4, RouteType::Crimp,
+                            Discipline::Boulder);
+  CHECK(WhatItReallyIs(honest).empty());
+  CHECK(ReadRouteKnowing(c, honest, true) == ReadRouteKnowing(c, honest, false));
+
+  // And it is learned by *touching* it, sent or not.
+  PlayerState p;
+  p.day = 40;
+  p.climber.skills = {55, 55, 55, 55, 55};
+  p.climber.skin = 100.0;
+  DayState d = WakeUp(p);
+  StartGymSession(p, d);
+  const Rng world = Rng::FromStream("sandbag", Stream::Worldgen);
+  AttemptInput in;
+  in.climber = p.climber;
+  in.route = bag;
+  Rng ar = Rng::FromSeed("felt");
+  const AttemptResult res = ResolveAttempt(ar, in);
+  ApplyAttemptToDay(p, d, bag, res, world);
+  CHECK(MemoryFor(p, bag).knowsTheGrade);
+  // Said once, on the burn that taught you.
+  CHECK(!d.heard.empty());
+  d.heard.clear();
+  ApplyAttemptToDay(p, d, bag, res, world);
+  CHECK(d.heard.empty());
+}
+
+static void TestClimbingHarderCostsMoreToLive() {
+  const DayDials d;
+  // One at the bottom, and it never runs away: the source's own line is
+  // that income scales faster, so it is a creep and not a crush.
+  CHECK(LifestyleMultiplier(0.0, d) == 1.0);
+  CHECK(LifestyleMultiplier(-5.0, d) == 1.0);   // a negative grade is a zero
+  CHECK(LifestyleMultiplier(12.0, d) > LifestyleMultiplier(5.0, d));
+  CHECK(std::fabs(LifestyleMultiplier(10.0, d) -
+                  (1.0 + 10.0 * d.lifestylePerGrade)) < 1e-9);
+  CHECK(LifestyleMultiplier(200.0, d) == d.lifestyleCap);
+
+  // The other half of DEPTH-19 was already built, under another name --
+  // harder lines eat rubber faster. Asserted here so the pair is pinned
+  // together rather than half of it drifting.
+  const GearDials g;
+  Shoes soft, hard;
+  WearShoes(soft, 40, 3, g);
+  WearShoes(hard, 40, 12, g);
+  CHECK(hard.wear > soft.wear);
+}
+
+static void TestScoutingIsAPlanForOneComp() {
+  const CompDials cd;
+  PlayerState p;
+  p.day = 30;
+  DayState d = WakeUp(p);
+
+  // No season, nothing to study.
+  CHECK(!ScoutTheField(p, d, cd));
+  CHECK(!WhyNotScout(p, d, cd).empty());
+
+  const Rng w = Rng::FromStream("scoutseed", Stream::Worldgen);
+  p.circuit = StartSeason(w, p.day, 1, cd);
+  // **Inside the announcement window, because that is when it is on the
+  // calendar.** You cannot study for a comp you have not been told about,
+  // which is what `DaysUntilComp` returning -1 means.
+  CHECK(!p.circuit.schedule.empty());
+  p.day = p.circuit.schedule[0] - 2;
+  d = WakeUp(p);
+  CHECK(DaysUntilComp(p.circuit, p.day, cd) >= 0);
+  const double before = d.energy;
+  CHECK(WhyNotScout(p, d, cd).empty());
+  CHECK(ScoutTheField(p, d, cd));
+  CHECK(p.scoutedTheField);
+  CHECK(std::fabs(before - d.energy - cd.scoutingEnergy) < 1e-9);
+
+  // Twice is not twice as good, and it costs nothing to find that out.
+  const double after = d.energy;
+  CHECK(!ScoutTheField(p, d, cd));
+  CHECK(d.energy == after);
+
+  // Too gassed to take anything in.
+  PlayerState tired;
+  tired.day = 30;
+  tired.circuit = p.circuit;
+  DayState td = WakeUp(tired);
+  td.energy = cd.scoutingEnergy - 1.0;
+  CHECK(!ScoutTheField(tired, td, cd));
+  CHECK(!WhyNotScout(tired, td, cd).empty());
+
+  // **The plan is for one comp.** It moves onto the board and off the
+  // climber, so the next comp is not free.
+  CompState board;
+  CHECK(!board.scouted);
+  TakeTheScoutingIn(board, p);
+  CHECK(board.scouted);
+  CHECK(!p.scoutedTheField);
+  CompState second;
+  TakeTheScoutingIn(second, p);
+  CHECK(!second.scouted);
+
+  // And it is worth something on the wall, in the direction it says.
+  CompState studied = SetTheBoard(w, CompTier::Local, 6.0, p.day, cd);
+  CompState blind = studied;
+  studied.scouted = true;
+  int toppedStudied = 0, toppedBlind = 0;
+  Climber c;
+  c.skills = {60, 60, 60, 60, 60};
+  c.skin = 100.0;
+  for (int i = 0; i < 400; i++) {
+    CompState a = studied, b = blind;
+    const Rng r = Rng::FromSeed("s" + std::to_string(i));
+    if (AttemptProblem(a, 0, c, r, cd).sent) toppedStudied++;
+    if (AttemptProblem(b, 0, c, r, cd).sent) toppedBlind++;
+  }
+  CHECK(toppedStudied >= toppedBlind);
+}
+
 // --- the annual reckoning (TAX-1) ---------------------------------------
 
 static void TestTheReckoningLandsOnce() {
@@ -18284,6 +18428,9 @@ int main() {
   TestAPlateauBuildsAndBreaks();
   TestTheSameWallsStopFeedingYou();
   TestWhoYouTurnedIntoSurvivesASave();
+  TestYouLearnAGradeByGettingOnIt();
+  TestClimbingHarderCostsMoreToLive();
+  TestScoutingIsAPlanForOneComp();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);

@@ -335,6 +335,7 @@ private:
 	 *  meant. */
 	void OnHangboard();
 	void OnRack();
+	void OnStudy();
 
 	/** While the book is open, 1/2/3 turn the page rather than naming a
 	 *  dream or sizing a stake. Returns true if the book took the key. */

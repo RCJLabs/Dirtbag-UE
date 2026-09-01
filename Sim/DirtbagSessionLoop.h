@@ -91,6 +91,16 @@ struct ProjectMemory {
   // opinion.
   int confirmedGrade = -1;
 
+  // `DEPTH-8`: you have been on it, so you know what it really climbs at.
+  //
+  // **Any attempt is enough, sent or not.** You do not have to do a route
+  // to feel how hard it actually is -- that is the whole of what a sandbag
+  // is, and it is why this is set on touching the line rather than on
+  // topping it. Until it is true the guidebook's number is the only one you
+  // have, which is what `ReadRoute` has always read and why *Second
+  // Breakfast* has said V2 for three years.
+  bool knowsTheGrade = false;
+
   // Boulder or pitch. The ledger records what you did, and which of the two
   // it was is part of that — a guidebook entry for a rope route reads
   // "5.12a" and one for a boulder reads "V7", and a career card that cannot

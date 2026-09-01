@@ -235,16 +235,44 @@ double AbilityOnRoute(const Climber& climber, const Route& route,
   return SkillToGrade(total / static_cast<double>(route.moves.size()), dials);
 }
 
-RouteRead ReadRoute(const Climber& climber, const Route& route,
-                    const SessionDials& dials) {
-  // The guidebook's opinion, not the rock's — you can't see a sandbag.
-  const double gap =
-      static_cast<double>(route.grade) - AbilityOnRoute(climber, route, dials);
+int GradeYouSee(const Route& route, bool knowsTheGrade) {
+  return knowsTheGrade ? route.trueGrade : route.grade;
+}
+
+std::string WhatItReallyIs(const Route& route) {
+  if (route.trueGrade == route.grade) return std::string();
+  const std::string real = route.discipline == Discipline::Boulder
+                               ? std::string(BoulderGradeName(route.trueGrade))
+                               : std::string(SportGradeName(route.trueGrade));
+  if (route.trueGrade > route.grade) {
+    return "That is no " +
+           std::string(route.discipline == Discipline::Boulder
+                           ? BoulderGradeName(route.grade)
+                           : SportGradeName(route.grade)) +
+           ". The locals have been sandbagging it -- it is " + real + ".";
+  }
+  return "Softer than the book says. It is " + real + ", whatever the "
+         "guidebook wants to believe.";
+}
+
+RouteRead ReadRouteKnowing(const Climber& climber, const Route& route,
+                           bool knowsTheGrade, const SessionDials& dials) {
+  // The guidebook's opinion until you have been on it, and the rock's
+  // afterwards -- see GradeYouSee. Before `DEPTH-8` this could only ever be
+  // the book, so a line that had sandbagged you nine times still read
+  // "comfortable" on the tenth.
+  const double gap = static_cast<double>(GradeYouSee(route, knowsTheGrade)) -
+                     AbilityOnRoute(climber, route, dials);
   if (gap <= -2.0) return RouteRead::Warmup;
   if (gap <= -0.5) return RouteRead::Comfortable;
   if (gap <= 1.0) return RouteRead::AtYourLimit;
   if (gap <= 2.5) return RouteRead::Project;
   return RouteRead::NotThisYear;
+}
+
+RouteRead ReadRoute(const Climber& climber, const Route& route,
+                    const SessionDials& dials) {
+  return ReadRouteKnowing(climber, route, false, dials);
 }
 
 const char* ReadRouteText(RouteRead read) {

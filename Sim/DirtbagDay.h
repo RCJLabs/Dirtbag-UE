@@ -136,6 +136,19 @@ struct DayDials {
   int billsEveryDays = 7;
   double billsAmount = 85.0;
 
+  // `DEPTH-19`: lifestyle creep. **Climbing harder costs more to sustain**
+  // -- more road, more food, more wear on the rig -- so the weekly nut
+  // rises with the grade you climb, capped at three times.
+  //
+  // **Half of DEPTH-19 was already here under another name.** Its other
+  // clause is that harder lines eat rubber faster, and
+  // `GearDials::wearPerGradeOverFive` has done exactly that since Phase 3.
+  // This is the half that was missing, and it is the half with teeth: the
+  // source's own note says income scales faster, *"so it's a creep not a
+  // crush -- but the dirtbag squeeze never fully resolves."*
+  double lifestylePerGrade = 0.08;
+  double lifestyleCap = 3.0;
+
   // Training: attempts near or above your level move the needle; laps on
   // jugs two grades below you move nothing. Calibrated so a committed week
   // (≈28 burns at or above your limit) is worth roughly a third of a grade
@@ -293,6 +306,26 @@ struct PlayerState {
   // stops paying, which the training ceiling was never able to say -- the
   // ceiling says *you cannot get much stronger*, this says *not like this*.
   Monotony monotony;
+
+  // **What the last week actually cost**, and the day it landed.
+  //
+  // Bills have been charged since Phase 1 and **nothing has ever said what
+  // they were.** The dial is $85; what leaves your pocket is that through
+  // the Desert Local's discount, whatever your habits cost you, and now
+  // `DEPTH-19`'s creep -- three multipliers, none of which the player or
+  // the probe could see. The season probe printed
+  // `DAYS / billsEveryDays * billsAmount` and called it a measurement,
+  // which is how "bills $132,940" survived three multipliers without ever
+  // moving.
+  //
+  // Recorded like the tax bill and for the same reason: the night tick
+  // charges it and Sleep plumbs no return value through.
+  double lastBill = 0.0;
+  int lastBillDay = -1;
+
+  // `CLB-32`: you have watched the film for the comp that is coming. Moves
+  // onto the board when the board is set -- see TakeTheScoutingIn.
+  bool scoutedTheField = false;
 
   // `PSY-2`: how long you have been climbing the same place. Dulls what the
   // climbing gives you and nothing else -- hobbies, the fire and people are
@@ -747,6 +780,32 @@ bool AMoveWantsAName(const PlayerState& player, RouteType& out,
 // people say about you.
 bool NameTheMove(PlayerState& player, const std::string& name,
                  const StyleDials& style = StyleDials{});
+
+// `CLB-32`: study the field before a comp that is on the calendar.
+//
+// Costs an evening's focus and nothing else -- no time, because film study
+// is what you do instead of sleeping rather than instead of climbing. False
+// when there is no comp coming, when you have already done it, or when you
+// are too gassed to take anything in.
+bool ScoutTheField(PlayerState& player, DayState& day,
+                   const CompDials& comp = CompDials{});
+
+// Why not, in the game's voice. Empty when you can.
+std::string WhyNotScout(const PlayerState& player, const DayState& day,
+                        const CompDials& comp = CompDials{});
+
+// Carry the plan into the room. Called when a comp's board is set: the flag
+// moves off the climber and onto the board, so it lasts exactly one comp.
+void TakeTheScoutingIn(CompState& board, PlayerState& player);
+
+// What the week cost, on the morning it landed. Empty on every other day
+// -- read across Sleep, the way the tax bill and the World Cup's season
+// news are.
+std::string BillLine(const PlayerState& player);
+
+// `DEPTH-19`: what the life costs at this grade. One at V0 and capped at
+// three, so a V12 climber pays about twice what they did on arrival.
+double LifestyleMultiplier(double grade, const DayDials& dials = DayDials{});
 
 // The project ledger for a route, created on first touch.
 ProjectMemory& MemoryFor(PlayerState& player, const Route& route);

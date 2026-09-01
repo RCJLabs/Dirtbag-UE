@@ -2044,6 +2044,12 @@ int main(int argc, char** argv) {
 
     const int generationWas = player.rival.generation;
     SleepToNextDay(player, today, world, dd);
+    // **Measured where it is charged.** The tally has to sit right after
+    // the night tick and outside every climbing conditional -- the first
+    // cut put it inside a block that only runs on days you pulled on,
+    // which counted about a twelfth of the bills and would have replaced
+    // one wrong number with another.
+    if (player.lastBillDay == player.day) t.spentBills += player.lastBill;
 
     // **The payoff, counted where it lands.** A generation turning over
     // with a name off the graduate list is a kid you coached stepping up --
@@ -2500,8 +2506,12 @@ int main(int argc, char** argv) {
   printf("  the Lot took %d lines; %d open lines remain\n",
          t.linesLostToTheLot, openLeft);
 
-  const double bills = static_cast<double>(DAYS / dd.billsEveryDays) *
-                       dd.billsAmount;
+  // **Measured, not calculated.** This line used to be
+  // `DAYS / billsEveryDays * billsAmount`, which is the dial and not the
+  // charge -- so it never saw the Desert Local's discount, never saw a
+  // habit, and would never have seen `DEPTH-19`'s creep. Seventh time in
+  // this project that the tool's own coverage was the bug.
+  const double bills = t.spentBills;
   printf("\n  the money, over %d days:\n", DAYS);
   printf("    earned  $%7.0f from %d shifts\n", t.earned, t.daysWorked);
   printf("    bills   $%7.0f\n", bills);

@@ -523,6 +523,56 @@ bool HangboardSession(PlayerState& player, DayState& day, const KitDials& kit,
   return true;
 }
 
+std::string WhyNotScout(const PlayerState& player, const DayState& day,
+                        const CompDials& comp) {
+  if (player.circuit.season == 0) return "There is no season on.";
+  if (DaysUntilComp(player.circuit, player.day, comp) < 0) {
+    return "Nothing on the calendar to study for.";
+  }
+  if (player.scoutedTheField) {
+    return "You have watched it. You know the plan.";
+  }
+  if (day.energy < comp.scoutingEnergy) {
+    return "Too gassed to take anything in. Sleep on it.";
+  }
+  return std::string();
+}
+
+bool ScoutTheField(PlayerState& player, DayState& day, const CompDials& comp) {
+  // **Gated on its own reason, not on another function's silence.** See
+  // `HostACompNight`, which once opened because `WhyNotACompNight` had
+  // nothing to say about a gym the player did not own.
+  if (!WhyNotScout(player, day, comp).empty()) return false;
+  day.energy = std::max(0.0, day.energy - comp.scoutingEnergy);
+  player.scoutedTheField = true;
+  return true;
+}
+
+void TakeTheScoutingIn(CompState& board, PlayerState& player) {
+  board.scouted = player.scoutedTheField;
+  // Off the climber the moment it is on the board. A plan is for one comp,
+  // and a flag that stayed set would make every comp after it free.
+  player.scoutedTheField = false;
+}
+
+std::string BillLine(const PlayerState& player) {
+  if (player.lastBillDay != player.day || player.lastBill <= 0.0) {
+    return std::string();
+  }
+  const long whole = static_cast<long>(player.lastBill + 0.5);
+  std::string line = "The week's nut: $" + std::to_string(whole) + ".";
+  if (player.owed > 0.0) {
+    line += " You are $" + std::to_string(static_cast<long>(player.owed + 0.5)) +
+            " behind.";
+  }
+  return line;
+}
+
+double LifestyleMultiplier(double grade, const DayDials& dials) {
+  return std::min(dials.lifestyleCap,
+                  1.0 + std::max(0.0, grade) * dials.lifestylePerGrade);
+}
+
 bool AMoveWantsAName(const PlayerState& player, RouteType& out,
                      const StyleDials& style) {
   return AStyleWantsAName(player.style, player.signature, player.signature2,
@@ -656,6 +706,19 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
     // what the burn was climbed under, and the burn has already happened --
     // stamping a body on it would price an attempt that is over.
     day.lastBurn = HowItWent(told, result);
+  }
+
+  // `DEPTH-8`: and now you know what it really climbs at. Any attempt is
+  // enough -- you do not have to send a line to feel how hard it is, which
+  // is the whole of what a sandbag is. Said once, on the burn that taught
+  // you, because a ledger that re-announced it every go would be a nag.
+  {
+    ProjectMemory& felt = MemoryFor(player, route);
+    if (!felt.knowsTheGrade) {
+      felt.knowsTheGrade = true;
+      const std::string real = WhatItReallyIs(route);
+      if (!real.empty()) day.heard = real;
+    }
   }
 
   // `DEPTH-6`: and what it made you. Here for the same reason the line
@@ -1193,8 +1256,21 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
       (player.day - 1) % dials.billsEveryDays == 0) {
     // What living costs *you*. The Desert Local's lane: you know how to
     // live on nothing, and it never stops being true.
-    Charge(player, dials.billsAmount * DailyCostMultiplier(player.character) *
-                       HabitDailyCost(player.quirks));
+    // `DEPTH-19`: and it costs more the harder you climb. Read off the
+    // climber rather than the route, because this is the life around the
+    // climbing and not the climbing.
+    const double bill =
+        dials.billsAmount * DailyCostMultiplier(player.character) *
+        HabitDailyCost(player.quirks) *
+        LifestyleMultiplier(SkillToGrade((player.climber.skills.power +
+                                          player.climber.skills.fingers +
+                                          player.climber.skills.technique +
+                                          player.climber.skills.endurance +
+                                          player.climber.skills.head) / 5.0),
+                            dials);
+    Charge(player, bill);
+    player.lastBill = bill;
+    player.lastBillDay = player.day;
   }
 
   // `CHAR-7`: a night sheds a little monotony, and a day you declared a

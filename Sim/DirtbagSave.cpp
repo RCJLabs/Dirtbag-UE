@@ -829,6 +829,26 @@ void MigrateV48ToV49(SaveFields& fields) {
   fields["stale.venue"] = "";
 }
 
+// v49 -> v50: the three small ones (`DEPTH-8`, `DEPTH-19`, `CLB-32`).
+//
+// **Every project you have already touched counts as known.** A v49 career
+// has been on those lines -- that is what the ledger *is* -- so telling it
+// otherwise would mean a climber who has thrown fifty burns at a sandbag
+// walks up to it tomorrow still reading the guidebook. `DEPTH-19` needs no
+// migration: it is a multiplier on a bill, not a field. And nobody has
+// scouted anything yet, because there was nothing to scout with.
+void MigrateV49ToV50(SaveFields& fields) {
+  fields["scouted"] = "0";
+  fields["bill.last"] = "0";
+  fields["bill.day"] = "-1";
+  int count = 0;
+  if (ParseInt(fields, "projects", count)) {
+    for (int i = 0; i < count; i++) {
+      fields[ProjKey(i, "knows")] = "1";
+    }
+  }
+}
+
 }  // namespace
 
 const std::vector<Migration>& DefaultMigrations() {
@@ -848,7 +868,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV39ToV40, &MigrateV40ToV41, &MigrateV41ToV42,
       &MigrateV42ToV43, &MigrateV43ToV44, &MigrateV44ToV45,
       &MigrateV45ToV46, &MigrateV46ToV47, &MigrateV47ToV48,
-      &MigrateV48ToV49};
+      &MigrateV48ToV49, &MigrateV49ToV50};
   return kMigrations;
 }
 
@@ -901,6 +921,8 @@ std::string SerializeSave(const SaveGame& save) {
     out << ProjKey(n, "clean") << "=" << NumToStr(m.cleanliness) << "\n";
     out << ProjKey(n, "given") << "=" << m.givenName << "\n";
     out << ProjKey(n, "fa") << "=" << (m.firstAscent ? "1" : "0") << "\n";
+    out << ProjKey(n, "knows") << "=" << (m.knowsTheGrade ? "1" : "0")
+        << "\n";
     out << ProjKey(n, "confirmed") << "=" << IntToStr(m.confirmedGrade) << "\n";
     out << ProjKey(n, "style") << "=" << IntToStr(static_cast<int>(m.firstSendStyle))
         << "\n";
@@ -1201,6 +1223,9 @@ std::string SerializeSave(const SaveGame& save) {
       }
       out << "stale.days=" << NumToStr(save.player.stale.days) << "\n";
       out << "stale.venue=" << save.player.stale.venue << "\n";
+      out << "scouted=" << (save.player.scoutedTheField ? "1" : "0") << "\n";
+      out << "bill.last=" << NumToStr(save.player.lastBill) << "\n";
+      out << "bill.day=" << IntToStr(save.player.lastBillDay) << "\n";
 
       const Olympics& og = save.player.olympics;
       out << "og.next=" << IntToStr(og.nextDay) << "\n";
@@ -1573,7 +1598,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
   save.player.projects.clear();
   for (int i = 0; i < projectCount; i++) {
     ProjectMemory m;
-    int sent = 0, style = 0, firstAscent = 0;
+    int sent = 0, style = 0, firstAscent = 0, knowsTheGrade = 0;
     if (!ParseString(fields, ProjKey(i, "name"), m.routeName) ||
         !ParseInt(fields, ProjKey(i, "grade"), m.grade) ||
         !ParseInt(fields, ProjKey(i, "attempts"), m.attempts) ||
@@ -1582,6 +1607,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseInt(fields, ProjKey(i, "sent"), sent) ||
         !ParseDouble(fields, ProjKey(i, "clean"), m.cleanliness) ||
         !ParseInt(fields, ProjKey(i, "fa"), firstAscent) ||
+        !ParseInt(fields, ProjKey(i, "knows"), knowsTheGrade) ||
         !ParseInt(fields, ProjKey(i, "confirmed"), m.confirmedGrade) ||
         !ParseInt(fields, ProjKey(i, "style"), style)) {
       return LoadResult::BadFormat;
@@ -1589,6 +1615,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
     m.sent = sent != 0;
     m.firstSendStyle = static_cast<Style>(style);
     m.firstAscent = firstAscent != 0;
+    m.knowsTheGrade = knowsTheGrade != 0;
     // A given name is allowed to be absent and allowed to be empty: an
     // unnamed line is the normal case, not a corrupt one.
     ParseString(fields, ProjKey(i, "given"), m.givenName);
@@ -1623,7 +1650,7 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         rankResults = 0, leagueFields = 0, medDiag = 0, medTreat = 0,
         medStage = 0, medJoints = 0, medScars = 0, medInsured = 0,
         medTreated = 0, medStaged = 0, sickActive = 0, sickMeds = 0,
-        toothStage = 0, craftN = 0;
+        toothStage = 0, craftN = 0, scouted = 0;
     if (!ParseString(fields, "rival.name", rv.name) ||
         !ParseInt(fields, "rival.style", style) ||
         !ParseInt(fields, "rival.vibe", vibe) ||
@@ -1756,6 +1783,9 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseDouble(fields, "tax.short", save.player.tax.lastShortfall) ||
         !ParseDouble(fields, "stale.days", save.player.stale.days) ||
         !ParseString(fields, "stale.venue", save.player.stale.venue) ||
+        !ParseInt(fields, "scouted", scouted) ||
+        !ParseDouble(fields, "bill.last", save.player.lastBill) ||
+        !ParseInt(fields, "bill.day", save.player.lastBillDay) ||
         !ParseString(fields, "sig.name", save.player.signature.name) ||
         !ParseString(fields, "sig2.name", save.player.signature2.name) ||
         !ParseInt(fields, "og.next", save.player.olympics.nextDay) ||
@@ -1907,6 +1937,8 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         }
       }
     }
+
+    save.player.scoutedTheField = scouted != 0;
 
     save.player.rankingRecord.clear();
     for (int i = 0; i < rankResults; i++) {

@@ -215,12 +215,30 @@ double AbilityOnRoute(const Climber& climber, const Route& route,
 // right up until you're on it.
 enum class RouteRead { Warmup, Comfortable, AtYourLimit, Project, NotThisYear };
 
+// `DEPTH-8`: which grade you are reading the line at. The guidebook's
+// number until you have been on it, and the rock's afterwards. **The route
+// always climbs at its true grade whether or not you know** -- this is only
+// about what you can see from the ground.
+int GradeYouSee(const Route& route, bool knowsTheGrade);
+
+// **What the sandbag turned out to be.** Empty unless the line is not what
+// the book says -- which is most of them, because most guidebook grades are
+// right.
+std::string WhatItReallyIs(const Route& route);
+
 RouteRead ReadRoute(const Climber& climber, const Route& route,
                     const SessionDials& dials = SessionDials{});
 
 // The read in the game's own voice. Text lives here for now; it moves to
 // DataTables when route descriptions become content.
 const char* ReadRouteText(RouteRead read);
+
+// The same read, against the grade you can actually see. `ReadRoute` is
+// this with `knowsTheGrade` false, kept because the golden vectors call it
+// and because a caller with no ledger to hand is reading a guidebook.
+RouteRead ReadRouteKnowing(const Climber& climber, const Route& route,
+                           bool knowsTheGrade,
+                           const SessionDials& dials = SessionDials{});
 
 struct AttemptInput {
   Climber climber;

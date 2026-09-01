@@ -605,6 +605,12 @@ struct FDirtbagProjectMemory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|FirstAscent")
 	bool bFirstAscent = false;
 
+	/** You have been on it, so you know what it really climbs at. Any
+	 *  attempt is enough -- you do not have to send a line to feel how hard
+	 *  it is, which is the whole of what a sandbag is. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	bool bKnowsTheGrade = false;
+
 	/** What it turned out to be. -1 until somebody had done it. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|FirstAscent")
 	int32 ConfirmedGrade = -1;
@@ -2940,6 +2946,20 @@ struct FDirtbagPlayerState
 	/** The year's prize money and the reckoning. See FDirtbagTax. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Tax")
 	FDirtbagTax Tax;
+
+	/** What the last week actually cost, and the day it landed. Bills have
+	 *  been charged since Phase 1 and nothing has ever said what they were
+	 *  -- three multipliers sit between the dial and your pocket. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	double LastBill = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Work")
+	int32 LastBillDay = -1;
+
+	/** You have watched the film for the comp that is coming. Moves onto
+	 *  the board when the board is set. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
+	bool bScoutedTheField = false;
 
 	/** What a career of climbing made you. See FDirtbagStyleLog. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")

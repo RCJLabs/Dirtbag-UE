@@ -738,6 +738,11 @@ void ADirtbagDaySpot::OnTriggerBegin(UPrimitiveComponent*, AActor* OtherActor,
 			                        &ADirtbagDaySpot::OnHangboard);
 			InputComponent->BindKey(EKeys::G, IE_Pressed, this,
 			                        &ADirtbagDaySpot::OnRack);
+			// `CLB-32`: an evening with the tape, at the van. Its own key
+			// because it is not a yes to anything -- it is a decision to
+			// spend a night not sleeping.
+			InputComponent->BindKey(EKeys::L, IE_Pressed, this,
+			                        &ADirtbagDaySpot::OnStudy);
 			bBoundInput = true;
 		}
 	}
@@ -1092,6 +1097,27 @@ void ADirtbagDaySpot::OnSign()
 	// a shortcut. You have swapped days for money and the days are the
 	// expensive half.
 	Say(FString::Printf(TEXT("Signed.  %s"), *What), FColor::Yellow, 9.f);
+	PushPrompt();
+}
+
+void ADirtbagDaySpot::OnStudy()
+{
+	if (!bPlayerNear || !Game || Kind != EDirtbagSpotKind::Van)
+	{
+		return;
+	}
+	// **Gated on its own reason.** The sim says why not, and it says why
+	// not in the game's voice -- so the refusal is the same sentence
+	// wherever it is asked.
+	const FString Why = Game->ScoutWhyNot();
+	if (!Game->ScoutTheField())
+	{
+		if (!Why.IsEmpty()) { Say(Why, FColor::Silver, 5.f); }
+		return;
+	}
+	Say(TEXT("An evening with the tape. You know what they do on a slab "
+	         "now, and what they do when it gets thin."),
+	    FColor::Yellow, 7.f);
 	PushPrompt();
 }
 
@@ -1494,6 +1520,7 @@ void ADirtbagDaySpot::OnInteract()
 		// days out at the van is where you can still do something about it.
 		// A career that has never won anything sees neither, which is most
 		// of them.
+		Say(Game->BillLine(), FColor::Silver, 7.f);
 		Say(Game->TaxNewsLine(), FColor::Orange, 9.f);
 		Say(Game->TaxWarningLine(), FColor::Silver, 7.f);
 		Say(Game->GetCareerLine(), FColor::Silver, 6.f);

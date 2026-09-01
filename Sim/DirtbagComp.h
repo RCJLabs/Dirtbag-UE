@@ -90,6 +90,15 @@ const char* RoundName(CompRound r);
 
 // A comp in progress. The player spends `attemptsLeft` across the board.
 struct CompState {
+  // `CLB-32`: you did the film study. **Not a reveal** -- the rival's style
+  // and vibe have always been visible; this is turning tendencies you
+  // already knew about into a plan, which is what preparation is.
+  //
+  // On the board rather than on the climber because it is a plan for *this*
+  // comp: it lasts the whole session rather than one go, and it is gone
+  // when the board is.
+  bool scouted = false;
+
   CompTier tier = CompTier::Local;
   std::vector<CompProblem> problems;
   std::vector<ProblemProgress> progress;
@@ -209,6 +218,13 @@ struct CompDials {
   double podiumCash = 60.0, podiumRep = 5.0;
   double topHalfCash = 25.0, topHalfRep = 2.0;
   double showedUpRep = 1.0;
+
+  // `CLB-32`: what an evening of film study is worth, in grade units, and
+  // what it costs. The source's +0.02 odds through the same 0.35-odds-to-
+  // the-grade conversion the style dials use -- **small on purpose**: it is
+  // a plan, not a different climber.
+  double scoutingEdge = 0.057;
+  double scoutingEnergy = 8.0;
   // Beating the rival is worth its own bump, on top of wherever you placed.
   double beatRivalRep = 4.0;
 

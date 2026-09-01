@@ -2205,6 +2205,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
 	bool WalkTheFloor();
 
+	/** `CLB-32`: study the field before a comp that is on the calendar.
+	 *  Costs an evening's focus and no time -- film study is what you do
+	 *  instead of sleeping, not instead of climbing. False if you cannot;
+	 *  ScoutWhyNot says why. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Comp")
+	bool ScoutTheField();
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Comp")
+	FString ScoutWhyNot() const;
+
+	/** What the week cost, on the morning it landed. Empty on every other
+	 *  morning -- read across Sleep, like the tax bill. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Work")
+	FString BillLine() const;
+
 	/** GYM-2: throw a comp night. $150 and an evening, and it needs a room
 	 *  worth filling. False if you cannot — GymCompWhyNot says why. */
 	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Gym")
