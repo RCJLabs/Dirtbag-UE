@@ -7,6 +7,13 @@ void ApplyBody(AttemptInput& in, const BodyContext& body) {
   // near send odds. **Added rather than assigned**: a comp's pressure is
   // already on this field and the two are different reasons.
   in.oddsPenalty += OddsPenalty(body.who, in.route.type);
+  // **And what a career of climbing made you.** `oddsPenalty` is a penalty
+  // by name and a signed shift by behaviour, so a specialty subtracts from
+  // it and an anti-style adds -- which is why this is one line rather than
+  // a second field. Both add rather than assign, for the reason above.
+  in.oddsPenalty -= AffinityOdds(body.style, in.route.type);
+  in.oddsPenalty -=
+      SignatureBonus(body.signature, body.signature2, in.route.type);
   // Temperament: how steady you are above the last piece, over and above
   // what your head skill says.
   in.boldness += NerveShift(body.who);

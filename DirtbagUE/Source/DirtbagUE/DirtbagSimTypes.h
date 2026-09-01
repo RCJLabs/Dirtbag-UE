@@ -54,6 +54,8 @@
 #include "DirtbagGymLeague.h"
 #include "DirtbagSpeed.h"
 #include "DirtbagTax.h"
+#include "DirtbagStyle.h"
+#include "DirtbagMonotony.h"
 #include "DirtbagYouth.h"
 #include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
@@ -510,6 +512,12 @@ USTRUCT(BlueprintType)
 struct FDirtbagSessionState
 {
 	GENERATED_BODY()
+
+	/** How much of what the climbing gives you still reaches you, after
+	 *  however long you have been climbing the same place. Multiplies the
+	 *  session's stoke gains and nothing else. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	double Freshness = 1.0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	double SkinLeft = 9.0;
@@ -1198,6 +1206,66 @@ struct FDirtbagRankingResult
 	 *  has never entered a lead comp. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	bool bEveryDiscipline = false;
+};
+
+/** Every attempt and every send, by style. Mirrors dirtbag::StyleLog. Not
+ *  decayed: this is who you turned into, and a career does not forget how
+ *  to crimp over a quiet winter. */
+USTRUCT(BlueprintType)
+struct FDirtbagStyleLog
+{
+	GENERATED_BODY()
+
+	/** Parallel to EDirtbagRouteType. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	TArray<double> Xp;
+
+	/** Sends only, which is what a signature is counted in. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	TArray<double> Sends;
+};
+
+/** A move the scene named after you. Mirrors dirtbag::Signature; `Type` is
+ *  meaningless while `Name` is empty. */
+USTRUCT(BlueprintType)
+struct FDirtbagSignature
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	EDirtbagRouteType Type = EDirtbagRouteType::Crimp;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	FString Name;
+};
+
+/** Per-skill monotony and the stimulus each lane last saw. Mirrors
+ *  dirtbag::Monotony. */
+USTRUCT(BlueprintType)
+struct FDirtbagMonotony
+{
+	GENERATED_BODY()
+
+	/** Parallel to the five skills. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	TArray<double> Level;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	TArray<FString> LastStimulus;
+};
+
+/** How long you have been climbing the same place. Mirrors
+ *  dirtbag::VenueStaleness. */
+USTRUCT(BlueprintType)
+struct FDirtbagVenueStaleness
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	double Days = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	FString Venue;
 };
 
 /** The year's prize money and when it was last settled. Mirrors
@@ -2873,6 +2941,26 @@ struct FDirtbagPlayerState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Tax")
 	FDirtbagTax Tax;
 
+	/** What a career of climbing made you. See FDirtbagStyleLog. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	FDirtbagStyleLog Style;
+
+	/** The moves the scene named after you. The second is always a
+	 *  different style from the first. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	FDirtbagSignature Signature;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	FDirtbagSignature Signature2;
+
+	/** Why the same session every day stops paying. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	FDirtbagMonotony Monotony;
+
+	/** And why the same walls do. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Style")
+	FDirtbagVenueStaleness Stale;
+
 	/** The league you run, if you started one. See FDirtbagGymLeague. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	FDirtbagGymLeague GymLeague;
@@ -2988,6 +3076,18 @@ USTRUCT(BlueprintType)
 struct FDirtbagDayState
 {
 	GENERATED_BODY()
+
+	/** Where you climbed today, for the staleness counter. Empty means the
+	 *  crag. Set before the session starts. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
+	FString Venue;
+
+	/** Monotony is stepped once a session and read once a burn. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	bool bMonotonyFed = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag")
+	TArray<double> MonotonyGain;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag")
 	double Hour = 7.0;
@@ -3307,6 +3407,15 @@ namespace DirtbagConvert
 	FDirtbagLeagueStanding FromSim(const dirtbag::LeagueStanding& In);
 	FDirtbagGymLeague FromSim(const dirtbag::GymLeague& In);
 	dirtbag::GymLeague ToSim(const FDirtbagGymLeague& In);
+
+	FDirtbagStyleLog FromSim(const dirtbag::StyleLog& In);
+	dirtbag::StyleLog ToSim(const FDirtbagStyleLog& In);
+	FDirtbagSignature FromSim(const dirtbag::Signature& In);
+	dirtbag::Signature ToSim(const FDirtbagSignature& In);
+	FDirtbagMonotony FromSim(const dirtbag::Monotony& In);
+	dirtbag::Monotony ToSim(const FDirtbagMonotony& In);
+	FDirtbagVenueStaleness FromSim(const dirtbag::VenueStaleness& In);
+	dirtbag::VenueStaleness ToSim(const FDirtbagVenueStaleness& In);
 
 	FDirtbagTax FromSim(const dirtbag::Tax& In);
 	dirtbag::Tax ToSim(const FDirtbagTax& In);

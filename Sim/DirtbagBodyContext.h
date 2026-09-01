@@ -41,6 +41,7 @@
 #include "DirtbagLife.h"
 #include "DirtbagMedical.h"
 #include "DirtbagSession.h"
+#include "DirtbagStyle.h"
 
 namespace dirtbag {
 
@@ -69,6 +70,15 @@ struct BodyContext {
   // whole test. Only the steadiness reaches an attempt; psyche is the day
   // loop's business and money is nobody's. See Sim/DirtbagLife.h.
   Life life;
+  // **And what a career of climbing made you.** Here for the same reason
+  // the tooth is: a specialist is a specialist at a comp, on a comp board
+  // somebody else set, exactly as much as at their home crag. Nothing else
+  // in the game reads the route type against the climber's own history, so
+  // leaving it to the callers would mean the two attempt paths disagreed
+  // about who you are. See Sim/DirtbagStyle.h.
+  StyleLog style;
+  Signature signature;
+  Signature signature2;
   // Scars and joints are priced off the date. The logbook is too.
   int day = 0;
 };

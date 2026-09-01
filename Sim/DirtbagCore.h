@@ -34,6 +34,8 @@ const char* SportGradeName(int grade);    // "5.7".."5.16a"
 // --- Routes -----------------------------------------------------------------
 
 enum class RouteType { Crimp, Power, Endurance, Technical, Dyno, Crack };
+constexpr int kRouteTypeCount = 6;
+const char* RouteTypeName(RouteType type);
 // What kind of climbing this is, which is really a question about what is
 // between you and the ground.
 //

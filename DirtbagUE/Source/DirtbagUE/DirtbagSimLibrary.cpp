@@ -1177,3 +1177,85 @@ FString UDirtbagSimLibrary::CompDisciplineName(
 	return FString(dirtbag::CompDisciplineName(
 	    static_cast<dirtbag::CompDiscipline>(Discipline)));
 }
+
+// --- what you climb makes you (DEPTH-6, CHAR-6, CHAR-7, PSY-2) ----------
+
+FString UDirtbagSimLibrary::RouteTypeName(EDirtbagRouteType Type)
+{
+	return FString(dirtbag::RouteTypeName(static_cast<dirtbag::RouteType>(Type)));
+}
+
+FString UDirtbagSimLibrary::StyleTierName(const FDirtbagPlayerState& Player,
+                                          EDirtbagRouteType Type)
+{
+	return FString(dirtbag::StyleTierName(
+	    DirtbagConvert::ToSim(Player.Style),
+	    static_cast<dirtbag::RouteType>(Type)));
+}
+
+EDirtbagRouteType UDirtbagSimLibrary::YourStyle(
+    const FDirtbagPlayerState& Player)
+{
+	return static_cast<EDirtbagRouteType>(
+	    dirtbag::YourStyle(DirtbagConvert::ToSim(Player.Style)));
+}
+
+EDirtbagRouteType UDirtbagSimLibrary::YourAntiStyle(
+    const FDirtbagPlayerState& Player)
+{
+	return static_cast<EDirtbagRouteType>(
+	    dirtbag::YourAntiStyle(DirtbagConvert::ToSim(Player.Style)));
+}
+
+FString UDirtbagSimLibrary::StyleLine(const FDirtbagPlayerState& Player)
+{
+	return FString(
+	    dirtbag::StyleLine(DirtbagConvert::ToSim(Player.Style)).c_str());
+}
+
+bool UDirtbagSimLibrary::AMoveWantsAName(const FDirtbagPlayerState& Player,
+                                         EDirtbagRouteType& Type)
+{
+	dirtbag::RouteType Out = dirtbag::RouteType::Crimp;
+	const bool Ready = dirtbag::AStyleWantsAName(
+	    DirtbagConvert::ToSim(Player.Style),
+	    DirtbagConvert::ToSim(Player.Signature),
+	    DirtbagConvert::ToSim(Player.Signature2), Out);
+	Type = static_cast<EDirtbagRouteType>(Out);
+	return Ready;
+}
+
+FString UDirtbagSimLibrary::SignatureKind(EDirtbagRouteType Type)
+{
+	return FString(
+	    dirtbag::SignatureKind(static_cast<dirtbag::RouteType>(Type)));
+}
+
+bool UDirtbagSimLibrary::NameTheMove(FDirtbagPlayerState& Player,
+                                     const FString& Name)
+{
+	dirtbag::PlayerState P = DirtbagConvert::ToSim(Player);
+	if (!dirtbag::NameTheMove(P, TCHAR_TO_UTF8(*Name))) { return false; }
+	Player.Signature = DirtbagConvert::FromSim(P.signature);
+	Player.Signature2 = DirtbagConvert::FromSim(P.signature2);
+	Player.Standing = DirtbagConvert::FromSim(P.standing);
+	return true;
+}
+
+FString UDirtbagSimLibrary::SignatureLine(const FDirtbagSignature& Signature)
+{
+	return FString(
+	    dirtbag::SignatureLine(DirtbagConvert::ToSim(Signature)).c_str());
+}
+
+FString UDirtbagSimLibrary::PlateauLine(const FDirtbagPlayerState& Player)
+{
+	return FString(
+	    dirtbag::PlateauLine(DirtbagConvert::ToSim(Player.Monotony)).c_str());
+}
+
+FString UDirtbagSimLibrary::StaleLine(const FDirtbagPlayerState& Player)
+{
+	return FString(
+	    dirtbag::StaleLine(DirtbagConvert::ToSim(Player.Stale)).c_str());
+}

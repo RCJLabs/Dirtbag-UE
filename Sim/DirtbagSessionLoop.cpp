@@ -105,9 +105,11 @@ void CommitAttempt(SessionState& session, ProjectMemory& memory,
 
   const bool newHighpoint = result.highpoint > memory.bestHighpoint;
   if (result.sent) {
-    session.psyche = std::min(1.0, session.psyche + loop.psycheSendGain);
+    session.psyche =
+        std::min(1.0, session.psyche + loop.psycheSendGain * session.freshness);
   } else if (newHighpoint) {
-    session.psyche = std::min(1.0, session.psyche + loop.psycheHighpointGain);
+    session.psyche = std::min(
+        1.0, session.psyche + loop.psycheHighpointGain * session.freshness);
   } else {
     session.psyche =
         std::max(loop.psycheFloor, session.psyche - loop.psycheFailLoss);

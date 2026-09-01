@@ -68,7 +68,7 @@ namespace dirtbag {
 //   migrates to **never selected** -- which is exact rather than generous,
 //   and means the first review after loading is the first call rather than
 //   a re-announcement of one that never happened.
-constexpr int kSaveVersion = 48;
+constexpr int kSaveVersion = 49;
 
 struct SaveGame {
   int version = kSaveVersion;

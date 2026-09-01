@@ -803,6 +803,32 @@ void MigrateV47ToV48(SaveFields& fields) {
       IntToStr(ParseInt(fields, "day", day) ? TaxYearOf(day) : -1);
 }
 
+// v48 -> v49: what a career of climbing made you (`DEPTH-6`, `CHAR-6`,
+// `CHAR-7`, `PSY-2`).
+//
+// **Everything starts at zero, and that is the honest answer.** A v48
+// career has climbed for years and the game never recorded a single route
+// type, so there is nothing to reconstruct -- inventing a style from the
+// logbook would be guessing at an identity, which is worse than an old
+// climber who has apparently just started paying attention. They build one
+// from here, which takes about a fortnight of climbing.
+void MigrateV48ToV49(SaveFields& fields) {
+  for (int i = 0; i < kRouteTypeCount; i++) {
+    fields["style.xp" + IntToStr(i)] = "0";
+    fields["style.sends" + IntToStr(i)] = "0";
+  }
+  fields["sig.type"] = "0";
+  fields["sig.name"] = "";
+  fields["sig2.type"] = "0";
+  fields["sig2.name"] = "";
+  for (int i = 0; i < kSkillCount; i++) {
+    fields["mono.level" + IntToStr(i)] = "0";
+    fields["mono.stim" + IntToStr(i)] = "";
+  }
+  fields["stale.days"] = "0";
+  fields["stale.venue"] = "";
+}
+
 }  // namespace
 
 const std::vector<Migration>& DefaultMigrations() {
@@ -821,7 +847,8 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39,
       &MigrateV39ToV40, &MigrateV40ToV41, &MigrateV41ToV42,
       &MigrateV42ToV43, &MigrateV43ToV44, &MigrateV44ToV45,
-      &MigrateV45ToV46, &MigrateV46ToV47, &MigrateV47ToV48};
+      &MigrateV45ToV46, &MigrateV46ToV47, &MigrateV47ToV48,
+      &MigrateV48ToV49};
   return kMigrations;
 }
 
@@ -1153,6 +1180,27 @@ std::string SerializeSave(const SaveGame& save) {
       out << "tax.was=" << NumToStr(save.player.tax.lastTaxable) << "\n";
       out << "tax.bill=" << NumToStr(save.player.tax.lastBilled) << "\n";
       out << "tax.short=" << NumToStr(save.player.tax.lastShortfall) << "\n";
+
+      const StyleLog& sl = save.player.style;
+      for (int i = 0; i < kRouteTypeCount; i++) {
+        out << "style.xp" << IntToStr(i) << "=" << NumToStr(sl.xp[i]) << "\n";
+        out << "style.sends" << IntToStr(i) << "=" << NumToStr(sl.sends[i])
+            << "\n";
+      }
+      out << "sig.type=" << IntToStr(static_cast<int>(save.player.signature.type))
+          << "\n";
+      out << "sig.name=" << save.player.signature.name << "\n";
+      out << "sig2.type="
+          << IntToStr(static_cast<int>(save.player.signature2.type)) << "\n";
+      out << "sig2.name=" << save.player.signature2.name << "\n";
+      for (int i = 0; i < kSkillCount; i++) {
+        out << "mono.level" << IntToStr(i) << "="
+            << NumToStr(save.player.monotony.level[i]) << "\n";
+        out << "mono.stim" << IntToStr(i) << "="
+            << save.player.monotony.lastStimulus[i] << "\n";
+      }
+      out << "stale.days=" << NumToStr(save.player.stale.days) << "\n";
+      out << "stale.venue=" << save.player.stale.venue << "\n";
 
       const Olympics& og = save.player.olympics;
       out << "og.next=" << IntToStr(og.nextDay) << "\n";
@@ -1706,6 +1754,10 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseDouble(fields, "tax.was", save.player.tax.lastTaxable) ||
         !ParseDouble(fields, "tax.bill", save.player.tax.lastBilled) ||
         !ParseDouble(fields, "tax.short", save.player.tax.lastShortfall) ||
+        !ParseDouble(fields, "stale.days", save.player.stale.days) ||
+        !ParseString(fields, "stale.venue", save.player.stale.venue) ||
+        !ParseString(fields, "sig.name", save.player.signature.name) ||
+        !ParseString(fields, "sig2.name", save.player.signature2.name) ||
         !ParseInt(fields, "og.next", save.player.olympics.nextDay) ||
         !ParseInt(fields, "og.appearances",
                   save.player.olympics.appearances) ||
@@ -1826,6 +1878,34 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         return LoadResult::BadFormat;
       }
       save.player.league.fieldPoints.push_back(p);
+    }
+
+    {
+      int sigType = 0, sig2Type = 0;
+      if (!ParseInt(fields, "sig.type", sigType) ||
+          !ParseInt(fields, "sig2.type", sig2Type) ||
+          sigType < 0 || sigType >= kRouteTypeCount ||
+          sig2Type < 0 || sig2Type >= kRouteTypeCount) {
+        return LoadResult::BadFormat;
+      }
+      save.player.signature.type = static_cast<RouteType>(sigType);
+      save.player.signature2.type = static_cast<RouteType>(sig2Type);
+      for (int i = 0; i < kRouteTypeCount; i++) {
+        if (!ParseDouble(fields, "style.xp" + IntToStr(i),
+                         save.player.style.xp[i]) ||
+            !ParseDouble(fields, "style.sends" + IntToStr(i),
+                         save.player.style.sends[i])) {
+          return LoadResult::BadFormat;
+        }
+      }
+      for (int i = 0; i < kSkillCount; i++) {
+        if (!ParseDouble(fields, "mono.level" + IntToStr(i),
+                         save.player.monotony.level[i]) ||
+            !ParseString(fields, "mono.stim" + IntToStr(i),
+                         save.player.monotony.lastStimulus[i])) {
+          return LoadResult::BadFormat;
+        }
+      }
     }
 
     save.player.rankingRecord.clear();

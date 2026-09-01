@@ -672,4 +672,58 @@ public:
 	static double RankingInDiscipline(const FDirtbagPlayerState& Player,
 	                                  EDirtbagCompDiscipline Discipline,
 	                                  int32 Today);
+
+	// --- what you climb makes you (DEPTH-6, CHAR-6, CHAR-7, PSY-2) ------
+
+	/** "crimp" / "power" / "endurance" / "technical" / "dyno" / "crack". */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString RouteTypeName(EDirtbagRouteType Type);
+
+	/** "specialty" / "solid" / "neutral" / "weak" / "anti-style", or empty
+	 *  before there is enough mileage to have an opinion. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString StyleTierName(const FDirtbagPlayerState& Player,
+	                             EDirtbagRouteType Type);
+
+	/** The styles you are best and worst at. Both meaningless before there
+	 *  is enough mileage -- check StyleTierName is not empty first. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static EDirtbagRouteType YourStyle(const FDirtbagPlayerState& Player);
+
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static EDirtbagRouteType YourAntiStyle(const FDirtbagPlayerState& Player);
+
+	/** "Known for crimp. Everybody has watched you on crack." Empty before
+	 *  there is enough mileage, and its own sentence for a generalist --
+	 *  which is a real answer and not a missing one. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString StyleLine(const FDirtbagPlayerState& Player);
+
+	/** Has a style gone deep enough to have a name? **Nothing is named
+	 *  without the player** -- this only says one is ready. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static bool AMoveWantsAName(const FDirtbagPlayerState& Player,
+	                            EDirtbagRouteType& Type);
+
+	/** What kind of move it is, in words: "crimp sequence", "dyno", "crack
+	 *  pitch". What the naming prompt asks about. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString SignatureKind(EDirtbagRouteType Type);
+
+	/** Name it. False on an empty name or when nothing was ready. */
+	UFUNCTION(BlueprintCallable, Category = "Dirtbag|Style")
+	static bool NameTheMove(UPARAM(ref) FDirtbagPlayerState& Player,
+	                        const FString& Name);
+
+	/** What a named move reads like once it has one. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString SignatureLine(const FDirtbagSignature& Signature);
+
+	/** What has stopped answering, or empty when nothing is stuck. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString PlateauLine(const FDirtbagPlayerState& Player);
+
+	/** What the sameness reads like, or empty until it is worth saying. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Style")
+	static FString StaleLine(const FDirtbagPlayerState& Player);
 };

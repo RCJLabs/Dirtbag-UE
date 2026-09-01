@@ -103,6 +103,13 @@ struct SessionState {
   double skinLeft = 9.0;  // starts at the climber's skin; every burn spends it
   double warmth = 0.0;    // 0 cold .. 1 warmed up
   double psyche = 0.7;    // starts at the climber's; swings with the session
+  // `PSY-2`: how much of what the climbing gives you still reaches you,
+  // after however long you have been climbing the same place. Multiplies
+  // the session's stoke **gains and nothing else** -- a bored climber still
+  // loses psyche to a bad burn at full rate, and hobbies, the fire and
+  // people are untouched because they are the cure. One by default, so a
+  // caller that has never heard of it resolves exactly as it always did.
+  double freshness = 1.0;
   int attemptsMade = 0;   // across all routes this session
   double shoeWear = 0.0;  // the pair you pulled on with today
   // How covered the landing is, 0 bare ground .. 1 as padded as it gets.

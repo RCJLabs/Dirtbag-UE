@@ -167,6 +167,13 @@ struct Tally {
   int rivalGenerations = 0;
   int racesStarted = 0, racesWon = 0, racesLost = 0;   // won: you got there
   // The ladder: comps entered, and how far up it a career actually gets.
+  // `CHAR-7`: the highest any lane's monotony ever got, and how many days
+  // a lane was genuinely plateaued. **Sampled rather than derived**: the
+  // end-of-career level says nothing, because a rest day sheds it -- which
+  // is how the first cut of this reported "nothing stuck" from a career
+  // that had spent years at half gains.
+  double monotonyPeak = 0.0;
+  int plateauDays = 0;
   int compsEntered = 0, compWins = 0, compPodiums = 0;
   double rankingPeak = 0.0;
   double rankingEnd = 0.0;   // where it settles, which is the real number
@@ -1570,6 +1577,14 @@ int main(int argc, char** argv) {
           t.belayerCappedDays++;
         }
         if (burnsToday > 0) { t.daysClimbed++; if (note.empty()) note = "climbed"; }
+        {
+          double worst = 0.0;
+          for (int i = 0; i < kSkillCount; i++) {
+            worst = std::max(worst, player.monotony.level[i]);
+          }
+          t.monotonyPeak = std::max(t.monotonyPeak, worst);
+          if (worst >= MonotonyDials{}.breakthroughAt) t.plateauDays++;
+        }
       }
     }
 
@@ -2439,6 +2454,29 @@ int main(int argc, char** argv) {
   printf("\n=== after %d days ===\n", DAYS);
   printf("  tax: $%.0f handed over across the career, $%.0f owing this year\n",
          player.tax.paidLifetime, player.tax.taxable);
+  {
+    // `DEPTH-6`: who a career of climbing turned you into, and whether it
+    // turned you into anybody at all.
+    printf("  style:");
+    for (int i = 0; i < kRouteTypeCount; i++) {
+      printf(" %s %.0f%%%s", RouteTypeName(static_cast<RouteType>(i)),
+             100.0 * player.style.xp[i] / std::max(1.0, StyleVolume(player.style)),
+             StyleTierName(player.style, static_cast<RouteType>(i))[0]
+                 ? "" : "");
+    }
+    printf("\n         %s\n", StyleLine(player.style).empty()
+                                   ? "no style at all"
+                                   : StyleLine(player.style).c_str());
+    printf("         %s | stale %.1f at %s (freshness %.2f)\n",
+           player.signature.name.empty()
+               ? "no move with a name"
+               : player.signature.name.c_str(),
+           player.stale.days,
+           player.stale.venue.empty() ? "nowhere" : player.stale.venue.c_str(),
+           Freshness(player.stale));
+    printf("         monotony peaked at %.2f; %d days plateaued of %d "
+           "climbed\n", t.monotonyPeak, t.plateauDays, t.daysClimbed);
+  }
   printf("  climbed %d days, worked %d, rested %d; %d days never came good\n",
          t.daysClimbed, t.daysWorked, t.daysRested, t.daysWashedOut);
   printf("  %d burns, %d sends, %d first ascents\n", t.burns, t.sends,

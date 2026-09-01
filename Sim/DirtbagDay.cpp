@@ -471,6 +471,15 @@ void StartGymSession(PlayerState& player, DayState& day, const KitDials& kit,
       HabitBetaRate(player.quirks, player.logbook, player.day);
   day.session.skinRate =
       HabitSkinCost(player.quirks, player.logbook, player.day);
+  // `PSY-2`: the same walls, again. Ticked here rather than per burn --
+  // staleness is about days, not goes -- and only on the first pull-on of
+  // the day, so two sessions do not count as two days somewhere.
+  if (!day.atGym) {
+    ClimbedAt(player.stale, day.venue.empty() ? "the crag" : day.venue);
+  }
+  // **How much of what the climbing gives you still reaches you.** Read
+  // once at the start, like everything else the session carries in.
+  day.session.freshness = Freshness(player.stale);
   day.atGym = true;
   day.indoors = false;   // GoToTheGym says otherwise, and it is the only thing that does
 }
@@ -479,6 +488,10 @@ bool GoToTheGym(PlayerState& player, DayState& day, const KitDials& kit,
                 const DayDials& dials) {
   if (!IsGymMember(player.kit)) return false;
   PassHours(day, kit.gymTravelHours, dials);
+  // Set before the session starts, because that is where `PSY-2` reads it.
+  // The gym is one place however many walls it has -- which is the whole
+  // reason a season of plastic goes flat.
+  day.venue = "the gym";
   StartGymSession(player, day, kit, dials);
   // Full mats, every time. This is what you are actually paying for on the
   // days the weather has already decided for you.
@@ -507,6 +520,30 @@ bool HangboardSession(PlayerState& player, DayState& day, const KitDials& kit,
        kit.hangboardFingerGain *
            std::max(0.15, 1.0 - player.climber.skills.fingers /
                                     dials.trainingCeiling));
+  return true;
+}
+
+bool AMoveWantsAName(const PlayerState& player, RouteType& out,
+                     const StyleDials& style) {
+  return AStyleWantsAName(player.style, player.signature, player.signature2,
+                          out, style);
+}
+
+bool NameTheMove(PlayerState& player, const std::string& name,
+                 const StyleDials& style) {
+  if (name.empty()) return false;
+  RouteType type = RouteType::Crimp;
+  if (!AStyleWantsAName(player.style, player.signature, player.signature2,
+                        type, style)) {
+    return false;
+  }
+  Signature& slot =
+      player.signature.name.empty() ? player.signature : player.signature2;
+  slot.type = type;
+  slot.name = name;
+  // The scene, and only the scene. The old guard do not care what you call
+  // your dyno and the stewardship people care even less.
+  Shift(player.standing, Faction::Scene, style.signatureRep);
   return true;
 }
 
@@ -621,6 +658,12 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
     day.lastBurn = HowItWent(told, result);
   }
 
+  // `DEPTH-6`: and what it made you. Here for the same reason the line
+  // above is here -- this is the one function every burn in the game passes
+  // through, and a style tally that depended on which caller remembered to
+  // add to it would build a different climber down each path.
+  Climbed(player.style, route.type, result.sent);
+
   // Rubber goes by the move, and faster the harder you pull.
   WearShoes(player.shoes, static_cast<int>(result.timeline.size()),
             route.trueGrade);
@@ -712,13 +755,46 @@ void ApplyAttemptToDay(PlayerState& player, DayState& day, const Route& route,
   // surfaces a talent has to be the thing the talent affects: a gift in a
   // lane you never train stays a secret forever, which is the design.
   const bool indoor = day.atGym;
+  // **What the session was, for monotony's purposes.** The line itself,
+  // not its type.
+  //
+  // The first cut used the route *type*, and it was the wrong granularity
+  // in the direction that makes a dial lie: an outdoor crimper's stimulus
+  // is then "crimp|rock" every session for thirty years, so all five lanes
+  // saturate together and stay there. `CHAR-7`'s numbers are tuned against
+  // a stimulus that actually changes -- the source's is an exercise off a
+  // training menu -- so pointing them at something that never changes is
+  // the same class of mistake as porting a dial tuned to an eighteen-day
+  // year.
+  //
+  // The line is the honest unit. **A plateau is what grinding one route
+  // gets you**, which is a true sentence about climbing and is exactly what
+  // a projector does; a day at the crag picking different lines is genuinely
+  // different work and should pay like it.
+  const std::string stimulus = route.name + (indoor ? "|gym" : "|rock");
+  // Once a session, on the first burn -- see DayState::monotonyFed. A
+  // session is one stimulus however many goes it takes.
+  if (!day.monotonyFed) {
+    day.monotonyFed = true;
+    for (int i = 0; i < kSkillCount; i++) {
+      day.monotonyGain[i] =
+          Feed(player.monotony, static_cast<Skill>(i), stimulus).gainMultiplier;
+    }
+  }
   const auto teach = [&](Skill lane, double base) {
     const double mult = SkillGainMultiplier(player.character, lane, indoor,
                                            false, player.climber.psyche) *
                         HabitSkillGain(player.quirks, player.logbook, lane,
                                        player.day);
+    // `CHAR-7` and `DEPTH-13`, both here because this is the one seam where
+    // identity meets progress. Monotony says *not like this*; the style
+    // multiplier says your anti-style has the most room to grow and your
+    // specialty has already given you most of what it has. They multiply,
+    // because they are two different true things about the same session.
+    const double shaped = day.monotonyGain[static_cast<int>(lane)] *
+                          StyleGainMultiplier(player.style, route.type);
     WorkedOn(player.character, lane, base > 0.0 ? 1.0 : 0.0);
-    return base * mult;
+    return base * mult * shaped;
   };
 
   Gain(player.climber.skills.power,
@@ -1120,6 +1196,12 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
     Charge(player, dials.billsAmount * DailyCostMultiplier(player.character) *
                        HabitDailyCost(player.quirks));
   }
+
+  // `CHAR-7`: a night sheds a little monotony, and a day you declared a
+  // rest day sheds a lot. **This is the only thing in this port that makes
+  // periodisation pay** -- the training ceiling does not care whether you
+  // rested, and it should not: they are two different sentences.
+  SleptOn(player.monotony, !day.atGym);
 
   // `TAX-1`: one morning a year, on the year's prize money and nothing
   // else. **After the day has rolled over**, so the reckoning lands on the

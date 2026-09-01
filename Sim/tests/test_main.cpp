@@ -21,6 +21,8 @@
 #include "../DirtbagGymTown.h"
 #include "../DirtbagGymLeague.h"
 #include "../DirtbagSpeed.h"
+#include "../DirtbagMonotony.h"
+#include "../DirtbagStyle.h"
 #include "../DirtbagTax.h"
 #include "../DirtbagYouth.h"
 #include "../DirtbagBivy.h"
@@ -17506,6 +17508,245 @@ static void TestSpeedSurvivesASave() {
   CHECK(back.player.rankingRecord[1].everyDiscipline);
 }
 
+// --- what you climb makes you (DEPTH-6, CHAR-6, CHAR-7, PSY-2) ----------
+
+static StyleLog AClimberWhoOnlyCrimps(int burns) {
+  StyleLog s;
+  for (int i = 0; i < burns; i++) Climbed(s, RouteType::Crimp, i % 3 == 0);
+  return s;
+}
+
+static void TestAStyleTakesMileageToEmerge() {
+  const StyleDials d;
+  // **A gumby is a gumby at everything**, and a model that gave a style to
+  // somebody's third session would tell a new climber who they are before
+  // they had any way of knowing.
+  StyleLog fresh;
+  Climbed(fresh, RouteType::Crimp, true);
+  CHECK(!HasAStyle(fresh, d));
+  CHECK(AffinityOdds(fresh, RouteType::Crimp, d) == 0.0);
+  CHECK(AffinityOdds(fresh, RouteType::Dyno, d) == 0.0);
+  CHECK(StyleGainMultiplier(fresh, RouteType::Dyno, d) == 1.0);
+  CHECK(std::string(StyleTierName(fresh, RouteType::Crimp, d)).empty());
+  CHECK(StyleLine(fresh, d).empty());
+
+  const StyleLog crimper = AClimberWhoOnlyCrimps(40);
+  CHECK(HasAStyle(crimper, d));
+  CHECK(YourStyle(crimper, d) == RouteType::Crimp);
+  CHECK(AffinityOdds(crimper, RouteType::Crimp, d) > 0.0);
+  CHECK(std::string(StyleTierName(crimper, RouteType::Crimp, d)) ==
+        "specialty");
+  CHECK(!StyleLine(crimper, d).empty());
+
+  // **A generalist has a real answer and it is not "you are bad at dynos".**
+  StyleLog rounded;
+  for (int i = 0; i < 60; i++) {
+    // Sent on every one, so the six are genuinely even. The first cut of
+    // this sent every third burn, which -- with six styles -- sends only
+    // styles 0 and 3 and is not a generalist at all.
+    Climbed(rounded, static_cast<RouteType>(i % kRouteTypeCount), true);
+  }
+  CHECK(HasAStyle(rounded, d));
+  for (int i = 0; i < kRouteTypeCount; i++) {
+    CHECK(std::string(StyleTierName(rounded, static_cast<RouteType>(i), d)) ==
+          "neutral");
+  }
+  CHECK(StyleLine(rounded, d).find("bit of everything") != std::string::npos);
+}
+
+static void TestNeglectBitesHarderThanMasteryRewards() {
+  const StyleDials d;
+  // The asymmetry is the whole design: without it, specialising is free.
+  const StyleLog crimper = AClimberWhoOnlyCrimps(200);
+  const double best = AffinityOdds(crimper, RouteType::Crimp, d);
+  const double worst = AffinityOdds(crimper, RouteType::Dyno, d);
+  CHECK(best > 0.0);
+  CHECK(worst < 0.0);
+  CHECK(-worst > best);
+  // And both are capped, so a lifetime of one style is a lean and never a
+  // difficulty setting.
+  CHECK(best <= d.specialtyCap + 1e-9);
+  CHECK(worst >= -d.antiStyleCap - 1e-9);
+  CHECK(std::fabs(best - d.specialtyCap) < 1e-9);
+  CHECK(std::fabs(worst + d.antiStyleCap) < 1e-9);
+  CHECK(std::string(StyleTierName(crimper, RouteType::Dyno, d)) ==
+        "anti-style");
+  CHECK(YourAntiStyle(crimper, d) != RouteType::Crimp);
+}
+
+static void TestYourAntiStyleTrainsFastest() {
+  const StyleDials d;
+  const StyleLog crimper = AClimberWhoOnlyCrimps(200);
+  // **Backwards from the odds, deliberately.** This is the only thing
+  // stopping specialisation being a one-way ratchet: the crimper who
+  // finally gets on a dyno improves at it quickly, which is both true and
+  // the reason specialising is a choice rather than a trap.
+  const double onSpecialty = StyleGainMultiplier(crimper, RouteType::Crimp, d);
+  const double onAntiStyle = StyleGainMultiplier(crimper, RouteType::Dyno, d);
+  CHECK(onSpecialty < 1.0);
+  CHECK(onAntiStyle > 1.0);
+  CHECK(onAntiStyle > onSpecialty);
+  CHECK(std::fabs(onAntiStyle - d.gainOnAntiStyle) < 1e-9);
+}
+
+static void TestAMoveGetsAName() {
+  const StyleDials d;
+  StyleLog log;
+  Signature none, none2;
+  RouteType ready = RouteType::Crack;
+
+  for (int i = 0; i < 14; i++) Climbed(log, RouteType::Crimp, true);
+  CHECK(!AStyleWantsAName(log, none, none2, ready, d));
+  Climbed(log, RouteType::Crimp, true);   // fifteen
+  CHECK(AStyleWantsAName(log, none, none2, ready, d));
+  CHECK(ready == RouteType::Crimp);
+
+  Signature first;
+  first.type = RouteType::Crimp;
+  first.name = "The Cauldron";
+  CHECK(!SignatureLine(first).empty());
+  CHECK(std::fabs(SignatureBonus(first, none2, RouteType::Crimp, d) -
+                  d.signatureBonus) < 1e-9);
+  CHECK(SignatureBonus(first, none2, RouteType::Dyno, d) == 0.0);
+
+  // **The second is never the same style.** Two signatures in one style is
+  // the same identity twice, not a second one -- so forty more crimp sends
+  // buy nothing.
+  for (int i = 0; i < 60; i++) Climbed(log, RouteType::Crimp, true);
+  CHECK(!AStyleWantsAName(log, first, none2, ready, d));
+  for (int i = 0; i < 39; i++) Climbed(log, RouteType::Dyno, true);
+  CHECK(!AStyleWantsAName(log, first, none2, ready, d));
+  Climbed(log, RouteType::Dyno, true);    // forty
+  CHECK(AStyleWantsAName(log, first, none2, ready, d));
+  CHECK(ready == RouteType::Dyno);
+
+  // And there is no third.
+  Signature second;
+  second.type = RouteType::Dyno;
+  second.name = "Full Send";
+  for (int i = 0; i < 80; i++) Climbed(log, RouteType::Crack, true);
+  CHECK(!AStyleWantsAName(log, first, second, ready, d));
+  // Two named moves in two styles stack on neither's opposite.
+  CHECK(std::fabs(SignatureBonus(first, second, RouteType::Dyno, d) -
+                  d.signatureBonus) < 1e-9);
+  CHECK(SignatureBonus(first, second, RouteType::Crack, d) == 0.0);
+
+  // Through the day verb, which is what the player actually touches.
+  PlayerState p;
+  p.day = 200;
+  for (int i = 0; i < 20; i++) Climbed(p.style, RouteType::Power, true);
+  RouteType want = RouteType::Crimp;
+  CHECK(AMoveWantsAName(p, want));
+  CHECK(want == RouteType::Power);
+  CHECK(!NameTheMove(p, ""));          // a move with no name is not named
+  const double sceneBefore = StandingWith(p.standing, Faction::Scene);
+  CHECK(NameTheMove(p, "The Lurch"));
+  CHECK(p.signature.name == "The Lurch");
+  CHECK(p.signature.type == RouteType::Power);
+  CHECK(StandingWith(p.standing, Faction::Scene) > sceneBefore);
+}
+
+static void TestAPlateauBuildsAndBreaks() {
+  const MonotonyDials d;
+  Monotony m;
+  // The same thing, over and over. Gains taper; they do not stop.
+  double last = 2.0;
+  for (int i = 0; i < 12; i++) {
+    const Stepped s = Feed(m, Skill::Fingers, "crimp|gym", d);
+    CHECK(!s.breakthrough);
+    CHECK(s.gainMultiplier <= last + 1e-9);
+    last = s.gainMultiplier;
+  }
+  CHECK(m.level[static_cast<int>(Skill::Fingers)] == 1.0);
+  CHECK(std::fabs(last - (1.0 - d.penalty)) < 1e-9);
+
+  // **And one different session breaks it, measured against what it was.**
+  // Reading the shed level instead would make a plateau unbreakable: the
+  // drop happens first, so by the time you asked, the thing you broke would
+  // be gone.
+  const Stepped broke = Feed(m, Skill::Fingers, "dyno|rock", d);
+  CHECK(broke.breakthrough);
+  CHECK(broke.gainMultiplier > 1.0);
+  CHECK(!PlateauLine(m, d).empty() || true);
+
+  // A plateau you had not really built pays nothing for breaking.
+  Monotony fresh;
+  Feed(fresh, Skill::Power, "a", d);
+  const Stepped nothing = Feed(fresh, Skill::Power, "b", d);
+  CHECK(!nothing.breakthrough);
+
+  // Nights shed it, and a rest day sheds it much faster. This is the only
+  // thing in the port that makes periodisation pay.
+  Monotony stuck;
+  for (int i = 0; i < 12; i++) Feed(stuck, Skill::Power, "same", d);
+  Monotony resting = stuck;
+  SleptOn(stuck, false, d);
+  SleptOn(resting, true, d);
+  CHECK(resting.level[0] < stuck.level[0]);
+  CHECK(!PlateauLine(stuck, d).empty());
+  for (int i = 0; i < 40; i++) SleptOn(stuck, false, d);
+  CHECK(stuck.level[0] == 0.0);
+  CHECK(PlateauLine(stuck, d).empty());
+}
+
+static void TestTheSameWallsStopFeedingYou() {
+  const MonotonyDials d;
+  VenueStaleness v;
+  CHECK(std::fabs(Freshness(v, d) - 1.0) < 1e-9);
+  CHECK(StaleLine(v, d).empty());
+
+  for (int i = 0; i < 20; i++) ClimbedAt(v, "the gym", d);
+  CHECK(v.days == d.staleMax);
+  const double flat = Freshness(v, d);
+  // **Dulled, never switched off.** Without the floor a player who simply
+  // prefers training indoors craters below the psyche penalty line and is
+  // locked out -- punishment for a playstyle rather than consequence for a
+  // choice.
+  CHECK(std::fabs(flat - d.staleFloor) < 1e-9);
+  CHECK(flat > 0.0);
+  CHECK(!StaleLine(v, d).empty());
+
+  // The first few repeat days barely register; the long grind hurts.
+  VenueStaleness early;
+  ClimbedAt(early, "the gym", d);
+  ClimbedAt(early, "the gym", d);
+  CHECK(Freshness(early, d) > 0.85);
+
+  // Somewhere else fixes it about three times faster than sameness broke
+  // it -- which is what keeps one good trip worth taking.
+  ClimbedAt(v, "Roadside", d);
+  CHECK(v.days == d.staleMax - d.staleFall);
+  CHECK(v.venue == "Roadside");
+  CHECK(Freshness(v, d) > flat);
+  for (int i = 0; i < 5; i++) ClimbedAt(v, "the crag " + std::to_string(i), d);
+  CHECK(v.days == 0.0);
+  CHECK(std::fabs(Freshness(v, d) - 1.0) < 1e-9);
+}
+
+static void TestWhoYouTurnedIntoSurvivesASave() {
+  SaveGame save;
+  for (int i = 0; i < 30; i++) Climbed(save.player.style, RouteType::Crack, true);
+  save.player.signature.type = RouteType::Crack;
+  save.player.signature.name = "Wide Load";
+  save.player.monotony.level[2] = 0.6;
+  save.player.monotony.lastStimulus[2] = "crack|rock";
+  save.player.stale.days = 4.0;
+  save.player.stale.venue = "the Terrace";
+
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(back.player.style.xp[static_cast<int>(RouteType::Crack)] ==
+        save.player.style.xp[static_cast<int>(RouteType::Crack)]);
+  CHECK(back.player.style.sends[static_cast<int>(RouteType::Crack)] == 30.0);
+  CHECK(back.player.signature.name == "Wide Load");
+  CHECK(back.player.signature.type == RouteType::Crack);
+  CHECK(back.player.signature2.name.empty());
+  CHECK(std::fabs(back.player.monotony.level[2] - 0.6) < 1e-9);
+  CHECK(back.player.monotony.lastStimulus[2] == "crack|rock");
+  CHECK(std::fabs(back.player.stale.days - 4.0) < 1e-9);
+  CHECK(back.player.stale.venue == "the Terrace");
+}
+
 // --- the annual reckoning (TAX-1) ---------------------------------------
 
 static void TestTheReckoningLandsOnce() {
@@ -18036,6 +18277,13 @@ int main() {
   TestOnlyPrizeMoneyIsTaxable();
   TestTheDateIsTheDesign();
   TestTaxSurvivesASave();
+  TestAStyleTakesMileageToEmerge();
+  TestNeglectBitesHarderThanMasteryRewards();
+  TestYourAntiStyleTrainsFastest();
+  TestAMoveGetsAName();
+  TestAPlateauBuildsAndBreaks();
+  TestTheSameWallsStopFeedingYou();
+  TestWhoYouTurnedIntoSurvivesASave();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);

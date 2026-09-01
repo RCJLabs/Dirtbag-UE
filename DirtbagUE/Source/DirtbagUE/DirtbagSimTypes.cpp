@@ -65,6 +65,7 @@ dirtbag::Route ToSim(const FDirtbagRoute& In)
 dirtbag::SessionState ToSim(const FDirtbagSessionState& In)
 {
 	dirtbag::SessionState Out;
+	Out.freshness = In.Freshness;
 	Out.skinLeft = In.SkinLeft;
 	Out.warmth = In.Warmth;
 	Out.psyche = In.Psyche;
@@ -152,6 +153,7 @@ FDirtbagSessionState FromSim(const dirtbag::SessionState& In)
 {
 	FDirtbagSessionState Out;
 	Out.ShoeWear = In.shoeWear;
+	Out.Freshness = In.freshness;
 	Out.SkinLeft = In.skinLeft;
 	Out.Warmth = In.warmth;
 	Out.Psyche = In.psyche;
@@ -212,6 +214,11 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.olympics = ToSim(In.Olympics);
 	Out.speedPersonalBest = In.SpeedPersonalBest;
 	Out.tax = ToSim(In.Tax);
+	Out.style = ToSim(In.Style);
+	Out.signature = ToSim(In.Signature);
+	Out.signature2 = ToSim(In.Signature2);
+	Out.monotony = ToSim(In.Monotony);
+	Out.stale = ToSim(In.Stale);
 	Out.league = ToSim(In.League);
 	Out.medical = ToSim(In.Medical);
 	Out.hand = ToSim(In.Hand);
@@ -260,6 +267,15 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 dirtbag::DayState ToSim(const FDirtbagDayState& In)
 {
 	dirtbag::DayState Out;
+	Out.venue = TCHAR_TO_UTF8(*In.Venue);
+	Out.monotonyFed = In.bMonotonyFed;
+	for (int32 i = 0; i < dirtbag::kSkillCount; i++)
+	{
+		if (In.MonotonyGain.IsValidIndex(i))
+		{
+			Out.monotonyGain[i] = In.MonotonyGain[i];
+		}
+	}
 	Out.hour = In.Hour;
 	Out.energy = In.Energy;
 	Out.hunger = In.Hunger;
@@ -303,6 +319,11 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.Olympics = FromSim(In.olympics);
 	Out.SpeedPersonalBest = In.speedPersonalBest;
 	Out.Tax = FromSim(In.tax);
+	Out.Style = FromSim(In.style);
+	Out.Signature = FromSim(In.signature);
+	Out.Signature2 = FromSim(In.signature2);
+	Out.Monotony = FromSim(In.monotony);
+	Out.Stale = FromSim(In.stale);
 	Out.League = FromSim(In.league);
 	Out.Medical = FromSim(In.medical);
 	Out.Hand = FromSim(In.hand);
@@ -359,6 +380,12 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 FDirtbagDayState FromSim(const dirtbag::DayState& In)
 {
 	FDirtbagDayState Out;
+	Out.Venue = FString(In.venue.c_str());
+	Out.bMonotonyFed = In.monotonyFed;
+	for (int32 i = 0; i < dirtbag::kSkillCount; i++)
+	{
+		Out.MonotonyGain.Add(In.monotonyGain[i]);
+	}
 	Out.Hour = In.hour;
 	Out.Energy = In.energy;
 	Out.Hunger = In.hunger;
@@ -1570,6 +1597,85 @@ dirtbag::League ToSim(const FDirtbagLeague& In)
 	Out.nights = In.Nights;
 	Out.blockWins = In.BlockWins;
 	Out.lastClimbedNight = In.LastClimbedNight;
+	return Out;
+}
+
+FDirtbagStyleLog FromSim(const dirtbag::StyleLog& In)
+{
+	FDirtbagStyleLog Out;
+	for (int32 i = 0; i < dirtbag::kRouteTypeCount; i++)
+	{
+		Out.Xp.Add(In.xp[i]);
+		Out.Sends.Add(In.sends[i]);
+	}
+	return Out;
+}
+
+dirtbag::StyleLog ToSim(const FDirtbagStyleLog& In)
+{
+	dirtbag::StyleLog Out;
+	for (int32 i = 0; i < dirtbag::kRouteTypeCount; i++)
+	{
+		if (In.Xp.IsValidIndex(i)) { Out.xp[i] = In.Xp[i]; }
+		if (In.Sends.IsValidIndex(i)) { Out.sends[i] = In.Sends[i]; }
+	}
+	return Out;
+}
+
+FDirtbagSignature FromSim(const dirtbag::Signature& In)
+{
+	FDirtbagSignature Out;
+	Out.Type = static_cast<EDirtbagRouteType>(In.type);
+	Out.Name = FString(In.name.c_str());
+	return Out;
+}
+
+dirtbag::Signature ToSim(const FDirtbagSignature& In)
+{
+	dirtbag::Signature Out;
+	Out.type = static_cast<dirtbag::RouteType>(In.Type);
+	Out.name = TCHAR_TO_UTF8(*In.Name);
+	return Out;
+}
+
+FDirtbagMonotony FromSim(const dirtbag::Monotony& In)
+{
+	FDirtbagMonotony Out;
+	for (int32 i = 0; i < dirtbag::kSkillCount; i++)
+	{
+		Out.Level.Add(In.level[i]);
+		Out.LastStimulus.Add(FString(In.lastStimulus[i].c_str()));
+	}
+	return Out;
+}
+
+dirtbag::Monotony ToSim(const FDirtbagMonotony& In)
+{
+	dirtbag::Monotony Out;
+	for (int32 i = 0; i < dirtbag::kSkillCount; i++)
+	{
+		if (In.Level.IsValidIndex(i)) { Out.level[i] = In.Level[i]; }
+		if (In.LastStimulus.IsValidIndex(i))
+		{
+			Out.lastStimulus[i] = TCHAR_TO_UTF8(*In.LastStimulus[i]);
+		}
+	}
+	return Out;
+}
+
+FDirtbagVenueStaleness FromSim(const dirtbag::VenueStaleness& In)
+{
+	FDirtbagVenueStaleness Out;
+	Out.Days = In.days;
+	Out.Venue = FString(In.venue.c_str());
+	return Out;
+}
+
+dirtbag::VenueStaleness ToSim(const FDirtbagVenueStaleness& In)
+{
+	dirtbag::VenueStaleness Out;
+	Out.days = In.Days;
+	Out.venue = TCHAR_TO_UTF8(*In.Venue);
 	return Out;
 }
 

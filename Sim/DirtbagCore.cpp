@@ -28,6 +28,18 @@ Climber NewClimber(const Rng& rng) {
   return c;
 }
 
+const char* RouteTypeName(RouteType type) {
+  switch (type) {
+    case RouteType::Crimp:     return "crimp";
+    case RouteType::Power:     return "power";
+    case RouteType::Endurance: return "endurance";
+    case RouteType::Technical: return "technical";
+    case RouteType::Dyno:      return "dyno";
+    case RouteType::Crack:     return "crack";
+  }
+  return "crimp";
+}
+
 const char* CompDisciplineName(CompDiscipline d) {
   switch (d) {
     case CompDiscipline::Boulder: return "boulder";

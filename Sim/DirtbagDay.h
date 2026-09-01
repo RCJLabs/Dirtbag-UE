@@ -20,7 +20,9 @@
 #include "DirtbagConditions.h"
 #include "DirtbagWorldStage.h"
 #include "DirtbagCore.h"
+#include "DirtbagMonotony.h"
 #include "DirtbagRival.h"
+#include "DirtbagStyle.h"
 #include "DirtbagTax.h"
 #include "DirtbagCrew.h"
 #include "DirtbagDreams.h"
@@ -276,6 +278,27 @@ struct PlayerState {
   // point of the life. See Sim/DirtbagTax.h.
   Tax tax;
 
+  // `DEPTH-6`: every attempt and every send, by style. What a career of
+  // climbing made you, and the one thing here that is not decayed -- a
+  // career does not forget how to crimp over a quiet winter. See
+  // Sim/DirtbagStyle.h.
+  StyleLog style;
+
+  // `CHAR-6` / `CHAR-6b`: the moves the scene named after you. Empty names
+  // until they are earned, and the second is always a different style.
+  Signature signature;
+  Signature signature2;
+
+  // `CHAR-7`: per-skill monotony. The reason the same session every day
+  // stops paying, which the training ceiling was never able to say -- the
+  // ceiling says *you cannot get much stronger*, this says *not like this*.
+  Monotony monotony;
+
+  // `PSY-2`: how long you have been climbing the same place. Dulls what the
+  // climbing gives you and nothing else -- hobbies, the fire and people are
+  // the cure. See Sim/DirtbagMonotony.h.
+  VenueStaleness stale;
+
   // The other end of the same system: a Wednesday at the gym, five
   // dollars, and a number that is yours. Worth no ranking points at all --
   // see Sim/DirtbagLeague.h for why that is the design rather than an
@@ -464,6 +487,25 @@ struct DayState {
   // a habit about the clock and there was nothing anywhere that remembered
   // what time the first burn happened.
   double firstPullOnHour = -1.0;
+
+  // `CHAR-7`: what monotony is worth today, per lane, and whether it has
+  // been asked yet.
+  //
+  // **Stepped once per session, read once per burn.** The source steps its
+  // monotony per *session* and the first cut of this port stepped it per
+  // burn -- which with eight burns to a session saturates a lane in under
+  // two days and pins every session after the first at half gains. Caught
+  // by the probe: a thirty-year career reported "nothing stuck" because the
+  // level was maxed and then shed on the rest days, and the number that
+  // mattered was never in the output at all.
+  bool monotonyFed = false;
+  double monotonyGain[kSkillCount] = {1.0, 1.0, 1.0, 1.0, 1.0};
+
+  // **Where you climbed today**, for `PSY-2`. Empty means the crag, which
+  // is what a sim-only caller with no world around it is doing. Set before
+  // the session starts -- `GoToTheGym` sets it, and so does the engine when
+  // it knows which rock you are standing at.
+  std::string venue;
 
   // **What somebody said to you today**, or empty, which is most days.
   // On the day rather than in the save for the same reason `lastBurn` is:
@@ -688,6 +730,23 @@ bool GoToTheGym(PlayerState& player, DayState& day,
 bool HangboardSession(PlayerState& player, DayState& day,
                       const KitDials& kit = KitDials{},
                       const DayDials& dials = DayDials{});
+
+// `CHAR-6`: has a style gone deep enough to have a name? Fills `out` and
+// returns true when the scene is ready to call something after you --
+// fifteen sends of one style for the first, forty of a *different* one for
+// the second, and never a third.
+//
+// **Nothing is named without the player.** This only says one is ready; the
+// name is theirs, which is the entire point of the feature and the only
+// place in this game the player names their own climbing.
+bool AMoveWantsAName(const PlayerState& player, RouteType& out,
+                     const StyleDials& style = StyleDials{});
+
+// Name it. False on an empty name or when nothing was ready. Bumps your
+// standing with the scene once, because a move with a name is a thing
+// people say about you.
+bool NameTheMove(PlayerState& player, const std::string& name,
+                 const StyleDials& style = StyleDials{});
 
 // The project ledger for a route, created on first touch.
 ProjectMemory& MemoryFor(PlayerState& player, const Route& route);
