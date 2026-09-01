@@ -21,6 +21,7 @@
 #include "../DirtbagGymTown.h"
 #include "../DirtbagGymLeague.h"
 #include "../DirtbagSpeed.h"
+#include "../DirtbagTax.h"
 #include "../DirtbagYouth.h"
 #include "../DirtbagBivy.h"
 #include "../DirtbagLiving.h"
@@ -17505,6 +17506,147 @@ static void TestSpeedSurvivesASave() {
   CHECK(back.player.rankingRecord[1].everyDiscipline);
 }
 
+// --- the annual reckoning (TAX-1) ---------------------------------------
+
+static void TestTheReckoningLandsOnce() {
+  const TaxDials d;
+  Tax t;
+  double cash = 5000.0, owed = 0.0;
+  BankTaxable(t, 3000.0);
+
+  // Not today, and nothing happens -- not even the year being marked.
+  CHECK(!SettleTheYear(t, cash, owed, d.dayOfYear - 1, d).due);
+  CHECK(t.taxable == 3000.0);
+  CHECK(cash == 5000.0);
+
+  const TaxBill bill = SettleTheYear(t, cash, owed, d.dayOfYear, d);
+  CHECK(bill.due);
+  CHECK(bill.billed == 600.0);        // a fifth
+  CHECK(cash == 4400.0);
+  CHECK(t.taxable == 0.0);
+  CHECK(t.paidLifetime == 600.0);
+  CHECK(!TaxLine(bill).empty());
+
+  // **The same day again is not a second bill.** A save reloaded on the
+  // morning of the reckoning, or an hour passed twice, must not be billed
+  // twice -- which is why the year is stamped rather than the total being
+  // trusted to stay at zero.
+  BankTaxable(t, 1000.0);
+  const TaxBill again = SettleTheYear(t, cash, owed, d.dayOfYear, d);
+  CHECK(!again.due);
+  CHECK(cash == 4400.0);
+  CHECK(t.taxable == 1000.0);
+  CHECK(TaxLine(again).empty());
+
+  // Next year it is due again, on what is left plus whatever came in.
+  const TaxBill next =
+      SettleTheYear(t, cash, owed, d.dayOfYear + d.daysPerYear, d);
+  CHECK(next.due);
+  CHECK(next.billed == 200.0);
+
+  // **A year with no prize money still settles.** Without that the year is
+  // re-checked all day and the first evening podium is billed on the spot.
+  Tax quiet;
+  double c2 = 100.0, o2 = 0.0;
+  CHECK(!SettleTheYear(quiet, c2, o2, d.dayOfYear, d).due);
+  CHECK(quiet.lastSettledYear == TaxYearOf(d.dayOfYear, d));
+  BankTaxable(quiet, 500.0);
+  CHECK(!SettleTheYear(quiet, c2, o2, d.dayOfYear, d).due);
+  CHECK(c2 == 100.0);
+}
+
+static void TestABillYouCannotCoverWaits() {
+  const TaxDials d;
+  Tax t;
+  double cash = 100.0, owed = 40.0;
+  BankTaxable(t, 4000.0);   // an $800 bill against $100
+  const TaxBill bill = SettleTheYear(t, cash, owed, d.dayOfYear, d);
+  CHECK(bill.due);
+  CHECK(bill.billed == 800.0);
+  CHECK(bill.paid == 100.0);
+  CHECK(bill.shortfall == 700.0);
+  // And the morning can say so: the news is rebuilt from the ledger,
+  // because Sleep plumbs no return value through.
+  Tax kept = t;
+  CHECK(TaxNews(kept, d.dayOfYear) == TaxLine(bill));
+  CHECK(TaxNews(kept, d.dayOfYear + 1).empty());
+  // Cash floors at nothing and the rest waits, the way every bill in this
+  // game already behaves. See PlayerState::owed.
+  CHECK(cash == 0.0);
+  CHECK(owed == 740.0);
+  CHECK(t.paidLifetime == 100.0);
+  CHECK(TaxLine(bill).find("waits") != std::string::npos);
+}
+
+static void TestOnlyPrizeMoneyIsTaxable() {
+  // A career of shifts and nothing else is never billed. **That is the
+  // design and not an omission**: a dirtbag's work is cash, off the books,
+  // at a diner and a gear shop -- which is exactly why the bill, when it
+  // lands, lands on the one legitimate part of the career.
+  PlayerState p;
+  p.day = 1;
+  p.climber.skills = {50, 50, 50, 50, 50};
+  DayState day = WakeUp(p);
+  const Rng w = Rng::FromStream("taxseed", Stream::Worldgen);
+  double earned = 0.0;
+  for (int i = 0; i < 400; i++) {
+    const double before = p.cash;
+    WorkShift(p, day);
+    earned += std::max(0.0, p.cash - before);
+    SleepToNextDay(p, day, w);
+  }
+  CHECK(earned > 0.0);         // there were wages to tax, and they were not
+  CHECK(p.tax.taxable == 0.0);
+  CHECK(p.tax.paidLifetime == 0.0);
+  CHECK(p.day > 365);          // the reckoning has been and gone at least once
+  CHECK(p.tax.lastSettledYear >= 0);   // and it did run
+
+  // And banking refuses the things that are not money coming in.
+  Tax t;
+  BankTaxable(t, -50.0);
+  BankTaxable(t, 0.0);
+  CHECK(t.taxable == 0.0);
+}
+
+static void TestTheDateIsTheDesign() {
+  const TaxDials d;
+  // **Half a year off the birthday**, which is day 1 of each year. The
+  // source's offset is 9 of an 18-day year and porting the 9 across would
+  // have put the reckoning nine days after the birthday -- the third time
+  // this project would have shipped a number tuned against an 18-day year.
+  CHECK(d.dayOfYear == d.daysPerYear / 2);
+  CHECK(IsTaxDay(d.dayOfYear, d));
+  CHECK(IsTaxDay(d.dayOfYear + d.daysPerYear, d));
+  CHECK(!IsTaxDay(1, d));
+  CHECK(DaysUntilTax(d.dayOfYear, d) == 0);
+  CHECK(DaysUntilTax(d.dayOfYear - 3, d) == 3);
+  CHECK(DaysUntilTax(d.dayOfYear + 1, d) == d.daysPerYear - 1);
+
+  // The warning only exists when there is something to warn about, and it
+  // arrives three days out.
+  Tax t;
+  CHECK(TaxWarning(t, d.dayOfYear - 1, d).empty());
+  BankTaxable(t, 2000.0);
+  CHECK(TaxWarning(t, d.dayOfYear - d.warnDays - 1, d).empty());
+  CHECK(!TaxWarning(t, d.dayOfYear - d.warnDays, d).empty());
+  CHECK(!TaxWarning(t, d.dayOfYear - 1, d).empty());
+  CHECK(!TaxWarning(t, d.dayOfYear, d).empty());
+  // And it says the number, so the date is one you can act on.
+  CHECK(TaxWarning(t, d.dayOfYear - 1, d).find("$400") != std::string::npos);
+}
+
+static void TestTaxSurvivesASave() {
+  SaveGame save;
+  save.player.tax.taxable = 1234.5;
+  save.player.tax.lastSettledYear = 7;
+  save.player.tax.paidLifetime = 890.0;
+  SaveGame back;
+  CHECK(DeserializeSave(SerializeSave(save), back) == LoadResult::Ok);
+  CHECK(std::fabs(back.player.tax.taxable - 1234.5) < 1e-9);
+  CHECK(back.player.tax.lastSettledYear == 7);
+  CHECK(std::fabs(back.player.tax.paidLifetime - 890.0) < 1e-9);
+}
+
 static void TestTheBillYouCannotCoverIsBetweenYouAndThem() {
   PlayerState player;
   DayState day = WakeUp(player);
@@ -17889,6 +18031,11 @@ int main() {
   TestPracticeTrainsAndBanksAPersonalBest();
   TestSpeedIsItsOwnRanking();
   TestSpeedSurvivesASave();
+  TestTheReckoningLandsOnce();
+  TestABillYouCannotCoverWaits();
+  TestOnlyPrizeMoneyIsTaxable();
+  TestTheDateIsTheDesign();
+  TestTaxSurvivesASave();
 
   if (g_failures == 0) {
     std::printf("OK  %d checks passed\n", g_checks);

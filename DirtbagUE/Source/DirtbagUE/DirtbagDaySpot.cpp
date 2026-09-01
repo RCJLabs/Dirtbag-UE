@@ -1489,6 +1489,13 @@ void ADirtbagDaySpot::OnInteract()
 		                    Game->Player.Day, Game->Player.Cash,
 		                    Game->Player.Climber.Skin),
 		    FColor::Yellow, 6.f);
+		// `TAX-1`: the reckoning happened inside the night tick, so this is
+		// where you find out -- and the warning is here too, because three
+		// days out at the van is where you can still do something about it.
+		// A career that has never won anything sees neither, which is most
+		// of them.
+		Say(Game->TaxNewsLine(), FColor::Orange, 9.f);
+		Say(Game->TaxWarningLine(), FColor::Silver, 7.f);
 		Say(Game->GetCareerLine(), FColor::Silver, 6.f);
 		break;
 	}

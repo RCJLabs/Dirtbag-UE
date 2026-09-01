@@ -1710,6 +1710,11 @@ bool UDirtbagGameInstance::SettleComp()
 	}
 
 	Player.Cash += Res.cash;
+	// `TAX-1`: prize money, and the tax man has heard of it. Banked at the
+	// three places it lands -- here, the season podium, and the team's
+	// stipend -- rather than at the reckoning, because the reckoning reads
+	// a total and does not know where it came from.
+	BankPrizeMoney(Res.cash);
 
 	// **Into the season and onto the ladder.**
 	//
@@ -1737,6 +1742,7 @@ bool UDirtbagGameInstance::SettleComp()
 	{
 		const dirtbag::SeasonEnd End = dirtbag::CloseSeason(Season);
 		Player.Cash += End.cash;
+		BankPrizeMoney(End.cash);
 		// A season's podium is a National-weight result whatever room the
 		// comps were in: winning a year is winning a year.
 		RecordResult(End.rankingPoints);
@@ -1761,6 +1767,9 @@ bool UDirtbagGameInstance::SettleComp()
 		    Team, Player.RankingPoints, Season, Player.Day, Season.season);
 		Player.Team = DirtbagConvert::FromSim(Team);
 		Player.Cash += Review.stipend;
+		// The federation's money is the most legitimate money in the game
+		// and is taxed like it. The source banks the stipend too.
+		BankPrizeMoney(Review.stipend);
 		if (Review.changed)
 		{
 			// Standing rather than ranking: being named is what the *scene*
@@ -2366,6 +2375,27 @@ bool UDirtbagGameInstance::SettleTheWorldStage()
 	}
 	RefreshComp();
 	return true;
+}
+
+void UDirtbagGameInstance::BankPrizeMoney(double Amount)
+{
+	dirtbag::Tax T = DirtbagConvert::ToSim(Player.Tax);
+	dirtbag::BankTaxable(T, Amount);
+	Player.Tax = DirtbagConvert::FromSim(T);
+}
+
+FString UDirtbagGameInstance::TaxWarningLine() const
+{
+	return FString(
+	    dirtbag::TaxWarning(DirtbagConvert::ToSim(Player.Tax), Player.Day)
+	        .c_str());
+}
+
+FString UDirtbagGameInstance::TaxNewsLine() const
+{
+	return FString(
+	    dirtbag::TaxNews(DirtbagConvert::ToSim(Player.Tax), Player.Day)
+	        .c_str());
 }
 
 void UDirtbagGameInstance::RecordResult(double Points)

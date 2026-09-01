@@ -785,6 +785,24 @@ void MigrateV46ToV47(SaveFields& fields) {
   }
 }
 
+// v47 -> v48: the annual reckoning (`TAX-1`).
+//
+// **`tax.year` is the current year, not -1.** A v47 career loaded on or
+// after its own tax day would otherwise be billed on the spot for a year of
+// prize money it has already spent -- which is a bill nobody saw coming, in
+// the one system whose entire design is a date you saw coming.
+void MigrateV47ToV48(SaveFields& fields) {
+  fields["tax.taxable"] = "0";
+  fields["tax.paid"] = "0";
+  fields["tax.billday"] = "-1";
+  fields["tax.was"] = "0";
+  fields["tax.bill"] = "0";
+  fields["tax.short"] = "0";
+  int day = 0;
+  fields["tax.year"] =
+      IntToStr(ParseInt(fields, "day", day) ? TaxYearOf(day) : -1);
+}
+
 }  // namespace
 
 const std::vector<Migration>& DefaultMigrations() {
@@ -803,7 +821,7 @@ const std::vector<Migration>& DefaultMigrations() {
       &MigrateV36ToV37, &MigrateV37ToV38, &MigrateV38ToV39,
       &MigrateV39ToV40, &MigrateV40ToV41, &MigrateV41ToV42,
       &MigrateV42ToV43, &MigrateV43ToV44, &MigrateV44ToV45,
-      &MigrateV45ToV46, &MigrateV46ToV47};
+      &MigrateV45ToV46, &MigrateV46ToV47, &MigrateV47ToV48};
   return kMigrations;
 }
 
@@ -1128,6 +1146,13 @@ std::string SerializeSave(const SaveGame& save) {
       }
 
       out << "speed.pb=" << NumToStr(save.player.speedPersonalBest) << "\n";
+      out << "tax.taxable=" << NumToStr(save.player.tax.taxable) << "\n";
+      out << "tax.year=" << IntToStr(save.player.tax.lastSettledYear) << "\n";
+      out << "tax.paid=" << NumToStr(save.player.tax.paidLifetime) << "\n";
+      out << "tax.billday=" << IntToStr(save.player.tax.lastBillDay) << "\n";
+      out << "tax.was=" << NumToStr(save.player.tax.lastTaxable) << "\n";
+      out << "tax.bill=" << NumToStr(save.player.tax.lastBilled) << "\n";
+      out << "tax.short=" << NumToStr(save.player.tax.lastShortfall) << "\n";
 
       const Olympics& og = save.player.olympics;
       out << "og.next=" << IntToStr(og.nextDay) << "\n";
@@ -1674,6 +1699,13 @@ LoadResult DeserializeSave(const std::string& text, SaveGame& out,
         !ParseInt(fields, "up.shrinks",
                   save.player.upkeep.shrinkSessions) ||
         !ParseDouble(fields, "speed.pb", save.player.speedPersonalBest) ||
+        !ParseDouble(fields, "tax.taxable", save.player.tax.taxable) ||
+        !ParseInt(fields, "tax.year", save.player.tax.lastSettledYear) ||
+        !ParseDouble(fields, "tax.paid", save.player.tax.paidLifetime) ||
+        !ParseInt(fields, "tax.billday", save.player.tax.lastBillDay) ||
+        !ParseDouble(fields, "tax.was", save.player.tax.lastTaxable) ||
+        !ParseDouble(fields, "tax.bill", save.player.tax.lastBilled) ||
+        !ParseDouble(fields, "tax.short", save.player.tax.lastShortfall) ||
         !ParseInt(fields, "og.next", save.player.olympics.nextDay) ||
         !ParseInt(fields, "og.appearances",
                   save.player.olympics.appearances) ||

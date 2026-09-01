@@ -1535,6 +1535,22 @@ public:
 	 *  see the field's own note in Sim/DirtbagDay.h. */
 	void RecordResult(double Points);
 
+	/** `TAX-1`: bank prize money against the year's reckoning. Called where
+	 *  the money lands, not where the bill is computed -- a total does not
+	 *  know where it came from, and wages must never reach this. */
+	void BankPrizeMoney(double Amount);
+
+	/** The reckoning, if it is close enough to matter. Empty otherwise --
+	 *  and empty for a career that has never won anything, which is most of
+	 *  them. See Sim/DirtbagTax.h. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Tax")
+	FString TaxWarningLine() const;
+
+	/** What the tax man took last night. Empty on every other morning --
+	 *  read across Sleep the way the World Cup's season news is. */
+	UFUNCTION(BlueprintPure, Category = "Dirtbag|Tax")
+	FString TaxNewsLine() const;
+
 	/** Turn in a league scorecard. Its own function for the same reason
 	 *  the world stage has one: it banks into a block table and a personal
 	 *  best and touches neither the circuit nor the ranking. */

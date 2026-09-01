@@ -53,6 +53,7 @@
 #include "DirtbagGymTown.h"
 #include "DirtbagGymLeague.h"
 #include "DirtbagSpeed.h"
+#include "DirtbagTax.h"
 #include "DirtbagYouth.h"
 #include "DirtbagBivy.h"
 #include "DirtbagLiving.h"
@@ -1197,6 +1198,43 @@ struct FDirtbagRankingResult
 	 *  has never entered a lead comp. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Comp")
 	bool bEveryDiscipline = false;
+};
+
+/** The year's prize money and when it was last settled. Mirrors
+ *  dirtbag::Tax; see Sim/DirtbagTax.h. Only prize money is ever in here --
+ *  a dirtbag's shifts are cash and off the books, which is the whole point
+ *  of the life and exactly why the bill lands where it does. */
+USTRUCT(BlueprintType)
+struct FDirtbagTax
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Tax")
+	double Taxable = 0.0;
+
+	/** Which tax year was last settled, so a reload on the morning of the
+	 *  reckoning cannot be billed twice. -1 has never seen one. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Tax")
+	int32 LastSettledYear = -1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Tax")
+	double PaidLifetime = 0.0;
+
+	/** The morning's news, kept rather than returned -- the reckoning
+	 *  happens inside the night tick and Sleep plumbs no return value
+	 *  through. Without this the tax man takes a fifth of the year in
+	 *  silence. */
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Tax")
+	int32 LastBillDay = -1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Tax")
+	double LastTaxable = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Tax")
+	double LastBilled = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Tax")
+	double LastShortfall = 0.0;
 };
 
 /** One run on the speed wall, as the beat produced it. Mirrors
@@ -2831,6 +2869,10 @@ struct FDirtbagPlayerState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Speed")
 	double SpeedPersonalBest = 0.0;
 
+	/** The year's prize money and the reckoning. See FDirtbagTax. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dirtbag|Tax")
+	FDirtbagTax Tax;
+
 	/** The league you run, if you started one. See FDirtbagGymLeague. */
 	UPROPERTY(BlueprintReadOnly, Category = "Dirtbag|Gym")
 	FDirtbagGymLeague GymLeague;
@@ -3265,6 +3307,9 @@ namespace DirtbagConvert
 	FDirtbagLeagueStanding FromSim(const dirtbag::LeagueStanding& In);
 	FDirtbagGymLeague FromSim(const dirtbag::GymLeague& In);
 	dirtbag::GymLeague ToSim(const FDirtbagGymLeague& In);
+
+	FDirtbagTax FromSim(const dirtbag::Tax& In);
+	dirtbag::Tax ToSim(const FDirtbagTax& In);
 
 	FDirtbagSpeedRun FromSim(const dirtbag::SpeedRun& In);
 	dirtbag::SpeedRun ToSim(const FDirtbagSpeedRun& In);

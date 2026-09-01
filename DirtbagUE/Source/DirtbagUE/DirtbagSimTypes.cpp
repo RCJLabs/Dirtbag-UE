@@ -211,6 +211,7 @@ dirtbag::PlayerState ToSim(const FDirtbagPlayerState& In)
 	Out.worldCup = ToSim(In.WorldCup);
 	Out.olympics = ToSim(In.Olympics);
 	Out.speedPersonalBest = In.SpeedPersonalBest;
+	Out.tax = ToSim(In.Tax);
 	Out.league = ToSim(In.League);
 	Out.medical = ToSim(In.Medical);
 	Out.hand = ToSim(In.Hand);
@@ -301,6 +302,7 @@ FDirtbagPlayerState FromSim(const dirtbag::PlayerState& In)
 	Out.WorldCup = FromSim(In.worldCup);
 	Out.Olympics = FromSim(In.olympics);
 	Out.SpeedPersonalBest = In.speedPersonalBest;
+	Out.Tax = FromSim(In.tax);
 	Out.League = FromSim(In.league);
 	Out.Medical = FromSim(In.medical);
 	Out.Hand = FromSim(In.hand);
@@ -1568,6 +1570,32 @@ dirtbag::League ToSim(const FDirtbagLeague& In)
 	Out.nights = In.Nights;
 	Out.blockWins = In.BlockWins;
 	Out.lastClimbedNight = In.LastClimbedNight;
+	return Out;
+}
+
+FDirtbagTax FromSim(const dirtbag::Tax& In)
+{
+	FDirtbagTax Out;
+	Out.Taxable = In.taxable;
+	Out.LastSettledYear = In.lastSettledYear;
+	Out.PaidLifetime = In.paidLifetime;
+	Out.LastBillDay = In.lastBillDay;
+	Out.LastTaxable = In.lastTaxable;
+	Out.LastBilled = In.lastBilled;
+	Out.LastShortfall = In.lastShortfall;
+	return Out;
+}
+
+dirtbag::Tax ToSim(const FDirtbagTax& In)
+{
+	dirtbag::Tax Out;
+	Out.taxable = In.Taxable;
+	Out.lastSettledYear = In.LastSettledYear;
+	Out.paidLifetime = In.PaidLifetime;
+	Out.lastBillDay = In.LastBillDay;
+	Out.lastTaxable = In.LastTaxable;
+	Out.lastBilled = In.LastBilled;
+	Out.lastShortfall = In.LastShortfall;
 	return Out;
 }
 

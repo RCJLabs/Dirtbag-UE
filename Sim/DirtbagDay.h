@@ -21,6 +21,7 @@
 #include "DirtbagWorldStage.h"
 #include "DirtbagCore.h"
 #include "DirtbagRival.h"
+#include "DirtbagTax.h"
 #include "DirtbagCrew.h"
 #include "DirtbagDreams.h"
 #include "DirtbagDog.h"
@@ -269,6 +270,11 @@ struct PlayerState {
   // seconds. **Zero means never, not instant** -- see PersonalBestLine,
   // which refuses to print a wall record nobody has set.
   double speedPersonalBest = 0.0;
+
+  // `TAX-1`: the year's prize money and when it was last settled. Only
+  // prize money -- shifts are cash and off the books, which is the whole
+  // point of the life. See Sim/DirtbagTax.h.
+  Tax tax;
 
   // The other end of the same system: a Wednesday at the gym, five
   // dollars, and a number that is yours. Worth no ranking points at all --

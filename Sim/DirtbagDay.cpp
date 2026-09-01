@@ -1121,6 +1121,12 @@ void SleepToNextDay(PlayerState& player, DayState& day, const Rng& worldRng,
                        HabitDailyCost(player.quirks));
   }
 
+  // `TAX-1`: one morning a year, on the year's prize money and nothing
+  // else. **After the day has rolled over**, so the reckoning lands on the
+  // morning of tax day rather than the night before it -- and beside the
+  // bills, because that is what it is. See Sim/DirtbagTax.h.
+  SettleTheYear(player.tax, player.cash, player.owed, player.day);
+
   // A hungry night is a bad night: recovery scales down toward the floor.
   const double hungerPenalty =
       Clamp01((day.hunger - dials.starvingHunger) / (100.0 - dials.starvingHunger));

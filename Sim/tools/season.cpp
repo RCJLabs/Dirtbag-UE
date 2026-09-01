@@ -920,6 +920,11 @@ int main(int argc, char** argv) {
           if (board.round == CompRound::Final) t.finalsReached++;
         }
         player.cash += r.cash;
+        // `TAX-1`: banked where the money lands, exactly as the engine
+        // does it -- the probe paying prize money the tax man never hears
+        // about is how a balance number comes to describe a game nobody
+        // plays.
+        BankTaxable(player.tax, r.cash);
         BankResult(player.circuit, r, finals);
         Record(player.rankingRecord, player.day,
                RankingPointsFor(r.place, r.fieldSize,
@@ -931,6 +936,7 @@ int main(int argc, char** argv) {
         if (SeasonOver(player.circuit)) {
           const SeasonEnd end = CloseSeason(player.circuit);
           player.cash += end.cash;
+          BankTaxable(player.tax, end.cash);
           Record(player.rankingRecord, player.day, end.rankingPoints);
           if (end.title) player.circuit.titles++;
           const TeamReview review =
@@ -938,6 +944,7 @@ int main(int argc, char** argv) {
                             player.circuit, player.day,
                             player.circuit.season);
           player.cash += review.stipend;
+          BankTaxable(player.tax, review.stipend);
           if (review.changed) {
             Shift(player.standing, Faction::Scene, review.rep);
           }
@@ -2430,6 +2437,8 @@ int main(int argc, char** argv) {
   }
 
   printf("\n=== after %d days ===\n", DAYS);
+  printf("  tax: $%.0f handed over across the career, $%.0f owing this year\n",
+         player.tax.paidLifetime, player.tax.taxable);
   printf("  climbed %d days, worked %d, rested %d; %d days never came good\n",
          t.daysClimbed, t.daysWorked, t.daysRested, t.daysWashedOut);
   printf("  %d burns, %d sends, %d first ascents\n", t.burns, t.sends,
