@@ -4,6 +4,55 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — R2 people: bonds, Sage's arc, Dex and the race, Scout
+
+**Built in the 2D rebuild's R2** (`dirtbag/app/src/sim`: `presence.ts`, `curves.ts`, `content/people.ts`, `content/dog.ts`). The source of truth is the dirtbag repo's `docs/ROADMAP.md`, R2 "Plan", whose *As built* notes mark the deviations from v0.956.
+
+**Bonds.**
+- v0.956's tiers: Stranger 0, Acquaintance 1, Regular 3, Partner 5, Ride-or-Die 7.
+- A day counts once toward the bond: climbing where a partner you've met is, or their belaying you. This is Phase 6's cap on v0.956's +1 per go.
+- Each tier adds 0.07 to a partner's daily odds of turning up. Sage's base is 0.55, so Ride-or-Die Sage turns up five days in six.
+- A Regular comes to the Gorge if asked before 1 PM on a dry day, and belays there.
+
+**Arcs.**
+- v0.956's four beats, at bonds 1, 3, 5 and 7, at least 5 days apart. The first beat waits a day past meeting.
+- Sage's second beat sends her guiding for 7 days (v0.956: 16).
+- The last beat needs a crag.
+
+**Grades on curves of their own** (Phase 6: no rubber band):
+- Sage's level is 4.3 + day/20, capped at 13 (v0.956's rate for her).
+- Dex's level:
+  - It is `min(peak, 5 + 0.045 × days trained) + 0.4 × form`.
+  - The peak is 9–11.
+  - He trains every day except a hurt stretch of 14–24 days that starts on a day from 35 to 75.
+  - Form is a per-week value in [−1, 1], eased between weeks.
+
+**Dex.**
+- He appears where you send your first V4 (any V4+), for the rest of that day.
+- After that he's out 2 days in 5, from 10:00 to 17:00: the crag on 70% of dry days, else the gym; never while hurt.
+- The race: the night you're climbing V4 (displayed), if the open project is unclaimed and unsent, you get 5 days.
+  - Send it and the first ascent is yours.
+  - Otherwise he takes the first ascent, with a name from v0.956's list of 14.
+
+**Scout.**
+- He picks you on your 10th crag trip.
+- Kibble costs $6, fills his bowl and adds 3 bond (on a 0–100 scale).
+- Play is 60 minutes, once a day, for 10 bond. Each drive adds 2.
+- Each night takes 22 food.
+
+**What it means here:**
+- **The seed means more again.** New derived streams, all on `events`:
+  - `dex`: peak, hurt start, hurt length, in that order;
+  - `dex-form-{week}`;
+  - `dex-{day}`: out, then crag.
+  - Sage's `sage-{day}` draw is unchanged. Only its threshold now reads the bond.
+  - Picks that hold for a day hash `"{seed}:{key}:{day}"` with FNV-1a; Dex's first-ascent name hashes `"{seed}:{route}"`.
+  - If the Unreal sim schedules people, draw them the same way, or a seed stops meaning the same thing in both games.
+- Presence now reads state (bond, time away, invites) as well as the seed and the clock. It's still a pure function of both, so nothing about tomorrow is stored.
+- None of this touches `ResolveAttempt` or its golden vectors.
+
+---
+
 ## 2026-09-29 — R2 so far: windows close faster above your grade; load and injury; sandbags, first ascents and the Gorge
 
 **Built in the 2D rebuild's R2** (`dirtbag/app/src/sim`). The source of truth is the dirtbag repo's `docs/ROADMAP.md`, R2 "Plan"; deviations from v0.956 are marked there.
