@@ -4,6 +4,33 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 10.3b: highballs, and landings that can hurt
+
+**Built in the 2D rebuild's Phase 10.3b** (`dirtbag/app/src/sim/game.ts`, `landingChance` and `rollLanding`; the `HIGHBALL` dials; the `highball` route flag). All of it is *[proposed]*. v0.956 had no highball rule, only a generic close call for climbing without a pad.
+
+**The rule:**
+- **Which boulders:** tall ones carry a `highball` flag. Roadside's Highball Arête (18 ft), and Moonstone's Tall Arête (22), Splitter (20) and project (22).
+- **How far you fall:** `heightFt × moves reached / moves`.
+- **The chance of a bad landing:**
+  - Up to `safeFt` (8), it's a normal boulder fall.
+  - Above that, the chance is `perFoot` (0.012) × the feet over.
+  - × `pads` (0.5) if you own the Moonstone haul's pads.
+  - × `spotter` (0.5) if a partner is there (the same check as a belayer).
+- **When it rolls:** only on a failed go, and only if the go's overuse roll didn't already hurt you. It uses the `session` stream, label `landing-{day}-{n}`, where n numbers the go within the day as the injury roll's does.
+- **What it costs:** an ankle, by feet over the safe height: jammed (tier 1), rolled (tier 2 from 6 ft over), broken (tier 3 from 12). The days off and clinic bills are the injury table's.
+
+**The 2D harness:**
+- Careful bots wait for a spotter while a crux fall is worse than 1 in 20.
+- With Hazel spotting at Roadside, 7% of moderate first months now end with a jammed ankle (0% before). Reckless bots: 10%.
+- The season targets pass.
+
+**What it means here:**
+- In a watched 3D session, a highball's height is visible, and so is the fall. This rule gives the sim a stake to show when the climber comes off high: the landing is decided by the sim, and the staging acts it out.
+- Pad placement isn't in, because the 2D boulders have one crux each. If this repo's boulders get two places to fall, placement becomes a real choice.
+- No new seed streams (a new label in `session`). No change to `ResolveAttempt` or its golden vectors.
+
+---
+
 ## 2026-09-29 — Phase 10.3a: Moonstone Boulders, and trips you pay for once
 
 **Built in the 2D rebuild's Phase 10.3a** (`dirtbag/app/src/sim/content/places.ts`, `content/routes.ts`, the `unlock` and `travel` actions in `game.ts`, save v4 in `save.ts`). The source of truth is the dirtbag repo's `docs/ROADMAP.md`, Phase 10, "As built (10.3a)".
