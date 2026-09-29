@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — A send after the first is a repeat (decided)
+
+**Decided by Evan; built in the 2D rebuild** (`dirtbag/app/src/sim/game.ts`, the `done` action).
+
+**The rule:**
+- A line's first send is an onsight (first go), a flash (first go, having been told the beta) or a redpoint (a later go). The route log keeps that one.
+- Any send after the first is a **repeat**. The 2D rebuild had named every send after go one "Redpoint", sends of lines already done included; v0.956 called them repeats, as climbers do.
+- A repeat gets no send card and can't be a first ascent. It already trained less (a lap of a sent line teaches less), and that doesn't change.
+
+**What it means here:** send styles are four, not three, in whatever reports a send; the stored first-send style stays three. No save change in the 2D game.
+
 ## 2026-09-29 — Phase 11.4: the daily plan
 
 **Built in the 2D rebuild's Phase 11.4** (`dirtbag/app/src/game/plan.ts`; the runner in `src/game/game.ts`). It's a UI feature, not a rule: each step runs through `act()` as a tap would.
