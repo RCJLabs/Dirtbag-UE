@@ -4,6 +4,43 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 10.1: the board at Send City
+
+**Built in the 2D rebuild's Phase 10.1** (`dirtbag/app/src/sim/content/gym.ts`; the board's painter in `src/view/paint/gym.ts`). The source of truth is the dirtbag repo's `docs/ROADMAP.md`, Phase 10, "On the rebuild".
+
+**The board** (v0.956's "persistent gym walls"):
+- Send City gains a steep board beside the weekly wall. It holds four problems, V4, V5, V6 and V7, left to right.
+- They stay up four weeks (`BOARD_WEEKS`), then all four reset together. The block is `floor((day - 1) / 28) + 1`, so a block runs days 1–28, 29–56, and so on.
+- Each problem is a library boulder: one crux, two beta, 6–9 moves, 12 ft. Styles lean steep: each problem draws from power, crimp, power, crimp, dyno, technical (power and crimp twice as likely).
+- Ids are `bd-{block}-{n}`. An old id still resolves, so a route log keeps its name after the reset.
+- The gym's lines are the week's six, then the board's four. The wall's rules apply unchanged: a day pass, and closed from 22:00.
+- No change to the state's shape: board problems are logged by id like any other line.
+
+**New seed stream:** `worldgen`, derived as `sendcity-board-{block}`. Per problem, in order, it draws:
+1. the style: `int(0, 5)` into the list above;
+2. the name: `int` into that style's unused names (or, once they run out, any unused board name);
+3. the moves: `int(6, 9)`;
+4. the crux's start: `moves × float(0.4, 0.6)`, rounded to 2 places;
+5. the crux's length: `float(1.4, 2)`, rounded to 2 places.
+
+**What the 2D harness measured** (12 seeds × 28 days × every start and strategy):
+- **Before the board**, 4–10 of every 12 runs hit a day with nothing new to try, from about day 25. That day was always wet, with the week's set done.
+- **With it**, 3 runs of 144 do, on days 26–27. In each, the climber had already sent all four board problems.
+- The median climber ends the month at V4, not V3: the board fills wet days with hard climbing.
+- The first V5 go comes about a day later (days 19–20, from 18–18.5): bots work the board's V4 first.
+- All four of R2's season targets still pass.
+- Board grades climb like the wall's, not stiffer:
+  - board V4s and wall V4s are both sent at a median climber grade of V3;
+  - 3 runs sent the V7 at V4.
+  - Real boards run stiff; whether this one should is open *[proposed: Evan's call]*.
+
+**What it means here:**
+- The board is content: a set generator, like the weekly wall's. This repo can take it as a DataTable plus a generator on the `worldgen` stream.
+- The derivation label above is the whole contract. Match it, and a seed sets the same board in both games.
+- No change to `ResolveAttempt` or its golden vectors.
+
+---
+
 ## 2026-09-29 — R2's end: Act I, pace on the wall, the send card, and the season's targets
 
 **Built in the 2D rebuild's R2** (`dirtbag/app/src/sim`: `content/story.ts`, `story.ts`, `climb.ts`, `harness.ts`; the card in `src/view/paint/card.ts`). The source of truth is the dirtbag repo's `docs/ROADMAP.md`, R2 "Plan", whose *As built* notes mark the deviations and the calls still *[proposed]*.
