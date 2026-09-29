@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 21.4: The Crucible, and myths
+
+**Built in the 2D rebuild's Phase 21.4** (`dirtbag/app/src/sim/content/routes.ts`, `game.ts`).
+
+**The rule:**
+- A crag opening at V11, four hours from the Lot, shaded, with its own weather and no fee. v0.956's lines: The Reckoning V13, The Vise V14, Apparition V15 (climbs V14), Event Horizon V17; Crucible Crux 5.14b, The Lifeline 5.14d, Threshold 5.15d. Added: The Anvil V16, so every grade V0–V18 has a line.
+- A route may name another it's hidden behind (`hiddenUntil`). Until that one is sent, the hidden line can't be read or tried: the V18 boulder myth behind Event Horizon, the 5.16a sport myth behind Threshold. Both are open (unclimbed); the first to send one names it.
+
+**What it means here:** a route's visibility and availability depend on another route's send; the 3D wall should show nothing on a myth until then.
+
 ## 2026-09-29 — Phase 21.4: Wind River Walls
 
 **Built in the 2D rebuild's Phase 21.4.** Content, not a new rule.
