@@ -4,6 +4,12 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 21.4: The Big Stone
+
+**Built in the 2D rebuild's Phase 21.4.** Content, not a new rule.
+
+**The rule:** a crag opening at V8 after a $600 trip paid once, four hours from the Lot, shaded, with its own weather. v0.956's five single pitches: Base Camp Boulder V6, The Warm-Up Wall V9 (climbs V10), The Splitter Pitch V10 (highball), The Trad Pitch 5.13d (trad), Valley Classic 5.14a (sport). A partner needs bond 7 to come out. Its multi-pitch walls come with Phase 21.5.
+
 ## 2026-09-29 — Promotions, and inviting crew to any crag (decided)
 
 **Decided by Evan** after the harness found bots going broke at V5; built in the 2D rebuild (`dirtbag/app/src/sim/jobs.ts`, `content/jobs.ts`, `content/people.ts`). Save v7.
