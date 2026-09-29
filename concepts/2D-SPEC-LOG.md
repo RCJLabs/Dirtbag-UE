@@ -4,6 +4,38 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 10.3a: Moonstone Boulders, and trips you pay for once
+
+**Built in the 2D rebuild's Phase 10.3a** (`dirtbag/app/src/sim/content/places.ts`, `content/routes.ts`, the `unlock` and `travel` actions in `game.ts`, save v4 in `save.ts`). The source of truth is the dirtbag repo's `docs/ROADMAP.md`, Phase 10, "As built (10.3a)".
+
+**The place**, on v0.956's terms:
+- **Access:** desert quartzite, open at V6.
+- **The haul:** $400, paid once in cash in hand (not on the card), opens the trip for good. That's v0.956's `unlockCost`. In the rebuild's words it buys "pads, water jugs and a guidebook".
+- **The permit:** $20 on every trip in (v0.956's `permit`). Gas can go on a maxed card; the permit can't.
+- **Distance:** three hours and $30 of gas from the Lot, two hours from Roadside.
+- **Desert rock:** every window is scaled by `CLIMB.desertFactor` (0.92), v0.956's desert −0.08 on the odds translated the same way seeping's −0.07 was.
+- **Sun:** the sun crosses it as at Roadside (the 10.2 entry), with the far project first and the arête by the van last.
+
+**The lines** (v0.956's nine):
+- Boulders:
+  - Tall Arête V6 (v0.956 named it Highball Arête, like a Roadside line; renamed so logs can't mix them up);
+  - Moonstone Mantel V7, The Egg V8;
+  - Hueco Pockets V9, which climbs at V8 (`trueGrade`), as in v0.956;
+  - Moonstone Splitter V8 (crack), Lunar Roof V11;
+  - an open V12 project.
+- Sport lines on a spire: Desert Spire (grade 8, 5.13a) and Moonlight Arête (grade 10, 5.13c).
+- Each one uses the shared one- and two-crux templates.
+
+**State:** save v4 adds `unlocked: string[]`, the place ids paid for. v3 saves migrate with it empty.
+
+**What it means here:**
+- A crag can carry a one-time cost and a per-trip cost, both data on the place. This repo's travel and economy can take both as they are.
+- The spire's sport lines need a belayer, and nobody's schedule brings one to Moonstone yet. The 2D game will need road-trip partners for them. That's a known gap, not a rule.
+- Highballs (pad and spotter decisions) come in 10.3b and get their own entry.
+- No new seed streams. No change to `ResolveAttempt` or its golden vectors.
+
+---
+
 ## 2026-09-29 — Phase 10.2: the sun crosses the crag a line at a time
 
 **Built in the 2D rebuild's Phase 10.2** (`dirtbag/app/src/sim/weather.ts`, `sunOn`; the sun's path in `content/places.ts`; the dial `CLIMB.sunSweep` in `dials.ts`; the staging in `src/view/sun.ts`). The rule is *[proposed]*: Evan hasn't ruled on it. The source of truth is the dirtbag repo's `docs/ROADMAP.md`, Phase 10, "As built (10.2)".
