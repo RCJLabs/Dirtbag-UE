@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — The board runs a grade stiff (decided)
+
+**Evan's call**, closing the question the 10.1 entry left open. Every board problem at Send City climbs like the grade above its label: `trueGrade = grade + BOARD_STIFF` (1), as real boards run.
+- On your first go it says so, with its own line rather than the crags' sandbag one: "Board grades: that's no V5. Nobody on the mats is surprised."
+- The 2D harness: with the V7 now a month-two project, 0 runs in 144 have a day in the first month with nothing new to try.
+- The season targets pass. A few runs don't tie into a V5 by day 28, because the board's V5 climbs like a V6.
+
+**What it means here:** the generator from the 10.1 entry gains one field, `trueGrade = grade + 1`. Board grades are labels; the sim climbs the true grade.
+
+---
+
 ## 2026-09-29 — Phase 10 follow-up: Moonstone's own sky
 
 **Built in the 2D rebuild** (`dirtbag/app/src/sim/weather.ts`, `skyAt`; the place flag `ownSky`). This follows v0.956, which rolled every crag's weather from its climate.
