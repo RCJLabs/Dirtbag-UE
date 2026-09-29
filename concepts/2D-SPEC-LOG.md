@@ -4,6 +4,40 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 10.2: the sun crosses the crag a line at a time
+
+**Built in the 2D rebuild's Phase 10.2** (`dirtbag/app/src/sim/weather.ts`, `sunOn`; the sun's path in `content/places.ts`; the dial `CLIMB.sunSweep` in `dials.ts`; the staging in `src/view/sun.ts`). The rule is *[proposed]*: Evan hasn't ruled on it. The source of truth is the dirtbag repo's `docs/ROADMAP.md`, Phase 10, "As built (10.2)".
+
+**What changed in the rules:**
+- **Before,** every line at a sunny crag greased at the same minute (`greaseFrom`): 3 PM on a prime day, 2 on a fair one, noon on a hot one.
+- **Now** the sun crosses the crag in `CLIMB.sunSweep` minutes (120), and each line greases when it arrives:
+  - `sunOn = greaseFrom + sunSweep × i / (n − 1)`, rounded to the minute;
+  - `i` is the line's place in the crag's sun path of `n` lines.
+- **`greaseFrom` changes meaning.** It is now the sun's first minute on the wall, half a sweep before the old single time: 2 PM prime, 1 PM fair, 11 AM hot. The path's middle line keeps the old time, so the average doesn't move.
+- **Roadside's path** runs from the boulder field's far end to the road:
+  - rsopen, project, highball, fingercrack, testpiece, pump, crimpfest, roadside, dyno, warmup, warm;
+  - projects lose their shade first, and warm-ups keep it longest.
+- **Unchanged:** shaded crags (the Gorge) never get the sun, and a sunny crag without a path greases all at once.
+- **The go's once-a-day line** is now "Sun's on this line now. Everything feels greasy."
+
+**Staging** (2D only):
+- The scene's sun edge crosses the crag and passes each line's foot at its sun time.
+- Wet rock shows after rain.
+- The map tags closed and soaked crags.
+- The beta sheet says when a line gets the sun.
+
+**What the 2D harness measured** (12 seeds × 28 days):
+- All four season targets pass.
+- The first V5 go comes at day 19 for every strategy.
+- It's balance-neutral within noise. The bots don't plan around the shade, so the gain goes to a player who does.
+
+**What it means here:**
+- A crag's sun is data: an ordered list of route ids, and one dial.
+- A 3D crag can drive its light from the same numbers: a terminator that crosses each line's base at `sunOn`. In a watched session, the shade line is the prime window made visible, as the 2D game has it.
+- No new seed streams. Nothing here touches `ResolveAttempt` or its golden vectors.
+
+---
+
 ## 2026-09-29 — Phase 10.1: the board at Send City
 
 **Built in the 2D rebuild's Phase 10.1** (`dirtbag/app/src/sim/content/gym.ts`; the board's painter in `src/view/paint/gym.ts`). The source of truth is the dirtbag repo's `docs/ROADMAP.md`, Phase 10, "On the rebuild".
