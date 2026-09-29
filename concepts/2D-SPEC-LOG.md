@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 21.4: Sandstone Mesa
+
+**Built in the 2D rebuild's Phase 21.4** (`dirtbag/app/src/sim/content/routes.ts`, `places.ts`). Content, not a new rule.
+
+**The rule:**
+- A crag opening at V7, three hours from the Lot, with no unlock fee; desert (windows ×0.92), its own weather, closed in summer.
+- v0.956's eleven lines, names and grades kept: boulders Desert Varnish V7, Sandstone Crimps V8, The Prow V9 (climbs V10), Desert Splitter V9, Powerhouse V10, The Megaproject V11, and an open V13; sport Desert Lap 5.13a, Desert Enduro 5.13b, The Big Link 5.13d; trad Desert Trad Line 5.13d.
+- Sage can be invited there to belay, as to the Gorge (bond 3, V7, the crag open that day).
+
+**What it means here:** the Mesa is a level with the same route data. v0.956's multi-pitch "The Prow" at Roadside (Phase 21.5) will need another name, since the Mesa's boulder has this one.
+
 ## 2026-09-29 — Phase 21.3: training
 
 **Built in the 2D rebuild's Phase 21.3** (`dirtbag/app/src/sim/training.ts`, `sessions.ts`, `content/training.ts`, numbers in `TRAIN` in `dials.ts`). Save v6.
