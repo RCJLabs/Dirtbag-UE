@@ -4,6 +4,47 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — R2's end: Act I, pace on the wall, the send card, and the season's targets
+
+**Built in the 2D rebuild's R2** (`dirtbag/app/src/sim`: `content/story.ts`, `story.ts`, `climb.ts`, `harness.ts`; the card in `src/view/paint/card.ts`). The source of truth is the dirtbag repo's `docs/ROADMAP.md`, R2 "Plan", whose *As built* notes mark the deviations and the calls still *[proposed]*.
+
+**Act I, the demo's goal ladder** (v0.956's "Your First Season" quest, in its words):
+- Five stages, in order:
+  1. have $60 in hand;
+  2. send 3 lines anywhere (+1 technique);
+  3. send 2 outside;
+  4. be regulars with someone (v0.956 wanted 15 reputation, which the rebuild doesn't have);
+  5. climb V4 (+2 head).
+- Stages are checked after every action, in order, and several can complete at once.
+- The act ends with v0.956's closing text and $40. Dex's race starts the same night.
+
+**Pace** *[proposed]*: a go climbs at the base rate × `clamp(1 + 0.08 × margin, 0.8, 1.25)`.
+- The margin is your level in the route's style against its grade, fixed at the tie-in with the other mods.
+- Fewer seconds on the wall means less pump for the same moves.
+- v0.956 had no climb speed. The 2D harness shows no measurable change to the season.
+
+**On the wall** (Phase 9). This is staging, not rules:
+- the fall sheet draws the go as a bar against your best before it;
+- a chalk band follows what the go climbed, and an X marks where it came off;
+- past 55 pump the climber shakes, and past 45 the screen's edges close in.
+
+**The send card** (2D only): a first send offers a PNG drawn on the device from the line's topo. It carries the name, grade, how it went ("Redpoint, go 6"), the crag, the day and season, the climber, and any first-ascent credit. Nothing is uploaded.
+
+**The first season, as the 2D harness measures it** (12 seeds × 28 days × every start and strategy):
+- A balanced climber's runway is 2.3–3.4 days at days 7–28, and no run is ever stuck.
+- First-month injuries: 0% for moderate bots, 3% for reckless ones.
+- An hour on the rock teaches 5.8–12.4 skill points (V0–V4); a setting shift, 0.75.
+- The first V5 go comes around day 18.
+
+**What it means here:**
+- Act I is data: stages with an aim, a text and rewards. This repo's onboarding can take the same ladder as a DataTable.
+- Pace matters to the sim only if this repo adopts the 2D attempt model, which is still undecided (see the R1 entry). If it does, the speed mod joins the pump factor at the tie-in.
+- In a watched 3D session, pace is also staging: a stronger climber visibly moves faster. That is one answer to Phase 9's "two climbers play the same route differently". The 3D wall needs its own answer to "how close was that go".
+- The season numbers above are what this repo's sim should reproduce if it ports the 2D rules.
+- No new seed streams. Nothing here touches `ResolveAttempt` or its golden vectors.
+
+---
+
 ## 2026-09-29 — R2 people: bonds, Sage's arc, Dex and the race, Scout
 
 **Built in the 2D rebuild's R2** (`dirtbag/app/src/sim`: `presence.ts`, `curves.ts`, `content/people.ts`, `content/dog.ts`). The source of truth is the dirtbag repo's `docs/ROADMAP.md`, R2 "Plan", whose *As built* notes mark the deviations from v0.956.
