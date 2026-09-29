@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 12.1: the journal, and long lines on a card
+
+**Built in the 2D rebuild's Phase 12.1** (`dirtbag/app/src/ui/Sheet.tsx`, `src/game/game.ts`). A UI feature, not a rule: the sim's log is unchanged.
+
+**The rule:**
+- The sim's log (the last 200 lines, in the save) is the player's message log, shown newest first, by day, beside the climber's own page.
+- No transient notice runs over 30 words. A longer line goes on a card the player dismisses, which waits until nothing else is open.
+- The navigation Phase 12 proposed (five tabs) is dropped: scenes and the map stay the way in, and the journal is the one place for the rest.
+
+**What it means here:** whatever the 3D HUD does for notices, the same cap applies, and the log is a view of the sim's log, not a second one.
+
 ## 2026-09-29 — A send after the first is a repeat (decided)
 
 **Decided by Evan; built in the 2D rebuild** (`dirtbag/app/src/sim/game.ts`, the `done` action).
