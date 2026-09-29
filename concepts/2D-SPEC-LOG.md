@@ -4,6 +4,21 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 11.2: place cards say who's around when you'd get there
+
+**Built in the 2D rebuild's Phase 11.2** (`dirtbag/app/src/sim/presence.ts`, `staysAt` and `knows`; `src/ui/who.ts`; `src/view/header.ts`). It sits on top of the existing presence rules: nobody's schedule changed.
+
+**The rule:**
+- A place card reads the place at the hour you'd arrive: now if you're there, otherwise now plus the road's minutes.
+- It lists everyone who'll be there between then and the end of the day, each with from and till. A second stay the same day is listed after the first.
+- Someone you haven't met shows as "someone you haven't met". Hazel is known from the start (`PersonDef.known`).
+- At a place with sport lines or highballs, one line says what that means: a belayer and/or a spotter (a partner there), till when (overlapping partners joined), from when, or nobody.
+- Every card has a header: the place's scene at that hour, or a front drawn for a place without a scene.
+
+**What it means here:** a destination the Unreal version offers (a map pin, a road-trip pick) should read the presence functions at the arrival time, not the current one. Whether there'll be a belayer or a spotter is the question to answer before a drive.
+
+---
+
 ## 2026-09-29 — Phase 11.1: bed once it's dark, and lying around in one tap
 
 **Built in the 2D rebuild's Phase 11.1** (`dirtbag/app/src/sim/dials.ts`, `DAY.nightFrom`; `content/places.ts`, the `until` field on acts; `game.ts`, `actCost`). It is *[proposed]*, pending Evan's call.
