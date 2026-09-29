@@ -4,6 +4,21 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 21.2: trad
+
+**Built in the 2D rebuild's Phase 21.2** (`dirtbag/app/src/sim/climb.ts`, `content/routes.ts`, numbers in `TRAD` in `dials.ts`). No save change.
+
+**The rule:**
+- Trad is a third discipline beside boulder and sport. A trad line has stances (in moves) instead of bolts: one low, then about every 3.2 moves, one at the rest, and none inside a crux.
+- Leading trad needs a rack (owned kit, $280, or 55% at the swap meet) and a belayer. A go costs 35 minutes, 12 energy and 7 food.
+- Between cruxes, letting go within a stance's reach (0.5 moves below it to 0.8 above) places a piece after 1.1 s. While placing, pump rises 2/s where hanging would pay back 4.5/s. Climbing on before 1.1 s places nothing. Climbing through a stance runs it out.
+- A fall catches on the highest piece placed below you, exactly as sport's does on the last bolt clipped: fall = 2 × distance over it + 3 ft of slack.
+- If that fall is at least the height you're at, you hit the ground: a deck of that height. Nothing under 6 ft hurts; above it, each foot adds 3.6% to an injury roll (ankle names; tiers from 6 and 12 ft over), with no pads or spotter to reduce it.
+- A trad send adds 0.4 × the go's learning rate to head, on top of what the go teaches.
+- Pieces never pull, and every piece holds the same.
+
+**What it means here:** `ResolveAttempt` needs protection as part of the attempt's state: the moves where pieces went in, chosen during the go, not before it (v0.956's single rack choice is gone). Fall length and the deck check read it. In 3D, a stance is a spot on the wall where the climber can stop, and placing is an animation the player waits through while pump climbs.
+
 ## 2026-09-29 — Phase 21.1: your kit
 
 **Built in the 2D rebuild's Phase 21.1** (`dirtbag/app/src/sim/kit.ts`, `content/gear.ts`, numbers in `KIT` in `dials.ts`). Save v5.
