@@ -4,6 +4,12 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 21.4: Wind River Walls
+
+**Built in the 2D rebuild's Phase 21.4.** Content, not a new rule.
+
+**The rule:** a crag opening at V9 after an $800 trip paid once, with a $35 permit every trip; four hours from the Lot, reached past the Gorge; shaded, its own weather, closed in winter. v0.956's nine lines: boulders Alpine Crimps V9, The Diamond V11 (climbs V10), Offwidth Horror V12, Thin Air V13, an open V15; sport Glacier Point 5.13c, Skyline Traverse 5.14a, Astroman 5.14c; trad Alpine Trad 5.14b. A partner needs bond 7.
+
 ## 2026-09-29 — Phase 21.4: The Big Stone
 
 **Built in the 2D rebuild's Phase 21.4.** Content, not a new rule.
