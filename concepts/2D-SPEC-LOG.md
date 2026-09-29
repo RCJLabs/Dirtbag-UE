@@ -4,6 +4,20 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 21.1: your kit
+
+**Built in the 2D rebuild's Phase 21.1** (`dirtbag/app/src/sim/kit.ts`, `content/gear.ts`, numbers in `KIT` in `dials.ts`). Save v5.
+
+**The rule:**
+- The state carries a kit: a number per item. Shoes have a condition (0–100); chalk and tape have uses left; a second pad is owned or not.
+- A new climber starts with worn shoes (60) and half a bag of chalk (30 goes). The rope on a sport go is still the belayer's.
+- Every go wears the shoes by `0.25 × (1 + 0.035 × grade)`, uses one go of chalk, and a wrap of tape on a crack if you have tape.
+- The kit scales every crux window, in the same product as skills and the day's conditions (and so the windows the player sees before a go): shoes under 40 ×0.95, under 15 ×0.87, the penalty doubled on technical lines; no chalk ×0.95.
+- Tape halves the skin a crack costs, the go's base cost included. A second pad halves a highball's landing risk, as a paid haul's pads do.
+- A gear shop sells a resole (to 90, only when under 90), new shoes (100), chalk, tape and a pad; a swap meet on weekends (the last two days of each seven) sells used shoes (60) and pads at 55%.
+
+**What it means here:** `ResolveAttempt`'s per-move execution windows take the kit factor alongside skill and conditions, and a go's outcome writes the kit's wear back. The 3D game needs somewhere to buy and see the kit; the numbers are the 2D game's dials.
+
 ## 2026-09-29 — Phase 12.1: the journal, and long lines on a card
 
 **Built in the 2D rebuild's Phase 12.1** (`dirtbag/app/src/ui/Sheet.tsx`, `src/game/game.ts`). A UI feature, not a rule: the sim's log is unchanged.
