@@ -4,6 +4,22 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 11.1: bed once it's dark, and lying around in one tap
+
+**Built in the 2D rebuild's Phase 11.1** (`dirtbag/app/src/sim/dials.ts`, `DAY.nightFrom`; `content/places.ts`, the `until` field on acts; `game.ts`, `actCost`). It is *[proposed]*, pending Evan's call.
+
+**Why:** the rebuild's e2e bot now counts a player's taps. A day-3 loop (a shift, the crag, three goes, back, dinner, bed) took 32. 12 of them were spent waiting for bed at 6 PM after getting home at 1 PM: an hour of lying around per tap, then a walk to the fire to fill the last hour. Phase 11's budget is 20.
+
+**The rule:**
+- **Bed opens at dark**, 5 PM, when the Lot turns to night and the fire's lit. It was 6 PM, "so a bad day is harder to skip". It only made one harder to skip by taps. A skipped day still costs the $18 spot, a shift not worked and a day of the season.
+- **"Lie around till dark"** takes the whole afternoon in one act, at the old rate of 4 energy an hour. An act can now run till a time of day, with its cost given per hour and prorated.
+- Sleep is unchanged: you still wake at 7:10, and a night still adds to your energy rather than setting it.
+- The 2D harness doesn't move: all four season targets pass with the same figures.
+
+**What it means here:** the day's end is a player's choice once it's dark, with one action to get there from any afternoon. If the Unreal version gets a time-skip, it should work the same way: one action to the next beat, at the same per-hour rates as waiting, never a loop of small waits.
+
+---
+
 ## 2026-09-29 — The board runs a grade stiff (decided)
 
 **Evan's call**, closing the question the 10.1 entry left open. Every board problem at Send City climbs like the grade above its label: `trueGrade = grade + BOARD_STIFF` (1), as real boards run.
