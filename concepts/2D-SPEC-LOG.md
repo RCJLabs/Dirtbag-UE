@@ -4,6 +4,23 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 11.3: roads are a graph
+
+**Built in the 2D rebuild's Phase 11.3** (`dirtbag/app/src/sim/content/places.ts`, `ROADS` and `road`).
+
+**The rule:**
+- Each place has roads to its neighbours only, and a drive anywhere else is the quickest way through them: least time, then least gas. Adding a place means adding its neighbours' roads, not one to every other place.
+- The valley's network, 11 roads:
+  - town's six streets;
+  - the highway to Roadside from the Lot, the café and the diner;
+  - the Gorge's dirt road (60 min, $10) and the desert road to Moonstone (120 min, $18), both leaving the highway at Roadside.
+- Kept: every daily trip, and v0.956's drives from the Lot: Roadside an hour and $12, the Gorge two hours and $22, Moonstone three hours and $30.
+- Changed: nine rare trips to or from the Gorge or Moonstone, by −10 to +15 minutes and −$4 to +$1. Roadside to the Gorge is the biggest: an hour and $10, was 70 minutes and $12.
+
+**What it means here:** if the Unreal version has places joined by roads (a map, road trips), model the network the same way, as edges between neighbours with a shortest-path trip. A hand-typed table for every pair doesn't scale, and it drifted into numbers no road network could produce.
+
+---
+
 ## 2026-09-29 — Phase 11.2: place cards say who's around when you'd get there
 
 **Built in the 2D rebuild's Phase 11.2** (`dirtbag/app/src/sim/presence.ts`, `staysAt` and `knows`; `src/ui/who.ts`; `src/view/header.ts`). It sits on top of the existing presence rules: nobody's schedule changed.
