@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Promotions, and inviting crew to any crag (decided)
+
+**Decided by Evan** after the harness found bots going broke at V5; built in the 2D rebuild (`dirtbag/app/src/sim/jobs.ts`, `content/jobs.ts`, `content/people.ts`). Save v7.
+
+**The rule:**
+- Each job counts shifts worked (a double is two). A rank comes at a shift count and, for setting, a grade: café ranks at 12, 30, 54, 84 shifts, +$4 a shift each; setting at 6, 16, 30 shifts and V3, V5, V7, +$7 a shift each. The shift that earns a rank pays the old rate.
+- Each crag carries the bond a partner needs to come out there when asked: Roadside 1, the Gorge 3, the Mesa 5, Moonstone 5. Asking is once a day, before 1 PM, to Hazel or Sage; the crag must be dry, your grade must open it, and a paid-for crag must be paid for. They're there for the day from the minute you ask.
+
+**What it means here:** partner presence gains an invite override for every partner, not just Sage; jobs gain a rank ladder the 3D game's work screens need to show.
+
 ## 2026-09-29 — Phase 21.4: Sandstone Mesa
 
 **Built in the 2D rebuild's Phase 21.4** (`dirtbag/app/src/sim/content/routes.ts`, `places.ts`). Content, not a new rule.
