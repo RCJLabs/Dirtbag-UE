@@ -4,6 +4,20 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 11.4: the daily plan
+
+**Built in the 2D rebuild's Phase 11.4** (`dirtbag/app/src/game/plan.ts`; the runner in `src/game/game.ts`). It's a UI feature, not a rule: each step runs through `act()` as a tap would.
+
+**The rule:**
+- A plan is a list of steps: a place, and an act there or a climb. It runs in one go: drives, then acts. It waits at a climb while you climb, and stops at the first thing the day refuses, saying why. Bed ends it.
+- Yesterday, as played, is the default plan: every act, and a climb once a visit.
+- What can be planned comes from the data: a place's acts, and climbing where there's something to climb.
+- It's stored beside the save, not in it.
+
+**What it means here:** the day's logistics (shifts, meals, drives, bed) can be one decision, and the climbing stays the part you play. For "2D minigames, 3D staging", that's a shape worth keeping: plan the day, then play the session.
+
+---
+
 ## 2026-09-29 — Phase 11.3: roads are a graph
 
 **Built in the 2D rebuild's Phase 11.3** (`dirtbag/app/src/sim/content/places.ts`, `ROADS` and `road`).
