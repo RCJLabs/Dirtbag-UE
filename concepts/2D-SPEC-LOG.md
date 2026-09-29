@@ -4,6 +4,22 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 21.3: training
+
+**Built in the 2D rebuild's Phase 21.3** (`dirtbag/app/src/sim/training.ts`, `sessions.ts`, `content/training.ts`, numbers in `TRAIN` in `dials.ts`). Save v6.
+
+**The rule:**
+- Six protocols, each with a place (the van with a hangboard, or the gym with a pass), a cost (minutes, energy, food, skin), two skill weights, an injury style and an intensity: max hangs, repeaters, pull-ups and core (van); campus from V4, 4x4s, ARC (gym). Plus prehab at the van.
+- A session teaches `(2 + 0.35 × grade) × phase × (0.6 if the load ratio is over 1.5)`, split by weight, each skill through `hi()`. One a day.
+- It loads you like a go: `goLoad(energy, grade, 1) × intensity`, and rolls for injury on the same model as a go, with its style's risk.
+- Refused while tapering, injured (prehab excepted), fried (ratio over 1.7), empty, or short of the session's energy.
+- Phases: base (×1 everything; no lock), build (sessions ×1.25, injury ×1.2), peak (every crux window ×1.04, sessions ×0.7, injury ×1.3), deload (sessions ×0.5, injury ×0.6, acute load ×0.8 each night). A chosen phase holds 6 days; peak turns into deload after 7.
+- Taper: 3 days with no training, windows ×1.03 then ×1.06 on day 3; 14 days from its end before the next.
+- Prehab: injury chance ×0.6 for 8 days.
+- Target: at every grade reached, the best protocol's skill an hour stays under climbing's.
+
+**What it means here:** training is a sim action beside `ResolveAttempt`, with the same load and injury model. The phase and taper scale the per-move windows alongside skill, conditions and kit.
+
 ## 2026-09-29 — Phase 21.2: trad
 
 **Built in the 2D rebuild's Phase 21.2** (`dirtbag/app/src/sim/climb.ts`, `content/routes.ts`, numbers in `TRAD` in `dials.ts`). No save change.
