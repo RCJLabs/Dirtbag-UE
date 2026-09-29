@@ -4,6 +4,23 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-29 — Phase 10 follow-up: Moonstone's own sky
+
+**Built in the 2D rebuild** (`dirtbag/app/src/sim/weather.ts`, `skyAt`; the place flag `ownSky`). This follows v0.956, which rolled every crag's weather from its climate.
+
+**The rule:**
+- **Valley places** (the Lot, town, Roadside, the Gorge) keep the one valley sky, `skyOn`. R2's season was tuned on it, though v0.956 rolled the Gorge apart.
+- **Moonstone is out of the valley**, so it rolls its own sky:
+  - the season's odds, shifted by v0.956's desert terms: hot +0.12, rain −0.10 (floored at 0), prime −0.02;
+  - rolled on `worldgen`, derived `sky-{place}-{day}`;
+  - day 1 is prime everywhere, as in the valley.
+  - (v0.956's shaded terms, rain +0.08 and hot −0.06, are in the function for a future shaded crag out of the valley.)
+- **Its conditions** (open, seeping, when the sun comes, windows) come from its own sky. v0.956's desert after-rain nuances ("soft after rain", "washed clean") aren't carried: it seeps the day after rain as the valley does.
+
+**What it means here:** a crag's weather is either the region's or its own. This repo can take the same split: one valley sky, plus per-destination skies for road trips, so a wet day at home can be a dry one three hours away.
+
+---
+
 ## 2026-09-29 — Phase 10.3b: highballs, and landings that can hurt
 
 **Built in the 2D rebuild's Phase 10.3b** (`dirtbag/app/src/sim/game.ts`, `landingChance` and `rollLanding`; the `HIGHBALL` dials; the `highball` route flag). All of it is *[proposed]*. v0.956 had no highball rule, only a generic close call for climbing without a pad.
