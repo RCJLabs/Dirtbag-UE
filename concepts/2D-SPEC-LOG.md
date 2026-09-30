@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 21.4: Psicobloc Cove, and deep-water solo
+
+**Built in the 2D rebuild's Phase 21.4** (`dirtbag/app/src/sim/content/routes.ts`, `game.ts`, `weather.ts`).
+
+**The rule:**
+- A route may be a deep-water solo (`dws`): a boulder problem over the sea. A fall is into the water from wherever you were: no pad needed, no landing roll, no strain (overuse) roll. It still loads you and costs skin like any go.
+- A place may be closed for several seasons: the Cove is open in summer only ("Cold, rough seas till summer").
+- The Cove: V4, two hours from the Lot, no fee, its own weather. v0.956's eight lines: Tide Pool Traverse V2, The Plunge V3, Saltwater Slab V4, Barnacle Crimps V5, Leap of Faith V6 (climbs V7), Overhanging Tide V7, Psicobloc Arête V8, The Deep End V9.
+
+**What it means here:** a fall resolution with no injury path, and a water landing to stage.
+
 ## 2026-09-29 — Phase 21.4: The Crucible, and myths
 
 **Built in the 2D rebuild's Phase 21.4** (`dirtbag/app/src/sim/content/routes.ts`, `game.ts`).
