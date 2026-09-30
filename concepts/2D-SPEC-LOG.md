@@ -4,6 +4,28 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.3a: the pantry and the kitchen
+
+**Built in the 2D rebuild's Phase 22.3a** (`dirtbag/app/src/sim/content/food.ts`, `game.ts`, `climb.ts` `dayFactor`; numbers in `FOOD` in `dials.ts`). All numbers [proposed]. Save v13.
+
+**The rules:**
+- **The pantry** counts servings per ingredient. The Market sells packs of 4 servings: oats, rice, beans, tortillas and pasta at $4; eggs, cheese and greens at $6.
+- **Recipes** need the camp kitchen (an owned upgrade, $80) and one serving of each ingredient:
+
+  | Recipe | Ingredients | Time | Food | Other |
+  |---|---|---|---|---|
+  | Oatmeal | oats | 15 min | +30 | +4 energy |
+  | Rice and beans | rice, beans | 30 min | +45 | |
+  | Burritos | tortillas, eggs, cheese | 30 min | +50 | fuels |
+  | Pasta | pasta, greens | 40 min | +45 | +3 skin, fuels |
+
+- **Fueled:** the day a fueling meal is eaten, every crux window ×1.05 (inside the day factor). Nothing carries over, and no skill is gained.
+- **Variety:** the last 4 meals are kept (recipes, ramen, the diner special). When all 4 match, it's shown on the night summary. 22.4's sickness will read it.
+- **Coffee:** the third and later cups in a day give −6 energy instead of their normal gain.
+- **Hungry bedtime:** if food is under 20 at bed, eat up to 2 servings of anything in the pantry, +15 food each, until it's 20 or more.
+
+**What it means here:** an inventory of ingredients, recipes as data, a per-day buff multiplier in the window model, and a short meal history.
+
 ## 2026-09-30 — Phase 22.2c: van upgrades and winter
 
 **Built in the 2D rebuild's Phase 22.2c** (`dirtbag/app/src/sim/spots.ts` `nightAt`, `van.ts`, `content/gear.ts`; numbers in `UPGRADE` and `WINTER` in `dials.ts`). All numbers [proposed]. No save change.
