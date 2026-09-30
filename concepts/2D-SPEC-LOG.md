@@ -4,6 +4,28 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.7: Scout's life
+
+**Built in the 2D rebuild's Phase 22.7** (`dirtbag/app/src/sim/scout.ts`, text in `sim/content/dog.ts`; numbers in `DOG` in `dials.ts`). v0.956's lifecycle, words and numbers. Save v23.
+
+**The rules:**
+- **Perks by bond** (and only while fed, ≥30). Each is said the day bond crosses it:
+  - settle, ≥20: the fire's psyche lift +2;
+  - find, ≥45: each van night, `events`, `scout-find-{day}`, p 0.25, +1 serving of a random ingredient;
+  - watch, ≥75: Lot ticket odds × 0.5.
+- **Age:** floor((day − since) / 18) dog-years.
+- **At the night's turn over** (age at the ended day < n ≤ age at the new day):
+  - n = 8: the gray line;
+  - n = 12: the senior line;
+  - n = 10: The Limp, −$70; n = 13: The Lump, −$130 (flat cash, not insurance).
+  - Gray and older: the crag lines are the slower set.
+- **The end:** on a van night when age ≥ 16, encounter `farewell` (id = the dog's name). Every action but the answer is refused.
+  - Three answers, text only. After one: the closing line (best-friend version if bond ≥ 70) and a log entry "{name}, {years} years. {legacy}. Best dog in the valley and everybody knew it."
+  - Then `dogs.push({ name, years, day })` and `dog = null`.
+- **After:** the stray offer needs 30 days since the last dog went. Names go Scout, Moss, Juniper, Biscuit, by how many you've lost.
+
+**What it means here:** a companion with bond-gated passive perks, a fixed aging timeline with scripted beats and costs, and a permanent, player-shaped ending.
+
 ## 2026-09-30 — Phase 22.6c: walk-outs
 
 **Built in the 2D rebuild's Phase 22.6c** (`dirtbag/app/src/sim/events.ts`, content in `sim/content/epics.ts`; numbers in `EVENTS.epic` in `dials.ts`). v0.956's text and numbers; the headlamp's price is [proposed]. Save v22.
