@@ -4,6 +4,18 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 21.6: crowds and spray beta
+
+**Built in the 2D rebuild's Phase 21.6** (`dirtbag/app/src/sim/crowds.ts`; numbers in `CROWD` in `dials.ts`, each crag's draw as `crowd` in `content/places.ts`). No save change: a crowd is worked out, not stored.
+
+**The rule:**
+- A crag's crowd level = its draw (0.2 at The Crucible to 0.6 at Roadside and The Big Stone) × 1.7 at the weekend × the hour (0 before 7:00 and from 19:00; 0.5 from 7:00, 1 from 9:00, 0.7 from 16:00) × the sky (prime 1.25, fair 1, hot 0.6; wet or closed rock 0) × the day's luck (0.7–1.3, seeded per crag and day). Read off as empty (<0.25), quiet, busy (≥0.7) or packed (≥1.2).
+- A queue before each go: busy, 10 min for a rope and none for a boulder; packed, 20 and 10. A wall's pitches have none.
+- Asking around (busy or packed, a line you haven't sent, beta you don't know): 15 min, and you learn the line's next unknown beta as told, so a first-go send is a flash.
+- Packed, on your first go on a line: a 40% seeded chance someone shouts that beta at you before you start. The same outcome.
+
+**What it means here:** crowds at the crag base to stage, and a queue that takes time.
+
 ## 2026-09-30 — Phase 21.5: walls and expeditions
 
 **Built in the 2D rebuild's Phase 21.5** (`dirtbag/app/src/sim/content/routes.ts`, `content/expeditions.ts`, `expeditions.ts`, `game.ts`; numbers in `WALL` and `EXPED` in `dials.ts`). Save v8.
