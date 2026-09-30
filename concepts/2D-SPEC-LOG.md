@@ -4,6 +4,24 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.6b: hitchhikers and roadside stops
+
+**Built in the 2D rebuild's Phase 22.6b** (`dirtbag/app/src/sim/events.ts`, content in `sim/content/road.ts`; numbers in `EVENTS` in `dials.ts`). v0.956's text and hitchhiker numbers; stop odds and the day-3 start [proposed]. Save v21.
+
+**The rules:**
+- **No encounter of any kind before day 3** (this now applies to knocks too).
+- **Trigger:** a `travel` to or from a crag that doesn't break down, with no encounter yet today. Roll: `events`, `drive-{day}-{min}` (min on arrival).
+  - First draw < 0.14, and ≥5 days since the last hitchhiker: a hitchhiker, picked by weight (2.6 if met, else 1) with a second draw.
+  - Else, if the first draw is in [0.14, 0.34) and ≥3 days since the last stop: a stop, drawn from the unseen ones (all, once every one is seen).
+- **The encounter is set after arrival;** every action but `answer` is refused until it's answered.
+- **Hitchhiker, first meeting:** their 3 answers plus "drive past" (index 3: no effect, not remembered). Picking an answer records `met[id] = index`.
+- **Hitchhiker, later meetings:** their 2 `again` answers, minus any whose `when` differs from `met[id]`.
+- **Effects:** psyche × 0.5; cash; energy; `beta`, the most useful unknown beta at the destination (the one a watching partner would teach); `guitar` (+sets).
+- **Stop:** 0 = pull over (40 min; effects × 1 the first time, × 0.4 after, psyche then × 0.5), 1 = keep driving.
+- **Breakdown:** with no friend to call, a met hitchhiker other than the grifter or thief comes along on a seeded 50% (`events`, `friend-{day}`), and works as the friend fix.
+
+**What it means here:** a travel-triggered encounter layer with persistent memory of each NPC's first choice, feeding a later rescue.
+
 ## 2026-09-30 — Phase 22.6a: the event deck, and knocks at night
 
 **Built in the 2D rebuild's Phase 22.6a** (`dirtbag/app/src/sim/events.ts`, content in `sim/content/knocks.ts`; numbers in `EVENTS` in `dials.ts`). v0.956's numbers and text. Save v20.
