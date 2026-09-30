@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — The Cave raised, and the Training Center (decided)
+
+**Decided by Evan; built in the 2D rebuild** (`dirtbag/app/src/sim/content/gym.ts`, `content/places.ts`).
+
+**The rule:**
+- The Cave's weekly set is now V5 to V12 (v0.956's V3 to V10, raised).
+- The Training Center, v0.956's third gym: eight comp-style problems a week, V7 to V14, seeded by week. Styles weighted dyno 3, technical 2, power 2, crimp 1 in 8. Its own day pass ($20 [proposed], against Send City's $14); specialty power and technique (×1.2, as the other gyms' are). You need V7 to go there, like Sandstone Mesa.
+- Phase 21 is closed: with these, the 2D game's career bots reach V10 in every run and never run out of things to try.
+
+**What it means here:** a third gym level: a comp hall, and a weekly set generated from its own table.
+
 ## 2026-09-30 — Phase 21.6: the speed wall, and Free Solo
 
 **Built in the 2D rebuild's Phase 21.6** (`dirtbag/app/src/sim/speed.ts`, `solo.ts`, `game.ts`; numbers in `SPEED` and `FREESOLO` in `dials.ts`). Save v9.
