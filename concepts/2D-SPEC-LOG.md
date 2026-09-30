@@ -4,6 +4,21 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.4d: psyche
+
+**Built in the 2D rebuild's Phase 22.4d** (`dirtbag/app/src/sim/psyche.ts`; numbers in `PSYCHE` in `dials.ts`). All numbers [proposed]. Save v17.
+
+**The rules:**
+- **Psyche** (0–100): a new climber starts at 60; a migrated one at 50. It's settled at every night (van, ledge or expedition), from the day that's ending:
+  - Lifts: +4 for a first send of any line that day; +6 for arriving at a crag you'd never been to, else +2 for any crag day (a ledge or expedition night counts as one); +3 for climbing, watching or belaying with anyone; +2 for sitting at the fire at night.
+  - Wears: −3 for a shift worked. A day with no lift is stale; a run of stale days costs 1 less than its length, today included, up to −4 (so 0, −1, −2, −3, −4, −4…). Any lift ends the run.
+  - The day's net is capped at ±8. Then it drifts 10% of the way to 50 and rounds.
+  - A crag you'd logged a line at before the save moved to v17 counts as visited.
+- **Effect:** every window × (1 + 0.05 × (psyche − 50) / 50): 0.95 to 1.05.
+- **Words:** under 25 low, under 45 flat, under 60 steady, under 80 keen, else psyched. A line the morning it tips into low or psyched. Tonight shows the word by morning and the day's reasons.
+
+**What it means here:** a slow, bounded mood stat fed by a day's variety and company, pulled back to even every night so no single habit holds it up, with a small multiplier on every skill check.
+
 ## 2026-09-30 — Phase 22.4c: supplies and sickness
 
 **Built in the 2D rebuild's Phase 22.4c** (`dirtbag/app/src/sim/sick.ts`; numbers in `SUPPLIES` and `SICK` in `dials.ts`). All numbers [proposed]. Save v16.
