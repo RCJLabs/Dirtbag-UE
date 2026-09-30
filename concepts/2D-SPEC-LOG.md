@@ -4,6 +4,18 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Jobs pay in more than money (decided)
+
+**Decided by Evan; built in the 2D rebuild** (`dirtbag/app/src/sim/content/jobs.ts`, `content/places.ts`, `jobs.ts` `tipsFor`).
+
+**The rules:**
+- A job that pays less an hour trains something: coaching +2 head and +1 technique a shift, setting +3 technique, the warehouse +2 endurance. The café and the diner train nothing.
+- The café pays least a shift ($28) and has the shortest shifts (3 h). Setting went from $28 to $30 to keep that true.
+- A new job, the Diner: 4 h at $30 base, raise $6 a rank, ranks Busser, Server, Head server, Floor manager at 0/10/24/42 shifts, and 5 shifts posted a week.
+  - Tips on top: a seeded integer from 4 to 10 (`events` stream, `tips-{job}-{day}`), ×1.5 rounded on a weekend.
+
+**What it means here:** a job's reward is pay plus a flat skill gain, and a job can carry a seeded tip roll.
+
 ## 2026-09-30 — Phase 22.2a: the van's parts, breakdowns and the garage
 
 **Built in the 2D rebuild's Phase 22.2a** (`dirtbag/app/src/sim/van.ts`, `game.ts`, `content/van.ts`; numbers in `VAN` in `dials.ts`). Three parts by Evan's call (Decision 5); the numbers are [proposed]. Save v11.
