@@ -4,6 +4,20 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.6a: the event deck, and knocks at night
+
+**Built in the 2D rebuild's Phase 22.6a** (`dirtbag/app/src/sim/events.ts`, content in `sim/content/knocks.ts`; numbers in `EVENTS` in `dials.ts`). v0.956's numbers and text. Save v20.
+
+**The rules:**
+- **State:** `deck = { last, knock, seen[] }` (day of the last encounter of any kind, night of the last knock, knock ids heard, last 10) and `encounter = { kind: 'knock', id } | null`.
+- **At most one encounter a day:** no knock on a day with `deck.last === day`.
+- **A knock** can come when you sleep in the van (not the pullout): odds 0.11 × spot (lot 1.4, truckstop 1.2, trailhead 0.9, ridge 0.6, driveway 0.5), 0 if fewer than 4 nights since the last. Roll: `events`, `knock-{day}`, first draw against the odds; the knock is drawn from the spot's knocks not among the last 3 heard (all of the spot's if none are left).
+- **While an encounter is pending,** every action but the answer is refused, and the night hasn't happened.
+- **The answer** applies its effects (cash; energy, clamped; supplies; psyche × 0.5, rounded, clamped; bond ± with the driveway's host), says its line, then runs the night as a normal van sleep.
+- 10 knocks × 3 answers, by spot; the driveway's is the friend's.
+
+**What it means here:** a seeded, spot-weighted interrupt on the sleep action with a three-way choice, cooldowns, and a shared one-a-day cap that 22.6b's drive events and 22.6c's walk-outs will share.
+
 ## 2026-09-30 — Phase 22.5b: busking
 
 **Built in the 2D rebuild's Phase 22.5b** (`dirtbag/app/src/sim/busk.ts`, the beat in `ui/BuskPanel.tsx` and `game/game.ts`; numbers in `BUSK` in `dials.ts`). Evan's calls; numbers [proposed]. Save v19.
