@@ -14,7 +14,7 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
   - curtains: $60, 30 min, Lot ticket odds ×0.3;
   - tool kit: $85, 5 min, bodge odds 0.9 instead of 0.6;
   - tune-up: $90, 90 min, gas ×0.8, rounded;
-  - heater: $150, 90 min;
+  - heater: $45, 90 min (was $150; Evan's call, so it's affordable before the first winter on day 15);
   - insulation: $60, 120 min, cold ×0.5, rounded.
   - None produces income.
 - **Winter nights:** in the winter season (the second 14 days of every 56), a van night's cold is −10 plus the spot's winter value. It's not the spot's in the pullout.
