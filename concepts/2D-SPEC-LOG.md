@@ -4,6 +4,29 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.2b: where you sleep
+
+**Built in the 2D rebuild's Phase 22.2b** (`dirtbag/app/src/sim/spots.ts`, `game.ts` `sleep`; numbers in `SPOTS` and `SPOT` in `dials.ts`). All numbers [proposed]. Save v12.
+
+**The rules:**
+- A standing choice of spot, applied on every night at the van. Each spot has a price, gas, a morning drive (minutes added to the wake time), and an energy change, with an extra winter change:
+
+  | Spot | Price | Gas | Drive (min) | Energy | Extra in winter |
+  |---|---|---|---|---|---|
+  | The Lot | $18 | $0 | 0 | 0 | 0 |
+  | Upper Trailhead | $0 | $6 | 25 | −10 | −10 |
+  | Truck stop | $6 | $2 | 10 | −12 | 0 |
+  | Friend's driveway | $0 | $2 | 10 | +5 | 0 |
+  | The Ridge | $0 | $8 | 40 | +5 | −15 |
+
+- **Tickets at the Lot:** with n nights in a row there so far, the chance tonight is min(0.25, 0.05 × (n + 1 − 3)), never below 0. The fine is $25, on the card. The roll is seeded from `events`, `ticket-{day}`. Any other spot resets the count.
+- **The driveway:** needs a partner at bond tier 3 or more who isn't away, and 4 days since the last visit.
+- **The Ridge:** needs 25 trips out.
+- **Fallback:** a spot that won't have you tonight becomes the Lot. A card that can't cover the price and gas is the pullout: nothing paid, no drive, the rough night's energy.
+- You always wake at the Lot. Lifestyle is paid after the spot.
+
+**What it means here:** the night gets a location with its own costs and rest, plus a consecutive-nights counter for tickets.
+
 ## 2026-09-30 — Jobs pay in more than money (decided)
 
 **Decided by Evan; built in the 2D rebuild** (`dirtbag/app/src/sim/content/jobs.ts`, `content/places.ts`, `jobs.ts` `tipsFor`).
