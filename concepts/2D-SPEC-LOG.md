@@ -4,6 +4,20 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.3b: the lake
+
+**Built in the 2D rebuild's Phase 22.3b** (`dirtbag/app/src/sim/lake.ts`; numbers in `LAKE` in `dials.ts`). All numbers [proposed]. No save change.
+
+**The rules:**
+- **Fishing:** 120 minutes and −6 energy, once a day.
+  - Three tries at a fish, each with a chance p.
+  - p is 0.4 in spring, 0.5 in summer, 0.5 in fall and 0.15 in winter. It's ×1.5 before 9:00 or from 17:00, capped at 0.9.
+  - The roll is seeded from `events`, `fish-{day}-{minute cast}`.
+  - Each fish is +15 food, eaten at once. No cash.
+- **A swim:** 45 minutes, +8 energy, once a day, not in winter.
+
+**What it means here:** a seeded yield activity whose output is food, bounded below a meal's worth, with season and time-of-day modifiers.
+
 ## 2026-09-30 — Phase 22.3a: the pantry and the kitchen
 
 **Built in the 2D rebuild's Phase 22.3a** (`dirtbag/app/src/sim/content/food.ts`, `game.ts`, `climb.ts` `dayFactor`; numbers in `FOOD` in `dials.ts`). All numbers [proposed]. Save v13.
