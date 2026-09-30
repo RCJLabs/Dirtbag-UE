@@ -4,6 +4,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 21.6: highballs by height (decided)
+
+**Decided by Evan; built in the 2D rebuild** (`dirtbag/app/src/sim/content/routes.ts` `isHighball`, `HIGHBALL.fromFt` in `dials.ts`).
+
+**The rule:** every outdoor boulder 16 ft or taller is a highball; deep-water solos and gym problems never are. It isn't set by hand. The landing rule itself is unchanged (Phase 10.3b): nothing up to 8 ft of fall, +1.2% a foot above that, halved by the haul's pads and again by a spotter. Seventeen problems qualify, twelve of them new.
+
+**What it means here:** the highball flag is derived from height, so the Unreal content pipeline can compute it rather than author it.
+
 ## 2026-09-30 — Phase 21.6: crowds and spray beta
 
 **Built in the 2D rebuild's Phase 21.6** (`dirtbag/app/src/sim/crowds.ts`; numbers in `CROWD` in `dials.ts`, each crag's draw as `crowd` in `content/places.ts`). No save change: a crowd is worked out, not stored.
