@@ -4,6 +4,27 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.2c: van upgrades and winter
+
+**Built in the 2D rebuild's Phase 22.2c** (`dirtbag/app/src/sim/spots.ts` `nightAt`, `van.ts`, `content/gear.ts`; numbers in `UPGRADE` and `WINTER` in `dials.ts`). All numbers [proposed]. No save change.
+
+**The rules:**
+- **Upgrades** are owned items, each fitted once at the garage for a price and a time:
+  - bed: $70, 60 min, +5 energy each van night (not in the pullout);
+  - curtains: $60, 30 min, Lot ticket odds ×0.3;
+  - tool kit: $85, 5 min, bodge odds 0.9 instead of 0.6;
+  - tune-up: $90, 90 min, gas ×0.8, rounded;
+  - heater: $150, 90 min;
+  - insulation: $60, 120 min, cold ×0.5, rounded.
+  - None produces income.
+- **Winter nights:** in the winter season (the second 14 days of every 56), a van night's cold is −10 plus the spot's winter value. It's not the spot's in the pullout.
+  - With a heater and propane > 0, the cold is 0 and one propane is used.
+  - Otherwise, insulation halves the cold.
+- **Propane:** a consumable, $18 for 10 at the gear shop.
+- **The warning:** a line on the night before day (winter start − 5).
+
+**What it means here:** the van carries owned modifiers, and the night's rest gets a seasonal cold term with a fuel-burning counter.
+
 ## 2026-09-30 — Phase 22.2b: where you sleep
 
 **Built in the 2D rebuild's Phase 22.2b** (`dirtbag/app/src/sim/spots.ts`, `game.ts` `sleep`; numbers in `SPOTS` and `SPOT` in `dials.ts`). All numbers [proposed]. Save v12.
