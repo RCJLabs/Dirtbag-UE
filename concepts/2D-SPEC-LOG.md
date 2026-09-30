@@ -4,6 +4,23 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.1: the week, the jobs and how you live
+
+**Decided by Evan (jobs differ, start low, promotion to earn more; a warehouse job added); built in the 2D rebuild's Phase 22.1** (`dirtbag/app/src/sim/content/jobs.ts`, `jobs.ts`, `game.ts`; numbers in `WORK` and `LIFESTYLE` in `dials.ts`). Save v10.
+
+**The rules:**
+- **Four jobs**, each with a shift length, a first-rank pay, ranks by shifts worked, and a raise per rank (top rank 1.7 to 2 times the first):
+  - Coffee Shop: 3 h, $28, raise $5, five ranks at 0/12/30/54/84 shifts. Posts every day.
+  - Coaching (The Cave): 4 h, $34, raise $17, three ranks at 0/8/20 shifts and V5/V6/V8. Posts 4 days a week.
+  - Setting (Send City): 4 h, $28, raise $10, four ranks at 0/6/16/30 shifts and V0/V3/V5/V7; trains technique. Posts 4 days a week.
+  - Warehouse [proposed]: 8 h from before 9 AM, $52, raise $17, four ranks at 0/10/25/45. Posts 3 days a week.
+- **Posting:** a job that doesn't post every day picks its days per 7-day week off the `worldgen` stream, derived `shifts-{job}-w{week}` (partial Fisher–Yates over the week's days). Day 1 is a Monday.
+- **Sign-up:** a posted shift from tomorrow up to 7 days ahead, one shift a day, the job's first-rank grade needed. Today's posted shifts are walk-ins: they pay the same and don't count toward promotion. Only a shift you signed up for counts.
+- **No-shows:** a signed-up shift not worked by the end of its day is a warning. The third costs the job: shifts there reset to 0, future sign-ups there dropped, and 7 days before it takes you back.
+- **How you live:** dirtbag (free), comfortable ($12 a night, +8 energy, +4 skin by morning), plush ($28, +15, +8) [proposed]. Paid at the van after the spot, only while the card covers it; otherwise that night is a dirtbag's. Not on a ledge or an expedition.
+
+**What it means here:** jobs become data with a weekly posting draw, the save carries a shift schedule, warnings, a let-go date per job and a lifestyle, and sleep settles no-shows and the lifestyle's cost.
+
 ## 2026-09-30 — The Cave raised, and the Training Center (decided)
 
 **Decided by Evan; built in the 2D rebuild** (`dirtbag/app/src/sim/content/gym.ts`, `content/places.ts`).
