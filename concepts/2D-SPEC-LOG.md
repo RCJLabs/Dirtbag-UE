@@ -4,6 +4,25 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 21.5: walls and expeditions
+
+**Built in the 2D rebuild's Phase 21.5** (`dirtbag/app/src/sim/content/routes.ts`, `content/expeditions.ts`, `expeditions.ts`, `game.ts`; numbers in `WALL` and `EXPED` in `dials.ts`). Save v8.
+
+**Walls:**
+- v0.956's four, pitch by pitch, as sport pitches of 100 ft and 16 moves: The Long Prow at Roadside (4 pitches, sport grade 5; v0.956's "The Prow", renamed because the Mesa's boulder has the name), Golden Buttress (5, grade 9), Obsidian Tower (7, grade 13) and The Ascendant (8, grade 18) at The Big Stone.
+- Needs a rope of your own ($150 at the gear shop) and dry rock. You start the wall, then climb its pitches in order: each is a normal go through beta-then-send, costing 60 min, 8 energy, 4 food. A fall leaves you at the same pitch.
+- After dark, once off the ground, you can bivy on the ledge: no van fee, +40 energy, −20 food, and you wake on the wall. Rapping off or driving away ends the attempt; the next one starts at pitch 1.
+- The first summit pays 40 + 12 × grade + 10 × pitches ($140 for the Prow); later summits pay nothing.
+
+**Expeditions:**
+- v0.956's three: El Capitan (V7 to go, 6 pitches in 10 days, storms 18%, $900, pays $2,400), Cerro Torre (V10, 8 in 16, 44%, $2,200, $6,000), Trango Tower (V12, 11 in 24, 56%, $4,500, $12,000). Paid in cash from the Lot; nothing else happens while you're away.
+- Each day is one choice: lead (−22 energy), dig deep (−36), rest (+48), or bail. A storm day (seeded per expedition and day) allows only rest or bail. Every night gives +10 energy, up to 100.
+- A pitch succeeds with p = clamp(0.45, 0.97, 0.68 + 0.1 × endurance margin over the objective's grade (+0.25 digging deep)), rolled on a seeded stream per day and pitch.
+- The summit's odds are shown before you pay and every day after: an exact calculation over storms and falls, for leading every fair day and for digging deep every one. For a V9 climber on El Cap that's about 48% and 81%.
+- The summit pays and trains head +2. Running out of days or bailing pays nothing, and the cost is spent.
+
+**What it means here:** walls reuse the attempt as-is, so they need a wall-length scene with ledges and an overnight on the rock. An expedition is a turn-based layer over days, with its odds in the UI.
+
 ## 2026-09-30 — Phase 21.4: The Cave, a second gym
 
 **Built in the 2D rebuild's Phase 21.4** (`dirtbag/app/src/sim/content/gym.ts`).
