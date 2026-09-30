@@ -4,6 +4,27 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.2a: the van's parts, breakdowns and the garage
+
+**Built in the 2D rebuild's Phase 22.2a** (`dirtbag/app/src/sim/van.ts`, `game.ts`, `content/van.ts`; numbers in `VAN` in `dials.ts`). Three parts by Evan's call (Decision 5); the numbers are [proposed]. Save v11.
+
+**The rules:**
+- **Parts:** tires, engine and battery, each 0–100. A new climber's van starts at 85; a migrated one at 70.
+- **Wear:** tires lose 0.015 and the engine 0.01 per minute driven, and the battery 1 a night. A climber driving to the nearest crag every day needs tires about every 55 days and an engine service about every 80: about $5 a day, battery included. At 0 the battery won't start the van: the only drive allowed is to the garage.
+- **Breakdowns:** only on drives of 20 minutes or more. The chance is (minutes / 60) × 0.14 × w², where w is the worst road part's wear (0 new, 1 dead), capped at 0.5. A van kept up never breaks down.
+  - The roll is seeded from the `events` stream, derived `breakdown-{day}-{minute}-{from}-{to}`.
+  - The part that goes is picked weighted by wear + 0.05, and drops to 5.
+  - The breakdown happens halfway: half the drive's wear and time, then nothing else can happen until you take a way out.
+- **Ways out:**
+  - **Tow:** $70 and 90 minutes, to the garage.
+  - **Bodge:** 60 minutes, holds 60% of the time (its own seeded roll). If it holds, the part goes to 35 and you drive on. One try per breakdown.
+  - **Limp on:** the rest of the drive at double time and −15 energy. The part stays at 5.
+  - **Friend:** a partner at bond tier 2 or more who isn't away. 120 minutes, the part to 30, and you drive on.
+- **Unsafe:** a road part under 15 refuses any drive of 20 minutes or more, except home to the Lot or to the garage.
+- **The garage (Midtown):** each part back to 100 for its price × wear (tires $140, engine $180, battery $90, never under $15), in 60, 120 and 20 minutes.
+
+**What it means here:** the van becomes state with three condition meters, a travel-time breakdown roll and a blocking breakdown state with four resolutions. Parking spots, upgrades and winter come in 22.2b and 22.2c.
+
 ## 2026-09-30 — Phase 22.1: the week, the jobs and how you live
 
 **Decided by Evan (jobs differ, start low, promotion to earn more; a warehouse job added); built in the 2D rebuild's Phase 22.1** (`dirtbag/app/src/sim/content/jobs.ts`, `jobs.ts`, `game.ts`; numbers in `WORK` and `LIFESTYLE` in `dials.ts`). Save v10.
