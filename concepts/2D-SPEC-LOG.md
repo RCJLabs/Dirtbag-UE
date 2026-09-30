@@ -4,6 +4,20 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.5a: the hustle (cans, bins, foraging)
+
+**Built in the 2D rebuild's Phase 22.5a** (`dirtbag/app/src/sim/hustle.ts`; numbers in `HUSTLE` in `dials.ts`). All numbers [proposed]. Save v18.
+
+**The rules:**
+- Three acts, each once a day, the take drawn at the act from `events`, `hustle-{kind}-{day}` (so the same day always gives the same take):
+  - **Cans** (the van, by day): 120 min, −8 energy, cash int[3, 9].
+  - **Bins** (the market, night only): 60 min, −4 energy; p 0.78 of food int[24, 39], else nothing. Food found counts as the meal `bins` in the last-meals list.
+  - **Forage** (the lake, by day): 120 min, −6 energy, food int[18, 29], ×0.4 rounded in winter; the meal `forage`.
+- **Teaching:** after any action, if food < 35 and cash < $10 and `seen` lacks `hustle`, one line names all three and `hustle` is added to `seen` (a list of one-time lines, new in v18).
+- **Balance rule:** each hustle's best hour, food priced at ramen's cost per point, stays under the worst-paid shift's first-rank hourly pay.
+
+**What it means here:** a small free-money/free-food safety net, gated by time and a daily flag, with a one-time tutorial prompt keyed to a hungry-and-broke state.
+
 ## 2026-09-30 — Phase 22.4d: psyche
 
 **Built in the 2D rebuild's Phase 22.4d** (`dirtbag/app/src/sim/psyche.ts`; numbers in `PSYCHE` in `dials.ts`). All numbers [proposed]. Save v17.
