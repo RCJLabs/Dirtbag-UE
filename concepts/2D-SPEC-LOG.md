@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 21.4: The Cave, a second gym
+
+**Built in the 2D rebuild's Phase 21.4** (`dirtbag/app/src/sim/content/gym.ts`).
+
+**The rule:**
+- Indoor places are a set, each with its own day pass, closing time (10 PM) and specialty: Send City brings on technique and endurance ×1.2, The Cave power and fingers ×1.2.
+- The Cave sets eight problems a week, V3 to V10, seeded by week, drawn mostly from power and crimp styles.
+- Coaching there: 4 hours, $34, trains head +2 and technique +1; needs V5; ranks at 8 and 20 shifts (V6, V8), +$8 a shift each.
+
+**What it means here:** a second gym level with its own weekly set and job.
+
 ## 2026-09-30 — Phase 21.4: Psicobloc Cove, and deep-water solo
 
 **Built in the 2D rebuild's Phase 21.4** (`dirtbag/app/src/sim/content/routes.ts`, `game.ts`, `weather.ts`).
