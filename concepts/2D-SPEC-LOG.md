@@ -4,6 +4,19 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.5b: busking
+
+**Built in the 2D rebuild's Phase 22.5b** (`dirtbag/app/src/sim/busk.ts`, the beat in `ui/BuskPanel.tsx` and `game/game.ts`; numbers in `BUSK` in `dials.ts`). Evan's calls; numbers [proposed]. Save v19.
+
+**The rules:**
+- **A set:** at the café, 08:00–20:00, not on a rain day, once a day (`busked` flag), ≥5 energy. Costs 60 min and 5 energy.
+- **The beat** (UI): 8 notes. A marker sweeps 0→1 across a bar in 1.3 s; a tap scores 1 within 0.08 of 0.5, 0.5 within 0.16, else 0; a sweep that ends untapped scores 0. The sim gets `{ t: 'busk', acc }`, acc = mean score, and trusts it (it's the player's hands, like the speed wall's time).
+- **Playing:** `guitar` += 0.5 + 0.5 × acc per set. Skill = 1 − e^(−guitar/150). Ranks at skill 0.25, 0.55, 0.85 (busker, regular, local legend), each with a line when reached.
+- **Crowd** = hour factor (08:00 0.6, 11:30 1.2, 14:00 0.8, 17:00 1.3) × 1.3 on weekends × sky (prime 1.1, fair 1, hot 0.8) × luck (1 ± 0.2, `events`, `busk-{day}`).
+- **Tips** = round((4 + 20 × skill) × crowd × (0.3 + 0.7 × acc)). **Heads** = round((2 + 28 × skill) × crowd).
+
+**What it means here:** a skill-by-repetition side income with a rhythm minigame, starting below every job's hourly pay and ending above all of them, capped at one short set a day so it never replaces a day's work.
+
 ## 2026-09-30 — Phase 22.5a: the hustle (cans, bins, foraging)
 
 **Built in the 2D rebuild's Phase 22.5a** (`dirtbag/app/src/sim/hustle.ts`; numbers in `HUSTLE` in `dials.ts`). All numbers [proposed]. Save v18.
