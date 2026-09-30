@@ -22,7 +22,7 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 **The rules:**
 - **Parts:** tires, engine and battery, each 0–100. A new climber's van starts at 85; a migrated one at 70.
-- **Wear:** tires lose 0.015 and the engine 0.01 per minute driven, and the battery 1 a night. A climber driving to the nearest crag every day needs tires about every 55 days and an engine service about every 80: about $5 a day, battery included. At 0 the battery won't start the van: the only drive allowed is to the garage.
+- **Wear:** tires lose 0.015 and the engine 0.01 per minute driven, and the battery 1 a night. A climber driving to the nearest crag every day needs tires about every 55 days and an engine service about every 80: about $5 a day, battery included. At 0 the battery needs a jump: drives across town only (under 20 minutes), plus home and the garage, so town and a shift are always in reach.
 - **Breakdowns:** only on drives of 20 minutes or more. The chance is (minutes / 60) × 0.14 × w², where w is the worst road part's wear (0 new, 1 dead), capped at 0.5. A van kept up never breaks down.
   - The roll is seeded from the `events` stream, derived `breakdown-{day}-{minute}-{from}-{to}`.
   - The part that goes is picked weighted by wear + 0.05, and drops to 5.
