@@ -4,6 +4,23 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.4b: old injuries and fear
+
+**Built in the 2D rebuild's Phase 22.4b** (`dirtbag/app/src/sim/scars.ts`; numbers in `SCARS` and `FEAR` in `dials.ts`). All numbers [proposed]. Save v15.
+
+**The rules:**
+- **Marks:** when an injury heals, a seeded roll (`session`, `scar-{day}-{kind}`) leaves a mark on its area. The chance is 0 / 0.35 / 0.7 by tier.
+  - The area comes from the injury's name: fingers, shoulder, forearm, leg, or ankle for a landing.
+  - A mark multiplies injury chance on styles that load that area ×1.3, and highball landing chance ×1.3 for an ankle.
+- **Flares:** each go on a marked style without an injury rolls 6% (`flare-{day}-{go}`) to flare the mark for 3 days. Only one flare at a time.
+  - While flaring, that area's styles have windows ×0.9.
+  - Physio ends a flare.
+- **Fear:** a landing or deck injury, or any tier-3 injury on a go, adds the line's style to a fear set.
+  - Feared styles have windows ×0.9.
+  - Sending any line of that style removes it.
+
+**What it means here:** persistent per-area risk modifiers, a temporary per-area window penalty, and a per-style confidence penalty cleared by a send.
+
 ## 2026-09-30 — Phase 22.4a: insurance plans and the clinic
 
 **Built in the 2D rebuild's Phase 22.4a** (`dirtbag/app/src/sim/clinic.ts`; numbers in `PLANS` and `CLINIC` in `dials.ts`). All numbers [proposed]. Save v14.
