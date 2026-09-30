@@ -4,6 +4,23 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 21.6: the speed wall, and Free Solo
+
+**Built in the 2D rebuild's Phase 21.6** (`dirtbag/app/src/sim/speed.ts`, `solo.ts`, `game.ts`; numbers in `SPEED` and `FREESOLO` in `dials.ts`). Save v9.
+
+**The speed wall** (Send City, with the day pass):
+- A run is 20 holds. The start is three lights a second apart, go on the third; a grab before it is a false start. Then alternate hands; the same hand twice is a slip that loses 0.35 s.
+- The clock time = the player's real seconds (at least 1.5) × a factor: 2.8 at V0, minus 0.1 per grade of (0.6 power + 0.4 technique), never under 1.45. A PB is kept.
+- A run costs 10 min, 7 energy, 2 skin and 2 food, and loads you like a short go (×0.8). The first 3 runs a day (false starts count) teach power 0.14 and technique 0.06 of a training session's base, each slowed by hi(); after that, nothing.
+
+**Free Solo** [proposed]:
+- Chosen at creation, and never changed afterwards.
+- Every outdoor sport line and wall pitch is climbed without a rope: no belayer or rope needed, and every crux window ×0.82. Trad and boulders are unchanged.
+- A solo send teaches head +2. A fall ends the run: the state is marked dead and nothing else can happen to that climber.
+- The state records the solo in progress from the moment you pull on. Loading a state with a solo in progress resolves it as a fall, so reloading can't undo it.
+
+**What it means here:** the sim needs a mode flag, a "dead" end state and a solo-in-progress marker in the save. The speed wall is a separate minigame with its own time model.
+
 ## 2026-09-30 — Phase 21.6: highballs by height (decided)
 
 **Decided by Evan; built in the 2D rebuild** (`dirtbag/app/src/sim/content/routes.ts` `isHighball`, `HIGHBALL.fromFt` in `dials.ts`).
