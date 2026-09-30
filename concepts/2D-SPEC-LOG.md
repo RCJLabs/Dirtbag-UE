@@ -4,6 +4,28 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.6c: walk-outs
+
+**Built in the 2D rebuild's Phase 22.6c** (`dirtbag/app/src/sim/events.ts`, content in `sim/content/epics.ts`; numbers in `EVENTS.epic` in `dials.ts`). v0.956's text and numbers; the headlamp's price is [proposed]. Save v22.
+
+**The rules:**
+- **Trigger:** a `travel` from a crag, checked before the drive. Needs: day ≥ 3, not injured, no encounter today, ≥10 days since the last walk-out.
+- **Risk:**
+  - Late: +2 if min ≥ 19:00, +1 more if ≥ 21:00, and +3 more if late without a headlamp.
+  - Conditions: +2 for rain at the crag, +1 in winter.
+  - The body: +2 if energy < 25, else +1 if < 45; +1 if food ≤ 15; +1 if supplies ≤ 0.
+  - +1 if you climbed with nobody today.
+- **Odds:** clamp((risk − 4) × 0.055, 0, 0.45) against `events`, `epic-{day}`.
+- **Kind:** rain → storm; on a wall → stuck; late in winter → cold; late → dark; else lost.
+- **State while it runs:** `encounter = { kind: 'epic', id: kind, stage, tally }`. Each answer adds its option's risk, energy, fed, skin, psyche and hours (1 when unspecified); three stages.
+- **After the last stage:** the time passes (hours × 60 min) and energy, fed and skin change by the tally; psyche changes by (tally + 5) × 0.5. The end is clean if risk ≤ 2, rough if ≤ 6, else bad.
+  - A bad end is an injury: 50/50 tier 1 or 2 ("jammed" or "rolled ankle"), days from the injury table, billed as any injury.
+  - The ending's line is said, and the story goes in the log.
+- **Afterwards:** you're still at the crag and drive normally.
+- **The headlamp:** owned gear, $18 at the gear shop.
+
+**What it means here:** a multi-stage choice sequence gated by a risk score from the day's state, resolving by thresholds into outcomes with a persistent story line.
+
 ## 2026-09-30 — Phase 22.6b: hitchhikers and roadside stops
 
 **Built in the 2D rebuild's Phase 22.6b** (`dirtbag/app/src/sim/events.ts`, content in `sim/content/road.ts`; numbers in `EVENTS` in `dials.ts`). v0.956's text and hitchhiker numbers; stop odds and the day-3 start [proposed]. Save v21.
