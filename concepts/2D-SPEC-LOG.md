@@ -4,6 +4,23 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.4a: insurance plans and the clinic
+
+**Built in the 2D rebuild's Phase 22.4a** (`dirtbag/app/src/sim/clinic.ts`; numbers in `PLANS` and `CLINIC` in `dials.ts`). All numbers [proposed]. Save v14.
+
+**The rules:**
+- **Plans:** chosen at any time and paid with the weekly bills (registration $45 + premium).
+  - None: $0, clinic bills ×2.
+  - Catastrophic: $25, bills ×1. This is the default.
+  - Full: $45, every bill $20, and physio and cortisone at 25%.
+  - Clinic bills are 0/45/210 by tier before the multiplier. The first injury is free.
+- **Physio:** 120 minutes, $40 × the plan's share, once a day, with an injury. The injury ends 1 day sooner.
+- **Cortisone:** 30 minutes, $60 × the share. It removes floor(days left / 2), and marks the day of the shot.
+  - Within 21 days of a shot, the next injury rolled is one tier worse (up to 3).
+  - Its time off grows by the gap between the tiers' shortest durations. The mark then clears.
+
+**What it means here:** an insurance setting modulating injury costs, and two treatment actions, one with a delayed penalty.
+
 ## 2026-09-30 — Phase 22.3b: the lake
 
 **Built in the 2D rebuild's Phase 22.3b** (`dirtbag/app/src/sim/lake.ts`; numbers in `LAKE` in `dials.ts`). All numbers [proposed]. No save change.
