@@ -4,6 +4,23 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.4c: supplies and sickness
+
+**Built in the 2D rebuild's Phase 22.4c** (`dirtbag/app/src/sim/sick.ts`; numbers in `SUPPLIES` and `SICK` in `dials.ts`). All numbers [proposed]. Save v16.
+
+**The rules:**
+- **Supplies** (0–100, start 80): −8 per van night, +20 per night at the truck stop.
+  - Refills: lake +40 (not in winter), market $4 for +30, gym shower +30 (needs a day pass, once a day).
+  - Low is under 25.
+- **Sickness:** at each van night, if not already sick, roll (`events`, `sick-{day}`) against p:
+  - p = 0.01, +0.03 on a winter night without the heater lit, +0.04 on low supplies, +0.04 if food is under 20, +0.03 if the last 4 meals were the same.
+  - On a hit, if supplies are low, a second draw under 0.4 makes it a toothache. Otherwise it's a cold (winter) or a bug. A cold or bug lasts 2–4 days.
+  - While sick: −20 energy on each night's rest, and every window ×0.85.
+  - A toothache persists until a doctor ($30 × the plan's share, 60 minutes). A doctor halves a cold or bug's remaining days (ending it at 1 day or less).
+- Propane stays separate: the heater's fuel, by the tank.
+
+**What it means here:** a consumable hygiene/water meter with multiple refill sources, and a nightly illness roll driven by several state conditions, with a lingering debuff.
+
 ## 2026-09-30 — Phase 22.4b: old injuries and fear
 
 **Built in the 2D rebuild's Phase 22.4b** (`dirtbag/app/src/sim/scars.ts`; numbers in `SCARS` and `FEAR` in `dials.ts`). All numbers [proposed]. Save v15.
