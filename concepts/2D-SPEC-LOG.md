@@ -4,6 +4,24 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-09-30 — Phase 22.8: dreams
+
+**Built in the 2D rebuild's Phase 22.8** (`dirtbag/app/src/sim/dreams.ts`, content in `sim/content/dreams.ts`; `DREAM` in `dials.ts`). v0.956's dreams and prices. Save v24.
+
+**The rules:**
+- **State:** `dream = { pick, pot, owned[] }`.
+- **Actions:** `{ t: 'dream', do: 'pick' | 'stash' | 'take' | 'claim' }`.
+  - pick: any dream not owned.
+  - stash: an amount from cash in hand, refused if cash < amount (never the card).
+  - take: the whole pot back to cash.
+  - claim: pot ≥ the picked dream's cost; the pot pays it, the dream is owned, and pick is cleared.
+- **The pot:** bills and card spending never touch it. The broke check (the hustle's teach line) uses cash + pot.
+- **Dream Rig ($2,800):** every spot's price × 0.5 (rounded; gas unchanged), and every van upgrade set owned.
+- **War Chest ($5,000):** expedition cost × 0.5 (rounded).
+- **Home Base ($9,000):** the Lot's spot price 0 and Lot ticket odds 0, and a kitchen owned. The weekly bills are unchanged.
+
+**What it means here:** long-horizon savings goals with a protected pot and permanent cost modifiers. At the 2D build's worker saving rate, they take roughly 170, 300 and 550 days (a tuning note, not a rule).
+
 ## 2026-09-30 — Phase 22.7: Scout's life
 
 **Built in the 2D rebuild's Phase 22.7** (`dirtbag/app/src/sim/scout.ts`, text in `sim/content/dog.ts`; numbers in `DOG` in `dials.ts`). v0.956's lifecycle, words and numbers. Save v23.
