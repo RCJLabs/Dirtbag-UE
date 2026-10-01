@@ -4,6 +4,22 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-01 — Phase 22.9a: horseshoes and liar's dice
+
+**Built in the 2D rebuild's Phase 22.9a** (`dirtbag/app/src/sim/fire.ts`; `GAMES` in `dials.ts`). Two of v0.956's fire games, rebuilt with a time cost and a bond cap. Save v25.
+
+**The rules:**
+- **Who's there:** at the Lot after dark. Hazel always; Sage if bond tier ≥ 2, not away, on a seeded 40% of nights (`sage-fire-{day}`).
+- **Each game:** 60 min, 3 energy, once a night (`today` gets `shoes` / `dice`). Refused away from the Lot, by day, with nobody there, or under 3 energy.
+- **Bond:** each player at the table gets the same call as climbing together: +1 bond and `last = day`, at most once a day per person, however many games. `last = day` is psyche's "company".
+- **Horseshoes:** `{ t: 'shoes', throws: [4 × 0 | 0.5 | 1] }`, scored by the player's timing on the busking beat: 1 = ringer (3 pts), 0.5 = leaner (1), 0 = miss. Each other player's 4 throws come from `shoes-{who}-{day}`: ringer 25%, leaner 35%. A line says the score against each.
+- **Liar's dice:** `{ t: 'dice', do: 'deal' | 'call' | 'raise' }` against the first at the fire. Deal (from `dice-{who}-{day}`): 5 dice each; their bid is on their most-held face (ties to the higher), at held + 0/1/2 (35/40/25%). State `table = { who, mine, theirs, bid }` blocks every other action until resolved.
+  - call: you're right if both cups hold fewer than the bid.
+  - raise: your most-held face at the bid's count if that face is higher, else count + 1. They call if it needs more than 1 of your dice past what they hold; otherwise they let it go (yours).
+  - Nothing is staked; the result is a line.
+
+**What it means here:** v0.956 paid +1 bond to Sage, Rico and Mara per game with no time and no cap (the audit's bond farm). The rebuild prices a game in an hour and caps bond at a day's worth per person. Liar's dice's opener is tuned so the player's own dice are the tell (calling holding none of the face is right ~64% of the time).
+
 ## 2026-09-30 — Phase 22.8: dreams
 
 **Built in the 2D rebuild's Phase 22.8** (`dirtbag/app/src/sim/dreams.ts`, content in `sim/content/dreams.ts`; `DREAM` in `dials.ts`). v0.956's dreams and prices. Save v24.
