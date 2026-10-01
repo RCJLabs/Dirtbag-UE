@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-01 — Phase 24.4: what happens up there
+
+**Built in the 2D rebuild's Phase 24.4.** Save v29: `expedition.seen` (ids of this trip's events).
+
+**The rules:**
+- **Events as data:** six, each two options with effects `{energy, food (days), pitch, ledge: false, bond, psyche, day}`. `stove` only where the objective's water is snow and a stove was packed; `party` only with a partner.
+- **When:** after each portaledge night that doesn't end the trip, if fewer than 2 have come: roll `Rng.fromStream(seed, 'events').derive('wall-{objective}-{calendar day}')`; under 0.15, pick uniformly from the eligible, unseen events with the same stream's next draw. The event is an encounter (`kind: 'wall'`) and blocks everything but its answer.
+- **Answer:** apply the effects (energy and psyche clamped to 0–100, food and pitch floored at 0); `day` runs another portaledge night, which can bring the next event.
+- **Odds:** the DP carries the count of events so far; on any day after the trip's first, other than today, with fewer than 2, an event comes with p = 0.15 and is modelled as the day lost (no climbing, no night's cost beyond the day).
+
 ## 2026-10-01 — Phase 24.3: getting there and back
 
 **Built in the 2D rebuild's Phase 24.3.** No save change.
