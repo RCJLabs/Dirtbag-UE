@@ -4,6 +4,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-01 — Phase 22.9c: the glossary
+
+**Built in the 2D rebuild's Phase 22.9c** (`dirtbag/app/src/sim/content/glossary.ts`). Content only, no rules or save change.
+
+**The spec:** v0.956's trivia game is gone. Its technique, gear and culture terms are entries in a glossary, with the rebuild's own climbing words: 45 terms in five groups (on the wall, how it went, kit, grades, the life), each a term and a short definition, shown as a journal page. Nothing unlocks or pays. v0.956's history questions are not carried.
+
+**What it means here:** a reference screen in the journal, reading the same data. The text is the spec; keep it in sync with the 2D content file.
+
 ## 2026-10-01 — Phase 22.9b: blackjack and hold'em
 
 **Built in the 2D rebuild's Phase 22.9b** (`dirtbag/app/src/sim/cards.ts`, styles in `sim/content/cards.ts`; `GAMES.bj`, `GAMES.holdem` in `dials.ts`). Evan's calls on stakes and shape. Save v26. Simulated gambling: store content ratings must say so.
