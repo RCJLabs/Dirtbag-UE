@@ -4,6 +4,22 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-01 — Phase 24.1: expeditions climbed
+
+**Built in the 2D rebuild's Phase 24.1** (`dirtbag/app/src/sim/expeditions.ts`, pitches in `sim/content/expeditions.ts`; `EXPED` in `dials.ts`). Replaces 21.5's dice-per-pitch model. Save v27.
+
+**The rules:**
+- **Pitches:** each objective has `pitches` lines (6/8/11), each a single-crux route like a valley wall pitch (`libraryPitch`), graded up to the objective's grade, with `exped: id`. Ids `elcap-1`…
+- **State:** `expedition = { id, day, pitch, partner | null, nights }`. While set, only `exped` actions and goes on the current expedition pitch are allowed.
+- **Go:** needs the grade gate, cash in hand (War Chest halves), and on a rope a partner: the highest-bond person with a `grade` at bond ≥ BOND.tiers[2]. Free Solo: partner null.
+- **Blocks:** pitch i is yours if floor(i / 2) is even (solo: all yours). A go on your current pitch costs 150 min, 15 energy, 6 fed; refused in a storm (seeded `storm-{id}-{day}` < stormOdds), after dark (19:00), or under 10 energy. A send advances the pitch; the last pitch pays and teaches head +2.
+- **Follow** (their block, or yours handed over; once a day; not in a storm): the partner tries up to 2 times on consecutive pitches, each fixing it if a seeded roll (`lead-{id}-{day}-{t}`) < clamp((0.4 + 0.1 × (partnerGrade − pitchGrade)) × windows, 0.05, 0.95). Partner grade = your grade + offset (Hazel −1, Sage +1). Costs you 15 energy.
+- **Camp:** a portaledge night: energy + round(45 × 0.92^nights), fed raised to 60, day + 1. Past `days`: home, nothing paid.
+- **Windows up there:** body factors × thin (El Cap 0.6, Cerro Torre 0.65, Trango 0.65) × max(0.82, 1 − 0.015 × (day − 1)). No valley weather, sun or crowd.
+- **Odds:** each of your pitches' send chance per go = the fraction of 24 seeded plays with human-ish hands (bot `humanHands`), at trip days start/middle/end (interpolated), with food as of the day's third go. Then an exact DP over (day, pitch, energy, nights): storm with stormOdds; your block = goes until energy/light; partner's day = the 2-try distribution; on your block, the better of leading and handing over.
+
+**What it means here:** an expedition is a long wall of real climbing, and the odds are a model of the climbing, not a separate roll. Cerro Torre's objective is now the Southeast Ridge.
+
 ## 2026-10-01 — Phase 22 closed: Evan's calls
 
 **Rule change (2D 0.984.0):** a night at cards (blackjack or hold'em played today) counts as psyche's "company", once a day, the same as climbing with someone. It moves no bond.
