@@ -4,6 +4,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-01 — Phase 24.6: El Capitan's scene
+
+**Built in the 2D rebuild's Phase 24.6.** No rule or save change; what the scene shows is spec.
+
+- **While away on El Cap,** the backdrop is El Cap Meadow: the wall (the Nose between the lit southwest face and the shaded southeast; the Heart; the North America diorite), the forest at its foot, the meadow. Variants: day, night (moon, stars, other parties' headlamps), storm (summit in cloud, rain), storm at night. Weather is the trip's `stormOn` for the day.
+- **Your position:** a portaledge marker at `pitch / pitches` of the way up the line, with the count beside it.
+- **A pitch's wall view** is El Cap granite with a belay ledge at its foot, the haul bag and portaledge hanging below, and the meadow far down. Your partner belays from the ledge (not whoever is at the Lot).
+
 ## 2026-10-01 — Phase 24.5: coming home
 
 **Built in the 2D rebuild's Phase 24.5.** Save v30: `book` (a list of trip logs).
