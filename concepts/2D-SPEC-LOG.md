@@ -4,6 +4,21 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-01 — Phase 22.9b: blackjack and hold'em
+
+**Built in the 2D rebuild's Phase 22.9b** (`dirtbag/app/src/sim/cards.ts`, styles in `sim/content/cards.ts`; `GAMES.bj`, `GAMES.holdem` in `dials.ts`). Evan's calls on stakes and shape. Save v26. Simulated gambling: store content ratings must say so.
+
+**The rules:**
+- **State:** `cards = { game: 'bj' | 'holdem', who, chips, hands, bj, he } | null` and `reads: Record<who, { hands, caught }>`. While `cards` is set, only that game's actions are allowed.
+- **Sit:** at the Lot at night with someone at the fire, ≥3 energy, cash ≥ one hand's need ($5 blackjack; $11 hold'em, the ante plus every bet); 60 min, 3 energy, once a night per game. Chips = min(floor(cash), $40), taken from cash; leave returns them.
+- **Blackjack:** `{ t: 'bj', do: sit | deal | hit | stand | double | leave }`, dealt by the first at the fire. Deck per hand from `bj-{day}-{hand}`, a full 52 shuffled; you get cards 0 and 2, the dealer 1 and 3. Either blackjack settles at once (dealer peek). Hit to 21 or bust settles. Double: two cards only, bet doubled, one card, then stand. Dealer draws below 17 and stands on all 17s. Pays: blackjack bet + ceil(1.5 × bet); win 2×; push 1×. 10 hands a night, $5 a hand.
+- **Hold'em:** `{ t: 'holdem', do: sit | deal | fold | call | bet | leave, who }`, heads-up with a chosen person at the fire who has a style. Deck per hand from `he-{who}-{day}-{hand}`: you 0 and 2, them 1 and 3, board 4–8. Ante $1 each. Streets 0 (no board), 1 (flop, 3 cards), 2 (turn and river, all 5); one bet a street of $2/$4/$4. With no bet facing you: check (call), bet or fold. They respond to your bet by calling or folding, and to your check by betting (you then call or fold) or checking. No raises. Showdown after street 2; ties split.
+  - **Their play:** equity e = a 60-deal seeded sample of their hand against a random one, given the visible board. Facing a bet: call if e ≥ style.call − 0.15 × theyKnow. Else: bet if e ≥ style.bet, or on a seeded bluff roll < style.bluff. Hazel 0.50 / 0.68 / 0.05; Sage 0.40 / 0.56 / 0.30.
+  - **Reads:** every hand played increments `reads[who].hands`. A loss at showdown after you bet street 2 increments `caught`. theyKnow = min(1, caught / hands / 0.25), and 0 below 5 hands. Reads unlock at 5 hands (how they bet) and 12 (bluff rate as "one in N", from style.bluff).
+- **Pay:** money only. No bond.
+
+**What it means here:** two money games, kept near even. A sensible player wins about $1 a night at hold'em and blackjack is roughly break-even; the hold'em opponents adapt to a player who bluffs too much.
+
 ## 2026-10-01 — Phase 22.9a: horseshoes and liar's dice
 
 **Built in the 2D rebuild's Phase 22.9a** (`dirtbag/app/src/sim/fire.ts`; `GAMES` in `dials.ts`). Two of v0.956's fire games, rebuilt with a time cost and a bond cap. Save v25.
