@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-01 — Phase 24.5: coming home
+
+**Built in the 2D rebuild's Phase 24.5.** Save v30: `book` (a list of trip logs).
+
+**The rules:**
+- **Every end of a trip** (summit, bail, out of water, out of days) runs one path: expedition cleared; bond with the partner moved by +2 (summit), −1 (water), +1 (otherwise, if pitches fixed × 2 ≥ the objective's pitches), else 0; the `home` travel nights; then a log appended: `{id, day (calendar, after travel), end, high (pitches fixed), partner, nights, seen, told: false}`, and a `home` event (the UI's trip card).
+- **High point:** per objective, the max `high` over its logs, and whether any ended in a summit.
+- **The story** (`story` action): only for the newest log, untold; at the Lot after dark with someone at the fire. Costs 30 min; psyche +8 for a summit, +4 otherwise (clamped to 100); each person at the fire counts it as a day together (the once-a-day bond); marks it told.
+
 ## 2026-10-01 — Phase 24.4: what happens up there
 
 **Built in the 2D rebuild's Phase 24.4.** Save v29: `expedition.seen` (ids of this trip's events).
