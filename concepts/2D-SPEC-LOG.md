@@ -4,6 +4,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-01 — Phase 22 closed: Evan's calls
+
+**Rule change (2D 0.984.0):** a night at cards (blackjack or hold'em played today) counts as psyche's "company", once a day, the same as climbing with someone. It moves no bond.
+
+**Confirmed as built** (no longer proposals): the fire games' bond at most +1 per person per day however many games; no win bonuses from v0.956; Sage at the fire 40% of nights at tier ≥ 2; blackjack pays ceil(1.5 × bet) on a blackjack ($8 on $5); no insurance; the hold'em styles; v0.956's history trivia stays out; the dreams keep v0.956's prices.
+
+**Next:** the 2D build's CURRENT MILESTONE is Phase 24, expeditions as trips.
+
 ## 2026-10-01 — Phase 22.9c: the glossary
 
 **Built in the 2D rebuild's Phase 22.9c** (`dirtbag/app/src/sim/content/glossary.ts`). Content only, no rules or save change.
