@@ -4,6 +4,19 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-01 — Phase 24.2: planning and packing
+
+**Built in the 2D rebuild's Phase 24.2** (`dirtbag/app/src/sim/expeditions.ts`; `EXPED` in `dials.ts`). Save v28. Evan confirmed 24.1's partner grades (yours −1 Hazel, +1 Sage) and handing over a pitch.
+
+**The rules:**
+- **Plan:** `{ day, partner, food, ledge, stove }`. Book (`exped do: 'book'`) up to 7 days ahead; pays the trip cost (War Chest halves it) + $12 × food. Refused under the grade gate, roped without an eligible partner, solo with one, food outside 1..days−1, or a bag over 80 kg. `booked` holds it; `cancel` refunds half (rounded); a sleep past the day with no expedition drops it, no refund. `go` only on the booked day, at the Lot.
+- **Bag:** kg = food × 3 × (melt objective without stove ? 2 : 1) + 9 (portaledge) + 2 (stove). Cerro Torre and Trango are melt objectives.
+- **Nights:** a camp needs food > 0 (else: down, trip over); food −1; energy back = max(0, round(nightBack(nights) × (ledge ? 1 : 0.5) − max(0, kg − 35) × 0.4)), kg after eating.
+- **Forecast:** for a day `lead` days from today, a call of storm/clear = truth, flipped if a seeded roll (`fc-{id}-{day}-{lead}`) ≥ accuracy, accuracy = 1 at lead ≤ 0, else max(0.5, 1 − lead / 20). Storm chance used by the odds = the Bayes posterior of the call given stormOdds and the accuracy (today: the truth).
+- **Odds:** the 24.1 DP, with each day's storm chance from the forecast, and the trip ending when food runs out.
+
+**What it means here:** the expedition card is a planner whose every choice moves the shown summit odds.
+
 ## 2026-10-01 — Phase 24.1: expeditions climbed
 
 **Built in the 2D rebuild's Phase 24.1** (`dirtbag/app/src/sim/expeditions.ts`, pitches in `sim/content/expeditions.ts`; `EXPED` in `dials.ts`). Replaces 21.5's dice-per-pitch model. Save v27.
