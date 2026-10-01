@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-01 — Phase 24.3: getting there and back
+
+**Built in the 2D rebuild's Phase 24.3.** No save change.
+
+**The rules:**
+- **Travel:** each objective has `out` and `home` days (El Cap 1/1, Cerro Torre 2/2, Trango 8/6). `go` runs `out` away-nights (bills, psyche, the day count) before the wall's day 1; every way a trip ends (summit, bail, out of water, out of time) runs `home` away-nights back to the Lot.
+- **Trip window:** from the booked day to day + out + days + home − 1. Sign-ups inside it are refused while booked. Booking ≥ 7 days ahead removes signed-up shifts inside it; otherwise they stay and are missed (a warning each, as any missed shift).
+- **Leads per day:** at most 3 goes on expedition pitches a day (counted across the wall's pitches).
+- **Odds:** the wall's day 1 is the booked day + out for the forecast. Each pitch's send chance is played at an estimated skin: skin − (trip day − today) × max(0, 3 × the wall's mean skin per go − 22) − 2 × that per-go skin, and the DP's goes a day are capped at 3.
+
 ## 2026-10-01 — Phase 24.2: planning and packing
 
 **Built in the 2D rebuild's Phase 24.2** (`dirtbag/app/src/sim/expeditions.ts`; `EXPED` in `dials.ts`). Save v28. Evan confirmed 24.1's partner grades (yours −1 Hazel, +1 Sage) and handing over a pitch.
