@@ -5,6 +5,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 23.4: paths, mastery and a quirk
+
+**Built in the 2D rebuild's Phase 23.4.** Save v34: `paths` (`tiers`: path id → tiers claimed; `told`: "id:tier" already announced), `mastery` (styles mastered), `quirk` (id or null), `habits` (counts of goes: `goes`, `outdoor`, `fresh`, `tired`, `evening`, `dawn`, `easy`, `power`).
+
+- **One edge type** (`content/paths.ts`) feeds every source: `windows` (crux windows ×, on lines of `style` if given), `firstGo` (× on a line never tried and never sent), `gym` (× indoors), `fresh` / `tired` (× at energy ≥ 70 / < 35), `evening` / `dawn` (× from 17:00 / before 09:00), `injury` ×, `gain` (one skill's learning ×), `gainAll` ×, `gas` ×, `living` ×. Edges multiply. v0.956's "+n% odds" became windows × (1 + n).
+- **Paths:** Crusher (power, dyno), Tendon (crimp), Nerve (first go), Mover (technical; new), Dirtbag (trips); Scene waits for comps. Three tiers each; tier i needs `gradeOf(skills) ≥ PATH.gates[i]` (4, 9, 14) and its deed (sends in its styles 4 / 12 / 25 for the style paths, with Tendon's 2nd at 12 crimps and Crusher's 2nd 6 dynos; Nerve 3 / 8 / 15 flashes or onsights; Dirtbag 6 / 25 / 60 trips). Claimed by action `{ t: 'path', id }`, a tier at a time, at most `PATH.max` (2) paths. Each newly claimable tier is announced once. Tier 3 gives a title and line, no active ability.
+- **Mastery,** one track, automatic, checked after every action: a style at `MASTERY_AT.sends` (40) lines sent in it (v0.956's style-mastery edges), and v0.956's ten hybrids, each two skills both at `needFor(MASTERY_AT.hybrid)` (V8's) with v0.956's hybrid edges. Ids share the `mastery` list (`hy_*` for hybrids).
+- **Quirk:** each go counts into `habits` before its costs. Once `goes ≥ 30` and no quirk, the first of v0.956's tests that passes names it (Glass Cannon, Stone Purist, Weekend Warrior, Grinder, Night Owl, Sandbagger, Slow Burn at day 150; Comp Beast waits). One quirk, not v0.956's two.
+- **Migration:** paths and quirk empty, habits zero, mastery backfilled quietly from sends.
+
 ## 2026-10-02 — Phase 23.3: callings
 
 **Built in the 2D rebuild's Phase 23.3.** Save v33: `calling` (`id` or null, `since`: the day taken up, `rungs`: the day each was met, `offered`).
