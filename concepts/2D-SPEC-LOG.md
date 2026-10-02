@@ -5,6 +5,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 16.2: Acts II to V
+
+**Built in the 2D rebuild's Phase 16.2** (Evan's call 3, and a new call on Act V). Save v39: no new fields; `goals` now counts stages across all five acts.
+
+- **Content:** `STORY`, five acts, each `{ title, goals, end: { title, text, cash, with } }`; counts 5, 5, 5, 5, 4. New aims: `{ outside, grade }` (distinct sends outside at the grade or harder, expedition pitches excluded), `{ at, grade? }` (a send at that crag), `{ wall }` (its last pitch sent), `{ summit }` (an expedition summit in the book), `{ reveal }` (a myth's `hiddenUntil` line sent), `{ myth }` (your first ascent of a V18).
+- **Acts:** II V4–V7 (the Gorge, Moonstone, a V7); III V8–V10 (The Big Stone, El Cap, Wind River V9, a V10); IV V11–V14 (The Crucible, the Obsidian Tower, Cerro Torre, Trango, a V14); V V15–V18 (V16 at The Crucible, a V17, a myth read, a myth's first ascent). Act pay $40, $120, $200, $300, $500 [proposed].
+- **An act's end:** its text, plus a line for each of Hazel, Sage and Dex at Regular or closer, on the card.
+- **Act V puts the clock on hold (Evan's call):** from Act V there's no countdown, no forced retirement and no 43/44 lines; retiring stays allowed. Without it, forced retirement at 45 (~V14) came long before V18 (~day 900).
+- **Migration:** a save with Act I done advances past later stages it already meets, with no events or pay.
+
 ## 2026-10-02 — Phase 16.1: age and retirement
 
 **Built in the 2D rebuild's Phase 16.1** (Evan's call 2). Save v38: `life: { held, told, retired: { day, forced } | null }`.
