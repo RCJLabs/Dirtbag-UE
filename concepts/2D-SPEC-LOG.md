@@ -5,6 +5,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 16.1: age and retirement
+
+**Built in the 2D rebuild's Phase 16.1** (Evan's call 2). Save v38: `life: { held, told, retired: { day, forced } | null }`.
+
+- **Age:** `22 + origin age + floor((day − 1 − held) / 18)`. The Late Bloomer's `fx.age` is 10 (starts at 32). Call it age, never a year: a year is still 56 days. No decline with age.
+- **Retiring:** a `retire` action, allowed from age 30, not on a wall or an expedition. Forced on the first van night at 45 (day 415; 235 for the Late Bloomer): never on a ledge or away. Morning lines at 30, 43 and 44 (`told` keeps them to once); from 43 the days left are shown.
+- **Retired:** every action is refused, as for a Free Solo death. The tally reads the save: sends (inside and out, crags), the hardest, own first ascents (a V18 one counts as a myth), summits, the calling's rungs, paths taken and the open ones not taken, scars, people at Regular or closer, dogs, Record Book entries. An epitaph picks the first that fits: a myth first ascent, a summit, any first ascent, V11+, else "a life lived on rock".
+- **Record Book:** `retired` (The Long Game) is earned by retiring.
+- **Migration:** a save past the countdown's start (day 379 for a 22-year-old) has `held` set so it loads at 43; the age on loading counts as told.
+
 ## 2026-10-02 — Phase 23: each origin's first morning
 
 **Built for Phase 23's criterion 1** (Evan's call A). No save change. Each origin has a `begin`, applied at creation after its skills and cash: `at` (where you wake), `min`, `today` flags (a day pass), `gear` merged in, a `shift` signed up for today, `insurance`, and a line said once.
