@@ -5,6 +5,21 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 23.2: origins and talents
+
+**Built in the 2D rebuild's Phase 23.2.** Save v32: `origin` (an id, `'across'` for a v0.956 climber, or null) and `talents` (`ids`, `known`, `from`: the skills at creation).
+
+- **Six origins** (`content/origins.ts`), picked at creation with a name and a start. Each adds `skills` to the start's (floored at 1) and has `fx`, all [proposed]: `pay` (shift pay ×, after rank raises), `gainIn` / `gainOut` (skill from goes indoors / outside ×), `gainTrain` (from sessions, the speed wall's too ×), `spring` (power and fingers from anything ×), `living` (the night's spot and lifestyle ×), `premium` (insurance ×), `shop` (kit and food bought ×), `bill` (dollars a week on the weekly bills), `cash` (on top of the start). Prices round after the multiplier, and the UI shows the same functions' results.
+  - Sold It All: pay 1.12, +$150, $8/week; endurance +2, head +2.
+  - Gym Rat: indoors 1.12, outside 0.9; power +3, fingers +3, head −3, endurance −1.
+  - Desert Local: living 0.85, −$25; head +4, technique +3, power −3.
+  - Ex-Gymnast: sessions 1.2; power +5, fingers +2, head −5, technique −2.
+  - Late Bloomer: premium 0.65, +$120, spring 0.88; head +4, technique +3, power −3, fingers −2.
+  - Trust-Fund Kid: shop 0.7, +$250, pay 0.85; technique +2.
+- **Talents** (`content/talents.ts`, v0.956's 11): with an origin, one good and one bad are dealt on `Rng.fromStream(seed,'events').derive('talents')` (good list index, then bad). Each multiplies all gains of one skill (1.35 / 1.1 good, 0.7 bad); Bomber and Glass Tendons also multiply injury chance on crimp and crack lines (0.55 / 1.7). Hidden until that skill is `TALENT.reveal` (6) above `from`, or, for a tendon talent, on a finger injury; then a note and `known`.
+- **A carried v0.956 climber** gets `origin: 'across'`, no fx, no talents. No origin (old saves, tests, bots) means no fx and no talents.
+- **Act I's first goal** ($60 in hand) is met at creation for the richer origins, as in v0.956.
+
 ## 2026-10-02 — Phase 23.1: the Record Book
 
 **Built in the 2D rebuild's Phase 23.1.** Save v31: `record` (entry id → the day earned).
