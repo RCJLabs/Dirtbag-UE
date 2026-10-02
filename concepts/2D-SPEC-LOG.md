@@ -5,6 +5,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 16.5: the next generation
+
+**Built in the 2D rebuild's Phase 16.5** (Evan's call 4). Save v40: `family: { gen, forebear, lines, coach } | null`.
+
+- **`heir` action,** retired only: a fresh state on the same seed, day + 1, wake time, name empty (the creation screen makes the kid). Carries: `firsts` (your own get `by: "kin:<name>"`), `record`, `van`, `dream.owned`, `unlocked`, `dog`, `dogs`, `mode`. Fresh: cash, people, routes, gear, scene, the expedition book, goals. `life.held = day − 1` so the kid's age starts at 22; `year.recapped` set to the years done. `family.lines` is the forebear's own first ascents; `family.coach` is Dex at Regular or closer.
+- **Creation for a family:** talents dealt on `seed:gen`; lines for the forebear and Dex's coaching; no Free Solo choice (the mode carried).
+- **Story:** a family climber's ladder swaps Act I for Their Shadow (five stages: a send; two outside; a regular; V4; `{ kin: true }`, a go on the forebear's line at the crag reachable soonest, then the easiest, met at once if there's none), then Acts II–V.
+- **Coaching:** an edge, `{ train: 1.15 }` [proposed].
+- **Display:** a first ascent's `by` resolves to a person's name or the part after `kin:`.
+
 ## 2026-10-02 — Phase 16.3: The Line
 
 **Built in the 2D rebuild's Phase 16.3.** No save change.
