@@ -5,6 +5,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 16.6: a wall partner stays the night
+
+**Changed in the 2D rebuild's Phase 16.6** (a fix). No save change.
+
+- **Bivy:** when you bivy on a wall, the partner who was at the wall's crag that day (the latest half hour before dark that finds one) gets an invite for the next day at that crag from wake-up, so they're there to belay the next pitch. Before, an invite lasted only its day and a multi-day wall had no belayer after the first night.
+- **Pace for criterion 1** (harness only): 4 s a tap and 15 s a go [proposed]; career bots take 18.4–20.4 h from creation to the forced retirement at 45.
+- **Found, not changed:** the Crucible's V15–V18 boulders (5–8 moves, one crux) go for a V12 climber 95% to 9% of goes with human hands, and every time with careful hands. Worth knowing before the Unreal version copies their crux windows.
+
 ## 2026-10-02 — Phase 16.5: the next generation
 
 **Built in the 2D rebuild's Phase 16.5** (Evan's call 4). Save v40: `family: { gen, forebear, lines, coach } | null`.
