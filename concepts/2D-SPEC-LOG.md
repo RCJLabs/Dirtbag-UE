@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+
+## 2026-10-02 — Phase 23.1: the Record Book
+
+**Built in the 2D rebuild's Phase 23.1.** Save v31: `record` (entry id → the day earned).
+
+- **One book** replaces v0.956's feats, milestones and story cards: 37 entries, each carrying the v0.956 ids it merged (`from`). 27 have an `aim` and are earnable now; 10 `wait` for systems not yet built (comps, media, sponsors, guidebooks, giving, retirement, traits) and are hidden until then.
+- **Earning:** after every action (once a climber exists), every entry not yet in the book whose aim is true goes in, dated today. Aims read existing state only: sends (count, highest route grade, flash/onsight, outside), first ascents, every open crag sent, grade above Dex's, injury or scar, day > 56, a shift worked (walk-ins included), a job rank ≥ 1, ever let go, cash ≥ N, kit kinds ≥ N, a dream owned, a breakdown, a bond tier ≥ 3, an expedition summit, a dog.
+- **One moment, one card:** all entries earned by one action make one event, `{ k: 'record', ids }`; the card shows the first entry's story and names the rest.
+- **No reward** beyond the entry. Ids are stable for Steam achievements (Phase 14).
+- **Migration:** an older save's record is filled with every entry its state already meets, dated the load day, with no cards.
+
 ## 2026-10-02 — Phase 24.9: a summit pays once
 
 **Built in the 2D rebuild's Phase 24.9**, confirmed by Evan (2 Oct 2026). No save change.
