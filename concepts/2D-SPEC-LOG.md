@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-02 — Phase 24.8: Trango's scene
+
+**Built in the 2D rebuild's Phase 24.8.** No rule or save change; what the scene shows is spec.
+
+- **While away on Trango,** the backdrop is base camp on the Trango glacier: the Nameless Tower (golden, square-topped) on its snowy shoulder, Great Trango left, the Monk and the Pulpit right, Karakoram snow peaks behind, the glacier with medial moraines and base camp's tents. Variants: day, night (one tent lit), storm (towers in cloud, snow), storm at night.
+- **Your position:** the portaledge marker follows Eternal Flame (approach gully, snow ledge, south face) by `pitch / pitches`.
+- **A pitch's wall view** is golden granite with a snowy belay ledge and the glacier below.
+- **All three objectives** now have their own scene and wall view; storms snow wherever the objective's water is snow.
+
 ## 2026-10-02 — Phase 24.7: Cerro Torre's scene
 
 **Built in the 2D rebuild's Phase 24.7.** No rule or save change; what the scene shows is spec.
