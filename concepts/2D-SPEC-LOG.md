@@ -5,6 +5,19 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 23.3: callings
+
+**Built in the 2D rebuild's Phase 23.3.** Save v33: `calling` (`id` or null, `since`: the day taken up, `rungs`: the day each was met, `offered`).
+
+- **The offer:** after any action, a climber with no calling, never offered, and at least `CALLING.offerAt` (10) lines sent is offered once (event `{ k: 'calling' }`, `offered` set). Taking one up (`{ t: 'calling', id }`) is permanent; only the open callings can be taken.
+- **Callings** (`content/callings.ts`), fx [proposed]:
+  - Purist: `gainOut` 1.15 (skill from goes outside ×).
+  - Send-or-Bust: `firstGo` 1.05 (crux windows × on a line never tried and never sent; shown on the beta bars), `injury` 1.1.
+  - Lifer: `living` 0.8 (the night's spot and lifestyle ×), `injury` 0.75 (on any line, unlike tendon talents).
+  - Influencer: no fx, `wait`: not offered until followers and sponsors exist.
+- **Rungs,** counting only sends whose `sent.day >= since`: Purist, a line sent outside at V8 / V11 / V14; Send-or-Bust, flashed or onsighted outside at V6 / V9 / V12; Lifer, 5 / 9 / 13 grades each with `CALLING.consolidate` (5) lines sent. Checked after every action, in order (a rung only after the one below); each met adds the day to `rungs`, psyche `CALLING.psyche[i]` (8, 12, 16) and a note.
+- v0.956's personality seeds and faction shifts from callings are cut.
+
 ## 2026-10-02 — Phase 23.2: origins and talents
 
 **Built in the 2D rebuild's Phase 23.2.** Save v32: `origin` (an id, `'across'` for a v0.956 climber, or null) and `talents` (`ids`, `known`, `from`: the skills at creation).
