@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-02 — Phase 24.7: Cerro Torre's scene
+
+**Built in the 2D rebuild's Phase 24.7.** No rule or save change; what the scene shows is spec.
+
+- **While away on Cerro Torre,** the backdrop is the view from above Laguna Torre: the needle with its rime mushroom, the Southeast Ridge as its left skyline from the Col of Patience (El Mocho beside it), Torre Egger and Standhardt right, the ice cap behind, the Torre glacier, moraine and lake with bergs below. Variants: day (lenticular clouds), night, storm (summit plume, cloud on the towers), storm at night.
+- **Precipitation:** storms on objectives whose water is snow (`melt`) fall as snow, on the scene and the wall view; El Cap's are rain.
+- **Your position:** the portaledge marker climbs the Southeast Ridge by `pitch / pitches`.
+- **A pitch's wall view** is rimed granite with ice in the corner, a snowy belay ledge, the glacier below; your partner belays from the ledge.
+
 ## 2026-10-01 — Phase 24.6: El Capitan's scene
 
 **Built in the 2D rebuild's Phase 24.6.** No rule or save change; what the scene shows is spec.
