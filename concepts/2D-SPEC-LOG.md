@@ -5,6 +5,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 23.5: the scene, factions and stances
+
+**Built in the 2D rebuild's Phase 23.5.** Save v35: `scene` (`old`, `gym`: standing 0..100 from 50; `stances`: `{id, opt, day}`; `echoes`: `{id, turned, day}`; `last`, `echoLast`: days of the last call and echo). Encounter kinds gain `stance` and `echo`.
+
+- **Two factions:** the old guard (v0.956's trad, and the locals) and the gym crowd (its gym and comp). v0.956's media, purism, rep, followers and access fund are dropped. Words at 25 / 45 / 56 / 76: Distrusted, Skeptical, Neutral, Respected, Beloved.
+- **What moves them:** answers to calls and echoes only, plus taking up a calling (Purist old +15; Send-or-Bust gym +13; Lifer old +8, gym +5). Sends don't (v0.956's per-send drift would saturate both).
+- **Calls** (`content/scene.ts`, v0.956's five): on arriving at a crag (not a gym), with no road encounter, if at least `FACTION.gap` (14) days since the last call, a seeded `FACTION.chance` (0.22) picks one not yet faced whose `after` day has come (chip, closure, trashed 14; retrobolt, fa 28; fa also needs a first ascent of your own). Three answers; a fourth (the elder's) when `scene.old ≥ FACTION.elder` (65). Each answer: standing deltas, psyche, energy, and a journal line.
+- **Echoes** (six): on arrival, before a call, the first echo whose stance and answer match a call made at least `FACTION.echoAfter` (30) days ago, if `FACTION.echoGap` (25) days since the last echo. Two answers: hold or turn.
+- **Perks of standing** (v0.956's clubs folded in), as edges: old guard 56: crux windows outdoors ×1.02; 76: another ×1.02, and permits cost nothing. Gym crowd 56: session gains ×1.15; 76: another ×1.13.
+
 ## 2026-10-02 — Phase 23.4: paths, mastery and a quirk
 
 **Built in the 2D rebuild's Phase 23.4.** Save v34: `paths` (`tiers`: path id → tiers claimed; `told`: "id:tier" already announced), `mastery` (styles mastered), `quirk` (id or null), `habits` (counts of goes: `goes`, `outdoor`, `fresh`, `tired`, `evening`, `dawn`, `easy`, `power`).
