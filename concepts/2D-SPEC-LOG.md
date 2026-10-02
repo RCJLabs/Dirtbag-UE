@@ -5,6 +5,13 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 23.7: the year and the Homecoming
+
+**Built in the 2D rebuild's Phase 23.7.** Save v37: `year` (`recapped`: years recapped; `home`: `'none'`, `'armed'`, or the day it was had). Action `{ t: 'home', arm }`; events `{ k: 'year', n }`, `{ k: 'homecoming', route, who }`.
+
+- **A year is 56 days** (`YEAR.days`). After every action, when `floor((day − 1) / 56)` exceeds `recapped`, it's recapped: a card for that year, built from state by day ranges (first sends excluding expedition pitches, the hardest of them, crags sent at, your own first ascents, Record Book entries, expeditions home, calls answered, cash in hand). Migration marks years already done as recapped, with no card.
+- **The Homecoming,** once a life: available when at least `HOME.people` (2) people are at bond tier ≥ `HOME.tier` (2, Regular), counting people (v0.956 counted diary entries). Armed (or put off) from the You page; on the next action that sends a line outside (not a repeat, not an expedition pitch) while armed, it pays `HOME.cash` (200) and `HOME.psyche` (20), records the day, and names who came.
+
 ## 2026-10-02 — Phase 23.6: the Board
 
 **Built in the 2D rebuild's Phase 23.6.** Save v36: `board` (`week`, `jobs`: `{id, grade, paid}`, `shifts0`: shifts worked when it went up, `sessions`: sessions since).
