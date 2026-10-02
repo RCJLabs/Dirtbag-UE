@@ -6,7 +6,7 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ## 2026-10-02 — Phase 24.9: a summit pays once
 
-**Built in the 2D rebuild's Phase 24.9** [proposed, Evan to confirm]. No save change.
+**Built in the 2D rebuild's Phase 24.9**, confirmed by Evan (2 Oct 2026). No save change.
 
 - **Pay:** an objective's `pays` is paid on its first summit only: if the book holds a summit of that objective, a summit pays 0. (Before, every summit paid, and a climber two grades past El Cap netted about +$1,175 a trip.)
 - **No-farm target:** for each objective at every grade from `gradeReq` to `grade + 2`, the bots' mean net cash (pay − trip − food; bills excluded) per calendar day away, for a repeat trip, must be under the worst-paid shift's daily pay.
