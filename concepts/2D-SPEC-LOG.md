@@ -5,6 +5,13 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 23: each origin's first morning
+
+**Built for Phase 23's criterion 1** (Evan's call A). No save change. Each origin has a `begin`, applied at creation after its skills and cash: `at` (where you wake), `min`, `today` flags (a day pass), `gear` merged in, a `shift` signed up for today, `insurance`, and a line said once.
+
+- Sold It All: a café shift today. Gym Rat: Send City at 8:30, day pass on. Desert Local: Roadside at 6:40. Ex-Gymnast: Send City at 9:00, day pass on. Late Bloomer: full insurance. Trust-Fund Kid: shoes at 100, a crash pad, a headlamp.
+- The client enters the start place's scene after creation.
+
 ## 2026-10-02 — Phase 23.8: when calls and echoes come
 
 **Changed in the 2D rebuild's Phase 23.8** (amends 23.5). No save change.
