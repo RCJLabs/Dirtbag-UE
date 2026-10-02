@@ -5,6 +5,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 16.4: epilogues, and Evan's calls after 16.2
+
+**Built in the 2D rebuild** (Phase 16.4, and calls on 16.1–16.2). No save change.
+
+- **Epilogue:** a list of lines, each flagged `did` (names a deed) or not. Sources, in order: the origin's line (not a deed); the hardest own first ascent by name and place; expedition summits; the furthest path (tier 3: its title; else path and tier name); the quirk's name; masteries; the calling by rungs made (0–3, a line each; rungs > 0 is a deed); the first and last stance answers, quoted; a crowd at Beloved or Distrusted; Hazel, Sage and Dex at Regular or closer (a deed) or met and not (not); the dog, living or the last lost; the Homecoming if had; the latest Record Book entry other than retiring. Shown before the tally; the tally no longer lists people or dogs.
+- **Criterion 2:** the ending names at least five deeds. Career bots at day 224: 6 to 11.
+- **Act IV:** one expedition (Cerro Torre); Trango's stage becomes `{ outside: 1, grade: 12 }`; stage order Crucible, Cerro Torre, V12, Obsidian Tower, V14.
+- **Late Bloomer:** `fx.age` 4 (starts at 26, forced on day 343); the spring cost (0.88 on power and fingers gains) is removed. It's the speed-run origin: Act V before day 343 needs a player about 10% faster than the bots.
+
 ## 2026-10-02 — Phase 16.2: Acts II to V
 
 **Built in the 2D rebuild's Phase 16.2** (Evan's call 3, and a new call on Act V). Save v39: no new fields; `goals` now counts stages across all five acts.
