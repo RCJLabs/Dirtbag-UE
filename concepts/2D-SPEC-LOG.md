@@ -5,6 +5,13 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 16.3: The Line
+
+**Built in the 2D rebuild's Phase 16.3.** No save change.
+
+- **The last act's end** (the `act` event for act 5) shows a four-step sequence instead of a card: the naming (the latest own V18 first ascent's name, grade and crag; Act V's pay); who was there (Act V's `with` lines for Hazel, Sage and Dex at Regular or closer, plus a line for the dog; an alone line if none); the credits roll under the title "The Line"; then a choice: retire now, or keep climbing (the clock stays on hold).
+- **Retiring after The Line** is allowed at any age; before it, from 30 as before.
+
 ## 2026-10-02 — Phase 16.4: epilogues, and Evan's calls after 16.2
 
 **Built in the 2D rebuild** (Phase 16.4, and calls on 16.1–16.2). No save change.
