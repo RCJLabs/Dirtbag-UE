@@ -5,6 +5,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 23.8: when calls and echoes come
+
+**Changed in the 2D rebuild's Phase 23.8** (amends 23.5). No save change.
+
+- **When:** checked after a `travel` or a `done` (the end of a go), not only on arriving by road, unless an encounter is already up, the van's broken down, you're on an expedition, or dead. The roll is seeded by day and crag, so repeated checks on one crag-day don't add chances.
+- **Where:** an echo can come anywhere (several are set off the rock: a gym car park, an access meeting); a new call only at a crag.
+- **Naming a first ascent** (`{ t: 'name' }`) is allowed while an encounter waits, since it finishes the go that came before it. The client keeps a go's own card (fall, send, first ascent, the send card) up until it's closed, then shows the encounter.
+- **Measured:** bots answering each call the way its echo comes back for see every echo land within a 224-day career (most on the first seed; the latest at day 155).
+
 ## 2026-10-02 — Phase 23.7: the year and the Homecoming
 
 **Built in the 2D rebuild's Phase 23.7.** Save v37: `year` (`recapped`: years recapped; `home`: `'none'`, `'armed'`, or the day it was had). Action `{ t: 'home', arm }`; events `{ k: 'year', n }`, `{ k: 'homecoming', route, who }`.
