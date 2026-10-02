@@ -5,6 +5,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-02 — Phase 23.6: the Board
+
+**Built in the 2D rebuild's Phase 23.6.** Save v36: `board` (`week`, `jobs`: `{id, grade, paid}`, `shifts0`: shifts worked when it went up, `sessions`: sessions since).
+
+- **One weekly board** replaces v0.956's café board, daily and weekly challenges and club jobs (`content/board.ts`, 14 jobs, de-duplicated). After every action, if `weekOf(day)` differs from `board.week`, a new board is posted: `BOARD.jobs` (3) jobs, a seeded shuffle on `derive('board-{week}')`, each stamped with `gradeOf(skills)` at posting.
+- **Criteria:** sends anywhere; at ≥ grade + `over`; outside; outside at ≥ grade + `over`; of a route type; training sessions (counted in `train`); shifts (sum of `jobs` minus `shifts0`). Sends count first sends with `sent.day` in the board's week; expedition pitches don't.
+- **Pay:** automatic, once, the moment progress reaches `n`, after every action: `cash` (8–18) and a line. Unfinished jobs lapse with the week; no penalty.
+- **Harness:** the three best-paying jobs together pay under `BOARD.capDays` (2) days of the worst one-shift job's pay.
+
 ## 2026-10-02 — Phase 23.5: the scene, factions and stances
 
 **Built in the 2D rebuild's Phase 23.5.** Save v35: `scene` (`old`, `gym`: standing 0..100 from 50; `stances`: `{id, opt, day}`; `echoes`: `{id, turned, day}`; `last`, `echoLast`: days of the last call and echo). Encounter kinds gain `stance` and `echo`.
