@@ -4,6 +4,30 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-03 — Phase 18.6: your own gym, and a crag
+
+**Built in the 2D rebuild's Phase 18.6.** Save v50: `gym: { since, members, quality, till, last, setter, upgrades, peak, set } | null`, `bolted: string[]`. Numbers [proposed] in `OWN_GYM`, `GYM_SET` and `LAND`; rules in `app/src/sim/business.ts`.
+
+- **Buy** (`{t:'gym', do:'buy'}`): the top setting rank (Head setter) and $6,000 in hand. Starts at 60 members, quality 0.45, till 0. Signed-up setting shifts go; setting acts and sign-ups are refused while you own it. `today` gets `pass` now and every morning while owned (the wall and the shower).
+- **The night** (in sleep, after the media night):
+  - quality = max(0.55 if a setter's hired else 0, quality − 0.04)
+  - target = round(30 + 140 × quality + 25 with the board + 45 with the wall)
+  - members = round(members + (target − members) × 0.1)
+  - net = round(members × (1.6 + 0.5 with the café) + members × 0.12 × 14) − 120 − 70 − (55 with a setter)
+  - till += net; last = net; peak = max(peak, members)
+  - The morning's line follows. Under 0, a warning. Under −600, the bank sells: cash += max(0, round(3000 + till)), gym null.
+- **Actions:**
+  - `draw`: the whole till to cash.
+  - `pay`: min(cash, −till) into a short till.
+  - `sell`: cash += max(0, round(4200 + till)).
+  - `hire` / `fire`: the setter.
+  - `upgrade`: from cash, once each. The board $1,500, the café $1,200, the wall $2,500.
+  - `set`: at Send City, once a day, energy ≥ 22; 240 min, −22 energy. quality = max(quality, `scoreSet(setBrief(s), set).score` if a set is given, else 0.45).
+- **Land:** `PlaceDef.land`. Miller's Bluff is bought through the existing `{t:'unlock'}` for $9,000, 35 min and $5 from the Lot. Its nine lines are all `open`: six sport (V7, V8, V10, V11, V13, V15) and three boulders (V6, V9, V12). A land line is climbable and revealed only once it's in `bolted`.
+- **Bolting** (`{t:'bolt', route}`): the land owned, at the place, not done yet. A sport line costs $140, 300 min and 35 energy; a boulder 120 min and 15 energy. An heir keeps `bolted` (with `unlocked`), but not the gym.
+- **Ladder rung, for 18.7:** the setting rank 0–3; owning the gym, 4; peak ≥ 200 members, 5.
+- **Opened:** the Record Book's Your Own Four Walls (`{gym: true}`) and The Back Forty (`{land: true}`).
+
 ## 2026-10-03 — Phase 18.5: media
 
 **Built in the 2D rebuild's Phase 18.5** (Evan's call: followers back). Save v49: `media: { followers, engagement, posted, bait, sponsor: { tier, terms, due, tasks, strikes } | null, offer, heat: { grade, due } | null, doc, lost }`. Numbers [proposed] in `MEDIA` and `app/src/sim/content/media.ts`; rules in `app/src/sim/media.ts`.
