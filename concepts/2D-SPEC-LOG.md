@@ -5,6 +5,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-03 — Phase 17.4: romance
+
+**Built in the 2D rebuild's Phase 17.4** (Evan's call: Sage and Mara). Save v42: `romance: { who, stage, since, beatDay, over? } | null`, and `PersonLog.sparked`. Rules in `app/src/sim/romance.ts`, text in `content/romance.ts`; numbers [proposed] in `ROMANCE`.
+
+- **Spark** (stage 1) due for sage or mara when `romance` is null, `sparked` unset and bond ≥ 5; listed after the person's arc entries, so a due arc beat plays first. Answers: start (`romance = { who, stage: 1, since: day, beatDay: day }`) or friends; both set `sparked`.
+- **Beats 2–5** due when together, `stage = n − 1` and `day − beatDay ≥ 7`; each sets `stage = n`, `beatDay = day`. Forks: a fight dug in on, away 3; their chance taken, away 21.
+- **End:** together and `day − max(last, away, beatDay) ≥ 21` → the `love-end` node first; it sets `over = day`, bond to at most 3, away 10. A romance that's over blocks any new spark.
+- **Anniversary:** overnight, when `floor((day − since) / 18)` rises to 1 or more while together, a line.
+- **Epilogue:** a line for together, another for over.
+
 ## 2026-10-03 — Phase 17.3: lives that change
 
 **Built in the 2D rebuild's Phase 17.3.** Save v41. Numbers [proposed] in `LIFE` (`app/src/sim/dials.ts`); rules in `app/src/sim/lives.ts`. A year is `AGE.days` (18), counted from day 1 (`year = floor((day − 1) / 18)`).
