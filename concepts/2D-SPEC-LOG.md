@@ -4,6 +4,21 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-03 — Phase 18.7: the grade curve's knee, and the tuning (Evan's calls)
+
+**Changed in the 2D rebuild's Phase 18.7.** No save change. Numbers [proposed].
+
+- **Grade curve (`CURVE` = { knee: 10, top: 26 }):**
+  - `needFor(g) = 8g + 2.4g²` for g ≤ 10.
+  - Past that, `320 + 26 × (g − 10)`.
+  - `levelOf` is its inverse: the quadratic's up to 320, then `10 + (skill − 320) / 26`.
+  - Everything that reads a level (margins, windows, `gradeOf`, reach) follows.
+  - **Save-compatible:** the skills are the same numbers, read as higher grades past V10.
+- **Sponsors:** a sponsor dropping you sets `lost = day`. Any sponsor offer waits until `day − lost ≥ 28` (before, only the top tier waited, and only after the rival won).
+- **Film:** `doc.over` 1 → 0 (the line at your grade). The offer text no longer says "harder than anything you've done".
+- **Send City:** $4,500 (was $6,000).
+- **The Games:** need 200 ladder points (was 260).
+
 ## 2026-10-03 — Phase 18.7: the ladders, and 18.5's audience
 
 **Built in the 2D rebuild's Phase 18.7.** No save change. Rules in `app/src/sim/ladders.ts`; numbers [proposed] in `MEDIA`.
