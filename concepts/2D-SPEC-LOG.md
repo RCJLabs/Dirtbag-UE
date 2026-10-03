@@ -5,6 +5,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-03 — Phase 17.3: lives that change
+
+**Built in the 2D rebuild's Phase 17.3.** Save v41. Numbers [proposed] in `LIFE` (`app/src/sim/dials.ts`); rules in `app/src/sim/lives.ts`. A year is `AGE.days` (18), counted from day 1 (`year = floor((day − 1) / 18)`).
+
+- **Ray:** last season from the start of year 5 (day 91) to year 6 (day 109); from day 109 he's never present. Talk beat `ray/1` (`last-season`) due in that window if met. Crossing day 109 overnight, if met: a line, and every non-first beta of every Roadside route learned as told.
+- **Tam,** from `since` (the day met): from `since + 3 years` his daily odds' base is halved, and a talk beat `tam/1` (`slowing`) is due; from `since + 5 years` he's never present, with a line the night it's crossed.
+- **Frank,** from `since`: from `since + 4 years` he's at the Lot every evening (17:00–22:00), a line the night it's crossed, and talk beat `frank/1` (`parked`).
+- **Stints:** for sage, mara, rico and tam, each year y ≥ 1, `events` stream, `stint-<who>-<y>`: chance 0.35; start a uniform day in the year; length 4–12 days; kind hurt or away at even odds. Last year's may run over. Present nowhere during one. Overnight lines for met people as one starts and ends.
+- **Save v41:** `PersonLog.talked` (spoken to them; `notMet` now means not spoken to, so a meeting isn't skipped by a belay) and `PersonLog.life` (moments heard). Migration: everyone in an old save is `talked: true`.
+
 ## 2026-10-03 — Phase 17.2: milestones
 
 **Built in the 2D rebuild's Phase 17.2.** No save change. Content in `app/src/sim/content/arcs.ts`; numbers [proposed] in `ARC`.
