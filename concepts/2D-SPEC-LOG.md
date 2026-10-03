@@ -4,6 +4,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-03 — Phase 18.3: the coach's roster and the warehouse's picks
+
+**Built in the 2D rebuild's Phase 18.3.** Save v47: `coach: { clients, next, last } | null`, `haul: { day, picks, fatigue, pay } | null`. Numbers [proposed] in `COACH` and `HAUL`; content in `app/src/sim/content/setting.ts`; rules in `app/src/sim/work.ts`.
+
+- **Roster** (`play.coach`, a focus per client, on a coach shift): size `[2, 3, 4][rank]`; a new client n (stream `events`, `client-<n>`): name `CLIENTS[n % 12]` skipping names on the roster, style of four, gap `int(1..3)`, scared at 25%. Today: tired − (day − last), floored at 0; scared also if `scare-<name>-<day>` < 0.25. Burns: +26 − 8 × tired (scared: +4), tired +2. Drill: +12, tired +1. Head: +5, not scared. Rest: tired −2. Progress ≥ 100 sends: +$6 × gap, a new client in the slot.
+- **Picks** (`play.haul` starts them on a warehouse shift, which pays as ever; `{t:'haul', pick?}` picks or stops): offer for pick n = 3 of 7 (`haul-<day>-<n>`); weight × 0.75 at rank ≥ 2 × heat `[0.8, 1, 1.3]` (`haulday-<day>`); drop if `drop-<day>-<n>` < min(0.95, 2.2 × (fatigue / 100)²), costing `[0.4, 0.7, 1]` of the pay so far and ending the run; at six picks, or on stop, or at bed, the pay's banked.
+- **Unreal:** each pick is its own action (the roll is the sim's, never the view's).
+
 ## 2026-10-03 — Phase 18.2: the café's rush and the diner's floor
 
 **Built in the 2D rebuild's Phase 18.2.** No save change. Numbers [proposed] in `RUSH` and `FLOOR`; content in `app/src/sim/content/setting.ts`; rules in `app/src/sim/work.ts`. Bonus as 18.1, `round(pay × 0.4 × clamp((score − from) / (1 − from)))`, with each game's `from`.
