@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-03 — Phase 18.1: the setter's puzzle, and leave
+
+**Built in the 2D rebuild's Phase 18.1.** Save v46: `leave: Record<jobId, day[]>`. Numbers [proposed] in `PLAY` (`from: 0.4`, `top: 0.4`), `SETTING` and `JobDef.leave`; content in `app/src/sim/content/setting.ts`; rules in `app/src/sim/work.ts`.
+
+- **A played shift:** the `act` action takes an optional `play`. Today only the setting shift has one (`play.set`, five move ids). Refused, before any cost, unless it's five distinct moves from today's hand. The shift pays as ever, plus `round(pay × 0.4 × clamp((score − 0.4) / 0.6))`. Working it without a play pays the shift, so playing never pays less.
+- **The brief** (stream `events`): wall from `set-<day>` (slab, vertical, overhang, roof, each with the move kinds that suit it); crowd from `set-w<week>` (beginners, regulars, comp team, kids); wanted grade `2 × rank + int(0..2)`; a hand of `[7, 8, 9, 10][rank]` moves from 13, always with one rest.
+- **Grade** `max(0, round(0.6 × Σhard + 0.5 × max − 2))`. **Score** `0.35 × accuracy (1 − |grade − want| / 3) + 0.3 × flow (one crux at max ≥ 2; a rest before it; no dyno after a dyno; ≥ 3 kinds) / 4 + 0.2 × fit (non-rest moves of the wall's kinds) + 0.15 × crowd`. Crowd: beginners no 3 and a rest; regulars grade = want; team a dyno and a 3; kids a dyno and grade ≤ want.
+- **Not solved:** across 60 briefs, more than half have a different best set, and none is best on more than a tenth (`work.test.ts`).
+- **Leave:** at the night's reckoning, a missed signed-up shift with leave left (days a 56-day year at your rank, by job) is recorded and called in, not a warning.
+
 ## 2026-10-03 — Phase 17.7: the lines players read most
 
 **Built in the 2D rebuild's Phase 17.7.** Save v45: `PersonLog.heard` and `PersonLog.ledge` (optional ints). Numbers [proposed] in `FIRE_TALK` (`open: 10`, `every: 7`); text in `app/src/sim/content/ambient.ts`; rules in `app/src/sim/ambient.ts`.
