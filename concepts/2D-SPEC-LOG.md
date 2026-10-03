@@ -4,6 +4,22 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-03 — Phase 18.7: the ladders, and 18.5's audience
+
+**Built in the 2D rebuild's Phase 18.7.** No save change. Rules in `app/src/sim/ladders.ts`; numbers [proposed] in `MEDIA`.
+
+- **Ladders** (each `at(s)` = rungs climbed, the last rung the capstone):
+  - outdoors = acts ended (`actOf(s) − 1`, capped at 5), The Line on top
+  - comps = max over results of tier + 1 (5); the Games, entered, is the top, and a Games podium is a Record Book entry only
+  - media = `mediaRung` (followers ≥ `MEDIA.known` 1,000 → 1; a sponsor of tier t → 2 + t; the film aired → 5)
+  - business = 0 off the job, setting rank + 1 on it (1–4), 5 owning Send City, 6 with its peak ≥ 200 members
+  - They show where you stand now: dropped by a sponsor or sold up, you're back down.
+- **18.5 changed:**
+  - A post's worth is the day's best send's (it was the sum over every first send).
+  - Every follower gain (posts, an answered thread's +25%, the film's +50%) is × max(0, 1 − followers / 150,000).
+  - A shelved film is re-offered once ≥ 56 days have passed (`doc.again`), with the same other conditions as the first offer.
+- **Why:** uncapped and summed, a bot posting daily reached 1.6 million followers by day 415 against the rival's 60,000.
+
 ## 2026-10-03 — Phase 18.6: your own gym, and a crag
 
 **Built in the 2D rebuild's Phase 18.6.** Save v50: `gym: { since, members, quality, till, last, setter, upgrades, peak, set } | null`, `bolted: string[]`. Numbers [proposed] in `OWN_GYM`, `GYM_SET` and `LAND`; rules in `app/src/sim/business.ts`.
