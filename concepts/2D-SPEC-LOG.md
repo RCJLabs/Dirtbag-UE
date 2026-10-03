@@ -5,6 +5,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-03 — Phase 17.5: giving
+
+**Built in the 2D rebuild's Phase 17.5.** Save v43: `PersonLog.gave` (the day of the last gift) and `FirstAscent.for` (a person id). Numbers [proposed] in `GIVE` (`every: 7`, `named: 2`) and `content/gifts.ts`.
+
+- **Gifts:** one option per core person (hazel, sage, dex, mara, rico, tam, ray, frank) in their ordinary talk, listed last; due when no gift in the last 7 days and the cost can be paid. Costs cash, +1 bond, sets `gave`.
+- **Named for:** the `name` action takes `for`, honoured only for someone met; +2 bond and a line. The first-ascent screen offers people at Regular (tier 2) or closer, each with a suggested name. The epilogue lists each own first ascent with a `for`.
+- **Frank at the fire:** a talk option at night sets the day flag `fire-frank`; while it's set and he's at the Lot, he's at the fire (after Hazel, so she still deals). He has no hold'em style, so hold'em skips him.
+- **Dex:** the "Come climbing?" ask and invite places, as for partners.
+
 ## 2026-10-03 — Phase 17.4: romance
 
 **Built in the 2D rebuild's Phase 17.4** (Evan's call: Sage and Mara). Save v42: `romance: { who, stage, since, beatDay, over? } | null`, and `PersonLog.sparked`. Rules in `app/src/sim/romance.ts`, text in `content/romance.ts`; numbers [proposed] in `ROMANCE`.
