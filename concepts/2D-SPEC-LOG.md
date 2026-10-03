@@ -5,6 +5,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-03 — Phase 17.2: milestones
+
+**Built in the 2D rebuild's Phase 17.2.** No save change. Content in `app/src/sim/content/arcs.ts`; numbers [proposed] in `ARC`.
+
+- **Arcs for Hazel, Dex, Mara, Rico, Tam, Ray and Frank,** on Sage's machinery: four beats each, beat n due at bond `ARC.bonds[n-1]` (1, 3, 5, 7) and `ARC.spacing` (5) days after the last; every option advances the arc; the fourth sets bond to at least 7. Hazel's beats open in her crag talk, not the Lot's.
+- **Forks with stints away** (`away` days): Hazel 5, Dex 5, Mara 3 (a no) or 12 (her finger, either answer), Rico 4 or 14, Tam 4, Frank 7. Presence now returns nowhere for Hazel and Dex while away, as it did for partners.
+- **Dex's bond:** a go at a place where Dex is, once met, counts as a day together (+1 a day), as for partners.
+- **Epilogue:** close and far lines for Mara, Rico, Tam, Ray and Frank, by bond tier (Regular or closer is close).
+- **Size budget:** 360 KB (Evan's call).
+
 ## 2026-10-03 — Phase 17.1: the cast
 
 **Built in the 2D rebuild's Phase 17.1.** No save change. Numbers [proposed], in `CAST` (`app/src/sim/dials.ts`).
