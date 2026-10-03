@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-03 — Phase 18.5: media
+
+**Built in the 2D rebuild's Phase 18.5** (Evan's call: followers back). Save v49: `media: { followers, engagement, posted, bait, sponsor: { tier, terms, due, tasks, strikes } | null, offer, heat: { grade, due } | null, doc, lost }`. Numbers [proposed] in `MEDIA` and `app/src/sim/content/media.ts`; rules in `app/src/sim/media.ts`.
+
+- **Post** (`{t:'post', style}`, once a day): worth = Σ over lines first sent today of (max(0, grade) + 2)^1.4 × 1.6 outside × 1.3 not a redpoint × 2 a first ascent, + 400/12 for a podium today. Followers += round((5 for a story + 12 × worth × (0.5 + engagement / 100) × style) × reach), style straight 1, story 0.6 (+4 psyche), bait 1.6 (old crowd −1, threads likelier a week), ad 0.3 (pays the tier's ad). Engagement +6 a post (cap 100); −3 a night after 3 quiet days; under 25, followers −0.5% a night. Followers never pay cash.
+- **Sponsors:** tiers at 2,000 / 8,000 / 30,000 followers: stipend $60 / $160 / $420 a 14-day cycle (brand ×1.5), ad $15 / $35 / $90. Asks: a send posted at grade − 1 (all); a shoot at a crag (`shoot-<day>`, tiers 2–3; 3 h, 20 energy); a comp result in the cycle (tier 3); an ad (brand). Offered overnight one at a time; at the top tier, if the rival's followers `60000 / (1 + e^(−(day − 140) / 35))` exceed yours, she's signed and it's offered again no sooner than 28 days on. At the cycle's end: all done, paid; else a strike; two, dropped.
+- **Heat:** nightly if followers ≥ 2,000 and none pending, chance min(0.05, 0.012 × (1 + followers / 25,000) × 1.5 brand × 1.8 baited in the last week) (`heat-<day>`): send at your grade within 7 days for +25% followers, else −5%.
+- **Film:** offered at the top tier with 40,000 followers; a line of grade + 1, outside, within 28 days: +50% followers, aired; else shelved.
+- **Opened:** the Influencer (reach 1.25; 2,000 / 15,000 / 60,000 followers); Record Book entries at 5,000 followers, any sponsor, the top tier, and the film.
+
 ## 2026-10-03 — Phase 18.4: the comp ladder
 
 **Built in the 2D rebuild's Phase 18.4.** Save v48: `comps: { on: { tier, day, tops } | null, points: { day, pts }[], results: { tier, day, place, of }[] }`. Numbers [proposed] in `COMP` and `app/src/sim/content/comps.ts`; rules in `app/src/sim/comps.ts`.
