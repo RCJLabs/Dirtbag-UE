@@ -5,6 +5,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-03 — Phase 17.6: holidays and the family
+
+**Built in the 2D rebuild's Phase 17.6.** Save v44: `folks: { calls }` and `life.retired.home`. Numbers [proposed] in `HOLIDAY` (`on: [7, 21, 35, 49]` of the 56-day year, `psyche: 10`) and `FOLKS` (`from: 1`, `every: 2`, in age years); rules in `app/src/sim/folks.ts`.
+
+- **Holiday:** overnight, if the day that ended is a holiday and you slept at the Lot: +10 psyche; a day together (+1 bond, once a day) with each person met at tier ≥ 2 who isn't away, on a stint, or past Ray's or Tam's end; an event `{ k: 'holiday', id: season, who }` for the card. No choice.
+- **Calls:** call n (0–4) is due when `day ≥ (1 + 2n) × 18 + 1`, fewer than five have been had, and you aren't retired. Overnight, the night one comes due, a line. The `call` action opens the `folks` encounter; an answer counts the call, may cost cash or lift psyche, and the last call's yes retires you (`home: true`). The first answer never goes home.
+- **Epilogue:** home for good is its first line.
+
 ## 2026-10-03 — Phase 17.5: giving
 
 **Built in the 2D rebuild's Phase 17.5.** Save v43: `PersonLog.gave` (the day of the last gift) and `FirstAscent.for` (a person id). Numbers [proposed] in `GIVE` (`every: 7`, `named: 2`) and `content/gifts.ts`.
