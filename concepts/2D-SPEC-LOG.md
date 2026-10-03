@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-03 — Phase 18.2: the café's rush and the diner's floor
+
+**Built in the 2D rebuild's Phase 18.2.** No save change. Numbers [proposed] in `RUSH` and `FLOOR`; content in `app/src/sim/content/setting.ts`; rules in `app/src/sim/work.ts`. Bonus as 18.1, `round(pay × 0.4 × clamp((score − from) / (1 − from)))`, with each game's `from`.
+
+- **Plays:** `play.queue` (every order's index, in the order made) on a café shift; `play.tables` (per wave, the tables taken) on a diner shift. Not on the double.
+- **Rush** (stream `events`, `rush-<day>`): `[5, 5, 6, 6, 7][rank]` orders; drink from six `{make, tip}`; waits `int(2..9)`, +2 for a regular (30% of the first four, tip ×2). Made in order, a drink's done at the running sum of makes and tips if that's ≤ its wait. Score = tips / the best over every order. `from` 0.8.
+- **Floor** (`floor-<day>`): 3 waves of `[3, 3, 4, 4][rank]` tables, party `int(1..6)`, mood easy (tip 2, juggle 0.08), fussy (4, 0.3) or grumpy (1, 0.04); kitchen quick (×0.6), steady (×1) or slow (×1.6). On in wave w = taken in w + taken in w−1; a table from wave w tips `party × tip × max(0, 1 − juggle × kitchen × (max(on[w], on[w+1]) − 1))`. Score = tips / the best over every choice of subsets. `from` 0.65.
+- **Unreal:** the play rows sit beside the plain shift; the player sees one wave at a time (the sim takes the whole floor).
+
 ## 2026-10-03 — Phase 18.1: the setter's puzzle, and leave
 
 **Built in the 2D rebuild's Phase 18.1.** Save v46: `leave: Record<jobId, day[]>`. Numbers [proposed] in `PLAY` (`from: 0.4`, `top: 0.4`), `SETTING` and `JobDef.leave`; content in `app/src/sim/content/setting.ts`; rules in `app/src/sim/work.ts`.
