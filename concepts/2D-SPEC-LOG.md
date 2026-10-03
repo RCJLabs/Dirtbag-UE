@@ -5,6 +5,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-03 — Phase 16: climbing above your grade
+
+**Changed in the 2D rebuild, closing Phase 16** (Evan's call: a limit, tighter windows, and more cruxes above your grade). No save change. All numbers [proposed], in `OVER` (`app/src/sim/dials.ts`).
+
+- **Reach:** a crux's margin is your level in the beta's style, capped at your overall level (the curve's inverse of the average of all five skills) + 1.5. Before, the style's own level counted however far past your grade it was, so a V12 power specialist climbed power at V15.
+- **Windows:** at or under your level as before. Over it, `e^(0.9 m)` to one grade over, then an extra `e^(0.6 (m + 1))`. At three grades over the factor is 0: no window, and every hit test requires a window above zero. (The meter steps at 60 Hz, so before, a window narrower than a frame still passed whenever a frame landed in it.)
+- **The limit:** a line whose own style is three or more grades over your reach, at its *listed* grade (a sandbag keeps its secret), refuses the go: "Beyond you, for now". A new climber (about V0.8) is refused the gym's and Roadside's V4–V5 until about V1.1.
+- **Added cruxes:** from 1.5 grades over, in the line's style at its true grade, a go gets one more crux, two from 2.5. They go in the longest stretches with no crux or rest (0.4 moves clear of each), above the first bolt or stance on a rope, up to 1.2 moves long, and borrow the beta, and the pick, of the line's own crux nearest them. A fall at one counts as a fall at the crux it borrowed from, for beta unlocks. They exist only in the go; the topo shows the line's own.
+- **Measured:** a career bot at V11 with power at V15 now sends the Crucible’s V15 (true V14) 42% of goes, and its V16, V17 and both V18 myths never, careful hands included. Before, at V12: 95%, 53%, 17% and 9%, and every time with careful hands.
+
 ## 2026-10-02 — Phase 16.6: a wall partner stays the night
 
 **Changed in the 2D rebuild's Phase 16.6** (a fix). No save change.
