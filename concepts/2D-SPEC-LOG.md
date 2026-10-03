@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-03 — Phase 17.7: the lines players read most
+
+**Built in the 2D rebuild's Phase 17.7.** Save v45: `PersonLog.heard` and `PersonLog.ledge` (optional ints). Numbers [proposed] in `FIRE_TALK` (`open: 10`, `every: 7`); text in `app/src/sim/content/ambient.ts`; rules in `app/src/sim/ambient.ts`.
+
+- **Fire line** (`lot.sit`): the speaker is `here[day % here.length]` of the people at the fire who have a pool (hazel, sage, frank). Open count = `min(pool, 10 + floor((day − since) / 7))`. If `heard < open`, say `pool[heard]` and `heard += 1`; otherwise walk a seeded shuffle of the open lines (stream `events`, derive `ambient-fire-<who>`) at index `floor(day / here.length)`. Replaces the act's fixed line.
+- **Send cheer:** on a first send (not a lap), whoever was with you (the belayer if roped, else the first of hazel, sage, mara, rico, tam, then dex, met and present) says a line from their pool, walked by the number of sent routes; once a day each (day flag `cheer-<who>`).
+- **Portaledge:** on `camp`, the expedition partner says `pool[ledge]` and `ledge += 1` while lines remain, then a walk indexed by day.
+- **Unreal:** the walk is the shared `Rng`'s Fisher–Yates over indices; the pools are content, keyed by person id.
+
 
 ## 2026-10-03 — Phase 17.6: holidays and the family
 
