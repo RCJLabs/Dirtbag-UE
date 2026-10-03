@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-03 — Phase 18.4: the comp ladder
+
+**Built in the 2D rebuild's Phase 18.4.** Save v48: `comps: { on: { tier, day, tops } | null, points: { day, pts }[], results: { tier, day, place, of }[] }`. Numbers [proposed] in `COMP` and `app/src/sim/content/comps.ts`; rules in `app/src/sim/comps.ts`.
+
+- **Rungs** (venue, on day `on` of every `every`, grades, field, fee, purse, win points, points needed): League night (Send City, 4/7, V0–5, 10, $10, 40/25/15, 10, 0); the Circuit (the Cave, 10/14, V4–10, 12, $25, 150/90/50, 25, 20); Nationals (the Training Center, 24/28, V7–13, 16, $40, 400/240/120, 60, 60); the World Series (TC, 17/28, V10–15, 20, $60, 1000/600/300, 120, 140); the Games (TC, 50/56, V12–17, 20, free, 3000/1800/1000, 200, 260).
+- **Problems:** the wall's slot count (6 at Send City, 8 elsewhere), grades spread evenly lo→hi, ids `cp-<tier>-<day>-<n>` (stream `worldgen`, `comp-<tier>-<day>`). They stand in for the week's set only for someone signed up that day (`wallAt`); everyone else, bots included, climbs the week's set.
+- **Sign-up** (`{t:'comp', do:'enter'}`): at the venue on the day, before 13:00, ladder points ≥ the rung's need, the fee paid; the day's pass comes with it. A top counts if sent (not a lap) in the problem's first 5 goes; recorded as the goes it took.
+- **Field** (`events`, `field-<tier>-<day>`): field − 1 names from a pool of 24, grade `lo − 1 + float(0, hi − lo + 1.5)`; each problem topped if a roll < `1 / (1 + e^(−1.4 × (grade − problem + 0.5)))`, in `int(1..5)` goes. Place: rivals with more tops, or as many in fewer goes, ahead; ties to you. Points `round(pts × (field + 1 − place) / field)`; the ladder is their sum, each × 0.5^(age / 56 days). The card's handed in at the desk or at bed.
+- **Opened:** the Scene path (Competitor: 3 comps, comp cruxes 4% kinder; Finalist: 2 podiums, 8%; Headliner: 6 podiums, 12% and indoors 3%); the Comp Beast quirk (two podiums; comp cruxes 10% kinder); the Record Book's Game On, Top Step and a podium at the Games.
+
 ## 2026-10-03 — Phase 18.3: the coach's roster and the warehouse's picks
 
 **Built in the 2D rebuild's Phase 18.3.** Save v47: `coach: { clients, next, last } | null`, `haul: { day, picks, fatigue, pay } | null`. Numbers [proposed] in `COACH` and `HAUL`; content in `app/src/sim/content/setting.ts`; rules in `app/src/sim/work.ts`.
