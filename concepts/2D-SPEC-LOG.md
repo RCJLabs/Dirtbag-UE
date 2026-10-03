@@ -5,6 +5,22 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 ---
 
 
+## 2026-10-03 — Phase 17.1: the cast
+
+**Built in the 2D rebuild's Phase 17.1.** No save change. Numbers [proposed], in `CAST` (`app/src/sim/dials.ts`).
+
+- **Five more people** (v0.956's), each placed by the seed, the day and the clock like Hazel, Sage and Dex, nothing stored:
+  - `ray`: Roadside, weekends (day % 7 is 6 or 0), 8:00–14:00, dry days only. A local, not a partner.
+  - `frank`: the Lot, 17:00–22:00, from day 3, on 40% of days (20% in winter), drawn from the `events` stream with `frank-<day>`. A local.
+  - `mara`: the Gorge, 9:00–17:00, dry days, on 0.34 + 0.07 a bond tier. A partner.
+  - `rico`: 11:00–20:00 on 0.55 + 0.07 a tier, at Moonstone on 40% of the days it's dry, the Cave otherwise. A partner.
+  - `tam` (Tam Okonkwo): the Mesa, 7:00–14:00, dry days, 0.30 + 0.07 a tier. A partner.
+  - Partners honour an invite and a stint away as Sage does; their daily draw is `<who>-<day>` on `events`.
+- **Partners** are now hazel, sage, mara, rico and tam: any of them at your place belays, and climbing near them counts as a day together.
+- **Locals' talk:** once a day, a sit (Ray 20 min, Frank 30) for a bond.
+- **Names:** no two people share a first name, including the town's Wren and Otis; no two looks match.
+- **Life timers** (17.3) run on the age clock (18 days to a year): Evan's call.
+
 ## 2026-10-03 — Phase 16: climbing above your grade
 
 **Changed in the 2D rebuild, closing Phase 16** (Evan's call: a limit, tighter windows, and more cruxes above your grade). No save change. All numbers [proposed], in `OVER` (`app/src/sim/dials.ts`).
