@@ -4,6 +4,19 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-04 — Phase 25.5: comps outside the ladder
+
+**Built in the 2D rebuild's Phase 25.5.** Save v55: `comps.seasons: { year, place, of }[]`. Numbers [proposed] in `content/comps.ts` and `LEAGUE`; rules in `app/src/sim/comps.ts`.
+
+- **The dyno comp:** a sixth `COMP_TIERS` entry, last, so saved tier indices hold. Send City, `every` 56, `on` 13, grades V2–V10, field 12, fee $15, purse 300/150/75, `pts` 0, `need` 0, and `side: { n: 5, type: 'dyno', moves: [3, 4], goes: 3 }`.
+  - Its set: 5 boulders, grades spread lo→hi as any comp's, all dyno, moves `int(3, 4)`, crux "The throw".
+  - A top counts in its first `goesFor(tier)` goes (3; every other comp `COMP.goes`, 5); the field's goes roll `int(1, goesFor)`.
+  - Side comps add no ladder points. `COMP_LADDER` (the non-side indices) is what `rungOpen`, the ladders screen and the comp bot read; `GAMES_TIER` is the ladder's last.
+- **League night's field** (tier 0 only): names and grades from stream `events`, `league-<year>` (year = floor((day − 1) / 56)), the same draw as before (shuffle, then a grade each). Each night's tops roll from `night-<day>`. Every other comp's field is unchanged, draw for draw.
+- **The season:** the year's League nights (8). A night's places: the field's by tops desc, goes asc, then draw order; if you entered, your stored place, and the field from that place down shifts one. A night is worth `field + 1 − place`. Your table counts the best `LEAGUE.best` (6). Ties go your way.
+- **Settled** in the night after the year's last League night, after that night's scorecard: if you're on the table, push `{ year, place, of }`; 1st pays `LEAGUE.prize` ($250).
+- **Record Book:** `dynocomp` (place 1 at the dyno comp), `league` (any season at place 1).
+
 ## 2026-10-04 — Phase 25.4: an expedition team
 
 **Built in the 2D rebuild's Phase 25.4.** Save v54: `team: { id, names: [lead, second], left, back, odds } | null`, `teams: { id, day, summit, high }[]`. Numbers [proposed] in `TEAM`; rules in `app/src/sim/team.ts`.
