@@ -4,6 +4,21 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-04 — Phase 25.6: the people
+
+**Built in the 2D rebuild's Phase 25.6.** Save v56: `crew: { a, b, day, stage: 'rift' | 'mended' | 'set' } | null`, and `PersonLog.avoid?: string`. Numbers [proposed] in `CREW`; rules in `app/src/sim/crew.ts`, `texts.ts`, `keepers.ts`, `crowdtalk.ts`.
+
+- **Crew drama** (once a life):
+  - The pair: of `CREW.who` (Sage, Mara, Rico, Tam), those with tier ≥ 2 and not away, sorted by bond; the top two, if two.
+  - Ask (`crew: "A/ask/B"`): `crew` null, day ≥ 28, and the pair is (A, B). A talk beat on A's tree, `calls`.
+  - Pick A (`fx.crew {do: 'pick', with: B}`) or keep your word to B (`do: 'keep'`): `crew = { a: chosen, b: let down, day, stage: 'rift' }`. The let-down loses 2 bond, gets `avoid` = the chosen, `away` = day + 7, and loses any invite.
+  - `whereIs(…, people)`: someone with `avoid` is nowhere at a minute their avoided one is at the same place. The four never share a place on their own schedules, so in practice it's invites.
+  - Mend (`crew: "A/mend/B"`): stage rift and day − crew.day ≥ 21, on the chosen one's tree. Try: stream `events`, `crew-mend-<day>`, next() < min(0.95, 0.4 + 0.15 × tier(let-down's bond)) → mended (avoid cleared, both +1 bond), else set. Leave: crew.day = today.
+- **Texts back** (no state): a partner's first stay from now (`whereIs` minute by minute); none and it's night → tomorrow's from wake. Else a line: a sulk (avoid and away) → 3 short lines; a stint → its kind's 3; away → 3; else their own 6. Pools walked by `walk(seed, 'text-<who>', pool, day)` (a seeded shuffle, walked in order).
+- **Shops' small talk** (no state): the place card's line at the diner, shop, café, market, garage and clinic: their pool filtered by each line's `Cond`, walked by `keeper-<place>` and the day. `Cond` gains `season`.
+- **The crowd** (no state): strangers' placement is shared by the renderer and the tap targets (view-side `mulberry32`, unchanged). A tap: the pool filtered by `Cond`, walked by `crowd` at index day × 5 + the taps today; past five, a fixed line.
+- **For Unreal:** crew drama is a talk beat pair and one avoid rule in presence; the rest is text selection.
+
 ## 2026-10-04 — Phase 25.5: comps outside the ladder
 
 **Built in the 2D rebuild's Phase 25.5.** Save v55: `comps.seasons: { year, place, of }[]`. Numbers [proposed] in `content/comps.ts` and `LEAGUE`; rules in `app/src/sim/comps.ts`.
