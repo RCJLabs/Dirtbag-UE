@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-04 — Music, made in code; Phase 25 closed
+
+**Built in the 2D rebuild (Evan's call: synthesize it for now and see how it turns out).** No save change; presentation only.
+
+- **Moods by place and hour:** the Lot by day → camp; the Lot at night, or a crag after dark or in winter → fire; a crag → crag; gyms and shops → town; the map or driving → road; an expedition → big. Each: a key, a scale, four chords looped, a tempo, how busy its tune is, and whether a bass and a beat play.
+- **Shape:** stretches of 16–32 bars, 25–60 s of quiet between; a new mood starts at the bar after a short gap. It ducks under dialogue and during a go. A Music on/off setting.
+- **For Unreal:** the mood map and the stretch-and-quiet shape are the spec; the synthesis is the 2D build's stopgap until there's real music.
+- **Phase 25 closed by Evan's call;** the 2D build's next milestone is Phase 14, the desktop and Steam build.
+
 ## 2026-10-04 — Phase 25.7: polish
 
 **Built in the 2D rebuild's Phase 25.7.** No save change; presentation only.
