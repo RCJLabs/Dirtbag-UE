@@ -4,6 +4,32 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-04 — Phase 25.2: guiding
+
+**Built in the 2D rebuild's Phase 25.2.** Save v52: `outfit: { since, guides, till, last } | null`. Numbers [proposed] in `GUIDING`; rules in `app/src/sim/guiding.ts`.
+
+- **Job `guide`** (place `shop`):
+  - Ranks at 0 / 8 / 20 shifts, grade gates V6 / V8 / V10, raise $18, 3 posts a week.
+  - Act `shop.guide`: 300 min, $50, −26 energy, −12 fed, before 10:00, technique and head +1.
+- **Guests** (stream `events`, `guide-<day>`):
+  - Count `[2, 3, 3][rank]`.
+  - Goal `int(2, min(top, 4 + rank))`, where `top` is the hardest line on offer.
+  - Level `max(0, goal − int(1, 2))`.
+  - Nervous below 0.3.
+- **Lines:** Roadside's, not on an expedition or wall, not hidden, not open, grade ≤ 9.
+- **Value** of a line for a guest:
+  - Under level − 1: 0.4.
+  - Over goal: 0.15, or 0 if nervous.
+  - Under goal: 1.
+  - At goal: p × 3 + (1 − p) × 0.2, where p = 1/(1 + e^(−1.5 × (level + 1 − grade − nervous))).
+- **Play** (`{guide: ids}`): distinct lines, one per guest. Score = Σ value / the best over all distinct assignments. The bonus is `playBonus(pay, score, 0.9)`.
+- **Outfit** (`{t:'outfit', do}`):
+  - `start`: at the shop, top rank, $3,000; guides 1; signed-up guide shifts dropped.
+  - `hire` / `fire`: 1 to 3 guides.
+  - `draw` and `sell` (60% of the price plus the till).
+  - Nightly: if Roadside was open and not closed and it isn't winter, guides × (160 − 100); minus 25 every night.
+  - Record Book `outfitter`.
+
 ## 2026-10-04 — Phase 25.1: guides, giving, and a trait
 
 **Built in the 2D rebuild's Phase 25.1.** Save v51: `giving: { total, food, access }` (the total given this life, and the day each was last given), `guides: Record<crag, { pages, out: day | null }>`. Numbers [proposed] in `GIVING` and `GUIDE`; rules in `app/src/sim/giving.ts` and `guides.ts`.
