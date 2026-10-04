@@ -4,6 +4,20 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-04 — Phase 25.3: the mentee
+
+**Built in the 2D rebuild's Phase 25.3.** Save v53: `mentee: { name, level, sessions, since, last, told: grade[] } | null`, `family.mentee?: { name, grade }`. Numbers [proposed] in `MENTEE`; rules in `app/src/sim/mentee.ts`.
+
+- **Take** (`{t:'mentee', do:'take'}`): at Send City with grade ≥ 7. Name `MENTEES[(seed.length + day) % 6]`, level 1.
+- **Coach** (`do:'coach'`):
+  - At Send City with its pass, once a day, energy ≥ 8; 120 min, −8 energy.
+  - level' = min(max(level, your grade), level + 0.35 / (1 + level / 8)).
+  - Lines at sessions 1, 5, 10, 20 and 35, and the first time `floor(level)` reaches 5, 8 or 10.
+- **Let** (`do:'let'`): mentee null.
+- **Nightly:** on day − last = 14, a warning; at ≥ 28, the mentee's gone. On the bills night, −$15.
+- **Heir:** `family.mentee = { name, grade: floor(level) }`. At the heir's create, each skill gets + 4 × grade, and a line.
+- **Record Book:** `mentor` at level ≥ 8.
+
 ## 2026-10-04 — Phase 25.2: guiding
 
 **Built in the 2D rebuild's Phase 25.2.** Save v52: `outfit: { since, guides, till, last } | null`. Numbers [proposed] in `GUIDING`; rules in `app/src/sim/guiding.ts`.
