@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-04 — Phase 25.7: polish
+
+**Built in the 2D rebuild's Phase 25.7.** No save change; presentation only.
+
+- **Trip keepsake card:** the send card's layout for a trip in the book with high ≥ 1. Drawn on pitch `high` of the objective (the summit pitch for a summit). Name: the objective, plus ", pitch N" short of the top; the style line is "Summit" or "High point, N of M"; who: you, and your partner if one came. An objective's card uses its summit trip, else the trip with the highest high point.
+- **Glossary links:** a sheet's text marks the first lowercase use of each glossary term (acronyms as written; a plural s/es allowed), three per text at most, longest term first; never go, send, crag, soft, nut, lip or dirtbag. A tap opens the term's entry, returning to the sheet.
+- **Miller's Bluff:** its own close-up face (grey bedded limestone; the tufa, the corner, the pillar, the roof at about a third of the height), and a drawn line for each of its six sport lines, which had none.
+- **For Unreal:** the link rule is the useful part: names are capitalized, terms in prose aren't.
+
 ## 2026-10-04 — Phase 25.6: the people
 
 **Built in the 2D rebuild's Phase 25.6.** Save v56: `crew: { a, b, day, stage: 'rift' | 'mended' | 'set' } | null`, and `PersonLog.avoid?: string`. Numbers [proposed] in `CREW`; rules in `app/src/sim/crew.ts`, `texts.ts`, `keepers.ts`, `crowdtalk.ts`.
