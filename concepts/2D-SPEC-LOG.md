@@ -4,6 +4,27 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-04 — Phase 25.1: guides, giving, and a trait
+
+**Built in the 2D rebuild's Phase 25.1.** Save v51: `giving: { total, food, access }` (the total given this life, and the day each was last given), `guides: Record<crag, { pages, out: day | null }>`. Numbers [proposed] in `GIVING` and `GUIDE`; rules in `app/src/sim/giving.ts` and `guides.ts`.
+
+- **Give** (`{t:'give', to}`):
+  - `food`, at the market: $50, +5 psyche.
+  - `access`, at the gear shop: $40, the old crowd's standing +2.
+  - Each once per 7 days, 10 minutes.
+  - `total` adds the cash given. An heir starts at 0.
+- **Guide** (`{t:'guide', place}`):
+  - **Lines:** a crag's lines are its routes, minus expeditions and walls, minus a myth not yet readable, minus a land line not yet bolted.
+  - **To write:** every line sent and at least one first ascent of yours there, at the Lot, once a day, energy ≥ 10. A session is 180 min and −10 energy, and adds a page.
+  - **Out:** at 5 pages, `out = day`.
+  - **Royalties:** on the weekly bills night, cash += $15 × the number of guides out.
+  - **Heir:** keeps the guides that are out.
+- **Record Book:**
+  - `guidebook`: any guide out.
+  - `trait`: a quirk named, so traits are Phase 23.4's quirks.
+  - `giving`: `total` ≥ 1,000.
+  - No entry waits on a system any more.
+
 ## 2026-10-03 — Phase 18.7: the grade curve's knee, and the tuning (Evan's calls)
 
 **Changed in the 2D rebuild's Phase 18.7.** No save change. Numbers [proposed].
