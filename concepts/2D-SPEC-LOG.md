@@ -4,6 +4,20 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-04 — Phase 25.4: an expedition team
+
+**Built in the 2D rebuild's Phase 25.4.** Save v54: `team: { id, names: [lead, second], left, back, odds } | null`, `teams: { id, day, summit, high }[]`. Numbers [proposed] in `TEAM`; rules in `app/src/sim/team.ts`.
+
+- **Fund** (`{t:'team', id}`): no team away, a trip in the book to `id` that ended `summit`, and cash ≥ the cost. 10 min.
+  - Cost: round(your own trip's price there × 1.5).
+  - Names: `TEAMS[(seed.length + day) % 5]`; the lead is your mentee instead when their level ≥ 8.
+  - `back` = the last day your own trip leaving today would be away (day + out + days + home − 1).
+  - Odds, fixed when paid: min(0.9, (1 − stormOdds) × (0.45 + 0.2 × min(2, your summits there) + 0.05 × min(2, your other trips there) + 0.1 if the mentee leads)).
+  - A mentee who leads: `last` = back (no drift while away), and coaching is refused until they're home.
+- **Nightly**, when the day that ended ≥ back (stream `events`, `team-<id>-<left>`): summit if next() < odds, high = the pitches; else high = int(0, pitches − 1). A line, the trip appended to `teams`, team null. A summit adds 5 to the old crowd's standing (`scene.old`, capped at 100).
+- **Record Book:** `patron` when any of `teams` summited.
+- **For Unreal:** nothing new in the expedition sim; this reads the trip book and rolls once.
+
 ## 2026-10-04 — Phase 25.3: the mentee
 
 **Built in the 2D rebuild's Phase 25.3.** Save v53: `mentee: { name, level, sessions, since, last, told: grade[] } | null`, `family.mentee?: { name, grade }`. Numbers [proposed] in `MENTEE`; rules in `app/src/sim/mentee.ts`.
