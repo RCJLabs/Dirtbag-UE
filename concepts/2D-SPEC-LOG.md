@@ -4,6 +4,27 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-08 — Phase 26: a tune-up from the measurements
+
+**Built in the 2D rebuild's Phase 26.** Save v57: `struck: Record<job, number>`, the day of a job's last warning. Rules in `app/src/sim/presence.ts`, `comps.ts`, `mentee.ts` and `game.ts`; numbers [proposed] in `WORK.forgive`, `LEAGUE.prizeA`, `MENTEE.heir` and the comp tiers.
+
+- **Mara and Tam's fallbacks.** "Open" means dry and not shut for the season. Before, Mara stood at a raptor-closed Gorge and Tam at a summer-shut Mesa.
+  - Mara, on a day her roll turns her up (unchanged): the Gorge when it's open, else the Cave.
+  - Tam: the Mesa when it's open, else the Gorge when that's open, else nowhere.
+  - The four's own schedules now cross: Mara and Rico in the Cave, Tam and Mara at the Gorge. So crew drama's avoid rule now bites off invites too.
+- **The A league.** A comp tier with `division: 'A'`:
+  - League night's nights. Problems V3–V8, a field of 10, fee 15, purse 80/50/30, 15 ladder points. Never a rung.
+  - Yours in year y if a settled season of any earlier year has place 1. No relegation, and nothing new stored.
+  - Its field is drawn per year from `league-a-<year>`, and its nights roll from `night-a-<day>`. League night's streams are unchanged.
+  - Its season's top pays 500 (League night's 250).
+- **The dyno comp grows.** Its set and field grades rise by min(3, year), counting the year from 0: V2–V10 the first year, V5–V13 from the fourth. Every other tier is unchanged (`gradesFor`).
+- **The heir's head start.** Each skill gets max(0, floor(need(round(0.4 × mentee grade)) − average) + 1), so a V5 mentee makes a V2 heir, V8 a V3, V10 a V4 and V12 a V5. It was +4 skill per mentee grade.
+- **Warnings lapse.** A job's warnings clear on the night that ended − struck ≥ 28. A loaded v56 save's warnings count from the day it loads into.
+- **The Record Book has 46 entries.** "Everybody Else's Summits" is for team summits on every objective. "Olympic Medalist" is now "Games Medalist", with its id unchanged.
+- **The bot** answers Sage's romance beats (the social bot: first option; the others: "friends"). They had starved it of her lessons from Partner on.
+- **The crowd's placement (view).** Strangers stand in the gaps between taps that are at least 32 wide: the van, lines ±26, boulders ±w/2 and cast spots ±20. With fewer gaps than the crowd, fewer strangers show.
+- **For Unreal:** the presence fallbacks and the A league (derived, not stored) are the rule changes. The rest is numbers.
+
 ## 2026-10-04 — Music, made in code; Phase 25 closed
 
 **Built in the 2D rebuild (Evan's call: synthesize it for now and see how it turns out).** No save change; presentation only.
