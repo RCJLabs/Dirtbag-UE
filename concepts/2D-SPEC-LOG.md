@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-13 — Phase 27.1: rock as a rule
+
+**Built in the 2D rebuild's Phase 27.1** (Phase 26 closed by Evan's call; Phase 27, the rock, by hand, is next). No save change.
+
+- **The rock:** `PlaceDef.rock` = granite (Roadside, the Gorge, the Big Stone, Wind River), quartzite (Moonstone), sandstone (the Mesa), gneiss (the Crucible), limestone (the Cove, the Bluff).
+- **Skin per go outdoors:** style × 1.35 × `ROCK.skin`, where sandstone 1.25, quartzite 1.12, granite 1, gneiss 0.95, limestone 0.85. These are v0.956's per-rock multipliers.
+- **Sandstone shut the day after rain:** a sandstone crag that's `seeping` (dry today, rain yesterday, on its own sky) has `closed` = "The sandstone’s soft after rain. Holds snap when it’s wet". Seasonal closures win.
+- **Pads:** the Moonstone haul's pads halve landings only at Moonstone. They had been counting at every crag once unlocked. A second pad of your own counts everywhere.
+- **For Unreal:** a rock enum per crag, a skin multiplier, and one closure rule.
+
 ## 2026-10-13 — Phase 26b: money in a day
 
 **Built in the 2D rebuild (Evan's call, from playing it: once the card's in the red, a shift only treads water).** No save change. Numbers [proposed] in `GIG`, `TOURISTS`, `PLASMA` and `KIT.sell`; rules in `app/src/sim/gigs.ts`.
