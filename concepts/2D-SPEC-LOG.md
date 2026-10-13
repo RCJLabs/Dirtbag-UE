@@ -4,6 +4,22 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-13 — Phase 27.4: calling it
+
+**Built in the 2D rebuild's Phase 27.4** (Phase 27's old 27.4 split: the highball top-outs and pad placement are now 27.5). Save v58.
+
+- **The call:** the `go` action takes `call: true`. It counts only on go 1 of a line never sent; then today gets `called-<route>`. On any other go it is dropped silently.
+  - The UI label is "Call the onsight", or "Call the flash" if the route log's `told` is non-empty.
+- **At `done`,** when it's go 1 and `called-<route>` is set:
+  - A send writes `SendRecord.called = true` and flags `called-sent`.
+  - A fall flags `called-fell`.
+  - The style is still decided as before (onsight/flash by `told`). A crowd spray after the call turns a called onsight into a called flash.
+- **Psyche:** `psycheDay` adds `PSYCHE.called` (4) for `called-sent` and subtracts `PSYCHE.calledFell` (4) for `called-fell`. Both are applied **after** the daily cap (±8), because a normal good day already hits the cap.
+- **Record Book:** `called` ("Called It"), aim `{ called: 10 }`, counting first sends with `called`. 47 entries.
+- **Save v58:** `SendRecord.called?: true`; the 57 → 58 migration is the identity. The validator rejects any other value.
+- **Bots** never call.
+- **For Unreal:** one optional bool on the send record, a go-time flag, and a bet settled outside the psyche cap.
+
 ## 2026-10-13 — Phase 27.3: wall pitches by kind
 
 **Built in the 2D rebuild's Phase 27.3.** No save change. Shapes in `PITCH_KINDS` (`app/src/sim/content/routes.ts`); moves in `content/rock.ts`.
