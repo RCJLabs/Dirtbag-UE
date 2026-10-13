@@ -4,6 +4,28 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-13 — Phase 27.3: wall pitches by kind
+
+**Built in the 2D rebuild's Phase 27.3.** No save change. Shapes in `PITCH_KINDS` (`app/src/sim/content/routes.ts`); moves in `content/rock.ts`.
+
+- **A wall pitch has a `kind`:** face, crack, corner, chimney, traverse, roof or slab. Pitches had been one shape: 16 moves, crux 9.2–11.4, no rest.
+- **The shapes**, as moves, crux from–to, and rest at:
+  - face 16, 9.2–11.4, none;
+  - crack 16, 8.6–10.8, none;
+  - corner 20, 13.4–15.6, rest at 4;
+  - chimney 20, 17.2–19.2, rest at 9;
+  - traverse 14, 7.8–10, none;
+  - roof 15, 10–12.2, none;
+  - slab 18, 13.6–15.8, rest at 5.
+- **Each kind also has a line:** "Pitch n. " plus the kind's sentence, and a win line. Crux names stay the pitch's name.
+- **Rule of thumb:** each crux comes after roughly the old shape's climbing (about 8.5–10 moves), counted from the belay or the rest. Measured, the grade at which a balanced climber sends half the time moves by at most 0.16 a pitch.
+- **Moves:** 48 granite BetaDefs, a first and an earned per pitch, through `ROCK_LINES` and `inRock` like any outdoor line (same verb and numbers as the replaced library beta).
+  - The crag invariant (no shared first-move name or pair) now counts wall pitches with their crag's single lines.
+- **Kinds per wall:** Long Prow slab/face/roof/crack; Golden Buttress slab/corner/face/roof/crack; Obsidian Tower corner/slab/roof/face/crack/traverse/face; the Ascendant chimney/crack/slab/roof/face/traverse/crack/face. Every wall has at least 3 kinds.
+- **View:** the topo follows the kind (a traverse goes across, a roof goes out to its lip at the crux, a corner leans), with the feature drawn under the line.
+- **Unchanged:** expedition pitches keep the single library shape.
+- **For Unreal:** a kind enum on pitches, a seven-row shape table, and the topo hint per kind.
+
 ## 2026-10-13 — Phase 27.2: the rock's beta
 
 **Built in the 2D rebuild's Phase 27.2.** No save change. The moves are in `app/src/sim/content/rock.ts`, applied by `inRock` in `content/routes.ts`.
