@@ -4,6 +4,27 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-13 — Phase 26b: money in a day
+
+**Built in the 2D rebuild (Evan's call, from playing it: once the card's in the red, a shift only treads water).** No save change. Numbers [proposed] in `GIG`, `TOURISTS`, `PLASMA` and `KIT.sell`; rules in `app/src/sim/gigs.ts`.
+
+- **Second shift:** shift acts need not `worked2` and not `shift-<job>`.
+  - A job act pushes `shift-<job>`, plus `worked2` if `worked` was already set. The double and the warehouse set both.
+  - Sign-ups stay one a day, so a second shift is a walk-in: paid, not counted.
+- **Day labor:**
+  - Stream `events`, `gig-<day>`: chance 0.43, then a gig from those in season.
+  - At the market, start by 8:00. 540 min, energy −40, fed −20, +$80.
+  - It sets `worked` and `worked2`, and counts toward no rank.
+- **Crag tourists:**
+  - Offered at a crag (not private land) whose crowd is busy or packed, with a rope and a sent roped line there (not a wall or expedition pitch, not DWS), when stream `events` `tourists-<day>-<place>` chance 0.5 comes up, before 17:00, once a day.
+  - 60 min, energy −6, +$20 plus a tip of 0–10 (`tourist-tip-<day>`). The easiest such line is named.
+  - Said on arrival once (the `tourists-asked` flag).
+- **Selling kit:** any day, rack, rope, second pad, hangboard or headlamp, for round(0.4 × price), and the gear goes to 0.
+- **Plasma:**
+  - On day % 7 ∈ {2, 5} (Tuesday, Friday), once a day. 120 min, energy −15, fed −10, +$30.
+  - The flag `plasma` multiplies the day's windows by 0.92, in `dayFactor`.
+- **For Unreal:** all five are actions, plus a seeded daily roll. The useful rule is the second-shift flag pair.
+
 ## 2026-10-08 — Phase 26: a tune-up from the measurements
 
 **Built in the 2D rebuild's Phase 26.** Save v57: `struck: Record<job, number>`, the day of a job's last warning. Rules in `app/src/sim/presence.ts`, `comps.ts`, `mentee.ts` and `game.ts`; numbers [proposed] in `WORK.forgive`, `LEAGUE.prizeA`, `MENTEE.heir` and the comp tiers.
