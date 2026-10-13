@@ -15,7 +15,7 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
   - crux A's default win becomes "Through it. Now the top.";
   - B plays as LIBRARY's technical pair, with the window widened by `HIGHBALL.topOut` (first w .22, need 1.1; earned w .24, need 0.9).
 - **Difficulty:** measured, the grade at which a balanced climber sends half the time moves by at most 0.2 per highball; most don't move. The top-outs' 36 moves are rock-specific, through `ROCK_LINES`.
-- **Renamed:** three cruxes now that a top-out follows them: Highball Arête's "The top" is "The arête"; Tall Arête's "The top" is "The rounded arête"; Moonstone Mantel's "The mantel" is "The lip" (its top-out is the mantel). Moonstone Open's "The last hard move" is "The hard move".
+- **Renamed:** four cruxes now that a top-out follows them: Highball Arête's "The top" is "The arête"; Tall Arête's "The top" is "The rounded arête"; Moonstone Mantel's "The mantel" is "The lip" (its top-out is the mantel). Moonstone Open's "The last hard move" is "The hard move".
 - **One fall height:** a fall off a crux comes from move `floor(from) + 1`, which is the high point the climb model records. The landing roll, the beta sheet and the bot now all use it; before, the sheet and the bot used the crux's midpoint.
 - **Pads:** with extra pads (your own second pad, or the haul's at Moonstone), they halve the landing odds under **one** crux only:
   - that crux is the one the `go` names (`pad: 'A' | 'B'`, kept as today flag `pad-<route>-<crux>` for the day's goes), or by default the worse fall;
