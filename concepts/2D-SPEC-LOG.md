@@ -4,6 +4,27 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-13 — Phase 27.5: highball top-outs, and where the pad goes
+
+**Built in the 2D rebuild's Phase 27.5.** No save change. Rules in `app/src/sim/game.ts` (`cruxFallMoves`, `fallCrux`, `padUnder`, `landingChance`, `rollLanding`); the top-out in `content/routes.ts` (`topOut`, `TOP_OUT`); moves in `content/rock.ts` (`TOP_OUTS`).
+
+- **Top-outs:** every highball (boulder, ≥ 16 ft, not DWS or board) gets a second crux `B`, "The top-out":
+  - `moves` + 2;
+  - B spans `oldMoves + 0.4` to `oldMoves + 1.6`;
+  - `heightFt` is unchanged, so crux A's fall is now lower;
+  - crux A's default win becomes "Through it. Now the top.";
+  - B plays as LIBRARY's technical pair, with the window widened by `HIGHBALL.topOut` (first w .22, need 1.1; earned w .24, need 0.9).
+- **Difficulty:** measured, the grade at which a balanced climber sends half the time moves by at most 0.2 per highball; most don't move. The top-outs' 36 moves are rock-specific, through `ROCK_LINES`.
+- **Renamed:** three cruxes now that a top-out follows them: Highball Arête's "The top" is "The arête"; Tall Arête's "The top" is "The rounded arête"; Moonstone Mantel's "The mantel" is "The lip" (its top-out is the mantel). Moonstone Open's "The last hard move" is "The hard move".
+- **One fall height:** a fall off a crux comes from move `floor(from) + 1`, which is the high point the climb model records. The landing roll, the beta sheet and the bot now all use it; before, the sheet and the bot used the crux's midpoint.
+- **Pads:** with extra pads (your own second pad, or the haul's at Moonstone), they halve the landing odds under **one** crux only:
+  - that crux is the one the `go` names (`pad: 'A' | 'B'`, kept as today flag `pad-<route>-<crux>` for the day's goes), or by default the worse fall;
+  - a fall's crux is `fellAt`, else the crux nearest its high point;
+  - lines with one crux keep pads everywhere.
+- **The spotter** (the first partner at the crag) still halves every fall, and the sheet names them.
+- **Bots** gate on the worse of the two falls, with the pads under it (the default).
+- **For Unreal:** a second crux on tall boulders, one shared "fall move" function, and a per-go pad placement.
+
 ## 2026-10-13 — Phase 27.4: calling it
 
 **Built in the 2D rebuild's Phase 27.4** (Phase 27's old 27.4 split: the highball top-outs and pad placement are now 27.5). Save v58.
