@@ -4,6 +4,20 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-13 — Phase 27.2: the rock's beta
+
+**Built in the 2D rebuild's Phase 27.2.** No save change. The moves are in `app/src/sim/content/rock.ts`, applied by `inRock` in `content/routes.ts`.
+
+- **Outdoor lines no longer use the plastic library.** Each crag's lines take their cruxes from their rock's pool of moves: 158 BetaDefs, including the signature lines'. Each crux is assigned by hand in `ROCK_LINES` (route → per crux, [first id, earned id]).
+- **Invariant:** within a crag, no two cruxes share a first move's name, and no two share a (first, earned) pair.
+- **Difficulty-neutral:**
+  - A move must have the replaced beta's verb.
+  - The line keeps the replaced beta's window (`w`), `rate`/`need` and `skin`.
+  - A roped line's second crux keeps falls 2 to earn.
+  - What changes is the name, short, note, hint, unlock line, fall lines and **style**. Style decides which skills the window reads, and `crimpy` now follows a crimp style.
+- **Unchanged:** indoor sets (gym, Cave, Center, comps), and beta ids (`A1`…`B2`), which saves hold.
+- **For Unreal:** the move pools and the assignment table are content to port as they are. The rule is "same verb and numbers, new words and style".
+
 ## 2026-10-13 — Phase 27.1: rock as a rule
 
 **Built in the 2D rebuild's Phase 27.1** (Phase 26 closed by Evan's call; Phase 27, the rock, by hand, is next). No save change.
