@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 33.2: comp rules, the clock and isolation
+
+**Built in the 2D rebuild's Phase 33.2.** No save change. Rules in `app/src/sim/comps.ts` (`clockFor`, `goesFor(tier, round)`, `goesLeft`, `compClock`, `inComp`), `game.ts` (`goBlocked`, `lessonAt`, the watch, `ask`) and `crowds.ts` (`sprayable`); words in `content/comps.ts` (`COMP_RULES`); dials `COMP.clock` and `COMP.perGo` (replacing `COMP.goes`).
+
+- **The clock** (Evan's call: a go budget): a problem is on the clock `clock` minutes a round, [5, 4] (the qualifier, every round after), and a go with its rest is `perGo` (1) minute, so a problem gets 5 goes in a qualifier and 4 after. The goes are all you get: a go past them is refused (`goesLeft` = 0), and a top in any of them counts. (18.4's rule was a top counting in its first 5 goes, with more goes allowed.) Every ladder comp has the clock; the dyno comp keeps its 3 throws a dyno.
+- **The field** rolls each round's goes against that round's budget.
+- **Isolation:** on a comp problem (`cp-…`), nobody gives you beta: the crowd's shout, asking around and the crew's go all find nothing (`sprayable` is empty), and asking is refused. A lesson (Sage's watch, a hitchhiker's tip) reads the wall as you find it and skips comp problems; this fixes a lesson during a comp being taken from the week's set. Asked in a comp at its wall, Sage says so. Your own falls still unlock beta.
+- **Shown:** the clock's minutes and goes at the desk, on entry, on the scorecard and on the round you're through to; a comp problem's sheet counts "Go n of m on the clock", and its locked beta says isolation. The Training Center's painted clock reads the qualifier's minutes.
+- **For Unreal:** a per-round go cap on comp problems, a beta-source filter on them, and the clock's minutes as a stated rule.
+
 ## 2026-10-14 — Phase 33.1: comps in rounds
 
 **Built in the 2D rebuild's Phase 33.1.** Save v65 (`comps.on.round`). Rules in `app/src/sim/comps.ts` (`roundOf`, `startOf`, `roundName`, `roundField`, and `compSet` by round) and `game.ts` (`finishComp`: through, or placed); content `content/comps.ts` (`rounds` on a tier, `ROUND_NAMES`, `ROUND_SAYS`); dial `COMP.roundProblems`.
