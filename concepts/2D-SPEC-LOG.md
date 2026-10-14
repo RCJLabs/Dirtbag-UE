@@ -4,6 +4,27 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 28.3: favours, both ways
+
+**Built in the 2D rebuild's Phase 28.3.** Save v61 (on a person: `owed`, `favour`, `lent`). Rules in `app/src/sim/favours.ts` (`favourAsk`, `clashWith`, `riding`) and `game.ts` (`favourBlocked`, `coverable`, the `favour` action, the asks answered in `say`, loans repaid at night, rides in `travel`); words in `content/favours.ts`; dials `FAVOUR`.
+
+- **You ask** one of the crew, from the crew's texts ("Ask a favour", then who, then what).
+  - Once a day each, not while they're away, and not when you owe them `FAVOUR.cap` (2; Evan's call).
+  - **Cover a shift:** your next scheduled shift, today's or tomorrow's, comes off the schedule. No strike, no pay, no rank credit.
+  - **Lend a rack:** only from Hazel, Mara or Tam (`PersonDef.rack`), and only if you own none. `has(s, 'rack')` is true for the day.
+  - **Drive you:** only from Hazel, Sage, Mara or Tam (`PersonDef.wheels`). Today's drives cost no gas or wear, roll no breakdown, and ignore a flat battery or a worn-out part. Permits and the walk-out still apply.
+  - Asking adds one to what you owe them. If they owed you, it squares it instead.
+- **They ask:** each of the crew, once in every `every` (14) days, on a seeded day, until answered. It comes as a talk beat (`crew-favour-belay | ride | loan`), with the kind seeded per window.
+  - **Yes** costs the ask's price (the button shows it): an hour and some energy for a belay; an hour and gas money for a ride; or `loan` ($40), repaid on the night `loanDays` (7) later. Yes is hidden when you can't afford it.
+  - A yes takes one off what you owe, or banks one they owe you (down to −cap).
+  - **No** costs `no` (1) bond.
+- **Two want your day:** if nobody's fallen out yet (and it's past `CREW.from`), an ask for your time from one of Sage, Mara, Rico or Tam, after you've said yes to another today, becomes crew drama's pick or keep (`crew-favour-clash-<b>`).
+- **Shown:** the People list ("You owe Hazel one"; "Mara owes you two") and the favour sheet.
+- **Bots:** every bot answers asks (the first allowed option, so yes when affordable); Sage's beat must not block her lessons.
+  - The social bot also asks: a ride when its van can't go, a rack at a crag with trad and none of its own, and a covered shift on a crew day.
+  - **Measured:** favours went both ways in 4 of 4 social careers in a quick run.
+- **For Unreal:** person fields for the debt, the last answer and a loan; a favour screen; a talk beat per partner per kind; and the exemptions in the drive and the rack check.
+
 ## 2026-10-14 — Phase 28.2: the crew project and the send train
 
 **Built in the 2D rebuild's Phase 28.2.** Save v60 (`crewProject`, `crewDay`, `crewSends`). Rules in `app/src/sim/game.ts` (`projectable`, `hardestSend`, `crewDayAnswers`, the `crewProject`, `crewDay` and `crewGo` actions, the train in `done`) and `crew.ts` (`crewHere`, `crewDayFor`, `crewDayFrom`); words in `content/crew.ts`; dials `CREW_PROJECT`.
