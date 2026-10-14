@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 33.1: comps in rounds
+
+**Built in the 2D rebuild's Phase 33.1.** Save v65 (`comps.on.round`). Rules in `app/src/sim/comps.ts` (`roundOf`, `startOf`, `roundName`, `roundField`, and `compSet` by round) and `game.ts` (`finishComp`: through, or placed); content `content/comps.ts` (`rounds` on a tier, `ROUND_NAMES`, `ROUND_SAYS`); dial `COMP.roundProblems`.
+
+- **Rounds** (Evan's call: small finals): a tier's `rounds` are the cuts, one round a day from its calendar day. Nationals [6] (16, then a final of 6); the World Series [12, 6] (20, a semi-final of 12, a final of 6); the Games [8]. Other tiers are one round.
+- **A round's set:** the qualifier as before (the wall's slots, across the grades); later rounds `roundProblems` (4), from `lo + (hi − lo) × round / (2 × (rounds − 1))` up to `hi`: the final from the middle, a semi-final from a quarter. A round's problems are its own day's (`cp-tier-day-n`), so the ids, the wall and the scorecard need nothing else.
+- **The field:** drawn once from the comp's first day; each round rolls tops (seeded per round) for whoever's still in it. The field in a round you're in is the previous round's ranking cut to `cut − 1`: the place you took is yours.
+- **Finishing a round:** placed at or above its cut, you're through to tomorrow's round (no fee, no pass; the day's sleep doesn't hand it in). Below it, or in the last round, your place in that round is your place in the comp of the whole field, with the points and the purse.
+- **Bots:** a round they're through to is the day's climbing; the day stays free of shifts and crew days.
+- **For Unreal:** a round index on the entry, a set per round day, a field carried through cuts, and a placing rule.
+
 ## 2026-10-14 — Phase 29.4: cooking at the van
 
 **Built in the 2D rebuild's Phase 29.4.** No save change (a today flag, `meal-good`). Rules in `app/src/sim/game.ts` (a recipe act taking `play: { cook: number[] }`), `psyche.ts` and `spots.ts`; words in `content/food.ts`; dials `COOK` and `PSYCHE.meal`.
