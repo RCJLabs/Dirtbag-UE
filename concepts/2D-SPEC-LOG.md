@@ -4,6 +4,25 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 28.4: renown
+
+**Built in the 2D rebuild's Phase 28.4.** No save change: renown is derived. Rules in `app/src/sim/crew.ts` (`renownTier`, `renownBeatDue`), with new conditions `renown` and `renownBeat`. Words in `content/renown.ts`; dials `RENOWN`.
+
+- **Renown** (Evan's call: lines only, never a number) is derived from the crew's record:
+  - `train` (3) for each project sent with the crew there;
+  - `month` (1) for each 30 days since you named the crew.
+
+  It falls into tiers at `tiers` [3, 8, 15], so the first tier comes with the first train. With no name, there's no renown.
+- **Where it's said:**
+  - **The threads:** once the crew's known (tier 1 or more), the heat lines (`HEAT_SAYS`) include two about the crew by name (`CREW_HEAT`).
+  - **The old guard:** Ray on the rail and Frank by his stove each have a line per tier, said once (talk beats `renown-1..3`, kept in `seen`). A jump past a tier skips that tier's line.
+  - **The strangers:** six crowd lines gated by tier (`RENOWN_CROWD`).
+  - **The shops:** one each at the gear shop and the diner, at tier 2 (`RENOWN_KEEPERS`).
+- **Filling the name:** `{crew}` is filled with the crew's name where the line is said: `crowdLine`, `keeperLine`, the heat line, and `talkValues`.
+- **Bots:** the social bot answers the old guard's beats, so they don't stand in front of its sits with Ray and Frank.
+- **Phase 28's criterion 1** is now a harness target: a social career names a crew, sends its project, and trades favours both ways.
+- **For Unreal:** a derived tier, two new conditions, and line pools; no state.
+
 ## 2026-10-14 — Phase 28.3: favours, both ways
 
 **Built in the 2D rebuild's Phase 28.3.** Save v61 (on a person: `owed`, `favour`, `lent`). Rules in `app/src/sim/favours.ts` (`favourAsk`, `clashWith`, `riding`) and `game.ts` (`favourBlocked`, `coverable`, the `favour` action, the asks answered in `say`, loans repaid at night, rides in `travel`); words in `content/favours.ts`; dials `FAVOUR`.
