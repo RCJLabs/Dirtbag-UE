@@ -4,6 +4,19 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 27.6: more at the Big Stone
+
+**Built in the 2D rebuild's Phase 27.6.** No save change. Content in `app/src/sim/content/routes.ts` and `rock.ts`; placement in `app/src/view/layout.ts`.
+
+- **Four new single lines at the Big Stone**, all granite, with names and grades [proposed]:
+  - Meadow Arête, V8 technical boulder, 14 ft: the crag's first V8, matching its `minGrade`;
+  - The Erratic, V11 power boulder, 18 ft: a highball, so it gets the 27.5 top-out;
+  - The Big Stone project, V13 crimp boulder, 15 ft, **open** (Evan's call): the first to send it names it, which also makes a Big Stone guide of your own possible;
+  - The Apron, sport 9 (5.13b), technical slab, 22 moves, 90 ft, with a rest at 11, "The polished bit" and "The water streak".
+- **Moves:** granite pool moves not yet used at the Big Stone, plus one new top-out pair for The Erratic (a polished mantel and a frost crack). The per-crag rule still holds: no shared first way or pair.
+- **Measured:** each new line's half-send grade sits where its style's existing lines do (Meadow −0.5, Erratic −1.3, project −0.6, Apron −0.4).
+- **For Unreal:** four rows of content and their placement. No rule changes.
+
 ## 2026-10-13 — Phase 27.5: highball top-outs, and where the pad goes
 
 **Built in the 2D rebuild's Phase 27.5.** No save change. Rules in `app/src/sim/game.ts` (`cruxFallMoves`, `fallCrux`, `padUnder`, `landingChance`, `rollLanding`); the top-out in `content/routes.ts` (`topOut`, `TOP_OUT`); moves in `content/rock.ts` (`TOP_OUTS`).
