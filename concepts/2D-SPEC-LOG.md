@@ -4,6 +4,22 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 29.3: the van ages, and the decision
+
+**Built in the 2D rebuild's Phase 29.3.** Save v64 (on the van: `miles`, `rebuilt`, `verdict`). Rules in `app/src/sim/van.ts` (`engineCap`, `vanWorth`, `verdictDue`, `usedPrice`, `FITTED`, and `repairCost` against the cap) and `game.ts` (miles on every drive, the verdict at the garage, the `swap` acts, the Rig's new van); words in `content/garage.ts`; dials `VAN_AGE`.
+
+- **Miles** (Evan's call: the van ages with miles driven): every drive adds its minutes × `mph`/60 (45 mph) to the clock; a ride from a friend adds none. A new climber's van has `start` (160,000) on it. Old saves start the clock there too (Evan's call).
+- **The engine's cap:** a service brings the engine back only to `100 − (miles − rebuilt − from) / per` (from 156,250, a point every 250 miles; 85 at the start). Tires and the battery still go back to new. A repair is priced by the points it puts back (`price × (cap − now) / 100`), never under `least`; a bodge or a friend's fix can't pass the cap.
+- **The van's worth** is `value` ($1,500) × the cap. **Dale's verdict:** at the garage, once the worth is under a rebuild ($900, so at a cap under 60), Dale says so once (`verdict` holds the day; cleared by a rebuild or a new van), and the garage offers:
+  - **Rebuild** ($900, 8 h): `rebuilt` += `off` (8,000 miles), so the cap rises 32; everything fitted stays.
+  - **Trade in for a used van** ($1,200 less your van's worth): `used.miles` (158,750, a cap of 90), the parts at a new climber's. What's fitted stays with the old van, Dale's upgrades and the build-outs; the toolkit comes along (Evan's call).
+  - **The Dream Rig**, from the dream jar as before. Claiming it now also gives a new van (`rig.miles`, every part at 100), fitted *and built out*, and Dale pays the old van's worth.
+  - **Limp on:** do nothing. Servicing still works, to a cap that keeps falling, and a low engine breaks down more.
+- **Bots:** once the verdict's due, a bot goes to hear it, and saves for the cheaper way out. At the garage it rebuilds when its cash covers a rebuild plus its cushion, trades in when that covers the used van, and limps on otherwise.
+  - **Measured:** all 16 career bots heard it by year three, between days 91 and 136 (median 105), and all traded in (median day 115). One rebuilt its second van, on day 221.
+  - **The cost:** the trade-in lands as many careers reach the Moonstone, and Act II ends later (median day 156, against 100.5). Over 32 careers, 20 saw the story through, against 21.
+- **For Unreal:** an odometer and a rebuild offset on the van, a derived cap and worth, a once-per-van verdict, two garage actions and the Rig's new van.
+
 ## 2026-10-14 — Phase 29.2: the Board's bounties
 
 **Built in the 2D rebuild's Phase 29.2.** Save v63 (on the board: each job's `cash` and `parts`, and `pick`). Rules in `app/src/sim/board.ts` (`postBoard`, `bountyPay`, `bountyProgress`, `partWorth`) and `game.ts` (the `bounty` action, the payout); content `content/board.ts` (each job's `worth`); dials `BOARD.pay` and `BOARD.split`.
