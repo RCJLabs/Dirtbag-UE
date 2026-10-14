@@ -4,6 +4,19 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 29.1: scavenging and build-outs
+
+**Built in the 2D rebuild's Phase 29.1.** Save v62 (`parts`). Rules in `app/src/sim/hustle.ts` (the `scrap` take), `content/places.ts` (`lot.scrap`, `buildOut`), `spots.ts` and `game.ts` (the effects); dials `HUSTLE.scrap` and `BUILD`. The download budget is 460 KB (Evan's call).
+
+- **The free pile** (`lot.scrap`), a new hustle at the Lot, by day, once a day. It costs the cans' time and energy (120 min, 8 energy) and finds 1–2 parts (seeded), not money. A broke morning is now cash or parts: the hustle's choice with a trade-off (Phase 29's criterion 1).
+- **Build-outs from parts,** at the van (Evan's call: new ones; the garage's cash upgrades stay). Each is built once, as a gear id:
+  - **a shelf** (2 parts, 1 h): supplies drop ×0.75 a night;
+  - **a solar panel** (5 parts, 2 h): the battery doesn't drain overnight;
+  - **door seals** (3 parts, 1.5 h): a winter night's cold ×0.7, on top of insulation;
+  - **a bed platform** (3 parts, 2 h): +3 energy from a night in the van, on top of the mattress.
+- **Bots:** in the evening while there's daylight, every bot picks over the free pile toward the next build-out in a set order (shelf, solar, seals, platform) and builds it when it has the parts.
+- **For Unreal:** a parts count, one hustle, four owned items and their effects on the night.
+
 ## 2026-10-14 — Phase 28.4: renown
 
 **Built in the 2D rebuild's Phase 28.4.** No save change: renown is derived. Rules in `app/src/sim/crew.ts` (`renownTier`, `renownBeatDue`), with new conditions `renown` and `renownBeat`. Words in `content/renown.ts`; dials `RENOWN`.
