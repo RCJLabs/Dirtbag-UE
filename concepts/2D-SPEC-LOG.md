@@ -4,6 +4,29 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 28.2: the crew project and the send train
+
+**Built in the 2D rebuild's Phase 28.2.** Save v60 (`crewProject`, `crewDay`, `crewSends`). Rules in `app/src/sim/game.ts` (`projectable`, `hardestSend`, `crewDayAnswers`, the `crewProject`, `crewDay` and `crewGo` actions, the train in `done`) and `crew.ts` (`crewHere`, `crewDayFor`, `crewDayFrom`); words in `content/crew.ts`; dials `CREW_PROJECT`.
+
+- **The project** (Evan's call: you pick it):
+  - **What qualifies:** with the crew named and no project on, any line that is unsent, not a wall pitch or expedition, at a crag with an invite bond, and `CREW_PROJECT.over` (2) grades or more above your hardest send of its kind (boulders or ropes; 0 with none).
+  - One at a time, and it can be dropped.
+- **A crew day,** called from the crew's texts. It's once every `every` (7) days, across projects, so dropping and re-picking doesn't buy another.
+  - It's for today before `BOND.inviteBefore`, otherwise tomorrow from `from` (9:00).
+  - Each of the crew answers, closest first. It's a no if they're away or on a stint, if their bond is under the crag's invite, or if they'd be with someone they're keeping clear of (`avoid`, either way round). A yes sets their `invite`.
+- **The crew goes first:** at the project's crag, each of the crew there who hasn't today has a go.
+  - Each go costs `watch` (10) minutes and shows you the next earned way you don't know, as told beta (`sprayable`), in their voice.
+  - Told beta makes a first-go send a flash.
+- **The send train** (Evan's call: your send starts it): a first send of the project ends it.
+  - Each of the crew there follows you up it, a line each. The send goes in `crewSends` with its train, and that night gets `PSYCHE.train` (4).
+  - Sent alone, it ends with an empty train.
+- **Record Book:** "Send Train" (`{ train: 1 }`), 48 entries.
+- **Bots:** only the social bot runs a project.
+  - It picks the lowest qualifying line at a career crag, and calls a crew day for tomorrow once a week when the crag will be dry.
+  - On the day it goes there, watches the crew go, and works the project first.
+- **Measured:** the social bot sent a project with the crew in 4 of 4 careers. The first came on day 30.5 at the median (29–93), then about 4.5 a career by day 300.
+- **For Unreal:** three actions, a texts row, the beta sheet's rows, state for the project, the last crew day and the sends, and the train in the send.
+
 ## 2026-10-14 — Phase 28.1: the crew's name
 
 **Built in the 2D rebuild's Phase 28.1.** Save v59 (`crewName`). Rules in `app/src/sim/crew.ts` (`crewOf`, `crewNameable`, `crewNameDue`) and `game.ts` (`nameCrew`, `crewSuggestions`); words in `content/crew.ts`.
