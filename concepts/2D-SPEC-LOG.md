@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 29.4: cooking at the van
+
+**Built in the 2D rebuild's Phase 29.4.** No save change (a today flag, `meal-good`). Rules in `app/src/sim/game.ts` (a recipe act taking `play: { cook: number[] }`), `psyche.ts` and `spots.ts`; words in `content/food.ts`; dials `COOK` and `PSYCHE.meal`.
+
+- **Cooking a recipe** plays the beat panel (the busking and horseshoes beat): `beats` (5) stirs, each scored 1 in the band, a half near it, 0 off it. Skipped before the first stir, it's the plain meal it always was. Ramen stays a tap.
+- **A good meal** (the stirs' mean at `good`, 0.7, or better): `COOK.energy` (5) more from tonight's sleep wherever you sleep, and `PSYCHE.meal` (2, the fire's) inside the day's cap. Once a day. Under `burnt` (0.3) it's said to be scorched, with no other effect.
+- **Bots** eat plain meals, as before.
+- **Phase 29's Done-when** all pass: the free pile against the cans (29.1), the van's verdict by year three (29.3), cooking in the e2e (29.4). Closing is the developer's call.
+- **For Unreal:** a timing minigame on a recipe, a day flag, and two small buffs.
+
 ## 2026-10-14 — Phase 29.3: the van ages, and the decision
 
 **Built in the 2D rebuild's Phase 29.3.** Save v64 (on the van: `miles`, `rebuilt`, `verdict`). Rules in `app/src/sim/van.ts` (`engineCap`, `vanWorth`, `verdictDue`, `usedPrice`, `FITTED`, and `repairCost` against the cap) and `game.ts` (miles on every drive, the verdict at the garage, the `swap` acts, the Rig's new van); words in `content/garage.ts`; dials `VAN_AGE`.
