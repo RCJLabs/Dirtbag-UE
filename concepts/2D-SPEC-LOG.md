@@ -4,6 +4,18 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 33.3: the field that comes back
+
+**Built in the 2D rebuild's Phase 33.3.** No save change (the rivals are derived from the seed and the year). Rules in `app/src/sim/comps.ts` (`rivalGrade`, `rivalTier`, `rivalsIn`, `rostered`, the field's entrants, `fieldSays`); content `content/comps.ts` (`ROSTER`, `FIELD_SAYS`); dials `RIVALS`.
+
+- **Rosters** (Evan's call: a roster per tier): from the Circuit up, each rung has 5–7 named rivals, each with a first-year grade and a trend a year (rising, steady, fading) that runs for `RIVALS.years` (5) years, then holds; each year's grade is the trend's ± `wobble` (0.5), seeded per career. Each rung's favourites sit at or just over its top grade, so its top grade no longer wins it every time.
+- **Moving up:** a rival goes up a rung for good in the first year their grade is `up` (1) over the top of their rung's grades, and leaves the one below (Nico Hale, Circuit to Nationals, by year 3 in 12 of 12 careers; Mae Okafor, Nationals to the World Series, 9 of 12 by year 3; Kai Mendez and Arjun Mehta by year 7).
+- **Skye Maddox** (the media rival) is on the World Series roster and enters Nationals too.
+- **A field** is the rung's rivals that year plus fillers from the old pool to make up the numbers, drawn as before. Fillers are never named. League night, the A league and the dyno comp are unchanged.
+- **Shown:** the desk's entry row names the three favourites and anyone up from the rung below this year. A comp handed in names its winner (or "somebody nobody had on their sheet"), or who was second if you won, and the rival one place ahead of you; out before the final, only the last.
+- **The field's tops roll go by go** (`rollTops`, every comp): each go's chance is `1 − (1 − p)^(1/goes)`, where `p` is the old chance of a top in the round (the logistic on grade), so tops come as often as before but a climber well over a problem tops it early. (A top's goes were uniform from 1 to the budget, so the top grade always won on goes.) Measured: a V13 wins Nationals 83% (100%), a V15 the World Series 92% (100%); a V10 makes the Nationals final 25% (58%).
+- **For Unreal:** a rival table (name, rung, grade, trend), a per-year grade function and a promotion rule, all derived from the seed; the field built from roster plus fillers. The field's goes rolled per go.
+
 ## 2026-10-14 — Phase 33.2: comp rules, the clock and isolation
 
 **Built in the 2D rebuild's Phase 33.2.** No save change. Rules in `app/src/sim/comps.ts` (`clockFor`, `goesFor(tier, round)`, `goesLeft`, `compClock`, `inComp`), `game.ts` (`goBlocked`, `lessonAt`, the watch, `ask`) and `crowds.ts` (`sprayable`); words in `content/comps.ts` (`COMP_RULES`); dials `COMP.clock` and `COMP.perGo` (replacing `COMP.goes`).
