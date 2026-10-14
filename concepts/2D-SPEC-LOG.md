@@ -4,6 +4,21 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 29.2: the Board's bounties
+
+**Built in the 2D rebuild's Phase 29.2.** Save v63 (on the board: each job's `cash` and `parts`, and `pick`). Rules in `app/src/sim/board.ts` (`postBoard`, `bountyPay`, `bountyProgress`, `partWorth`) and `game.ts` (the `bounty` action, the payout); content `content/board.ts` (each job's `worth`); dials `BOARD.pay` and `BOARD.split`.
+
+- **The Board's three weekly jobs are bounties.** You take one (from the Journal's Board page); the other two come down. Only the one you took pays.
+- **It counts from when you take it** (Evan's call): progress is what's done after the pick (`base` holds the count at the pick), so taking a job you've already finished gains nothing. It pays the moment it's done; it lapses with the week.
+- **Pay** (Evan's calls): each job has a `worth` (8–18), and its bounty is worth `pay` (2) times that. Each week the seed deals the three one of each way to pay:
+  - **cash:** the whole worth;
+  - **parts:** the worth in parts, at `partWorth` ($4: the cans' mean take over the pile's mean find, so an hour at either is worth the same), rounded down;
+  - **split:** `split` (half) in cash, the rest in parts, rounded down.
+
+  So every week offers money now or the van later. The best a week can pay is $36, under the harness's cap of two days of the worst shift ($56).
+- **Bots** take a bounty the moment the week's board goes up (or when they're next free to): the one whose cash, times how much of the job they got done the week before, is most. With nothing to go on, the one that pays most. They count parts as nothing: a bot that took parts at what they'd fetch reached the top of Outdoors in 13 of 32 careers, against 20 before the change and 21 on cash alone.
+- **For Unreal:** a pick on the weekly board, a progress baseline, and per-bounty pay in cash and parts.
+
 ## 2026-10-14 — Phase 29.1: scavenging and build-outs
 
 **Built in the 2D rebuild's Phase 29.1.** Save v62 (`parts`). Rules in `app/src/sim/hustle.ts` (the `scrap` take), `content/places.ts` (`lot.scrap`, `buildOut`), `spots.ts` and `game.ts` (the effects); dials `HUSTLE.scrap` and `BUILD`. The download budget is 460 KB (Evan's call).
@@ -14,7 +29,7 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
   - **a solar panel** (5 parts, 2 h): the battery doesn't drain overnight;
   - **door seals** (3 parts, 1.5 h): a winter night's cold ×0.7, on top of insulation;
   - **a bed platform** (3 parts, 2 h): +3 energy from a night in the van, on top of the mattress.
-- **Bots:** in the evening while there's daylight, every bot picks over the free pile toward the next build-out in a set order (shelf, solar, seals, platform) and builds it when it has the parts.
+- **Bots:** on a day it didn't climb, with energy to spare, a bot picks over the free pile toward the next build-out in a set order (shelf, solar, seals, platform), and builds it when it has the parts. (Corrected in 29.2: this entry first said every evening, a rule that cost the media bots their rest and was changed before the merge.)
 - **For Unreal:** a parts count, one hustle, four owned items and their effects on the night.
 
 ## 2026-10-14 — Phase 28.4: renown
