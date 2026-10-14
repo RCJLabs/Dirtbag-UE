@@ -4,6 +4,25 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 28.1: the crew's name
+
+**Built in the 2D rebuild's Phase 28.1.** Save v59 (`crewName`). Rules in `app/src/sim/crew.ts` (`crewOf`, `crewNameable`, `crewNameDue`) and `game.ts` (`nameCrew`, `crewSuggestions`); words in `content/crew.ts`.
+
+- **The crew** is the partners (Hazel, Sage, Mara, Rico, Tam) you're a Regular with or closer (`CREW.tier`), closest first. Tam leaves it once he's stopped coming out for good.
+- **Naming:** once there are `CREW_NAME.min` (2) of them and no name yet, whichever of them you talk to first brings it up, once, as a talk beat (`calls: true`), in their own words. {other} in the text is the next of the crew (`talkValues`).
+  - **Name it:** this opens the naming sheet.
+  - **Later:** the beat is spent (`seen: 'crew-name'`). The People list then holds a "Name the crew" button until it's named.
+- **The name:** trimmed, 2 to `CREW_NAME.max` (28) characters, and set for good: there's no renaming. It's stored as `crewName: { name, day }`.
+- **Names on offer:** four, from the record, in order:
+  - a nickname for the place you've sent most at (`CREW_NAMES.place`);
+  - your dog's ("Scout’s Pack");
+  - the crowd you're in with (`FACTION.bands[2]`), or "No Fixed Abode";
+  - then "The Van Crew" and "Rest Day Never".
+- **Psyche:** that night gets `PSYCHE.crewNamed` (4, inside the day's cap).
+- **Shown:** the People list ("The crew: X, named on day N. A, B and you.") and the crew's texts ("You send the same text to X").
+- **Bots:** every bot names it with the first suggestion. The beat on Sage's tree is answered by every bot, so it can't block her lessons.
+- **For Unreal:** a state field, a talk beat on five partners' trees, a naming screen like the first-ascent one, and the suggestion rule. Renown (28.4) will read the name.
+
 ## 2026-10-14 — Phase 27.6: more at the Big Stone
 
 **Built in the 2D rebuild's Phase 27.6.** No save change. Content in `app/src/sim/content/routes.ts` and `rock.ts`; placement in `app/src/view/layout.ts`.
