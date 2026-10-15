@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 35.1: the hitchhikers' rotation, four more, the old hand at the pull-off
+
+**Built in the 2D rebuild's Phase 35.1.** Save v74 (`deck.meets: Record<hitcher id, n>`, every time one comes, picked up or passed; migration 73 sets each `met` id to 1). Rules in `app/src/sim/events.ts` (`meets`, `hitchersDue`, `driveEncounter`); content in `content/road.ts`; dial `EVENTS.hitch.fresh 3` (replacing `again 2.6`).
+
+- **Rotation:** eligible hitchers are those with `meets ≤ least + 1` (least = the minimum over all twelve); weight `fresh` for those at `least`, else 1; the old hand's ×`HOLLOW.hitch` while his clue is due stands. So none comes a third time before all have come once.
+- **The pull-off:** a drive to or from the Gorge, the day without an encounter yet, while `hitchDue` and the old hand is eligible: he's there (no odds, no five-day spacing).
+- **Four new hitchers:** guide, setter, stranded (a pair and a dog), ranger: three first answers, two second, a friend line each.
+- **For Unreal:** a fair-rotation encounter table (least-met first, bounded lead) and a guaranteed quest-giver on a named road.
+
 ## 2026-10-15 — Phase 32.5: the bot finds the Hollow; Phase 32's Done-when
 
 **Built in the 2D rebuild's Phase 32.5.** No save change. The bot (`app/src/sim/bot.ts`, option `hollow`): once asking, Roadside on a weekend morning Ray's there (`whereNow`), the shop's guidebook, the old hand's ask when he's on the road (`hitchOpts`), and with all three the walk in from the Gorge, taking the least-risk option at each stage; once found, the Hollow joins its crags (pull as the story's crag), and the easiest line it could try (`beyond` with the line prepared), affordable, one at a time, is prepared (crack on gear with a rack; face bolted with $140 over its cushion; boulder cleaned). The career harness's Hollow run: four careers, 420 days.
