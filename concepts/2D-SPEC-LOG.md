@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 35.5: the road and the year's content rules; Phase 35's Done-when
+
+**Built in the 2D rebuild's Phase 35.5.** No save change, no rule change. `app/src/sim/content.test.ts` ("the road and the year") holds every line of `KNOCKS`, `HITCHERS` (with `friend`), `PASS_BY`, `STOPS`, `HOLIDAYS`, `HOLIDAY_SCENES` and `HOLIDAY_WITH` to one set of rules.
+
+- **Words:** no digit, no straight quote, no doubled or edge space; the only blanks are `{who}` in a knock (the driveway's host) and `{dish}` in a holiday scene (the pantry's dish).
+- **References:** unique ids per pool; `helped` and `away.opt` index real answers and never the same one; every knock with `helped` has a `back-<id>` and every `back-<id>` a knock with `helped`; `HOLIDAY_WITH` keys are cast ids.
+- **One line changed:** the headlights knock's "at 2 a.m." reads "at two in the morning".
+- **Measured (Phase 35, criterion 2):** no hitchhiker a third time before all once, by the rule, over two years of daily crag drives (unit test), and in sixteen four-year career-bot runs (weakly: a median of three meetings).
+- **Carried:** the synthesized music's second pass, waiting on a listen.
+- **For Unreal:** text pools validated as data (blanks whitelisted per pool, cross-references checked), not by eye.
+
 ## 2026-10-15 — Phase 35.4: holiday nights, a scene each
 
 **Built in the 2D rebuild's Phase 35.4.** Save v76 (an encounter of kind `holiday`, id the season; migration 75 is identity). `HOLIDAY_SCENES` and `HolidayFx` in `app/src/sim/content/folks.ts`; `holidayScene`, `holidayDish` (`DISH` 2), `holidayBlocked`, `holidayNote`, `holidayOpts` in `folks.ts`; the bed act and the answer in `game.ts`.
