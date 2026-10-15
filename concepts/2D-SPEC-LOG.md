@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 30.4: the epilogue at 30 and 45, and the age table
+
+**Built in the 2D rebuild's Phase 30.4.** No save change. Rules in `app/src/sim/epilogue.ts` (the stop line; the late bloomer's chosen stop); words in `content/epilogue.ts` (`STOP_END`, `LATE_CHOSE`); the bot's day record carries `aged` and `agedPower` (levels of the aged skills); the ending harness's age table.
+
+- **The stop line:** a retired career (not gone home) gets one line, keyed on how and when: the body's call (`forced`) → `body`; chosen before `AGEING.power.from` (33) → `early`; chosen after → `chose`. Filled with the age at retirement. It sits after the people, where going home's line sits for a career that went home.
+- **A late bloomer who chose the day** gets `LATE_CHOSE` in place of "ran out of time first", which stays for one the body ended.
+- **The age table (Phase 30, criterion 1):** for each ending career, at the first day of 40, `levelOf(average(agedSkills))` against its best before then, and the same on power lines (`mix(aged, 'power')`). The target: within 1 grade of the best, all round. Measured: 16 of 16, the most below 0.09 all round and 0.35 on power lines; training bots outgain the curve, so a climber who stops training is the case the table doesn't show.
+- **For Unreal:** an epilogue line on the retirement's age and cause; an aged-level readout per day for balancing.
+
 ## 2026-10-15 — Phase 30.3: the runway
 
 **Built in the 2D rebuild's Phase 30.3.** Save v69 (a sponsor task `{ kind: 'clinic', done }`; identity migration). Rules in `app/src/sim/runway.ts` (`clinicHeads`, `clinicPay`, `clinicBlocked`, `compTomorrow`, `setCompBlocked`), `media.ts` (`cycleTasks`: the ambassador's clinic) and `game.ts` (the `clinic` and `setComp` actions); words in `content/runway.ts`; dial `RUNWAY`.
