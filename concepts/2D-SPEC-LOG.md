@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 34.3: photos that sell, and a magazine piece
+
+**Built in the 2D rebuild's Phase 34.3.** Save v67 (`media.photos: { route, day, by, sold? }[]`, `media.piece: { asked, due, wrote? } | null`). Rules in `app/src/sim/media.ts` (`photoWorthy`, `photoPrice`, `photoBlocked`, `unsoldPhotos`, `lastSold`, `photosSold`, `pieceAsks`, `pieceOpen`, `pieceBlocked`) and `game.ts` (the photo on a first send, the `photo` and `piece` actions, the piece's ask and lapse at night); words in `content/media.ts` (`PHOTO_SAYS`, `PIECE_SAYS`); dials `PHOTO`, `PIECE`, `KIT.camera`; acts `shop.camera`, `shop.sellCamera`.
+
+- **A photo** (Evan's call: your sends sell): a first send (not a repeat), outside, at V`from` (5) or harder, not a wall pitch or an expedition pitch (their first summits pay already) and not indoors, makes one when you own a camera (`by: 'camera'`) or one of the crew is at the crag (`by` = that partner, the first of `crewHere`).
+- **The price**, read when sold: `base` (15) × (grade − `from` + 1) × (1 + followers / `fans` (20,000)) × (`phone` (0.5) if a partner shot it), rounded, capped at `cap` ($100). The cap is held under the poorest week a job pays (first-rank pay × shifts posted a week, the lowest across jobs: Setting, $120) by a test.
+- **Selling:** `{ t: 'photo', route }` from the feed, any photo of yours not yet sold, one every `every` (7) days.
+- **The piece:** at night, once `after` (2) photos have sold and `every` (56, a year) days have passed since the last ask, an editor asks; due `days` (14) on. Written at the van (`min` 180, `energy` 15) for `pay` ($150) and `followers` (1,000, through the audience cap). Unwritten by the due day, a lapse line.
+- **Bots:** only the media-focused bot: it buys the camera past its cushion, pitches its best unsold photo whenever allowed, and writes the piece at the van in the morning.
+- **For Unreal:** a photo record per first send with a shooter, a weekly sale with a capped price formula, and a yearly commission gated on sales.
+
 ## 2026-10-15 — Phase 34.2: the costs of ambition
 
 **Built in the 2D rebuild's Phase 34.2.** Save v66 (`retainers: { physio, coach }`, each the day taken on or null). Rules in `app/src/sim/retainers.ts` (`retained`, `dueTonight`, `retainerBlocked`, `retainerNote`), `game.ts` (the `retainer` action, the nightly charge, physio's days), `clinic.ts` (`carePrice`), `sessions.ts` (`sessionGains`) and `comps.ts` (`compCost`, `compBlocked`); words in `content/retainers.ts`; dials `RETAINER`; `travel` on the comp tiers.
