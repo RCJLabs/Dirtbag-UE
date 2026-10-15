@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 34.1: rank perks
+
+**Built in the 2D rebuild's Phase 34.1.** No save change (a perk is read off the rank). Rules in `app/src/sim/perks.ts` (`hasJobPerk`, `perkMult`, `perkPasses`, `perksNote`) and the price hooks: `game.ts` (`actCost`: the gear shop's staff price; the café's coffee and the diner's special; the morning's passes), `van.ts` (`gasFor`), `clinic.ts` (`carePrice`); words in `content/jobs.ts` (`PERK_SAYS`); dials `PERKS`.
+
+- **Phase 34 opened** (Evan's calls, 15 Oct 2026): perks on the jobs there are (no clerk or courier); photos of your own sends sell; the physio and a coach as opt-in retainers, plus comp travel; trade shows and a film you pay for, both light.
+- **The perks**, each `{ job, from, off }`: Setting rank 1 (Setter), Send City free; rank 2 (Senior setter), every gym free (the passes go in the day each morning). Guiding rank 1, the gear shop's acts at `1 − 0.2`. Warehouse rank 2, gas at `1 − 0.25`. Coaching rank 1, physio at `1 − 0.5`. Café rank 1, its coffee free; diner rank 1, its special at `1 − 0.5`.
+- **Shown:** a shift's row lists the perks held and the next with its rank; every perk's text is formatted from its dial (Phase 34's criterion 2), with a test that the templates carry no numbers.
+- **Bots:** the business-focused bot minds its gym before story trips away until the gym has peaked at the top's members (perks made it rich early, and it left its gym for expeditions).
+- **For Unreal:** a perk table keyed by job and rank, applied where each price is computed.
+
 ## 2026-10-14 — Phase 33.4: selection and the calendar
 
 **Built in the 2D rebuild's Phase 33.4.** No save change (the team is read off the results). Rules in `app/src/sim/comps.ts` (`lastEdition`, `nextEdition`, `onTeam`, `picksFor`, `compBlocked`, `rungOpen`) and `game.ts` (the team's lines in `finishComp`; a round's pass in the morning); content `content/comps.ts` (`team` on a tier, `TEAM_SAYS`, the calendar).
