@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 31.2: the old climber at the fire
+
+**Built in the 2D rebuild's Phase 31.2.** No save change (the first meeting and the lines heard go in `seen`; once a night each in `today`). Rules in `app/src/sim/forebear.ts` (`forebearAtFire`, `theirLines`, `betaLine`, `forebearSays`, `forebearBlocked`) and `game.ts` (the `forebear` action, `talk` or `beta`); words in `content/forebear.ts`; dials `FAMILY.fire 0.5, talk 30, beta 20`.
+
+- **Presence:** a family's climber, at the Lot, at night: always until the first sit (`forebear-met` in `seen`), then a seeded roll per day under `fire`. Not in `atFire` (no games with them); on the fire card and the van's fire row by name. Not drawn (a drawn, talkable figure would be a person with a People-list bond).
+- **Talk:** `talk` minutes, once a night, sets the `fire` flag. First time: the meeting line. Then the first unheard line whose need the career meets (hardest send, FA, project, scar, summit, crew, how it ended, old-guard standing high or low, or none), in order; once all heard, walked by the seed and day.
+- **Beta:** `beta` minutes, once a night. Their lines = `career.sent` ∪ `family.lines`. The pick: one you haven't sent with beta left (`sprayable`), most goes first, then easiest. Learns the next beta as told (a first go after is a flash).
+- **For Unreal:** the forebear as a fire-side presence with two interactions; the line conditions read the family record.
+
 ## 2026-10-15 — Phase 31.1: what the old climber leaves
 
 **Built in the 2D rebuild's Phase 31.1.** Save v70 (`family.career?`, `family.books`; migration 69 splits an heir's Record Book). Rules in `app/src/sim/heir.ts` (`careerOf`, `moneyLeft`, `leaveCap`, `oldStart`, the handover), `record.ts` (`day` aims count from the kid's first morning); words in `content/heir.ts` (`HEIR_MONEY`); dial `FAMILY {share 0.25, shifts 10, old 0.5}`.
