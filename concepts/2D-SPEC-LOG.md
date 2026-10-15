@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 34.4: trade shows, a film you pay for, and the money table
+
+**Built in the 2D rebuild's Phase 34.4.** Save v68 (`media.film: { route, day } | null`; a sponsor task `{ kind: 'show', day, done }`). Rules in `app/src/sim/media.ts` (`cycleTasks` with the stand, `showToday`, `showBlocked`, `filmLine`, `filmBlocked`) and `game.ts` (the `show` and `film` actions; a `paid` event wherever money comes in); words in `content/media.ts` (`SHOW_SAYS`, `FILM_SAYS`); dials `SHOW`, `FILM`; Record Book entry `commissioned` (aim `{ commissioned: true }`).
+
+- **The stand** (Evan's call: trade shows, light): from sponsor tier `SHOW.tier` (1, Apex) up, each cycle's asks include a day on the stand, `before` (4) days before the cycle's end. Worked that day, started by `by` (10:00), it takes `min` (600) and `energy` (30), pays `fee[tier]` ($60 Apex, $120 Meridian: about a shift's pay, and a double's; at $100 and $200 a media career's media reached 90% of its shifts') and `followers` (600, through the audience cap). Not worked, it's an undone ask: the cycle ends on a warning, unpaid, as any other.
+- **A film you pay for** (Evan's call: a film you commission, light): once a life, of your hardest first-sent line outside at V`FILM.from` (10) or harder, not a wall pitch or an expedition pitch, for `price` ($2,500); it brings `followers` (8,000, through the audience cap) and the Record Book's "Paid for the Light". Ines's doc stays the media ladder's top rung.
+- **Money tagged by source:** an event `{ k: 'paid', from, cash }` for a shift's pay (with tips), a sponsor's cycle, an ad, a photo, a piece and a stand. The harness's money table (Phase 34, criterion 1) sums it per media career.
+- **Bots:** any sponsored bot works the stand and books no shift over it; the media bot pays for the film once it has the price, its cushion and $500 more.
+- **For Unreal:** a dated sponsor ask with a fee; a one-off purchasable film keyed to the best outdoor send; an income ledger by source.
+
 ## 2026-10-15 — Phase 34.3: photos that sell, and a magazine piece
 
 **Built in the 2D rebuild's Phase 34.3.** Save v67 (`media.photos: { route, day, by, sold? }[]`, `media.piece: { asked, due, wrote? } | null`). Rules in `app/src/sim/media.ts` (`photoWorthy`, `photoPrice`, `photoBlocked`, `unsoldPhotos`, `lastSold`, `photosSold`, `pieceAsks`, `pieceOpen`, `pieceBlocked`) and `game.ts` (the photo on a first send, the `photo` and `piece` actions, the piece's ask and lapse at night); words in `content/media.ts` (`PHOTO_SAYS`, `PIECE_SAYS`); dials `PHOTO`, `PIECE`, `KIT.camera`; acts `shop.camera`, `shop.sellCamera`.
