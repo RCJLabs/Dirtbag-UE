@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 35.3: knocks that come back
+
+**Built in the 2D rebuild's Phase 35.3.** Save v75 (`deck.back: {id, opt, day, done?}[]`, migration 74 starts empty). `Knock.helped?: number[]`, `Knock.away?: {opt, line}`; return knocks `back-<id>` with no spots (never rolled); `KnockFx.fed`; `knockBackDue` and `knockOpen` in `app/src/sim/events.ts`; dial `EVENTS.knock.back [14, 28]`.
+
+- **Owed:** answering a knock with a `helped` or `away` answer pushes `{id, opt, day}` unless that knock has an entry already (once a knock, ever).
+- **Due:** at bed, the first entry not done with `day ≥ entry.day + int(back)` (seeded `back-<id>-<day>`): `away` → its line, done, the night's knock roll goes on; helped → the knock `back-<id>` as tonight's encounter, done, only when a knock could come (`knockOpen`: day ≥ `EVENTS.from`, no encounter today, past `knock.every`).
+- **Who:** jump (0, 1; away 2), drunk (1), headlights (0), sharedspot (0; away 2), scavenge (1). Returns: two answers each (supplies, fed, energy, psyche, cash).
+- **For Unreal:** encounter memory with a delayed, seeded payoff; a negative answer remembered in narration, not punished.
+
 ## 2026-10-15 — Phase 35.2: roadside stops with a choice
 
 **Built in the 2D rebuild's Phase 35.2.** No save change. `RoadStop.opts: StopOpt[]` (`{label, out, min, fx}`) replaces the stop's single `fx`; `RoadFx.followers` (added through `fromAudience`); `stopNote` (events.ts) formats a way's gains; `EVENTS.stop.min` removed (each way has its own minutes).
