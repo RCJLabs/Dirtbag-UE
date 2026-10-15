@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 32.1: the Hollow, the place
+
+**Built in the 2D rebuild's Phase 32.1.** No save change. `PlaceDef.hidden`; `known(s, id)` in `app/src/sim/hollow.ts` (not hidden, or in `unlocked`); `PLACES.hollow` and its road (`gorge`–`hollow`, 45 min, $6); seven lines in `content/routes.ts`; their moves in `content/rock.ts`; the painter in `view/paint/scenes.ts`, `wall.ts`, `boulder.ts`; the layout, pin and a hidden side road in `view/layout.ts` and `valley.ts`.
+
+- **Hidden:** travel to a place you don't know refuses before any other check ("There’s no road there you know of."); its pin, its dirt road and taps on the map wait till it's in `unlocked`; the day planner, guides, the Record Book's circuit, a sponsor's shoot and the crew invite list skip it. No `unlock` price: finding it (32.2) is the only way in.
+- **The place:** sandstone, shaded, `minGrade` 8, no crowd, `invite` 5.
+- **The lines (all `open`):** boulders hcrow V9 technical, hstone V10 crimp, hgap V12 dyno; trad hsplit (grade 8, crack/endurance), hcorner (10, crack/power); sport hwall (9, crimp/technical), hlean (11, power/endurance). Sandstone first ways not repeated in the crag.
+- **For Unreal:** a hidden-place flag on the world map and travel; the Hollow's lines and canyon look.
+
 ## 2026-10-15 — Phase 31.4: the heir in the harness and the e2e
 
 **Built in the 2D rebuild's Phase 31.4.** No save change; no rule change. The bot (`app/src/sim/bot.ts`): `playDays` takes `from` (a handover state; the kid is made in it); `forebearNight` in every evening at the Lot (sit with the forebear when at the fire, ask about a line; asks recorded with whether the line was theirs); the social bot answers `kin-` talk beats. The career harness's family run: four careers hung up at day 200, each kid played 112 days as the social career bot.
