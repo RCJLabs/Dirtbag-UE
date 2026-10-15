@@ -4,6 +4,18 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 30.3: the runway
+
+**Built in the 2D rebuild's Phase 30.3.** Save v69 (a sponsor task `{ kind: 'clinic', done }`; identity migration). Rules in `app/src/sim/runway.ts` (`clinicHeads`, `clinicPay`, `clinicBlocked`, `compTomorrow`, `setCompBlocked`), `media.ts` (`cycleTasks`: the ambassador's clinic) and `game.ts` (the `clinic` and `setComp` actions); words in `content/runway.ts`; dial `RUNWAY`.
+
+- **From `RUNWAY.from` (35)** (Evan's call: all three, from 35).
+- **A clinic:** at the Cave, on a weekend (day % 7 ∈ {6, 0}), by 12:00, once a day; a Coach or better (`rankAt(s,'coach')` ≥ 1) or anyone sponsored. Heads = min(`most` 6, `base` 2 + floor(hardest send's grade / `per` 3)); pay = heads × `fee` ($11); 240 min, 15 energy. Paid as a shift (`paid: 'job'`). Marks a sponsor's `clinic` task done.
+- **Setting a comp:** at a venue with a comp tomorrow (`compHere(s, day + 1, at)`), a Senior setter or better (`rankAt(s,'set')` ≥ 2), once a day: 360 min, 20 energy, $85, paid as a shift.
+- **Ambassador terms:** `cycleTasks` from 35 puts `{ kind: 'clinic' }` where it put the send at your grade − 1; such a cycle pays `RUNWAY.ambassador` (0.5) × the stipend (`cyclePay`). At the full stipend the media bots never lost a sponsor after 35 and one media career's media reached 105% of its shifts.
+- **Never more than a job's:** the most a clinic pays ($66) is under a Head coach's shift ($68); comp setting's hourly ($14.17) is under a Head setter's ($15). Tested against the jobs' data.
+- **Bots:** a sponsored bot runs the asked clinic the first weekend morning it can; the business bot sets League night the day before at Send City from 35.
+- **For Unreal:** two age-gated paid actions and a sponsor-task swap at an age.
+
 ## 2026-10-15 — Phase 30.2: recovery, healing and insurance by age
 
 **Built in the 2D rebuild's Phase 30.2.** No save change. Rules in `app/src/sim/ageing.ts` (`ageCost`, `healDays`, and the note's second sentence), `game.ts` (the night's energy and skin; three injury rolls), `body.ts` (`rollInjury`), `tonight.ts` (the evening's preview) and `clinic.ts` (`premiumOf`, moved from `identity.ts`, which keeps `premiumMult` for the origin's share); dial `AGE_COST`.
