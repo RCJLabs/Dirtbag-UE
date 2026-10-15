@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 14.1: focus moves, by keys and a controller
+
+**Built in the 2D rebuild's Phase 14.1.** No save change, no rule change: input only. `app/src/ui/spatial.ts` (`nearest`), `ui/nav.ts` (`layer`, `stops`, `move`, `focused`), `ui/pad.ts` (`Pad.poll`), `ui/input.ts` (`back`, `hub`, `act`, `onPad`); the key handler in `ui/App.tsx`.
+
+- **Focus:** the layer on top (sheet, else conversation, else the first screen, else the screen: HUD, scene hotspots, map pins) holds the stops (live buttons and fields). A move in a direction picks, among stops wholly past the focused one's centre that way, the least `travel + 2 × off-axis gap + drift/100` (centre-to-centre travel; the gap between spans across, 0 when they overlap). None: no move (the key's default runs). Nothing focused: a sheet's first stop; on the screen, the stop nearest its middle.
+- **Controller (standard mapping):** polled per frame. A = press the focused button, else use the nearest scene thing / open the wall's beta; A or RT = climb hold and strum; B = back (talk, then the sheet's close, then the map); LB/RB or D-pad left/right = speed-wall hands; Start = journal, Select = map, Y = plan. Direction repeat 0.4 s then 0.13 s; stick lean on ≥ 0.5, off < 0.35; the stick across walks a scene with nothing open.
+- **Keys:** arrows move focus except Left/Right walking a scene with nothing open and mid-go; M/J/P = map/journal/plan, ignored in text fields.
+- **First screen:** `NAME_IDEAS` (16 names, none in the cast or the comp rosters), cycled by a button.
+- **For Unreal:** a focus-driven UI (UMG's navigation or CommonUI) gives the same model; tall world hotspots (wall lines) sit between short ones (boulders), so directional picks need the "wholly past centre" rule or an explicit nav graph.
+
 ## 2026-10-15 — Phase 35.5: the road and the year's content rules; Phase 35's Done-when
 
 **Built in the 2D rebuild's Phase 35.5.** No save change, no rule change. `app/src/sim/content.test.ts` ("the road and the year") holds every line of `KNOCKS`, `HITCHERS` (with `friend`), `PASS_BY`, `STOPS`, `HOLIDAYS`, `HOLIDAY_SCENES` and `HOLIDAY_WITH` to one set of rules.
