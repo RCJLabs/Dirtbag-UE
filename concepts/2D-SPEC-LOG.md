@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 35.4: holiday nights, a scene each
+
+**Built in the 2D rebuild's Phase 35.4.** Save v76 (an encounter of kind `holiday`, id the season; migration 75 is identity). `HOLIDAY_SCENES` and `HolidayFx` in `app/src/sim/content/folks.ts`; `holidayScene`, `holidayDish` (`DISH` 2), `holidayBlocked`, `holidayNote`, `holidayOpts` in `folks.ts`; the bed act and the answer in `game.ts`.
+
+- **When:** at bed at the Lot (`s.at === 'lot'`, not sleeping rough), `holidayOn(day)` and `crew(s)` non-empty: the encounter opens before any knock (a returning knock waits). Alone, Phase 17.6's night stands (psyche `HOLIDAY.psyche`, the morning card).
+- **Answer:** the way's `holidayBlocked` (dish needs two servings of an ingredient; cash needs its amount); then each of `crew(s)`: a day together (`climbedWith`) and `bond` more; the dish takes `DISH` servings of the most-stocked ingredient; cash, energy, skin, fed, psyche applied directly; the line (`{dish}` filled); then the night, without the old holiday block or its card.
+- **Ways:** Harvest (appetite / dish / cider), Longest Night (fire / headlamp / lamps), First Dry Rock (toast / tick list / early night), Midsummer (sunrise / the hill / bed). The first needs nothing.
+- **For Unreal:** calendar scenes at a hub with the present cast, choice effects including group bond and an inventory cost.
+
 ## 2026-10-15 — Phase 35.3: knocks that come back
 
 **Built in the 2D rebuild's Phase 35.3.** Save v75 (`deck.back: {id, opt, day, done?}[]`, migration 74 starts empty). `Knock.helped?: number[]`, `Knock.away?: {opt, line}`; return knocks `back-<id>` with no spots (never rolled); `KnockFx.fed`; `knockBackDue` and `knockOpen` in `app/src/sim/events.ts`; dial `EVENTS.knock.back [14, 28]`.
