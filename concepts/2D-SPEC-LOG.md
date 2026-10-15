@@ -4,6 +4,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 32.5: the bot finds the Hollow; Phase 32's Done-when
+
+**Built in the 2D rebuild's Phase 32.5.** No save change. The bot (`app/src/sim/bot.ts`, option `hollow`): once asking, Roadside on a weekend morning Ray's there (`whereNow`), the shop's guidebook, the old hand's ask when he's on the road (`hitchOpts`), and with all three the walk in from the Gorge, taking the least-risk option at each stage; once found, the Hollow joins its crags (pull as the story's crag), and the easiest line it could try (`beyond` with the line prepared), affordable, one at a time, is prepared (crack on gear with a rack; face bolted with $140 over its cushion; boulder cleaned). The career harness's Hollow run: four careers, 420 days.
+
+- **Rule fix:** `bolt` no longer refuses a zero-cost preparation (cleaning) when cash is negative.
+- **Measured (Phase 32, criterion 1):** 2 of 4 find the Hollow and name first ascents (8 between them, V9–V12; 6 settled by day 420). Of the other two, one never met the old hand in 420 days (he's a weighted hitchhiker: the third clue is luck-bound); one found it on day 282 and never made the 165-minute drive back around its shifts.
+- **For Unreal:** the third clue's source wants a surer trigger than a weighted random encounter (an open call for Evan).
+
 ## 2026-10-15 — Phase 32.4: grades settle, royalties rise
 
 **Built in the 2D rebuild's Phase 32.4.** Save v73 (`FirstAscent.heard?: number`, repeats told; migration 72 marks the repeats already past as heard). Rules in `app/src/sim/settle.ts` (`repeatDays`, `repeatsOf`, `settled`, `faNote`), `game.ts` (`lineGrade`; `settleNight` in the night), `guides.ts` (`fasIn`, `royaltyOf`, `poorestWeek`, `royalties`); words in `content/settle.ts`; dials `SETTLE {repeats 3, gap [7, 21], wild 2}` and `GUIDE.perFa 3`, `GUIDE.week 5`.
