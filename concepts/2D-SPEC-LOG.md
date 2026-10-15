@@ -4,6 +4,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 35.2: roadside stops with a choice
+
+**Built in the 2D rebuild's Phase 35.2.** No save change. `RoadStop.opts: StopOpt[]` (`{label, out, min, fx}`) replaces the stop's single `fx`; `RoadFx.followers` (added through `fromAudience`); `stopNote` (events.ts) formats a way's gains; `EVENTS.stop.min` removed (each way has its own minutes).
+
+- **Answer:** `i < opts.length` takes that way: its minutes, its fx (×`EVENTS.stop.again` once the stop's been found), the stop found; `i === opts.length` drives on. The first way at every stop is the old pull-over (40 min, the old fx).
+- **The nine stops' second ways:** a photo for followers (overlook, Balanced Rock, fire lookout); walk round the big boulder; sleep under the Lone Sentinel (90 min, more energy); coffee instead of pie; a quick dip instead of a soak; the mine tailings (more psyche, some energy); a sling left at the shrine (a few dollars, more psyche).
+- **For Unreal:** roadside stops as small choices, the card showing the trade from the data.
+
 ## 2026-10-15 — Phase 35.1: the hitchhikers' rotation, four more, the old hand at the pull-off
 
 **Built in the 2D rebuild's Phase 35.1.** Save v74 (`deck.meets: Record<hitcher id, n>`, every time one comes, picked up or passed; migration 73 sets each `met` id to 1). Rules in `app/src/sim/events.ts` (`meets`, `hitchersDue`, `driveEncounter`); content in `content/road.ts`; dial `EVENTS.hitch.fresh 3` (replacing `again 2.6`).
