@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 32.4: grades settle, royalties rise
+
+**Built in the 2D rebuild's Phase 32.4.** Save v73 (`FirstAscent.heard?: number`, repeats told; migration 72 marks the repeats already past as heard). Rules in `app/src/sim/settle.ts` (`repeatDays`, `repeatsOf`, `settled`, `faNote`), `game.ts` (`lineGrade`; `settleNight` in the night), `guides.ts` (`fasIn`, `royaltyOf`, `poorestWeek`, `royalties`); words in `content/settle.ts`; dials `SETTLE {repeats 3, gap [7, 21], wild 2}` and `GUIDE.perFa 3`, `GUIDE.week 5`.
+
+- **Repeats:** only for your FAs (no `by`). Seeded per line (`events` stream, derive `repeats-<id>`): `repeats` days, the first `int(gap)` days after the FA's day, each next `int(gap)` after that; ×`wild` at a wild place. A repeat on day D counts from day D+1 (`d < s.day`).
+- **Settled:** `repeatsOf ≥ repeats`: `lineGrade` = the listed grade; before, listed + call.
+- **Heard:** each night, per FA, if `repeatsOf > heard`: set `heard`; say the settle line (by call −1/0/+1) if settled, else the first-repeat line if `heard` was 0 (repeater seeded from a pool, derive `repeater-<id>`; a wild place has its own line). Middle repeats are silent.
+- **Royalties:** per guide out, `royalty + perFa × (your FAs among its lines with day ≤ out)`; the week's total `min(Σ, poorestWeek)`, `poorestWeek` = the least single-shift first-rank job pay × `week` ($28 × 5 = $140).
+- **For Unreal:** a consensus-grade model fed by seeded repeat events, and a capped passive income per guide.
+
 ## 2026-10-15 — Phase 32.3: first ascents in the Hollow: clean, bolt or gear
 
 **Built in the 2D rebuild's Phase 32.3.** Save v72 (`boltedCracks: string[]`, trad lines in a wild place bolted; each also in `bolted`; migration 71 starts empty). `PlaceDef.wild`; `bolted`/`boltBlocked` in `app/src/sim/business.ts`; `asSport` in `content/routes.ts`, applied by `wallAt` (`content/gym.ts`) and `routeOfId` (`game.ts`); the `bolt` action takes `how?: 'gear' | 'bolts'`; dial `HOLLOW.scene {bolt {gym 2}, crack {old −8, gym 4}, gear {old 2}}`; stance `hollowbolts` (`content/scene.ts`, `crack: true`); text `GEAR_CLEANED` in `content/hollow.ts`.
