@@ -4,6 +4,13 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 31.4: the heir in the harness and the e2e
+
+**Built in the 2D rebuild's Phase 31.4.** No save change; no rule change. The bot (`app/src/sim/bot.ts`): `playDays` takes `from` (a handover state; the kid is made in it); `forebearNight` in every evening at the Lot (sit with the forebear when at the fire, ask about a line; asks recorded with whether the line was theirs); the social bot answers `kin-` talk beats. The career harness's family run: four careers hung up at day 200, each kid played 112 days as the social career bot.
+
+- **Measured (Phase 31, criterion 1):** 4 of 4 kids meet the forebear the first night at the Lot and ask about lines they sent (19 to 30 asks in two years). Frank's word on the family reached every kid; Ray's none (weekend mornings at Roadside, gone after year six). One kid sent the quest (the forebear's hardest, V11) at V8 all round.
+- **For Unreal:** a family run in balancing: careers to retirement, then their heirs.
+
 ## 2026-10-15 — Phase 31.3: the name and the quest
 
 **Built in the 2D rebuild's Phase 31.3.** No save change (`kin-<who>`, `forebear-quest` in `seen`). Rules in `app/src/sim/kin.ts` (`kinBand`, `kinBeatDue`), `heir.ts` (`questOf`, `questDone`, `hardestOf`), `forebear.ts` (quest words; the quest among the beta lines), `game.ts` (the quest given and heard at the fire; the send's line), `record.ts` (aim `quest`), `epilogue.ts`; words in `content/kin.ts`, `content/forebear.ts`, `content/epilogue.ts` (`QUEST_END`); Cond `kin`, `kinBeat`.
