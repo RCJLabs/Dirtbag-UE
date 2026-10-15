@@ -4,6 +4,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 31.3: the name and the quest
+
+**Built in the 2D rebuild's Phase 31.3.** No save change (`kin-<who>`, `forebear-quest` in `seen`). Rules in `app/src/sim/kin.ts` (`kinBand`, `kinBeatDue`), `heir.ts` (`questOf`, `questDone`, `hardestOf`), `forebear.ts` (quest words; the quest among the beta lines), `game.ts` (the quest given and heard at the fire; the send's line), `record.ts` (aim `quest`), `epilogue.ts`; words in `content/kin.ts`, `content/forebear.ts`, `content/epilogue.ts` (`QUEST_END`); Cond `kin`, `kinBeat`.
+
+- **The old guard's word:** a talk beat on Ray's and Frank's trees, after their meeting, once (`seen: kin-<who>`), keyed by the forebear's `career.old` band: ≥ `FACTION.bands[2]` high, < `bands[1]` low, else mid (and for a pre-phase heir). Crowd and keeper pools gain `{forebear}` lines under `when: { kin: true }`.
+- **The quest:** `career.project` (most-tried unsent) → else the hardest outdoor send → else `kinLine` (pre-phase heirs). Given at the first sit (after the meeting line); the forebear gives beta on it (added to the beta candidates once met). The send: a line; the next sit, once, their reaction; Record entry `kinquest` ("Unfinished Business", aim `{ quest: true }`, given and sent); an epilogue line for the project and hardest kinds.
+- **For Unreal:** two old-guard dialogue beats keyed by a standing band; a single named quest derived from the family record; an achievement.
+
 ## 2026-10-15 — Phase 31.2: the old climber at the fire
 
 **Built in the 2D rebuild's Phase 31.2.** No save change (the first meeting and the lines heard go in `seen`; once a night each in `today`). Rules in `app/src/sim/forebear.ts` (`forebearAtFire`, `theirLines`, `betaLine`, `forebearSays`, `forebearBlocked`) and `game.ts` (the `forebear` action, `talk` or `beta`); words in `content/forebear.ts`; dials `FAMILY.fire 0.5, talk 30, beta 20`.
