@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 34.2: the costs of ambition
+
+**Built in the 2D rebuild's Phase 34.2.** Save v66 (`retainers: { physio, coach }`, each the day taken on or null). Rules in `app/src/sim/retainers.ts` (`retained`, `dueTonight`, `retainerBlocked`, `retainerNote`), `game.ts` (the `retainer` action, the nightly charge, physio's days), `clinic.ts` (`carePrice`), `sessions.ts` (`sessionGains`) and `comps.ts` (`compCost`, `compBlocked`); words in `content/retainers.ts`; dials `RETAINER`; `travel` on the comp tiers.
+
+- **Retainers** (Evan's call: opt-in): taken on at their place (the physio at the clinic, a coach at the Cave), the first week's `weekly` paid then, and each later week on the night that ends a week from the day taken on; let go, the payments stop with nothing back.
+  - **Physio** ($35 a week): physio costs nothing, and a session takes `days` (2) off an injury instead of 1.
+  - **Coach** ($45 a week): a training session's gains × (1 + `gain`), 1.25.
+- **Comp travel** (Evan's call): Nationals $100, the World Series $250, the Games $500, paid with the fee (`compCost`); entry is refused when cash is short of both, saying what they come to. The comp bots count it.
+- **Bots** take no retainers. The comp bot saves for the dearest comp in the next 14 days (with the World Series on top before a Nationals it's strong enough for) and holds that back from trips and van upgrades; without it, 1 of 4 comp bots reached the Games.
+- **For Unreal:** two weekly subscriptions with a start day, a per-tier travel cost on comp entry.
+
 ## 2026-10-15 — Phase 34.1: rank perks
 
 **Built in the 2D rebuild's Phase 34.1.** No save change (a perk is read off the rank). Rules in `app/src/sim/perks.ts` (`hasJobPerk`, `perkMult`, `perkPasses`, `perksNote`) and the price hooks: `game.ts` (`actCost`: the gear shop's staff price; the café's coffee and the diner's special; the morning's passes), `van.ts` (`gasFor`), `clinic.ts` (`carePrice`); words in `content/jobs.ts` (`PERK_SAYS`); dials `PERKS`.
