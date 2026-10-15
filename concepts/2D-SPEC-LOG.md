@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 30.2: recovery, healing and insurance by age
+
+**Built in the 2D rebuild's Phase 30.2.** No save change. Rules in `app/src/sim/ageing.ts` (`ageCost`, `healDays`, and the note's second sentence), `game.ts` (the night's energy and skin; three injury rolls), `body.ts` (`rollInjury`), `tonight.ts` (the evening's preview) and `clinic.ts` (`premiumOf`, moved from `identity.ts`, which keeps `premiumMult` for the origin's share); dial `AGE_COST`.
+
+- **`ageCost(s, what)`** = 1 + `a` × max(0, age − `from`): `recover` −0.01 from 30; `heal` +0.03 from 35; `premium` +0.03 from 30. Integer age.
+- **A night:** the night's energy (van, ledge or expedition) and skin are each × `recover`, rounded, before sickness. The Tonight preview uses tomorrow's age, as the night does.
+- **An injury:** every roll's days (`INJURY.days` picked by the seeded roll) × `heal`, rounded (`healDays`). `injuryChance` doesn't read age (Evan's call).
+- **Insurance:** a plan's weekly premium × the origin's factor × `premium`, rounded.
+- **For Unreal:** three age multipliers on a night's recovery, an injury's length and the premium.
+
 ## 2026-10-15 — Phase 30.1: the body's curve
 
 **Built in the 2D rebuild's Phase 30.1.** No save change (age is read off the day). Rules in `app/src/sim/ageing.ts` (`ageOf`, `startAge` and `dayAtAge` moved here from `age.ts`, which re-exports them; `ageMult`, `agedSkills`, `ageingNote`); the go's reads in `climb.ts` (`paceFor`, the pump), `reach.ts` (`reachOf`: crux windows and the cruxes a line gains over your grade) and `game.ts` (the speed wall's time); dial `AGEING`.
