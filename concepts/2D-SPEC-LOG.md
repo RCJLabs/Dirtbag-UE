@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 31.1: what the old climber leaves
+
+**Built in the 2D rebuild's Phase 31.1.** Save v70 (`family.career?`, `family.books`; migration 69 splits an heir's Record Book). Rules in `app/src/sim/heir.ts` (`careerOf`, `moneyLeft`, `leaveCap`, `oldStart`, the handover), `record.ts` (`day` aims count from the kid's first morning); words in `content/heir.ts` (`HEIR_MONEY`); dial `FAMILY {share 0.25, shifts 10, old 0.5}`.
+
+- **The career, kept at the handover:** the outdoor lines sent (not the gym's, not expedition pitches); the project (most goes, unsent, outdoor; ties to the harder); age at retirement; how (`chose`, `body`, `home`); scar marks; summits by name; the crew's name; `scene.old`; the money left.
+- **The money (Evan's call: a share, capped):** `min(cafe.shift pay × shifts, floor(share × max(0, cash + dream pot)))`, added to the kid's starting cash. Said once at the start (`HEIR_MONEY`). The cap stays under the cheapest dream.
+- **The old guard (Evan's call: lines plus standing; the lines come in 31.3):** the kid's `scene.old` = `round(start + old × (forebear's − start))`, either way.
+- **The family book (Evan's call):** the kid's Record Book starts empty; `books` holds each earlier generation's `{name, record}`, oldest first. Ownership entries (dog, dream, land, guide in print) come with the keys on the first morning; `day` aims read `day − life.held` for a family.
+- **Old heir saves:** entries dated up to `life.held` (the forebear's last day) go to the forebear's page; no career, so only their first ascents are known.
+- **For Unreal:** a family record at the handover; the money and standing formulas; per-generation achievement pages.
+
 ## 2026-10-15 — Phase 30.4: the epilogue at 30 and 45, and the age table
 
 **Built in the 2D rebuild's Phase 30.4.** No save change. Rules in `app/src/sim/epilogue.ts` (the stop line; the late bloomer's chosen stop); words in `content/epilogue.ts` (`STOP_END`, `LATE_CHOSE`); the bot's day record carries `aged` and `agedPower` (levels of the aged skills); the ending harness's age table.
