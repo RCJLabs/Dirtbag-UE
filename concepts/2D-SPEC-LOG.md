@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-14 — Phase 33.4: selection and the calendar
+
+**Built in the 2D rebuild's Phase 33.4.** No save change (the team is read off the results). Rules in `app/src/sim/comps.ts` (`lastEdition`, `nextEdition`, `onTeam`, `picksFor`, `compBlocked`, `rungOpen`) and `game.ts` (the team's lines in `finishComp`; a round's pass in the morning); content `content/comps.ts` (`team` on a tier, `TEAM_SAYS`, the calendar).
+
+- **The calendar** (Evan's call: Nationals first): Nationals moves to day 8 of every 28 (rounds 8–9), the World Series to day 15 (15–17). No two comps share a day: League nights (4, 11, 18, 25), the Circuit (10, 24), the Games (day 50 of 56, 50–51) and the dyno comp (13 of 56) all clear.
+- **Selection** (Evan's call): the World Series has `team: { from: Nationals, top: 3 }` in place of its points gate (`need` 0, and `rungOpen` skips it). You're on the team when a result at the last Nationals before the day placed 3rd or better; it holds till the next Nationals. Making it says so with the World Series' day; missing the podium while on the team says you're off it. The Nationals entry row says the podium picks the team; the ladders page says the World Series is for the team.
+- **A round's morning:** waking on the day of a round you're through to puts that wall's pass in your day, as entering did (the desk no longer offers a finalist a pass).
+- **The e2e** plays a Nationals qualifier (eight problems on the climb panel, the card handed in, through) and the final the next evening (four problems, the card handed in, placed): Phase 33's criterion 2.
+- **For Unreal:** comp dates, a team flag derived from the last selection event's podium, and the gate on the World Series.
+
 ## 2026-10-14 — Phase 33.3: the field that comes back
 
 **Built in the 2D rebuild's Phase 33.3.** No save change (the rivals are derived from the seed and the year). Rules in `app/src/sim/comps.ts` (`rivalGrade`, `rivalTier`, `rivalsIn`, `rostered`, the field's entrants, `fieldSays`); content `content/comps.ts` (`ROSTER`, `FIELD_SAYS`); dials `RIVALS`.
