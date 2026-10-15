@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 30.1: the body's curve
+
+**Built in the 2D rebuild's Phase 30.1.** No save change (age is read off the day). Rules in `app/src/sim/ageing.ts` (`ageOf`, `startAge` and `dayAtAge` moved here from `age.ts`, which re-exports them; `ageMult`, `agedSkills`, `ageingNote`); the go's reads in `climb.ts` (`paceFor`, the pump), `reach.ts` (`reachOf`: crux windows and the cruxes a line gains over your grade) and `game.ts` (the speed wall's time); dial `AGEING`.
+
+- **Phase 30 opened** (Evan's calls, 15 Oct 2026): a gentle curve with skill offsets; recovery and healing slower with age, not injuries likelier; the runway (clinics, setting a comp, ambassador terms) from 35; insurance priced by age.
+- **The curve:** each skill × `ageMult(age, skill)` = 1 + `a` × max(0, age − `from`), clamped at `limit`: power and fingers `a` −0.01 from 33 (limit 0.85); endurance −0.007 from 35 (0.85); technique and head +0.005 from 28 (1.08). Integer age, so it moves on birthdays. First proposed at −1.5%/+1%, halved after measuring: above V10 (the curve's linear top, 26 skill points a grade) it came to 1.6 grades on power lines at 40.
+- **Used by a go, not the shown grade:** the displayed grade stays `gradeOf(skills as trained)`. For a V13 climber at 40 against 25: power lines −1.07 grades, crimps and dynos −0.38, endurance −0.03, cracks +0.22, technical +0.92; at 45, power −1.84, technical +1.04.
+- **Shown:** the You page's age row adds the years' line, formatted from the dials.
+- **Bots:** the career bot's wall-pitch choice reads the aged margin.
+- **For Unreal:** a per-skill age multiplier applied to a go's skill inputs only; the UI grade from raw skills.
+
 ## 2026-10-15 — Phase 34.4: trade shows, a film you pay for, and the money table
 
 **Built in the 2D rebuild's Phase 34.4.** Save v68 (`media.film: { route, day } | null`; a sponsor task `{ kind: 'show', day, done }`). Rules in `app/src/sim/media.ts` (`cycleTasks` with the stand, `showToday`, `showBlocked`, `filmLine`, `filmBlocked`) and `game.ts` (the `show` and `film` actions; a `paid` event wherever money comes in); words in `content/media.ts` (`SHOW_SAYS`, `FILM_SAYS`); dials `SHOW`, `FILM`; Record Book entry `commissioned` (aim `{ commissioned: true }`).
