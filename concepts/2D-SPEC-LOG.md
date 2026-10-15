@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 32.3: first ascents in the Hollow: clean, bolt or gear
+
+**Built in the 2D rebuild's Phase 32.3.** Save v72 (`boltedCracks: string[]`, trad lines in a wild place bolted; each also in `bolted`; migration 71 starts empty). `PlaceDef.wild`; `bolted`/`boltBlocked` in `app/src/sim/business.ts`; `asSport` in `content/routes.ts`, applied by `wallAt` (`content/gym.ts`) and `routeOfId` (`game.ts`); the `bolt` action takes `how?: 'gear' | 'bolts'`; dial `HOLLOW.scene {bolt {gym 2}, crack {old −8, gym 4}, gear {old 2}}`; stance `hollowbolts` (`content/scene.ts`, `crack: true`); text `GEAR_CLEANED` in `content/hollow.ts`.
+
+- **Preparing:** a wild place's lines are closed till prepared, with no ownership needed (at the place is enough). Boulder: clean (`LAND.clean`). Sport: bolt (`LAND.bolt`). Trad: `how` = `gear` (default; `LAND.clean`; stays trad, needs a rack) or `bolts` (`LAND.bolt`; added to `boltedCracks`).
+- **A bolted crack:** read everywhere as `asSport(r)`: disc sport, bolts from its moves as a sport line's, stances dropped; grade, moves, cruxes, rock and id unchanged (the route log carries over). The topo (`ROUTES`) is untouched.
+- **The scene:** on a wild place's preparation, shift by `HOLLOW.scene.gear` / `.crack` / `.bolt`; boulders none.
+- **The stance:** eligible only with `boltedCracks` non-empty; when a stance rolls and it's eligible it's chosen first. Answer 1 ("Pull the bolts") clears `boltedCracks` (lines stay prepared, back to trad); fx old +12, gym −4, psyche −2, energy −20.
+- **For Unreal:** a per-line preparation choice whose result changes how the line climbs (protection model), and a faction reaction plus a forced stance.
+
 ## 2026-10-15 — Phase 32.2: the Hollow's quest and the walk-in
 
 **Built in the 2D rebuild's Phase 32.2.** Save v71 (`hollow: { clues: ('old'|'hitch'|'book')[], tries }`; migration 70 starts empty). Rules in `app/src/sim/hollow.ts` (`hardestOutside`, `asking`, `oldWordDue`, `hitchDue`, `bookBlocked`, `walkBlocked`), `events.ts` (the old hand's weight and ask), `game.ts` (the `hollow` action: `book`, `walk`; clues from talk and road effects; the walk-in's ending); words in `content/hollow.ts`; the epic `hollow` in `content/epics.ts`; Cond `oldWord`; dial `HOLLOW {from 9, hitch 4, book 20, walk {by 12:00, energy 30}}`; Record entry `hollow`.
