@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-15 — Phase 32.2: the Hollow's quest and the walk-in
+
+**Built in the 2D rebuild's Phase 32.2.** Save v71 (`hollow: { clues: ('old'|'hitch'|'book')[], tries }`; migration 70 starts empty). Rules in `app/src/sim/hollow.ts` (`hardestOutside`, `asking`, `oldWordDue`, `hitchDue`, `bookBlocked`, `walkBlocked`), `events.ts` (the old hand's weight and ask), `game.ts` (the `hollow` action: `book`, `walk`; clues from talk and road effects; the walk-in's ending); words in `content/hollow.ts`; the epic `hollow` in `content/epics.ts`; Cond `oldWord`; dial `HOLLOW {from 9, hitch 4, book 20, walk {by 12:00, energy 30}}`; Record entry `hollow`.
+
+- **Asking:** not found, and your hardest outdoor send (not gym, not expedition) is at least `from`.
+- **Clues, any order:** `old` from Ray's talk beat (Frank's once `RAY_GONE`); `hitch` from an extra answer to the old hand (first or later meeting), whose pick weight is ×`hitch` while due; `book` from a row at the gear shop (`book` minutes). The third says so.
+- **The walk-in:** at the Gorge, all three clues, before `walk.by`, energy ≥ `walk.energy`: starts epic `hollow` (three stages; risks 0/3/−1, 3/1/0, −1/1/2; `EVENTS.epic` thresholds clean ≤ 2, rough ≤ 6). Clean or rough: `unlocked` += hollow, you're at the Hollow. Bad: `tries`++, no injury, at the Gorge.
+- **For Unreal:** a three-source clue quest gating a hidden place, and a branching walk-in whose safe choices the clues name.
+
 ## 2026-10-15 — Phase 32.1: the Hollow, the place
 
 **Built in the 2D rebuild's Phase 32.1.** No save change. `PlaceDef.hidden`; `known(s, id)` in `app/src/sim/hollow.ts` (not hidden, or in `unlocked`); `PLACES.hollow` and its road (`gorge`–`hollow`, 45 min, $6); seven lines in `content/routes.ts`; their moves in `content/rock.ts`; the painter in `view/paint/scenes.ts`, `wall.ts`, `boulder.ts`; the layout, pin and a hidden side road in `view/layout.ts` and `valley.ts`.
