@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 19.1: the gate
+
+**Built in the 2D rebuild's Phase 19.1.** No save change. The full game's build can play the demo's rules till it's unlocked. `app/src/game/unlock.ts` (`opened`, `openGate`, `unlockIn`, `keepUnlock`, `GATE`), `sim/edition.ts` (`DEMO_BUILD` for the build, `DEMO` for the rules, `asDemo`), `sim/guides.ts` (`guideCrags()`), `vite.config.ts` (`__GATE__`).
+
+- **Two switches, where there was one:** the demo's build (stripped content, its own save keys, a full save turned away) and the demo's rules (Act I and Dex's race, the demo's places, the last card). The full game's build can run the rules alone, with all its content present and its own keys, so the same save carries on when it's unlocked.
+- **The gate:** decided once at start-up, before the game boots, never while it runs. Open on the desktop's full edition (bought), on a remembered unlock (`dirtbag.unlock`: `before`, or Play's `play` from 19.2), or for a climber from before the gate. A build switch, off until launch.
+- **From before:** while the gate is off, any climber here (a named save or its fallback, or a v0.956 career) is marked `before`. The first gated start marks anyone it missed, then writes `dirtbag.gate`; after that nothing is marked, even by an older build put back. The unlock is written before the mark.
+- **For Unreal:** a desktop-only game has no gate (Steam's ownership is the full edition, the demo its own app). If a mobile or web build comes, keep the rules switch apart from the content strip, decide it before the world loads, and keep one save slot for locked and unlocked, so an unlock continues the same career.
+
 ## 2026-10-16 — Phase 15.3: the Steam demo
 
 **Built in the 2D rebuild's Phase 15.3.** No save change, no rule change: packaging. `desktop/edition.js`, `pack.mjs --demo`, `steam.json` (`appId`, `demoAppId`), the bridge's `toStore()` and `mail()`, `content/demo.ts` (`DEMO_END.store`, `storeNote`, `noSteam`).
