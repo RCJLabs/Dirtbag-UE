@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 14.4: Steamworks behind a stub
+
+**Built in the 2D rebuild's Phase 14.4.** No save change, no rule change. `desktop/steam.js` (`startSteam`, `appIdIn`, `overlayForSteam`), `desktop/steam.json` (`appId`, 480 for now), IPC `steam:achieve`; `app/src/game/achievements.ts` (`steamName`, `earnedEver`, `steamAchievements`); `desktop/steam/achievements.json`; `desktop/STEAM.md`.
+
+- **Achievement names:** each Record Book id upper-cased (`firstsend` → `FIRSTSEND`), 51 of them; display name = the entry's title, description = its `desc`.
+- **When:** on each `record` event (the ids earned), and at every boot the union of `state.record` and every `family.books[].record`; unlocking an already-unlocked one is skipped.
+- **Stub:** no app ID, Steam not running, or `steamworks.js` failing to load or init → every call returns 0; a name outside `^[A-Z0-9_]{1,64}$` is refused in the main process.
+- **Cloud:** Auto-Cloud on `dirtbag.json` under the per-OS user-data roots (WinAppDataRoaming, MacAppSupport, LinuxXdgConfigHome; subdirectory `Dirtbag`).
+- **Overlay:** steamworks.js's Electron switches only when launched by Steam (`SteamAppId`/`SteamGameId` set).
+- **For Unreal:** the same achievement API names keep a player's unlocks across the 2D and Unreal builds if they share an app ID.
+
 ## 2026-10-16 — Phase 14.3: the desktop build
 
 **Built in the 2D rebuild's Phase 14.3.** No save change, no rule change: a wrapper. `desktop/` (Electron 44.5.1, `@electron/packager` 20.3.0): `main.js`, `preload.cjs`, `store.js`, `window.js`; the game's side `app/src/game/desktop.ts`.
