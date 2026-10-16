@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 14.6a: marks, minigames by controller, a frame meter
+
+**Built in the 2D rebuild's Phase 14.6a.** No save change, no rule change: input and presentation. `app/src/ui/Glyph.tsx` + `marks.ts` (`glyphs()`), `ui/PadHint.tsx`, `ui/meter.ts`; `ui/input.ts` (`canSkip`), the busk and speed panels, `game/persist.ts` (`Settings.meter`).
+
+- **Marks the fonts lack:** ✓ ✕ ○ ← ♠ ♥ ♦ ♣ are drawn as vector marks in the text's colour (a 16-unit box), never left to a system font; a test holds every character in code to the bundled fonts' cmaps plus that set.
+- **Controller in minigames:** B (keyboard Escape) during cooking before the first stir = skip (plain meal, same as the panel's button). When busking, horseshoes, cooking or the speed wall ends, focus goes to the panel's exit button. Scene hotspots are inert while busking. While the pad is the active input, a minigame's controls show their button: A (strum, stir, throw, hold), B (skip), LB/RB (speed wall hands), Xbox names.
+- **Frame meter (setting, off by default):** over the last 1 s: frames per second, the slowest frame (ms), and frames over 25 ms (1.5 × a 60 Hz frame); refreshed every 0.5 s.
+- **For Unreal:** the same button roles in minigames (A act, B skip/back, bumpers for the speed wall's hands), focus to the exit on a minigame's end, and on-screen prompts only while a pad is the active input; Unreal's fonts need the same audit for any symbol the 2D UI uses.
+
 ## 2026-10-16 — Phase 14.5b: the demo's strip and its content diff
 
 **Built in the 2D rebuild's Phase 14.5b.** No save change; rules move only when the demo flag is set. The full game's content past Roadside and the Gorge sits in `*.full.ts` modules (`sim/content/routes`, `places`, `rock`, `story`, `expeditions`, `hollow`; `view/layout`, `view/paint/scenes`, `wall`, `expeds`), each with a `*.demo.ts` twin of the same exports, empty, that the demo build resolves instead (`app/build/demo.ts`). `sim/demo.ts` (`raceDecided`, `demoOver`, `fromFullGame`); `edition.ts` is now a leaf (`DEMO`, `asDemo`, `inEdition`).
