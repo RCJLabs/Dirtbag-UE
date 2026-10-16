@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 14.5a: the demo's build and its rules
+
+**Built in the 2D rebuild's Phase 14.5a.** No save change; rules only when the demo flag is set. `app/src/sim/edition.ts` (`DEMO`, `asDemo`, `inEdition`, `raceDecided`, `demoOver`), `sim/content/demo.ts` (`DEMO_PLACES`, `DEMO_START`, `DEMO_END`); `known()`, `currentGoal()` and `act()` read it.
+
+- **Places:** lot, road, gorge, gym, diner, shop, cafe, warehouse, clinic, lake, market, garage. `known()` is false for every other place (so no pin, no travel).
+- **Story:** `currentGoal` is null once the ladder passes Act I (no Act II goals); the race week runs unchanged (Dex met on the first V4+ send, the race the night grade ≥ V4).
+- **End:** `raceDecided` = `firsts[rsopen].day` (Dex's, overnight) or `routes[rsopen].sent.day` (yours); `demoOver` = demo ∧ goals ≥ |Act I| ∧ decided ∧ day > decided day. Once over, `act()` refuses everything; the UI pins the last card (export the save, start over).
+- **Saves:** the demo writes the full game's save; it carries over by export and import.
+- **For Unreal:** a build-time edition flag with a place allowlist, a story cap after Act I, and a terminal state derived from saved facts (no new field).
+
 ## 2026-10-16 — Phase 14.4: Steamworks behind a stub
 
 **Built in the 2D rebuild's Phase 14.4.** No save change, no rule change. `desktop/steam.js` (`startSteam`, `appIdIn`, `overlayForSteam`), `desktop/steam.json` (`appId`, 480 for now), IPC `steam:achieve`; `app/src/game/achievements.ts` (`steamName`, `earnedEver`, `steamAchievements`); `desktop/steam/achievements.json`; `desktop/STEAM.md`.
