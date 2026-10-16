@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 19.4: the beta kit
+
+**Built in the 2D rebuild's Phase 19.4.** No save change. `app/src/game/trail.ts` (`Moves`, `moveOf`, `TRAIL`), `ui/crash.ts` (`crashReport`'s trail, `crashTrail`), `game/unlock.ts` (`trying`, `Opening.trial`), `sim/demo.ts` (`demoOver`), `sim/save.ts` (the full-save refusal), `docs/BETA.md`.
+
+- **The crash report** ends on where the game was (day, time, place, the save's seed) and the last 12 moves as dispatched (each action's kind and fields; a run of walking steps is one line; any field holding text the player typed is left out). Kept in memory only, never saved.
+- **The full game, locked:** a climber who's been past where the demo goes (a place, line, wall, trip or book the demo hasn't got) is over at once: the last card, where the unlock is offered. Only the demo's own build refuses such a save on load; the locked full game loads it (no save is set aside at start-up).
+- **A tester's link:** a launch parameter shuts the gate for the session only, as on launch day for a climber not from before; only a store unlock opens it, and it marks nothing. For trying the store purchase before the gate is on.
+- **For Unreal:** a crash report with the session's seed, day and last actions (scrub typed text); a demo-locked full build never discards a full save, it holds it at the end screen; a debug or tester flag that previews the locked state without writing anything.
+
 ## 2026-10-16 — Phase 19.2: Play's unlock in the Android app
 
 **Built in the 2D rebuild's Phase 19.2.** No save change. `app/src/game/play.ts` (`goods`, `owned`, `priceOf`, `askPlay`, `buyUnlock`, `restoreUnlock`, `inAndroidApp`), `twa/PlayAcknowledger.java` and `twa/acknowledge.mjs`, `game/unlock.ts` (`locked`, `STORES`), `content/demo.ts` (the last card's unlock lines).
