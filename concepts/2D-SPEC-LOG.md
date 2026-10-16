@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 15.3: the Steam demo
+
+**Built in the 2D rebuild's Phase 15.3.** No save change, no rule change: packaging. `desktop/edition.js`, `pack.mjs --demo`, `steam.json` (`appId`, `demoAppId`), the bridge's `toStore()` and `mail()`, `content/demo.ts` (`DEMO_END.store`, `storeNote`, `noSteam`).
+
+- **Editions:** one desktop code, two products: the full game ("Dirtbag") and the demo ("Dirtbag Demo"), each its own executable, user-data folder and Steam app ID. The demo's save never shares a file or a Cloud path with the full game's.
+- **The demo's end:** its last card adds, on Steam, the full game's store page in the overlay (`ActivateGameOverlayToStore`); without Steam, a line that Steam isn't running.
+- **Crash report:** on the desktop, the report's mailto: goes to the system's mail app through the bridge (mailto: only).
+- **For Unreal:** ship the demo as its own Steam app (its own app ID, depots and Cloud subfolder) from the same project with a build flag; its end screen opens the full game's store page in the overlay; keep its save folder apart.
+
 ## 2026-10-16 — Phase 15.2: the error screen
 
 **Built in the 2D rebuild's Phase 15.2.** No save change, no rule change: the shell. `app/src/ui/crash.ts` (`crashed`, `crashReport`, `notACrash`, `REPORT_TO`), `game/persist.ts` (`rawSave`), `main.tsx`.
