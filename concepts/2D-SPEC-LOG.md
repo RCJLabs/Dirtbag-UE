@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 19.2: Play's unlock in the Android app
+
+**Built in the 2D rebuild's Phase 19.2.** No save change. `app/src/game/play.ts` (`goods`, `owned`, `priceOf`, `askPlay`, `buyUnlock`, `restoreUnlock`, `inAndroidApp`), `twa/PlayAcknowledger.java` and `twa/acknowledge.mjs`, `game/unlock.ts` (`locked`, `STORES`), `content/demo.ts` (the last card's unlock lines).
+
+- **The product:** one one-time Play product, `full_game`; its price is Play's, shown in the player's currency, never typed into the game.
+- **A purchase counts** when Play lists it as the account's, not when the payment sheet closes; then the gate's unlock is kept (`play`) and the game starts again from the same save, unlocked.
+- **Restore:** a locked game asks Play at start-up and opens if the account owns it; the last card also has "You've bought it already". A refund doesn't re-lock (honor gate).
+- **Acknowledgement:** Play refunds an unacknowledged purchase after three days. The app acknowledges every paid, unacknowledged purchase whenever it starts and whenever the page asks Play anything, on the phone, with no server.
+- **Store policy:** the Android app offers only Play's purchase; other builds' last cards may link to store pages.
+- **For Unreal:** on Android, a native Play Billing one-time product; acknowledge on the device right after purchase and again at every launch; restore from the account's purchases at launch; never link to other stores in the Play build.
+
 ## 2026-10-16 — Phase 19.1: the gate
 
 **Built in the 2D rebuild's Phase 19.1.** No save change. The full game's build can play the demo's rules till it's unlocked. `app/src/game/unlock.ts` (`opened`, `openGate`, `unlockIn`, `keepUnlock`, `GATE`), `sim/edition.ts` (`DEMO_BUILD` for the build, `DEMO` for the rules, `asDemo`), `sim/guides.ts` (`guideCrags()`), `vite.config.ts` (`__GATE__`).
