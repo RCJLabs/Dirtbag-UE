@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 14.5b: the demo's strip and its content diff
+
+**Built in the 2D rebuild's Phase 14.5b.** No save change; rules move only when the demo flag is set. The full game's content past Roadside and the Gorge sits in `*.full.ts` modules (`sim/content/routes`, `places`, `rock`, `story`, `expeditions`, `hollow`; `view/layout`, `view/paint/scenes`, `wall`, `expeds`), each with a `*.demo.ts` twin of the same exports, empty, that the demo build resolves instead (`app/build/demo.ts`). `sim/demo.ts` (`raceDecided`, `demoOver`, `fromFullGame`); `edition.ts` is now a leaf (`DEMO`, `asDemo`, `inEdition`).
+
+- **Places:** the later places keep their rule fields in the demo under blank words (name, cards, lock and closure lines), so presence and weather can still reckon with them; `crag` lists used for guides, invites and media shoots skip places outside the edition.
+- **Presence:** `whereIs` returns null for a place outside the edition (Rico's Cave and Moonstone days, Tam's Mesa, Mara's Cave), so the demo's people are only ever where the player can go.
+- **Story:** `STORY` is Act I alone in the demo; the act-end card for Act I is never The Line's (`!DEMO && n === STORY.length`). Retiring is refused in the demo (`DEMO_END.retire`), since the endings are stripped.
+- **Saves:** in the demo, `fromSave` refuses (before validation) a state at, unlocked or with a guide for a place outside the edition, with a route or first ascent the demo can't resolve or that lies outside it, on a stripped wall, on an expedition, or with any expedition in its book: `DEMO_END.fullSave`. Demo saves load in the full game unchanged.
+- **Check:** a CI content diff reads the full game's strings (later lines, walls, places, rock, Acts II to V, The Line, expeditions, the Hollow, every literal in the `.full` sources) and fails on any found in the demo build, less those the demo's own source also says.
+- **For Unreal:** a demo edition is an allowlist plus content that's absent, not hidden: package the later crags' data and art as separate assets the demo build doesn't cook, keep presence inside the allowlist, and refuse a full save in the demo rather than half-load it.
+
 ## 2026-10-16 — Phase 14.5a: the demo's build and its rules
 
 **Built in the 2D rebuild's Phase 14.5a.** No save change; rules only when the demo flag is set. `app/src/sim/edition.ts` (`DEMO`, `asDemo`, `inEdition`, `raceDecided`, `demoOver`), `sim/content/demo.ts` (`DEMO_PLACES`, `DEMO_START`, `DEMO_END`); `known()`, `currentGoal()` and `act()` read it.
