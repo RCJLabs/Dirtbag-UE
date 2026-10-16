@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 14.2: saves, one seam, export and import
+
+**Built in the 2D rebuild's Phase 14.2.** No save change, no rule change. `app/src/game/storage.ts` (`store`, `keepIn`), `game/savefile.ts` (`saveFileName`, `exportSave`, `readSave`), `persist.replace`, `Game.exportSave/importSave`, `ui/SaveFiles.tsx`.
+
+- **Storage:** the game's own keys (`dirtbag.save`, `.prev`, `.corrupt.<ts>`, `.replaced`, `dirtbag.plan`, `dirtbag.settings`) go through one synchronous Storage-shaped store, swappable before boot. v0.956's `dirtbag-` keys are read from the browser directly, never through it.
+- **Export:** the save file exactly as stored (`{format: 'dirtbag', v, app, state}`), named `dirtbag-<name slug>-day-<day>.json`.
+- **Import:** `fromSave` on the file's text (4 MB cap); refused with its reason and no change, or confirmed by the player, then: current save → `dirtbag.save.replaced`, `dirtbag.save.prev` removed, the file's save written, plans wiped, the page rebooted from it; no write from the old session after that.
+- **For Unreal:** save slots as files with the same envelope make a 2D save importable if the state shape is shared; the "no fallback to someone else" rule applies to any slot swap.
+
 ## 2026-10-15 — Phase 14.1: focus moves, by keys and a controller
 
 **Built in the 2D rebuild's Phase 14.1.** No save change, no rule change: input only. `app/src/ui/spatial.ts` (`nearest`), `ui/nav.ts` (`layer`, `stops`, `move`, `focused`), `ui/pad.ts` (`Pad.poll`), `ui/input.ts` (`back`, `hub`, `act`, `onPad`); the key handler in `ui/App.tsx`.
