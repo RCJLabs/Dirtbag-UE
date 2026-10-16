@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 14.5c: the demo's own keys, and carrying on from it
+
+**Built in the 2D rebuild's Phase 14.5c.** No save change, no rule change: storage. `app/src/game/storage.ts` (`ours()`, `DEMO_SAVE`), `game/persist.ts` (`demoClimber`), `ui/SaveFiles.tsx`.
+
+- **Keys:** the full game's save, fallback, quarantine, replaced copy, plan and settings stay `dirtbag.save`, `dirtbag.save.prev`, `dirtbag.save.corrupt.<ms>`, `dirtbag.save.replaced`, `dirtbag.plan`, `dirtbag.settings`; the demo's are the same names under `dirtbag.demo.`. v0.956's `dirtbag-` keys are untouched by both.
+- **Carry-over:** with no climber of its own, the full game's first screen offers a climber found under `dirtbag.demo.save` (loaded and migrated as any save); taking it copies it into the full game's save (as Import does) and leaves the demo's in place.
+- **Deployment practice:** the demo at its own origin and, on the desktop, its own product name (its own user-data folder and Steam Cloud paths).
+- **For Unreal:** keep a demo's save slot apart from the full game's (its own slot name or folder), and let the full game offer a demo slot it finds rather than rely on a file alone.
+
 ## 2026-10-16 — Phase 14.6b: rebinding, Steam's keyboard, and Phase 14's Done-when
 
 **Built in the 2D rebuild's Phase 14.6b.** No save change, no rule change: input. `app/src/game/binds.ts` (`DEFAULT_BINDS`, `bindPad`, `bindKey`, `readBinds`, `buttonName`, `keyName`), `Settings.binds`, `ui/pad.ts` (roles from bindings, `fresh`), the desktop bridge's `deck()` and `keyboard()`.
