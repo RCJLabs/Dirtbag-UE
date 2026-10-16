@@ -51,3 +51,4 @@ Sport/rope presentation, crags 2–3, ethics arcs, sponsorship, injuries/aging, 
 ## Changelog
 
 - 2026-08-15 — Project decided: Dirtbag reimagining, session-model pivot ("2D minigames, 3D staging"). Repo scaffolded: concepts, roadmap, `Sim/` core (RNG + types + session resolver) with standalone test harness, `SETUP.md`.
+- 2026-09-28 — The 2D spec changed: beta then send, scrappy survival, and the clock moves only on actions. Logged in `concepts/2D-SPEC-LOG.md`, with what it means for the sim. Phase 0 is unchanged; `ResolveAttempt` stays frozen until the 2D rebuild settles how stats and verbs combine.
