@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 14.6b: rebinding, Steam's keyboard, and Phase 14's Done-when
+
+**Built in the 2D rebuild's Phase 14.6b.** No save change, no rule change: input. `app/src/game/binds.ts` (`DEFAULT_BINDS`, `bindPad`, `bindKey`, `readBinds`, `buttonName`, `keyName`), `Settings.binds`, `ui/pad.ts` (roles from bindings, `fresh`), the desktop bridge's `deck()` and `keyboard()`.
+
+- **Roles:** pad: a (press/hold/strum), b (back), y (plan), start (journal), select (map), lb/rb (speed wall hands), defaults 0, 1, 3, 9, 8, 4, 5 in the standard mapping. Keys: press Space, back Escape, map M, journal J, plan P, left F, right J. Fixed: D-pad/stick/arrows move, Enter presses, RT (7) a second hold, guide (16) Steam's. Bindable buttons: 0–6, 8–11.
+- **Rebinding:** a role given a button or key takes it; the role that had it takes the old one (keys swap within their group: the speed wall's hands apart from the rest, so J is both). A kept set with two roles on one button falls back to the defaults.
+- **Presses:** a role is pressed only on its button's down edge; a button bound while held doesn't press its new role until released and pressed again.
+- **Desktop/Steam:** `isSteamRunningOnSteamDeck` switches the button names to the Deck's (L1/R1/L2/R2/L3/R3, View, Menu; else Xbox names); a text field focused by the pad calls `showFloatingGamepadTextInput(SingleLine, rect)`.
+- **Phase 14 Done-when:** 1 (controller-only Act I) and 4 (demo content diff) pass; 2 (60 fps on a Deck) and 3 (Steam dev branch) wait on Evan's hardware and app ID.
+- **For Unreal:** the same role table and swap rule (Enhanced Input mapping contexts per role, with remapping that swaps conflicts), edge-triggered presses across a rebind, Deck glyph detection, and the floating keyboard on text entry.
+
 ## 2026-10-16 — Phase 14.6a: marks, minigames by controller, a frame meter
 
 **Built in the 2D rebuild's Phase 14.6a.** No save change, no rule change: input and presentation. `app/src/ui/Glyph.tsx` + `marks.ts` (`glyphs()`), `ui/PadHint.tsx`, `ui/meter.ts`; `ui/input.ts` (`canSkip`), the busk and speed panels, `game/persist.ts` (`Settings.meter`).
