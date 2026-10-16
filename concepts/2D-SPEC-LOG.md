@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 14.3: the desktop build
+
+**Built in the 2D rebuild's Phase 14.3.** No save change, no rule change: a wrapper. `desktop/` (Electron 44.5.1, `@electron/packager` 20.3.0): `main.js`, `preload.cjs`, `store.js`, `window.js`; the game's side `app/src/game/desktop.ts`.
+
+- **Serving:** the built game from `app://game/` (privileged standard, secure scheme) out of `app/dist` or a packed copy; requests outside that folder 404; no service worker; new windows denied, navigation off `app://` blocked; one instance.
+- **Save file:** `<userData>/dirtbag.json` = `{format: 'dirtbag-desktop', keys: {key: string}}`, every write to `.tmp` then renamed over; a refused write rolls back and reports false; an unreadable file is renamed `.unreadable-<ms>` and the store starts empty. Reached by sync IPC (`store:all`, `store:set`, `store:remove`), from the game's own frame only; the renderer wraps it as a `Storage` given to the store seam before boot.
+- **Window:** 1280×800 default (min 360×600), bounds and full screen kept in `<userData>/window.json`; F11 toggles; Settings has full screen / windowed and Quit. Autoplay allowed without a gesture.
+- **For Unreal:** the same envelope (`dirtbag.json` with the save's key) is the file Steam Cloud syncs; an Unreal build reading it can pick up a 2D desktop climber if the state shape is shared.
+
 ## 2026-10-16 — Phase 14.2: saves, one seam, export and import
 
 **Built in the 2D rebuild's Phase 14.2.** No save change, no rule change. `app/src/game/storage.ts` (`store`, `keepIn`), `game/savefile.ts` (`saveFileName`, `exportSave`, `readSave`), `persist.replace`, `Game.exportSave/importSave`, `ui/SaveFiles.tsx`.
