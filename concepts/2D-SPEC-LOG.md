@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-16 — Phase 15.2: the error screen
+
+**Built in the 2D rebuild's Phase 15.2.** No save change, no rule change: the shell. `app/src/ui/crash.ts` (`crashed`, `crashReport`, `notACrash`, `REPORT_TO`), `game/persist.ts` (`rawSave`), `main.tsx`.
+
+- **Crash:** an uncaught error shows an error screen over everything, never a blank page. A render crash (React's root torn down) offers a reload only; an error thrown outside rendering (the frame loop, a handler) also offers to carry on. A rejected promise isn't a crash.
+- **The screen:** the save is as it was after the last action (saves are written after each action, whole); a reload; the save as kept, as a file, without loading it; the report to copy, and to email from the player's own mail once `REPORT_TO` is set.
+- **The report:** version, demo or full, web or desktop, the user agent, the error's name and message and up to twelve stack lines. Nothing from the save.
+- **For Unreal:** a crash path that shows the same screen (the save is safe, restart, the save as a file) and a report the player sends themselves, with no crash uploader, in keeping with the privacy promise; on Steam, Valve's minidumps are a separate decision.
+
 ## 2026-10-16 — Phase 14.5c: the demo's own keys, and carrying on from it
 
 **Built in the 2D rebuild's Phase 14.5c.** No save change, no rule change: storage. `app/src/game/storage.ts` (`ours()`, `DEMO_SAVE`), `game/persist.ts` (`demoClimber`), `ui/SaveFiles.tsx`.
