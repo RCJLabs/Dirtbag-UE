@@ -4,6 +4,19 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-18 — Phase 36.3: hold'em round the fire, everyone in, fixed limit
+
+**Built in the 2D rebuild's Phase 36.3.** Save v79 (the hold'em hand's shape). `app/src/sim/holdem.ts` (`deal`, `play`, `theirMove`, `theirTurns`, `showdown`, `holdemLines`), `sim/cards.ts` (`equity` against a field, `boardAt` for four streets, `holdemPlayers`), `sim/content/cards.ts` (Frank's style, everyone's `signs`), `GAMES.holdem` in `sim/dials.ts` (`blinds`, `bets`, `raises`, `min`, `tell`), `ui/Cards.tsx` (`HoldemBody`).
+
+- **The table:** the player and everyone at the fire who plays hold'em (1–3 others), two cards each, a fresh seeded deck each hand. Blinds 1/2 (heads-up: the button posts the small blind and acts first pre-flop; otherwise small and big after the button, first to act after the big blind; post-flop the first seat after the button). The button moves one seat a hand.
+- **Betting:** fixed limit: 2 pre-flop and on the flop, 4 on the turn and river; a street takes four bets at most (the big blind counts as the first pre-flop); a raise reopens action; the big blind has its option. Fold, check/call, bet/raise.
+- **All in:** only the player's money is counted (the others are bottomless). Short of a call, the player calls with what's left and can win only the money that matched theirs from every seat (folded seats included); ties split that.
+- **The others:** each style's heads-up thresholds scale to the field (×2/(players in)): call a bet with equity ≥ call share, bet/raise with ≥ bet share (a re-raise wants 0.1 more per bet already made), bluff at the style's rate; call the player lighter once caught on a lost river bet. Frank: call 0.45, bet 0.72, bluff 0.03.
+- **Tells:** after the second read (12 hands with that person), each bet or raise of theirs shows a sign (strong or bluff), true 80% of the time.
+- **Time:** sitting costs energy, each hand 5 minutes, hands until the fire's close at 1 AM; one seat a night, the $40 cap.
+- **Measured:** over 60 nights with Hazel and Sage: always betting −$68.87/h, always calling −$28.28/h, playing equity against the field +$2.13/h; under a shift.
+- **For Unreal:** the same limit structure, blinds, button, four-bet cap and the field-scaled styles; the player's all-in pays only the matched money; tells gated by the second read.
+
 ## 2026-10-18 — Phase 36.2: blackjack with splits and your own bet
 
 **Built in the 2D rebuild's Phase 36.2.** Save v78 (the blackjack hand's shape). `app/src/sim/cards.ts` (`isPair`, `bjSettle`'s split rule, `cardsBlocked`'s close), the `bj` action in `sim/game.ts` (`deal` takes a bet; `split`), `GAMES.bj` (`bets`, `min`) in `sim/dials.ts`, `ui/Cards.tsx`.
