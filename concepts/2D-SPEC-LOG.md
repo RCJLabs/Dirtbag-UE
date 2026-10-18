@@ -4,6 +4,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-18 — Phase 37.2: the session measured and retuned
+
+**Built in the 2D rebuild's Phase 37.2.** No save change. `SESH` in `app/src/sim/dials.ts`, `seshMeasure` in `sim/harness.ts`, the season harness's session line, the e2e's session section.
+
+- **Measured:** 120 busy mornings on a V4, a climber half a grade under it, always sharing against always keeping. About a third of sessions turn up the move on your first go's fall; the rest are a first-go send or no find. On 37.1's numbers, keeping never bought the day's first send after a find (0% sharing, 3% keeping): someone in the session a grade over the problem sent within a round or two either way.
+- **Retuned:** seats' grades from the problem's −2 to its grade, nobody over it (the cast capped there too); knowing the hidden move is worth +2 grades to a seat; a seat's session chance is spread over 12 goes. After a find, the first send is 10% sharing and 26% keeping; sharing still pays its bond and old-guard standing.
+- **For Unreal:** use the retuned numbers (spread −2..0, knows 2, goes 12); the rest of 37.1's rules stand.
+
 ## 2026-10-18 — Phase 37.1: the session
 
 **Built in the 2D rebuild's Phase 37.1.** Save v80 (`sesh`, `seshFirsts`). `app/src/sim/sesh.ts` (`seshBlocked`, `seatsFor`, `startSesh`, `theirRound`, `yourFall`, `answer`, `seatChance`), `sim/content/sesh.ts` (`LOCALS`, `SESH_SAYS`, `SESH_CAST`), `SESH` in `sim/dials.ts`, the `sesh` action and the session steps in `go` and `done` (`sim/game.ts`), the Record Book's `firstup`, `ui/sheets.ts` (the card).
