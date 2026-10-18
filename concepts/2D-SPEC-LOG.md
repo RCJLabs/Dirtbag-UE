@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-18 — Phase 38.1: a ghost of your best go
+
+**Built in the 2D rebuild's Phase 38.1.** Save v81 (an optional `ghost` on a line's log). `app/src/sim/climb.ts` (`Attempt.trace`, `moved`, `moving`; `GoResult.trace`), `sim/ghost.ts` (`outclimbs`, `ghostOf`, `ghostAt`), `stillUp` in `sim/content/gym.ts`, `GHOST` in `sim/dials.ts`, the wall in `view/render.ts`, the `ghost` setting in `game/persist.ts`.
+
+- **What a go keeps:** its pace, as `[t, pos, …]` at each point where the climber started or stopped moving (the climber only moves while holding, at one speed for the whole go, so the points are exact), in seconds from the first move (standing at the bottom isn't counted). A cleared crux puts two points at one moment, where it held the climber and past it. The last point is where the go came off. At most 48 points, the last always where it came off; a go that sends, or never leaves the ground, keeps none.
+- **The best go:** a line keeps one pace: the highest go so far (where it came off), and of two as high, the quicker there. A send deletes it, and a lap (a sent line climbed again) keeps none. A high point from before v81, with no pace, is shown as an even climb at the climber's pace now, up into the move it came off, until a go as high replaces it.
+- **Sets come down:** each night, a line that's no longer up (a gym set's problem past its week, the board's past its block, a comp's past its day) loses its ghost; a crag's line keeps it.
+- **Shown:** on the wall during a go, the ghost climbs its pace on the go's clock from the climber's first move, beside the climber (24 px left of the line, ×the close-up wall's scale), at 40% opacity, drawn whole and then faded so its limbs don't show through each other; past its end it falls and fades over the fall time. On by default; a device setting hides it. It reads nothing in the rules and changes no odds.
+- **For Unreal:** record the same start/stop points from the first move (and the crux jump), keep the best per line by height then time, delete on the send, and play it back as a translucent copy of the player's climber beside the line; keep it a device setting, not a save one.
+
 ## 2026-10-18 — Phase 37.2: the session measured and retuned
 
 **Built in the 2D rebuild's Phase 37.2.** No save change. `SESH` in `app/src/sim/dials.ts`, `seshMeasure` in `sim/harness.ts`, the season harness's session line, the e2e's session section.
