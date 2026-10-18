@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-18 — Phase 36.5: the fire's games in full, and Phase 36's Done-when
+
+**Built in the 2D rebuild's Phase 36.5.** No save change. `app/src/sim/perudo.ts` (`callLines`), `sim/content/perudo.ts` (`PERUDO.wonWithout`), `app/e2e/playthrough.mjs`.
+
+- **Perudo's last line when you're out:** with more than one other cup still holding dice, the game is played out without the player (`playedOut`, unseen) and the table keeps their cups as they were. The last line now says so: "They play it out without you. {who} takes it, last cup standing." A game won on a call that left one cup keeps the plain line.
+- **Measured** (the season harness, unchanged rules): bond at most one a night across every game; Perudo about 70 minutes a game three-handed, 38% for a player reading their own cup; blackjack by the book −$2.10/h; limit hold'em always betting −$68.87/h, always calling −$28.28/h, playing equity against the field +$2.13/h; the worst shift $6.50/h.
+- **Phase 36's Done-when** all pass in the 2D build (full rules in unit tests and the e2e; the fire's bond and money rule; the glovebox never touching the save; the download in budget). Closing it is Evan's call.
+- **For Unreal:** when the player is knocked out of a multi-way Perudo game, say the rest was played out without them rather than showing a "last cup" over cups that still look full.
+
 ## 2026-10-18 — Phase 36.4: the glovebox deck
 
 **Built in the 2D rebuild's Phase 36.4.** No save change. `app/src/sim/glovebox.ts` (`gloveTable`, `GLOVE_CAST`, `gloveShort`), the `glovebox` flag on the state (`sim/types.ts`) read by `atFire`, `gameBlocked`, `fireOut` (`sim/fire.ts`) and `cardsBlocked` (`sim/cards.ts`), `GAMES.glove` in `sim/dials.ts`, `game/game.ts` (`Ui.glove`, `gloveOpen`, `glovebox`), `ui/Glovebox.tsx`.
