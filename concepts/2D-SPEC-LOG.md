@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-18 — Phase 36.2: blackjack with splits and your own bet
+
+**Built in the 2D rebuild's Phase 36.2.** Save v78 (the blackjack hand's shape). `app/src/sim/cards.ts` (`isPair`, `bjSettle`'s split rule, `cardsBlocked`'s close), the `bj` action in `sim/game.ts` (`deal` takes a bet; `split`), `GAMES.bj` (`bets`, `min`) in `sim/dials.ts`, `ui/Cards.tsx`.
+
+- **Your bet:** one of the table's bets ($5 or $10), picked each hand from the chips in front of you. Still sit down once a night with what's in hand up to a $40 cap, and get up with the rest.
+- **Time:** sitting down costs energy; each hand costs its minutes (4); hands go on until the fire's close at 1 AM (no new hand or seat after it; a hand in play finishes). No hands-a-night limit.
+- **Splits:** a pair (two cards of a rank) splits once, the second hand at the same bet. The first hand gets its second card at once, the second when play reaches it; each played in turn (double on two cards allowed) and paid on its own. A two-card 21 after a split pays even, not 3:2. Split aces get one card each and stand. Dealer peeks for blackjack first, stands on all 17s; a fresh shuffled deck each hand.
+- **The table:** the dealer's hole card hidden until the hand is played; each of your hands with its total and bet, the live one marked; a played hand stays face up with each hand's result until the next deal.
+- **Measured:** basic strategy with splits at $10 a hand is about even (−$2.10 to +$0.17 an hour across runs), far under a shift.
+- **For Unreal:** the same table rules (bets 5/10, one split, split aces one card, 21 after a split even money, S17, peek, per-hand reshuffle, 4 minutes a hand, the 1 AM close, the nightly cap and one sit a night); keep the finished hand visible until the next deal.
+
 ## 2026-10-18 — Phase 36.1: liar's dice is Perudo
 
 **Built in the 2D rebuild's Phase 36.1.** Save v77 (the dice table's shape). `app/src/sim/perudo.ts` (`sitDown`, `beats`, `least`, `theirMove`, `settle`, `nextRound`, `theirTurns`, `playedOut`, `callLines`), `sim/content/perudo.ts` (`PERUDO_STYLES`, `PERUDO`), `sim/fire.ts` (`fireOut`), `GAMES.dice` and `GAMES.late` in `sim/dials.ts`, `ui/Perudo.tsx`.
