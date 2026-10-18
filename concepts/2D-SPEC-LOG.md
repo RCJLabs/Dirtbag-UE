@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-18 — Phase 36.1: liar's dice is Perudo
+
+**Built in the 2D rebuild's Phase 36.1.** Save v77 (the dice table's shape). `app/src/sim/perudo.ts` (`sitDown`, `beats`, `least`, `theirMove`, `settle`, `nextRound`, `theirTurns`, `playedOut`, `callLines`), `sim/content/perudo.ts` (`PERUDO_STYLES`, `PERUDO`), `sim/fire.ts` (`fireOut`), `GAMES.dice` and `GAMES.late` in `sim/dials.ts`, `ui/Perudo.tsx`.
+
+- **The game:** you and everyone at the fire, five dice each under a cup, rolled from the seed each round. Ones count for every face and are never bid. A bid is a count of a face (2 to 6) under all the cups; each beats the last with more of any face, or as many of a higher face, never more than the dice in play. Instead of raising, call the last bid: all cups shown; fewer than bid and the bidder loses a die, as many or more and the caller does. The loser opens the next round (or the next seat with dice); no dice is out; the last cup with dice wins. If you're out, the others play to a winner unseen.
+- **The others' bids:** from their own cup and the binomial chance (p = 1/3) that the unseen dice make up the rest. Each person has a style of three numbers: call when the bid on the table looks less likely than `doubt`; raise on a face they hold none of `bluff` of the time; open `caution` under what they expect. Hazel cautious, Sage loose and quick to call, Frank straight and suspicious.
+- **Time:** a game costs energy and a round's minutes to start; each round after costs its minutes. No longer once a night: game after game until the fire dies at 1 AM (`GAMES.late`), when no game starts and the next round never comes. Bond with each player once a day, as before. Measured: about 70 minutes a game with two others; a cup-reading player wins 37% of three-handed games.
+- **Shown:** others' cups (dice left), the round's bids in order, your dice with those counting for the picked face lit, your bid as a count stepper and a face picker, call; on a call every cup up with the counting dice lit and the loser marked.
+- **For Unreal:** the fire's dice game is Perudo with the same rules and the same style numbers per person; seed each round's dice from the save's seed, the day, the game and the round; keep the night's 1 AM end and the once-a-day bond.
+
 ## 2026-10-16 — Phase 19.4: the beta kit
 
 **Built in the 2D rebuild's Phase 19.4.** No save change. `app/src/game/trail.ts` (`Moves`, `moveOf`, `TRAIL`), `ui/crash.ts` (`crashReport`'s trail, `crashTrail`), `game/unlock.ts` (`trying`, `Opening.trial`), `sim/demo.ts` (`demoOver`), `sim/save.ts` (the full-save refusal), `docs/BETA.md`.
