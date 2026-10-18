@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-18 — Phase 39.1: each crag's classics
+
+**Built in the 2D rebuild's Phase 39.1.** No save change. `app/src/sim/classics.ts` (`classicsAt`, `ticked`, `localAt`, `localPlaces`), `PlaceDef.classics` in `sim/content/places.ts`, `CLASSICS` in `sim/dials.ts`, the local's perks in `sim/crowds.ts` (`queueMin`, `canAsk`), words in `sim/content/classics.ts`, the Record Book's `local` entry.
+
+- **The classics:** five hand-picked lines per crag, spread across its grades and kinds (the easiest within a grade of the crag's easiest line). Roadside: Warm Boulder, Crimpfest, The Pump, Highball Arête, Local Testpiece; the Gorge: Granite Slab, Gorge Classic, Serenity Crack, Crimp Cathedral, Gorge Trad; Moonstone: Tall Arête, The Egg, Desert Spire, Hueco Pockets, Lunar Roof; the Mesa: Desert Varnish, The Prow, Desert Enduro, Powerhouse, Desert Trad Line; the Big Stone: Base Camp Boulder, The Apron, The Splitter Pitch, The Trad Pitch, Valley Classic; Wind River: Alpine Crimps, Glacier Point, The Diamond, Alpine Trad, Astroman; the Crucible: The Reckoning, Crucible Crux, The Vise, The Lifeline, Threshold; the Cove: Tide Pool Traverse, Saltwater Slab, Leap of Faith, Overhanging Tide, The Deep End. None at the Bluff or the Hollow, where every line is unclimbed.
+- **Your first ascents:** once settled (three repeats, Phase 32.4), each of the player's own FAs is an extra classic at its crag.
+- **Ticks and locals:** any send ticks a classic. A local at a crag has every classic there ticked, and at least five of them, so at the Bluff and the Hollow the player's settled FAs must make up the five. Derived from sends and FAs; nothing new saved.
+- **What a local gets:** no queue for a line at that crag on a busy or packed day; asking the crowd for beta there works on a quiet day too (not an empty one); a toast the moment it happens (a send, or one of the player's lines settling), once; the Record Book's "A Local", the 53rd entry.
+- **Shown:** the crag's card lists how many are ticked and which are still to go, the player's own among them, room for more where lines are unclimbed, and "You're a local here"; a classic's beta sheet says it's one.
+- **For Unreal:** the same forty picks (or the same rules if the crags differ: five, spread, the easiest near the crag's floor), locals derived from sends, and the two perks as above.
+
 ## 2026-10-18 — Phase 38.1: a ghost of your best go
 
 **Built in the 2D rebuild's Phase 38.1.** Save v81 (an optional `ghost` on a line's log). `app/src/sim/climb.ts` (`Attempt.trace`, `moved`, `moving`; `GoResult.trace`), `sim/ghost.ts` (`outclimbs`, `ghostOf`, `ghostAt`), `stillUp` in `sim/content/gym.ts`, `GHOST` in `sim/dials.ts`, the wall in `view/render.ts`, the `ghost` setting in `game/persist.ts`.
