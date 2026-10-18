@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-18 — Phase 37.1: the session
+
+**Built in the 2D rebuild's Phase 37.1.** Save v80 (`sesh`, `seshFirsts`). `app/src/sim/sesh.ts` (`seshBlocked`, `seatsFor`, `startSesh`, `theirRound`, `yourFall`, `answer`, `seatChance`), `sim/content/sesh.ts` (`LOCALS`, `SESH_SAYS`, `SESH_CAST`), `SESH` in `sim/dials.ts`, the `sesh` action and the session steps in `go` and `done` (`sim/game.ts`), the Record Book's `firstup`, `ui/sheets.ts` (the card).
+
+- **When:** a boulder problem outside (not a deep-water solo, a comp problem or plastic), unsent, when the crag's crowd is busy or packed, by day; once a day. Joined from the problem's beta.
+- **Who:** the cast who boulder and are here and met (Dex, Sage, Rico, Mara, Tam, in that order), then nameless locals to make 3 (busy) or 4 (packed), seeded by problem and day. Locals climb the problem's grade −2 to +1 and share finds 60% of the time; Sage, Rico and Mara share, Dex and Tam keep. Nobody's grade in a session is over the problem's +1.
+- **Rounds:** you go first; each go of yours that doesn't send is followed by their round (10 minutes); or sit a round out. Their per-go send chance is the comp logistic (steep 1.4, +0.5) over 6 goes, with knowing the problem's hidden moves worth +1 grade. No queue or crowd spray in a session.
+- **Finds:** a session counts everyone's falls per crux; the fall that brings the count to the hidden move's unlock count finds it, once a session. A move you work out with your own falls (or bring from another day) is yours. Yours waits on share or keep before your next go; a local's is shared with everyone or kept by style. A shared move reaches you as watched (no onsight, flash still possible); a round sat out before your first go does the same.
+- **Pay:** share: +1 bond with each of the cast in the session, first share of the day, on top of the day-together bond; +2 old-guard standing per share. Keep: nothing. The day's first send (yours): +3 psyche (a day lift inside the cap), +3 old-guard standing, `seshFirsts` +1, Record Book "First to the Top". A local's first send pays nothing. Your send ends your session; the night clears it.
+- **For Unreal:** the same session rules and numbers; one find per hidden move per session; finds of yours held for an explicit share or keep before your next go.
+
 ## 2026-10-18 — Phase 36.5: the fire's games in full, and Phase 36's Done-when
 
 **Built in the 2D rebuild's Phase 36.5.** No save change. `app/src/sim/perudo.ts` (`callLines`), `sim/content/perudo.ts` (`PERUDO.wonWithout`), `app/e2e/playthrough.mjs`.
