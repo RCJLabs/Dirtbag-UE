@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-18 — Phase 36.4: the glovebox deck
+
+**Built in the 2D rebuild's Phase 36.4.** No save change. `app/src/sim/glovebox.ts` (`gloveTable`, `GLOVE_CAST`, `gloveShort`), the `glovebox` flag on the state (`sim/types.ts`) read by `atFire`, `gameBlocked`, `fireOut` (`sim/fire.ts`) and `cardsBlocked` (`sim/cards.ts`), `GAMES.glove` in `sim/dials.ts`, `game/game.ts` (`Ui.glove`, `gloveOpen`, `glovebox`), `ui/Glovebox.tsx`.
+
+- **What it is:** the fire's three games (Perudo, blackjack, hold'em) for matchsticks, from the van's card at any place and any time, as long as the player likes. Outside the career: no time passes, nothing carries over.
+- **How:** a copy of the climber with a `glovebox` flag (its own seed per opening, at the Lot at 9 PM, a box of 40 matchsticks as its cash, nothing else on), played through the same `act` and rules, held in the UI's state and never saved; dropped when the deck's card closes. With the flag: the table is the cast (Hazel, Sage and Frank, met or not); where, when, once a night and the 1 AM close don't apply; nobody tires.
+- **Carries in, not out:** the climber's reads on each person (and so their tells, once earned) come into the copy; nothing learned or won there goes back.
+- **The matchsticks:** the tables count matchsticks and show no minutes. A card game is shut when the box can't cover its least (blackjack 5, hold'em's big blind 2); a new box is offered once either is.
+- **For Unreal:** run the minigames on a throwaway copy of the save with the same rules, the fire's limits lifted by one flag, never written to the save; the player's career clock and money don't move.
+
 ## 2026-10-18 — Phase 36.3: hold'em round the fire, everyone in, fixed limit
 
 **Built in the 2D rebuild's Phase 36.3.** Save v79 (the hold'em hand's shape). `app/src/sim/holdem.ts` (`deal`, `play`, `theirMove`, `theirTurns`, `showdown`, `holdemLines`), `sim/cards.ts` (`equity` against a field, `boardAt` for four streets, `holdemPlayers`), `sim/content/cards.ts` (Frank's style, everyone's `signs`), `GAMES.holdem` in `sim/dials.ts` (`blinds`, `bets`, `raises`, `min`, `tell`), `ui/Cards.tsx` (`HoldemBody`).
