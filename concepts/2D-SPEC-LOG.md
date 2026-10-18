@@ -4,6 +4,15 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-18 — Phase 40.1: "What now?" from Hazel
+
+**Built in the 2D rebuild's Phase 40.1.** No save change. `app/src/sim/whatnow.ts` (`whatNow`, `shiftNow`, `whatNowLit`), words in `sim/content/whatnow.ts`, `WHATNOW` in `sim/dials.ts`, the button `ui/WhatNow.tsx` (over the goal chip, in a `.dock` with it), the `whatnow` card in `ui/sheets.ts`.
+
+- **What it is:** a "What now?" button over the goal chip opens Hazel's card: up to three moves, each a button (to a place's card, a line's sheet, or the journal's goal) with a one-line reason filled from the state.
+- **Order:** needs first (injury → the clinic; energy under the climbing floor → the van; skin under it → a shift; the week's bills within two days and more than the cash → a shift, naming the bill, the cash and the day), then the story's next goal by its aim (cash → a shift; sends/grade → the easiest unsent line here within a grade of yours, else the gym; sends outside → a line here if at a crag, else Roadside; a crag → that crag; a Regular → the closest friend where they are now; otherwise the journal), then chances (a line here within two moves of its top; a friend at another place; a crag in grade with a prime sky; a shift you can work now, signed-up first, with its pay and hours from the act). Never two moves to one place.
+- **Lit:** through Act I the button is highlighted until opened that day; after Act I it stays unlit until asked. The day opened is session state (a reload re-lights it).
+- **For Unreal:** the same order and reasons from state; keep each move a navigation, not an action, so the player confirms on the destination's card.
+
 ## 2026-10-18 — Phase 39.1: each crag's classics
 
 **Built in the 2D rebuild's Phase 39.1.** No save change. `app/src/sim/classics.ts` (`classicsAt`, `ticked`, `localAt`, `localPlaces`), `PlaceDef.classics` in `sim/content/places.ts`, `CLASSICS` in `sim/dials.ts`, the local's perks in `sim/crowds.ts` (`queueMin`, `canAsk`), words in `sim/content/classics.ts`, the Record Book's `local` entry.
