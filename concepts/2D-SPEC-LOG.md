@@ -4,6 +4,20 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-19 — Phase 43.1: your van, laid out
+
+**Built in the 2D rebuild's Phase 43.1.** Save v82 (`vanPlan`). `app/src/sim/vanplan.ts` (`fitBlocked`, `cellsOf`, `isDoor`, `spotFor`, `defaultPlan`, `syncPlan`, `fixed`, `turns`), `VAN_PLAN` in `sim/dials.ts`, the `place` action in `sim/game.ts`, migration 81 in `sim/save.ts`, the sheet `VanPlanBody` in `ui/Sheet.tsx` ("Lay out the van" on the van card).
+
+- **What takes room:** on the floor, the bed (the mattress or the foam pad, on the platform or not), the kitchen, the shelf and the heater; on the roof, the solar panel. The seals, the insulation, the curtains, the tune-up and the tool kit aren't placed.
+- **The grid:** the van's floor is 8 cells long by 3 across (about half a metre a cell); the Rig's is 10 long. The sliding door is the two cells at x = 1 and 2 on the near side (y = 2), and no floor piece may cover them. The roof is the floor's size and has no door.
+- **Footprints, long × across:** the bed 4 × 3, the kitchen 2 × 1, the shelf 2 × 1, the heater 1 × 1, the panel 3 × 2. A spot is {x, y, r}, the top-left cell and whether it's turned (turned swaps long and across). A spot is good when every cell is inside, off the door (floor pieces only), and on no other piece of the same layer (floor or roof).
+- **The bed** is always owned, always on the plan, and can't turn (its length is more than the van's width); it can't be taken out. Anything else can be taken out (null) and put back.
+- **Fit only:** no rule reads where anything is. Placing costs no time.
+- **Keeping the plan to what you own,** after every action: a piece you no longer have comes off; one you have that has no entry (never placed, as opposed to taken out) goes in at its home spot if free, else the first free spot scanning from the front (x), then across (y), unturned before turned.
+- **Home spots** (a new van's layout, and the migration's): the bed across the back (x = len − 4, y = 0), the kitchen at (0, 0), the shelf at (2, 0), the heater at (0, 2), the panel at (2, 0) on the roof. Every piece fits at once in both vans.
+- **A new van starts its own plan:** the used van (which keeps only the tool kit) and the Rig (everything fitted, the longer floor) are laid out afresh from the home spots.
+- **For Unreal:** the same grid, footprints and fit rule, the bed fixed, the plan as data in the save; let the van's interior be built from the plan if it's ever shown in 3D, and keep it cosmetic unless a later spec says otherwise.
+
 ## 2026-10-19 — Phase 42.1: belaying, played
 
 **Built in the 2D rebuild's Phase 42.1.** No save change. `app/src/sim/belay.ts` (`startRope`, `ropeInput`, `stepRope`, `ropeResult`, `cleanBelay`, `belayLine`, `belayBlocked`, `playRope`), `BELAY` in `sim/dials.ts`, the `belay` action in `sim/game.ts`, their words in `sim/content/belay.ts`, "Want a belay?" on the partners' talk (`Cond.belay`), `PersonDef.boulders` (Rico), the panel `ui/BelayPanel.tsx`.
