@@ -4,6 +4,17 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-19 — Phase 44.2: the set stays up
+
+**Built in the 2D rebuild's Phase 44.2.** Save v83 (`setUp`). `app/src/sim/yourset.ts` (`setId`, `setOf`, `setRoute`, `setNameIdeas`, `setNameOf`), `app/src/sim/setpanel.ts` (the panel math from 44.1), `setUpNow` and the `ys-` cases of `routeById`, `stillUp` and `wallAt` in `sim/content/gym.ts`, `SET_NAMES` in `sim/content/setting.ts`, `SETTING.name`, the panel and close-up painters in `view/paint/gym.ts` (`paintSetPanel`, `paintSetWall`, `setTopo`), `SET_X` in `view/layout.ts`.
+
+- **A hung set stays up** on a panel at the end of Send City's wall (between the six problems and the board) until the week's reset (days 1–7, 8–14, …), then comes down. Each set hung replaces the last; only one is up at a time. Setting your own gym's wall to the brief hangs one too.
+- **Its id carries it:** `ys-<day>-` followed by three characters per hold, bottom to top: the hold's index in the bucket's list (base 36; the list is append-only), its column and its row (one digit each). The game rebuilds the problem from the id alone.
+- **The problem:** a boulder at the gym, 13 ft, moves = holds + 1. One crux: the move to the hardest hold (first if tied), spanning about 1.4 moves, named for the hold ("The mono pocket"). Grade = the panel's grade (44.1's formula with reach), capped at 18. Style = the hardest hold's kind (crimp, power, technical, dyno), or the first non-rest hold's if a reach made a rest the hardest. Betas from the style's library pair, like the gym's own problems.
+- **The name:** typed as it's hung, spaces tidied, cut to 28 characters; under 2, the first idea. Ideas: "The <crux hold>", a line per wall (Smear Campaign, Plumb Line, Steep Learning Curve, Upside Down) and per crowd (First Steps, Regulars Only, Team Selection, Recess). Saved with the id; shown wherever the line's name is.
+- **Drawn:** in the scene, a bare ply panel always, with the set's holds (in their own tape) and its grade tag while it's up. Face-on, the holds on their squares across the middle of the wall, the start and finish taped.
+- **For Unreal:** the same encoding, rebuild and week rule; the panel as a real wall section where the player's holds bolt on.
+
 ## 2026-10-19 — Phase 44.1: the setter's panel
 
 **Built in the 2D rebuild's Phase 44.1.** No save change. `app/src/sim/work.ts` (`spanOf`, `spanBump`, `setMoves`, `straightUp`, `scoreSet` and `setRefused` with squares), `SETTING.panel` in `sim/dials.ts`, the `play.at` and own-gym `at` payloads in `sim/types.ts`, the panel in `ui/Sheet.tsx` (`SetBody`).
