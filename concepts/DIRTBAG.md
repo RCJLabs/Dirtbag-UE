@@ -29,6 +29,8 @@ The 2D game's design is proven at v0.956 and ships on Google Play. The reimagini
 
 ## 3. The central design call: 2D minigames, 3D staging
 
+> **2D SPEC CHANGE (2026-09-28):** the 2D game moved to *beta, then send*: you pick beta per crux, and the beta sets that crux's verb and window. The session model below still holds. What changes for the sim is in [2D-SPEC-LOG.md](2D-SPEC-LOG.md).
+
 > **PIVOT (2026-08-15, decided):** climbing is **not** physically player-driven. An earlier draft of this doc proposed full physical climbing gated on hand-IK feel; Evan pivoted to the session model below, which keeps the 2D game's proven mechanics and removes the animation-fidelity risk entirely.
 
 Sessions work the way the 2D game already works — and the way LVDVS's fights work: **the character climbs; the player drives the attempt.** The climber moves hold-to-hold along an authored route via a basic climbing animation set. The 2D game's real-time verbs are the interaction layer: **HOLD TO CLIMB** (release to shake out), **hold-to-load** (release too early and you come up short, load past it and you barrel off), the pump bar, STICK IT / THROW / LOCK beats at cruxes. Minigame performance feeds the sim as a per-move execution quality; the sim — the same odds/body model the 2D game balanced over three years — remains the arbiter of what happens.
