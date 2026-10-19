@@ -4,6 +4,14 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-19 — Phase 20.3, after: the crag day dressed, and its Record Book page
+
+**Built in the 2D rebuild after 20.3.** No save change. `dress` in `app/src/view/paint/scenes.full.ts` (drawn live by `view/render.ts`), `FESTIVAL_RECORD` and `FESTIVAL_SAYS.banner` in `app/src/sim/content/festival.full.ts`, aim `scramble` in `sim/record.ts`.
+
+- **Dressed on the day only:** at Moonstone on its crag day, bunting from the van's roof to a pole, a "CRAG DAY" banner under it, a folding table in front of the van with the sign-up sheet and a pencil on a string, and the box of shoes under the table.
+- **The Record Book:** "Top of the Sheet", for winning the scramble (first place, the moment the card's handed in). 54 entries; 52 Steam achievements (`SCRAMBLE`).
+- **For Unreal:** the same set dressing, up only on the crag day; the same entry and achievement.
+
 ## 2026-10-19 — Phase 20.3: the crag day at Moonstone
 
 **Built in the 2D rebuild's Phase 20.3.** Save v84 (`festival`). `app/src/sim/festival.ts` (`festivalDay`, `festivalOn`, `festivalSet`, `festivalMorning`, `festivalCard`, `festivalLate`, `trailLead`, `scrambleCounts`, `scrambleDue`, `scrambleField`, `scramblePrize`, `scrambleResult`, `fireWith`, `fireSaid`), `FESTIVAL` in `sim/dials.ts`, its words in `sim/content/festival.full.ts` (the demo's twin is blank), the card and the night in `sim/game.ts`, the crowd in `sim/crowds.ts`, `rollTops` exported from `sim/comps.ts`.
