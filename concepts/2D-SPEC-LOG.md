@@ -4,6 +4,24 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-19 — Phase 20.3: the crag day at Moonstone
+
+**Built in the 2D rebuild's Phase 20.3.** Save v84 (`festival`). `app/src/sim/festival.ts` (`festivalDay`, `festivalOn`, `festivalSet`, `festivalMorning`, `festivalCard`, `festivalLate`, `trailLead`, `scrambleCounts`, `scrambleDue`, `scrambleField`, `scramblePrize`, `scrambleResult`, `fireWith`, `fireSaid`), `FESTIVAL` in `sim/dials.ts`, its words in `sim/content/festival.full.ts` (the demo's twin is blank), the card and the night in `sim/game.ts`, the crowd in `sim/crowds.ts`, `rollTops` exported from `sim/comps.ts`.
+
+- **When:** once a year at Moonstone, on day 25 of the 56-day year (winter, clear of Longest Night on 21), or if Moonstone's own sky is rain that day, the first day after it that isn't, three days on at most; rain on all four and there's none that year. Moonstone's sky is seeded, so it's the same day for everyone on a seed. Only an edition with Moonstone has it (not the demo).
+- **Said:** that morning, wherever you wake: on today (with the scramble's start), or for someone who can't get there yet (under V6, or the trip unpaid) a line that it's on without them; on a rained-off day, put off (or, on the last of the four, off for the winter), said only to someone who could go. The week ahead shows it on day 25 itself, once the trip's paid for, without saying whether it's dry.
+- **The crowd:** Moonstone is packed all day (at least the packed level), with its queues, beta and sessions.
+- **The card:** arriving at Moonstone that day before 13:00, the first time that day, a card with three ways in; nothing else happens till one's taken. Arriving at 13:00 or later: no card, a line, and the day counts as climbing it.
+  - **Grab a rake** (never needs anything): 120 minutes, −15 energy, −6 food, the old guard +6 (a stance moves it 8 to 18). Led by Ray while he's still coming out and known to you, then Frank while his truck runs, else an unnamed one of the old guard.
+  - **Sign up for the scramble:** $15.
+  - **Just climb:** nothing more.
+- **The scramble:** 13:00 to 16:00. The sheet is Moonstone's boulders that have been climbed (its open project isn't, but sent in the time it counts). A go counts if it's stepped up to while it's on, on one of the crag's boulders; its top counts however late it lands. Each problem's top counts once, with the goes it took in the scramble. The card goes in at 16:00 (after any go in hand), on leaving Moonstone once it's started, at night, or early by choice from the crag's van (not before 13:00).
+- **Placing:** as a comp's: the most problems topped, then the fewest goes on them; a tie goes to you. The field: 14 drawn for the day (stream events, `scramble-<day>`) from the comps' name pool, each at a grade drawn evenly between V5 and V11, their tops rolled as a comp's field's are on the same sheet with three goes a problem; and Dex, at his own grade that day, once you've met him and he isn't hurt. Said: your card and place, a line by place (first, the podium, the top half, the rest), the prize, who won it with how many, and whether Dex beat you.
+- **The podium:** first wins new shoes (shoes to 100), or their shop price ($140) if yours are new; second $60, third $30. None more than five of the café's shifts ($140).
+- **That night,** sleeping at the Lot after being out there for it: the fire. Your people (Regulars or closer who are around, as at a holiday) and the old guard you know (Ray till he stops coming out, Frank): +1 bond each, +8 psyche, and a card in the morning with the day's line by the way you took and one line from each of them.
+- **Nobody knocks** at the van the night of the crag day for someone who was out there.
+- **For Unreal:** the same calendar and rain rule (on Moonstone's own seeded sky), the same card and window, the same go-in-hand rule for a top at the bell, and the same field draw so a seed gives the same scramble on both. Dress the crag for it (banners, a sign-up table, the box of shoes) where the 2D game only packs the crowd.
+
 ## 2026-10-19 — Phase 45.2: the problem of the day's card
 
 **Built in the 2D rebuild's Phase 45.2.** No save change. `dayCardOf`, `cardText`, `cardFile` in `app/src/ui/card.ts`; `Card.day` and `Card.at` in `app/src/view/paint/card.ts`; the card row on the day's sheet.
