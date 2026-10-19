@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-19 — Phase 45.2: the problem of the day's card
+
+**Built in the 2D rebuild's Phase 45.2.** No save change. `dayCardOf`, `cardText`, `cardFile` in `app/src/ui/card.ts`; `Card.day` and `Card.at` in `app/src/view/paint/card.ts`; the card row on the day's sheet.
+
+- **When:** once the day is over (sent, or nothing more can be tried on the line), never before.
+- **What it says:** the line's name and grade; how it went, "<style>, go <n>" on a send (style onsight, flash or redpoint; a flash says "go 1"), or "High point <move> of <moves>, <n> goes" (1 go; no goes) on a day it didn't go; the crag and the date ("19 October 2026"); "The problem of the day" where a career's card names the climber.
+- **Drawn:** the career's send card (the line's wall and topo, 1080 × 1920), with the climber at the top on a send, or at the high point's move on a day it didn't go, the topo line drawn whole above. The grade-and-style caption shrinks to fit.
+- **Out:** saved as `dirtbag-<date>-<name>.png` or handed to the device's share sheet with its words ("The problem of the day, <date>: <line>, <grade>, at <crag>. <how it went>."). Nothing is sent by the game.
+- **For Unreal:** the same fields and the same rule for when it exists; render it from the line's own wall, the climber at the top or at the high point.
+
 ## 2026-10-19 — Phase 45.1: the problem of the day
 
 **Built in the 2D rebuild's Phase 45.1.** No save change; the day keeps its own save slot. `app/src/sim/daily.ts` (`isDate`, `daySeed`, `dateOf`, `dayLines`, `dayOf`, `dailyState`, `dayResult`, `dayOver`, `dateLabel`), `DAILY` in `sim/dials.ts`, `content/daily.ts` (its words), `app/src/game/day.ts` (the device's date, `?day`), `useSlot` in `game/storage.ts`, the Game's day mode, the day's sheet in `ui/sheets.ts`, `ui/DayChip.tsx`.
