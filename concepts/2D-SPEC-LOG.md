@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-19 — Phase 41.1: the week's forecast and send temps
+
+**Built in the 2D rebuild's Phase 41.1.** No save change. `app/src/sim/forecast.ts` (`callOn`, `forecastFrom`, `accuracy`), `FORECAST` and `CLIMB.sky` in `sim/dials.ts`, `skyOdds` and `fromSky` in `sim/weather.ts`, Tonight's `sky` a call (`sim/tonight.ts`), the words in `ui/forecast.ts`, the café's card in `ui/sheets.ts`, the week sheet, Tonight and the beta sheet's note in `ui/Sheet.tsx`, `forecastCalibration` in `sim/harness.ts`.
+
+- **A call:** for each of the next 5 days, the radio calls the valley's sky (prime, fair, hot or rain). It's right 90% of the time for tomorrow, falling in a straight line to 60% five days out (82.5, 75, 67.5 between); today's is the sky itself. A wrong call is one of the day's season's other skies, weighted by the season's odds, so a sky the season never has is never called. Each morning's calls are drawn afresh from the seed, the day and the distance (stream `worldgen`, label `call-valley-<day>-<lead>`), as the expeditions' are, so a call can change as the day comes closer. A place with its own sky (the desert and shaded crags out of the valley) gets its own calls of its own sky (label `call-<place>-…`, weighted by its shifted odds).
+- **How sure:** the chance a call of sky c is right, exactly: a / (a + (1 − a) × Σ over the other skies t of w_t / (1 − w_t)), where a is that distance's accuracy and w the season's normalized odds. Shown only as a word: "likely" from 0.75, "maybe" below ("Prime, likely"). Measured over 627,200 calls: within a tenth of a point of what it says at every distance and for each word.
+- **Shown:** the café's card (also from the map): the radio's line with its numbers in words, then the five days, each with what the call would do to the rock. The week sheet: today as it is, tomorrow and the day after as called (and each paid-for crag out of the valley as called there), and each schedule day within reach marked with its call, a prime day's name highlighted. Tonight: tomorrow as called. Nothing shows the true future any more.
+- **Friction:** unchanged rules: every window outdoors ×1.1 on a prime day, ×0.9 on a hot one (not on shaded rock), ×0.92 the day after rain. The beta sheet now says what today's sky does to every window on the line, from those numbers ("Cold and dry: every window 10% wider.").
+- **For Unreal:** the same calls, curve and posterior; show the word, not the number; never show the true sky beyond today.
+
 ## 2026-10-18 — Phase 40.1: "What now?" from Hazel
 
 **Built in the 2D rebuild's Phase 40.1.** No save change. `app/src/sim/whatnow.ts` (`whatNow`, `shiftNow`, `whatNowLit`), words in `sim/content/whatnow.ts`, `WHATNOW` in `sim/dials.ts`, the button `ui/WhatNow.tsx` (over the goal chip, in a `.dock` with it), the `whatnow` card in `ui/sheets.ts`.
