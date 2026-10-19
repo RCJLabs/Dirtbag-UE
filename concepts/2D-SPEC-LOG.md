@@ -4,6 +4,18 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-19 — Phase 42.1: belaying, played
+
+**Built in the 2D rebuild's Phase 42.1.** No save change. `app/src/sim/belay.ts` (`startRope`, `ropeInput`, `stepRope`, `ropeResult`, `cleanBelay`, `belayLine`, `belayBlocked`, `playRope`), `BELAY` in `sim/dials.ts`, the `belay` action in `sim/game.ts`, their words in `sim/content/belay.ts`, "Want a belay?" on the partners' talk (`Cond.belay`), `PersonDef.boulders` (Rico), the panel `ui/BelayPanel.tsx`.
+
+- **Where:** at a crag, a partner who'd belay you and is there with you (Hazel, Sage, Mara, Tam), on an open day, with a roped line there, before dark, once a day each: 30 minutes, 4 energy. And when one of the crew asks a belay as a favour, the yes (which already costs its hour) opens the same game. Rico's "belay" is a spot: he boulders, so nobody holds his rope.
+- **The rope:** a fixed-step model (1/60 s). The slack meter runs 0 (none) to 1 (all out), starting at 0.5. Their climbing takes 0.05/s; your hand off the rope pays out 0.09/s; holding takes in 0.2/s. They climb 0.045 of the line a second. At each clip (the line's bolts, as shares of its moves; four spread up a line without bolts) they pull 0.3 in 0.9 s, and 0.2 comes back once it's clipped. Once a go, between 0.55 and 0.9 of the way up (seeded per partner and day), they fall: the slack drops 0.6/s plus your hand. The catch is soft if your hand came off within 0.35 s before the rope came tight; holding through it, or letting go sooner, is hard.
+- **Clean:** a soft catch with the slack in the band (0.3 to 0.7) for at least 60% of their climb.
+- **What it gives:** either way, the day together (the once-a-day bond a go with them gives, never on top of it). A clean belay: they tell you the next move you don't know on the unsent roped line you've worked most there, as told beta, in their words; with nothing left, they say so. A hard catch: no beta, and a line from them.
+- **The line they climb** is that same line (anywhere, for a favour away from a crag), else the easiest roped line there.
+- **Measured:** a clean belay, a go together, and both in either order each move a partner's bond by exactly one. A bot's human-ish hands (reaction 0.15 to 0.4 s, a give point smeared around the window) belay clean about 73% of the time.
+- **For Unreal:** the same meter and numbers, the hold as the one input (take in / brake), the clip and fall as the two events, and the reward as the day together plus one beta; never stack bond on a day already climbed together.
+
 ## 2026-10-19 — Phase 41.1: the week's forecast and send temps
 
 **Built in the 2D rebuild's Phase 41.1.** No save change. `app/src/sim/forecast.ts` (`callOn`, `forecastFrom`, `accuracy`), `FORECAST` and `CLIMB.sky` in `sim/dials.ts`, `skyOdds` and `fromSky` in `sim/weather.ts`, Tonight's `sky` a call (`sim/tonight.ts`), the words in `ui/forecast.ts`, the café's card in `ui/sheets.ts`, the week sheet, Tonight and the beta sheet's note in `ui/Sheet.tsx`, `forecastCalibration` in `sim/harness.ts`.
