@@ -4,6 +4,18 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-19 — Phase 45.1: the problem of the day
+
+**Built in the 2D rebuild's Phase 45.1.** No save change; the day keeps its own save slot. `app/src/sim/daily.ts` (`isDate`, `daySeed`, `dateOf`, `dayLines`, `dayOf`, `dailyState`, `dayResult`, `dayOver`, `dateLabel`), `DAILY` in `sim/dials.ts`, `content/daily.ts` (its words), `app/src/game/day.ts` (the device's date, `?day`), `useSlot` in `game/storage.ts`, the Game's day mode, the day's sheet in `ui/sheets.ts`, `ui/DayChip.tsx`.
+
+- **The date** is the player's device calendar, YYYY-MM-DD (it turns over at their midnight), or one asked for (`?day=YYYY-MM-DD`). The sim never reads a clock: the date comes in as a string and must be on the calendar.
+- **The seed** is `day:<date>`. From its worldgen stream, derived `problem-of-the-day`: an index into the edition's eligible boulders, sorted by id (boulders at a crag the edition has and the map shows, not open projects, not hidden, not on an expedition), and a start offset into days 2 to 56. Scanning from that line and that day, the first (line, day) climbable at first light (07:40): in season, dry, the crag open, nothing blocking a go. A new boulder at a crag changes every date's draw on that build.
+- **The climber:** named "You", the all-rounder start, every one of the five skills set to the skill a grade of (line's grade − 1.25) needs, rounded to hundredths; energy, skin and food 100; at the line's crag, standing at its foot; `today` holds the crag visit. Measured with human-ish hands over 150 dates: sends 7 days in 10, 3 goes at the median (1 to 13), a flash 1 day in 7; at the line's own grade they flashed 39 days in 40. Past 1.5 under, the line gains a crux for the climber and sends fall to 2 in 5.
+- **The day** runs on the normal rules (goes, rests, pump, skin, conditions, a call before the first go, the ghost), with no stance or echo at the crag. It's over when the line is sent, or when a go on it would be refused (dark from 19:00, energy under 10, skin under 12, hurt, fried). The result: the goes to the send (laps after don't count), the send's style, the high point (all moves on a send).
+- **Its own slot:** the save, its fallback and the plan under `dirtbag.day.` (the demo's `dirtbag.demo.day.`); settings shared. The slot holds one day; a different date's replaces it. The career's save is never read or written by a day.
+- **Off on a day:** career cards (acts, Record Book, years, holidays), Steam achievements, plans, talk, the van, the map and travel. The HUD shows the date and the clock, no money; the map button opens the day's sheet.
+- **For Unreal:** the same date-to-seed rule, draw order, climber formula and end rule, so a date gives the same line and day on both. Keep the day out of the career's save entirely; a separate slot per date or a single overwritten one both meet the spec.
+
 ## 2026-10-19 — Phase 44.2: the set stays up
 
 **Built in the 2D rebuild's Phase 44.2.** Save v83 (`setUp`). `app/src/sim/yourset.ts` (`setId`, `setOf`, `setRoute`, `setNameIdeas`, `setNameOf`), `app/src/sim/setpanel.ts` (the panel math from 44.1), `setUpNow` and the `ys-` cases of `routeById`, `stillUp` and `wallAt` in `sim/content/gym.ts`, `SET_NAMES` in `sim/content/setting.ts`, `SETTING.name`, the panel and close-up painters in `view/paint/gym.ts` (`paintSetPanel`, `paintSetWall`, `setTopo`), `SET_X` in `view/layout.ts`.
