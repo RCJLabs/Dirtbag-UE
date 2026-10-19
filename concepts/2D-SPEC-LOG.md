@@ -4,6 +4,16 @@ The 2D game is this project's spec (see `CLAUDE.md`). When the spec changes, the
 
 ---
 
+## 2026-10-19 — Phase 44.1: the setter's panel
+
+**Built in the 2D rebuild's Phase 44.1.** No save change. `app/src/sim/work.ts` (`spanOf`, `spanBump`, `setMoves`, `straightUp`, `scoreSet` and `setRefused` with squares), `SETTING.panel` in `sim/dials.ts`, the `play.at` and own-gym `at` payloads in `sim/types.ts`, the panel in `ui/Sheet.tsx` (`SetBody`).
+
+- **The panel:** 5 squares across by 7 up (about 60 cm a square). A set is still five holds from the day's bucket (7 to 10 by rank), each now on a square; they're climbed bottom to top, one to a row. The first hold must be in the bottom 2 rows; each next one strictly higher.
+- **Reach:** the span of a move is the straight-line distance between the two squares, in squares. 2.5 or more makes the move to that hold one step harder; 3.5 or more, two; the hold's difficulty never goes past 3 (a crux). Past 4.5, the set is refused ("Nobody reaches that far.").
+- **Scoring:** unchanged weights (grade 0.35, flow 0.3, wall 0.2, crowd 0.15), now on the moves as climbed, so a long reach can move the grade, make a second crux (losing "one crux"), or break the beginners' and kids' wishes. Pay: the shift's, plus up to 40% of it for the score, as before.
+- **Without squares** (old plays, the business bot's own wall): the holds go straight up the middle a row at a time, no long moves, scoring exactly as before.
+- **For Unreal:** the same grid, span rule and caps; show each move's span as a line, the big ones marked, and the grade live after every hold.
+
 ## 2026-10-19 — Phase 43.1: your van, laid out
 
 **Built in the 2D rebuild's Phase 43.1.** Save v82 (`vanPlan`). `app/src/sim/vanplan.ts` (`fitBlocked`, `cellsOf`, `isDoor`, `spotFor`, `defaultPlan`, `syncPlan`, `fixed`, `turns`), `VAN_PLAN` in `sim/dials.ts`, the `place` action in `sim/game.ts`, migration 81 in `sim/save.ts`, the sheet `VanPlanBody` in `ui/Sheet.tsx` ("Lay out the van" on the van card).
